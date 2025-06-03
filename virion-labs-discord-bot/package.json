@@ -1,0 +1,46 @@
+{
+  "name": "virion-labs-discord-bot",
+  "version": "1.0.0",
+  "description": "Discord bot that forwards messages to n8n webhook for AI processing",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test": "node test-webhook.js",
+    "pm2:start": "pm2 start index.js --name virion-discord-bot",
+    "pm2:stop": "pm2 stop virion-discord-bot",
+    "pm2:restart": "pm2 restart virion-discord-bot",
+    "pm2:logs": "pm2 logs virion-discord-bot",
+    "docker:build": "docker build -t virion-discord-bot .",
+    "docker:run": "docker run -d --name virion-discord-bot --env-file .env virion-discord-bot",
+    "docker:stop": "docker stop virion-discord-bot && docker rm virion-discord-bot"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "n8n",
+    "webhook",
+    "ai",
+    "virion-labs"
+  ],
+  "author": "Virion Labs",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.19.3",
+    "dotenv": "^16.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/virion-labs-discord-bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/virion-labs-discord-bot/issues"
+  },
+  "homepage": "https://github.com/your-username/virion-labs-discord-bot#readme"
+} 
