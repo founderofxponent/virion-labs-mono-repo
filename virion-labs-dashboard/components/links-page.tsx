@@ -39,6 +39,7 @@ import { Badge } from "@/components/ui/badge"
 import { useReferralLinks } from "@/hooks/use-referral-links"
 import { type ReferralLinkWithAnalytics } from "@/lib/supabase"
 import { toast } from "sonner"
+import { ReferralLinkSuccessModal } from "./referral-link-success-modal"
 
 export function LinksPage() {
   const { profile } = useAuth()
@@ -53,6 +54,8 @@ export function LinksPage() {
   } = useReferralLinks()
 
   const [showLinkForm, setShowLinkForm] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [createdLink, setCreatedLink] = useState<any>(null)
   const [editingLink, setEditingLink] = useState<ReferralLinkWithAnalytics | null>(null)
   const [deletingLink, setDeletingLink] = useState<ReferralLinkWithAnalytics | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
@@ -139,6 +142,18 @@ export function LinksPage() {
     }
   }
 
+  const handleLinkCreated = (link: any) => {
+    setCreatedLink(link)
+    setShowLinkForm(false)
+    setShowSuccessModal(true)
+  }
+
+  const handleCreateAnother = () => {
+    setShowSuccessModal(false)
+    setCreatedLink(null)
+    setShowLinkForm(true)
+  }
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -204,7 +219,7 @@ export function LinksPage() {
               <DialogDescription>Create a new referral link for your content</DialogDescription>
             </DialogHeader>
             <ReferralLinkForm 
-              onSuccess={() => setShowLinkForm(false)}
+              onSuccess={handleLinkCreated}
               onCancel={() => setShowLinkForm(false)}
             />
           </DialogContent>
@@ -383,6 +398,18 @@ export function LinksPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Success Modal */}
+      <ReferralLinkSuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false)
+          setCreatedLink(null)
+        }}
+        link={createdLink}
+        onCreateAnother={handleCreateAnother}
+        createdFrom="links"
+      />
     </div>
   )
 }

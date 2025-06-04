@@ -36,7 +36,7 @@ type LinkFormData = z.infer<typeof linkFormSchema>
 
 interface ReferralLinkFormProps {
   link?: ReferralLink
-  onSuccess?: () => void
+  onSuccess?: (createdLink?: any) => void
   onCancel?: () => void
   preselectedCampaignId?: string
 }
@@ -84,7 +84,7 @@ export function ReferralLinkForm({ link, onSuccess, onCancel, preselectedCampaig
         toast.error(result.error)
       } else {
         toast.success(isEditing ? "Link updated successfully!" : "Link created successfully!")
-        onSuccess?.()
+        onSuccess?.(result.data)
       }
     } catch (error) {
       toast.error("An unexpected error occurred")

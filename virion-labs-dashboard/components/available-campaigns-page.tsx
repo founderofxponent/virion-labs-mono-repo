@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -26,8 +27,10 @@ import {
   Tag,
   Filter
 } from "lucide-react"
+import { ReferralLinkSuccessModal } from "./referral-link-success-modal"
 
 export function AvailableCampaignsPage() {
+  const router = useRouter()
   const { profile } = useAuth()
   const {
     campaigns,
@@ -46,6 +49,8 @@ export function AvailableCampaignsPage() {
   const [filterClient, setFilterClient] = useState("all")
   const [selectedCampaign, setSelectedCampaign] = useState<AvailableCampaign | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [createdLink, setCreatedLink] = useState<any>(null)
   const [creating, setCreating] = useState(false)
 
   // Form state for creating referral links
@@ -91,8 +96,12 @@ export function AvailableCampaignsPage() {
         return
       }
 
-      toast.success(`Referral link created successfully!\nCode: ${data?.referral_code}`)
+      // Store the created link and show success modal instead of just toast
+      setCreatedLink(data)
       setShowCreateDialog(false)
+      setShowSuccessModal(true)
+      
+      // Reset form
       setLinkForm({
         title: "",
         description: "",
@@ -106,6 +115,21 @@ export function AvailableCampaignsPage() {
     } finally {
       setCreating(false)
     }
+  }
+
+  const handleCreateAnother = () => {
+    setShowSuccessModal(false)
+    setCreatedLink(null)
+    // Reopen the create dialog for the same campaign
+    if (selectedCampaign) {
+      openCreateDialog(selectedCampaign)
+    }
+  }
+
+  const handleViewAllLinks = () => {
+    setShowSuccessModal(false)
+    setCreatedLink(null)
+    router.push('/dashboard/links')
   }
 
   const openCreateDialog = (campaign: AvailableCampaign) => {
@@ -297,7 +321,7 @@ export function AvailableCampaignsPage() {
 
       {/* Create Referral Link Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Referral Link</DialogTitle>
             <DialogDescription>
@@ -394,6 +418,21 @@ export function AvailableCampaignsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Success Modal */}
+      <ReferralLinkSuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => {
+          setShowSuccessModal(false)
+          setCreatedLink(null)
+        }}
+        link={createdLink}
+        campaignName={selectedCampaign?.campaign_name}
+        clientName={selectedCampaign?.client_name}
+        onCreateAnother={handleCreateAnother}
+        onViewAllLinks={handleViewAllLinks}
+        createdFrom="campaigns"
+      />
     </div>
   )
 }
