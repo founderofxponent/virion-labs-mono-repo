@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAuth } from "@/components/auth-provider"
 import { UserRole } from "@/lib/supabase"
 import { toast } from "sonner"
@@ -22,9 +21,6 @@ const signupSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
-  role: z.enum(["influencer", "admin", "client"] as const, {
-    required_error: "Please select a role",
-  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -50,7 +46,6 @@ export default function SignupPage() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<SignupForm>({
     resolver: zodResolver(signupSchema),
@@ -59,7 +54,8 @@ export default function SignupPage() {
   const onSubmit = async (data: SignupForm) => {
     setIsLoading(true)
     try {
-      const { error } = await signUp(data.email, data.password, data.fullName, data.role)
+      // All signups are for influencers only
+      const { error } = await signUp(data.email, data.password, data.fullName, "influencer")
       
       if (error) {
         toast.error(error.message || "Failed to create account")
@@ -72,12 +68,6 @@ export default function SignupPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const roleDescriptions = {
-    influencer: "Create and manage referral links, track performance",
-    admin: "Full access to manage users, analytics, and system settings",
-    client: "Access to client-specific features and analytics"
   }
 
   // Show loading state while checking authentication
@@ -107,7 +97,7 @@ export default function SignupPage() {
             <span>Virion Labs</span>
           </Link>
           <p className="text-muted-foreground">
-            Create your account to get started
+            Join as an influencer to get started
           </p>
         </div>
 
@@ -146,44 +136,6 @@ export default function SignupPage() {
                 />
                 {errors.email && (
                   <p className="text-sm text-destructive">{errors.email.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select onValueChange={(value) => setValue("role", value as UserRole)}>
-                  <SelectTrigger className={errors.role ? "border-destructive" : ""}>
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="influencer">
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">Influencer</span>
-                        <span className="text-xs text-muted-foreground">
-                          {roleDescriptions.influencer}
-                        </span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="client">
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">Client</span>
-                        <span className="text-xs text-muted-foreground">
-                          {roleDescriptions.client}
-                        </span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="admin">
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">Admin</span>
-                        <span className="text-xs text-muted-foreground">
-                          {roleDescriptions.admin}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.role && (
-                  <p className="text-sm text-destructive">{errors.role.message}</p>
                 )}
               </div>
 
