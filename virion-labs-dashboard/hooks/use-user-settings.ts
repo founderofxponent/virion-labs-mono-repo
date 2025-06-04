@@ -7,7 +7,7 @@ import { generateUserApiKeys } from "@/lib/api-keys"
 import { uploadAvatar, UploadAvatarResult } from "@/lib/avatar-upload"
 
 export function useUserSettings() {
-  const { user, profile } = useAuth()
+  const { user, profile, signOut } = useAuth()
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -119,6 +119,108 @@ export function useUserSettings() {
     }
   }
 
+  // Change password
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // First verify current password by attempting to sign in
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: currentPassword
+      })
+
+      if (verifyError) {
+        return {
+          success: false,
+          error: 'Current password is incorrect'
+        }
+      }
+
+      // Update password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      })
+
+      if (updateError) {
+        return {
+          success: false,
+          error: updateError.message
+        }
+      }
+
+      return { success: true }
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Failed to change password'
+      }
+    }
+  }
+
+  // Delete account
+  const deleteAccount = async (password: string): Promise<{ success: boolean; error?: string }> => {
+    if (!user?.id) {
+      return {
+        success: false,
+        error: 'User not authenticated'
+      }
+    }
+
+    try {
+      // First verify password
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: password
+      })
+
+      if (verifyError) {
+        return {
+          success: false,
+          error: 'Password is incorrect'
+        }
+      }
+
+      // Delete user settings and related data
+      const { error: settingsError } = await supabase
+        .from('user_settings')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (settingsError) {
+        console.error('Error deleting user settings:', settingsError)
+      }
+
+      // Delete user profile
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('id', user.id)
+
+      if (profileError) {
+        console.error('Error deleting user profile:', profileError)
+      }
+
+      // Delete from auth (this will cascade delete related data)
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id)
+
+      if (deleteError) {
+        return {
+          success: false,
+          error: deleteError.message
+        }
+      }
+
+      // Sign out the user
+      await signOut()
+
+      return { success: true }
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.message || 'Failed to delete account'
+      }
+    }
+  }
+
   // Generate new API keys
   const regenerateApiKeys = async (): Promise<{ liveKey: string; testKey: string } | null> => {
     if (!user?.id) return null
@@ -187,5 +289,7 @@ export function useUserSettings() {
     refetch: fetchSettings,
     regenerateApiKeys,
     uploadUserAvatar,
+    changePassword,
+    deleteAccount,
   }
 } 

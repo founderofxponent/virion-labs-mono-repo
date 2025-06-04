@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Save, Eye, EyeOff, Copy, Check, Upload, RefreshCw } from "lucide-react"
+import { Save, Eye, EyeOff, Copy, Check, Upload, RefreshCw, Trash2 } from "lucide-react"
 
 import { generateInitials } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useUserSettings } from "@/hooks/use-user-settings"
 import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { WebhookTester, WebhookTestResult } from "@/lib/webhook-test"
 
 export function SettingsPage() {
   const { profile } = useAuth()
@@ -35,7 +47,6 @@ export function SettingsPage() {
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="privacy">Privacy</TabsTrigger>
           {isAdmin && <TabsTrigger value="api">API Keys</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="team">Team</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -57,12 +68,6 @@ export function SettingsPage() {
         {isAdmin && (
           <TabsContent value="api" className="space-y-4">
             <ApiSettings />
-          </TabsContent>
-        )}
-
-        {isAdmin && (
-          <TabsContent value="team" className="space-y-4">
-            <TeamSettings />
           </TabsContent>
         )}
       </Tabs>
@@ -199,93 +204,79 @@ function ProfileSettings() {
               ) : (
                 <>
                   <Upload className="mr-2 h-4 w-4" />
-                  Change Avatar
+                  Upload new picture
                 </>
               )}
             </Button>
             <p className="text-xs text-muted-foreground">
-              JPEG, PNG, WebP or GIF (max 5MB)
+              JPG, PNG, WebP or GIF. Max size 5MB.
             </p>
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input id="name" defaultValue={profile?.full_name} disabled />
-            <p className="text-xs text-muted-foreground">Contact support to change your name</p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" defaultValue={profile?.email} disabled />
-            <p className="text-xs text-muted-foreground">Contact support to change your email</p>
+            <Label htmlFor="bio">Bio</Label>
+            <Textarea
+              id="bio"
+              placeholder="Tell us about yourself..."
+              value={formData.bio}
+              onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
+              rows={3}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number</Label>
-            <Input 
-              id="phone" 
-              type="tel" 
-              placeholder="Enter your phone number"
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="+1 (555) 123-4567"
               value={formData.phone_number}
               onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="website">Website</Label>
-            <Input 
-              id="website" 
-              type="url" 
+            <Input
+              id="website"
+              type="url"
               placeholder="https://your-website.com"
               value={formData.website_url}
               onChange={(e) => setFormData(prev => ({ ...prev, website_url: e.target.value }))}
             />
           </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="bio">Bio</Label>
-          <Textarea 
-            id="bio" 
-            placeholder="Tell us about yourself" 
-            className="min-h-[100px]"
-            value={formData.bio}
-            onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="twitter">Twitter</Label>
-            <Input 
-              id="twitter" 
+            <Label htmlFor="twitter">Twitter Handle</Label>
+            <Input
+              id="twitter"
               placeholder="@username"
               value={formData.twitter_handle}
               onChange={(e) => setFormData(prev => ({ ...prev, twitter_handle: e.target.value }))}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="instagram">Instagram</Label>
-            <Input 
-              id="instagram" 
+            <Label htmlFor="instagram">Instagram Handle</Label>
+            <Input
+              id="instagram"
               placeholder="@username"
               value={formData.instagram_handle}
               onChange={(e) => setFormData(prev => ({ ...prev, instagram_handle: e.target.value }))}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="youtube">YouTube</Label>
-            <Input 
-              id="youtube" 
-              placeholder="Channel URL"
+            <Label htmlFor="youtube">YouTube Channel</Label>
+            <Input
+              id="youtube"
+              placeholder="https://youtube.com/@channel"
               value={formData.youtube_channel}
               onChange={(e) => setFormData(prev => ({ ...prev, youtube_channel: e.target.value }))}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="discord">Discord</Label>
-            <Input 
-              id="discord" 
-              placeholder="Username#0000"
+            <Label htmlFor="discord">Discord Username</Label>
+            <Input
+              id="discord"
+              placeholder="username#1234"
               value={formData.discord_username}
               onChange={(e) => setFormData(prev => ({ ...prev, discord_username: e.target.value }))}
             />
@@ -295,7 +286,7 @@ function ProfileSettings() {
       <CardFooter>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="mr-2 h-4 w-4" />
-          {saving ? "Saving..." : "Save Changes"}
+          {saving ? "Saving..." : "Save Profile"}
         </Button>
       </CardFooter>
     </Card>
@@ -303,18 +294,27 @@ function ProfileSettings() {
 }
 
 function AccountSettings() {
-  const { settings, updateSettings } = useUserSettings()
+  const { settings, updateSettings, changePassword, deleteAccount } = useUserSettings()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   const [formData, setFormData] = useState({
     theme: "system",
     language: "en",
     timezone: "UTC",
     currency: "USD",
-    two_factor_enabled: false,
     login_notifications: true,
   })
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  })
+
+  const [deletePassword, setDeletePassword] = useState("")
 
   useEffect(() => {
     if (settings) {
@@ -323,7 +323,6 @@ function AccountSettings() {
         language: settings.language,
         timezone: settings.timezone,
         currency: settings.currency,
-        two_factor_enabled: settings.two_factor_enabled,
         login_notifications: settings.login_notifications,
       })
     }
@@ -349,6 +348,94 @@ function AccountSettings() {
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handlePasswordChange = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords don't match",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setChangingPassword(true)
+    try {
+      const result = await changePassword(passwordData.currentPassword, passwordData.newPassword)
+      if (result.success) {
+        toast({
+          title: "Password updated",
+          description: "Your password has been changed successfully.",
+        })
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to change password",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your password to confirm account deletion",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setDeletingAccount(true)
+    try {
+      const result = await deleteAccount(deletePassword)
+      if (result.success) {
+        toast({
+          title: "Account deleted",
+          description: "Your account has been permanently deleted.",
+        })
+        // User will be redirected by the auth system
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete account",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingAccount(false)
+      setDeletePassword("")
     }
   }
 
@@ -422,31 +509,6 @@ function AccountSettings() {
               </Select>
             </div>
           </div>
-        </CardContent>
-        <CardFooter>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? "Saving..." : "Save Preferences"}
-          </Button>
-        </CardFooter>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Security</CardTitle>
-          <CardDescription>Manage your account security settings</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Two-Factor Authentication</div>
-              <div className="text-sm text-muted-foreground">Secure your account with 2FA</div>
-            </div>
-            <Switch 
-              checked={formData.two_factor_enabled}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, two_factor_enabled: checked }))}
-            />
-          </div>
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Login Notifications</div>
@@ -458,44 +520,106 @@ function AccountSettings() {
             />
           </div>
         </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Password</CardTitle>
-          <CardDescription>Change your password</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="current-password">Current Password</Label>
-            <Input id="current-password" type="password" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="new-password">New Password</Label>
-            <Input id="new-password" type="password" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm New Password</Label>
-            <Input id="confirm-password" type="password" />
-          </div>
-        </CardContent>
         <CardFooter>
-          <Button>Update Password</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? "Saving..." : "Save Preferences"}
+          </Button>
         </CardFooter>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Delete Account</CardTitle>
+          <CardTitle>Change Password</CardTitle>
+          <CardDescription>Update your account password</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="current-password">Current Password</Label>
+            <Input 
+              id="current-password" 
+              type="password" 
+              value={passwordData.currentPassword}
+              onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New Password</Label>
+            <Input 
+              id="new-password" 
+              type="password" 
+              value={passwordData.newPassword}
+              onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm New Password</Label>
+            <Input 
+              id="confirm-password" 
+              type="password" 
+              value={passwordData.confirmPassword}
+              onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+            />
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button 
+            onClick={handlePasswordChange} 
+            disabled={changingPassword || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+          >
+            {changingPassword ? "Updating..." : "Update Password"}
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <Card className="border-destructive">
+        <CardHeader>
+          <CardTitle className="text-destructive">Delete Account</CardTitle>
           <CardDescription>Permanently delete your account and all data</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground mb-4">
             Once you delete your account, there is no going back. Please be certain.
           </p>
         </CardContent>
         <CardFooter>
-          <Button variant="destructive">Delete Account</Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Account
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete your
+                  account and remove all your data from our servers.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="space-y-2">
+                <Label htmlFor="delete-password">Enter your password to confirm:</Label>
+                <Input
+                  id="delete-password"
+                  type="password"
+                  placeholder="Your current password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                />
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setDeletePassword("")}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAccount}
+                  disabled={deletingAccount || !deletePassword.trim()}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deletingAccount ? "Deleting..." : "Delete Account"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardFooter>
       </Card>
     </div>
@@ -512,10 +636,6 @@ function NotificationSettings() {
     email_notifications_link_clicks: false,
     email_notifications_weekly_reports: true,
     email_notifications_product_updates: true,
-    push_notifications_new_referral: false,
-    push_notifications_link_clicks: false,
-    push_notifications_weekly_reports: false,
-    push_notifications_product_updates: false,
   })
 
   useEffect(() => {
@@ -525,10 +645,6 @@ function NotificationSettings() {
         email_notifications_link_clicks: settings.email_notifications_link_clicks,
         email_notifications_weekly_reports: settings.email_notifications_weekly_reports,
         email_notifications_product_updates: settings.email_notifications_product_updates,
-        push_notifications_new_referral: settings.push_notifications_new_referral,
-        push_notifications_link_clicks: settings.push_notifications_link_clicks,
-        push_notifications_weekly_reports: settings.push_notifications_weekly_reports,
-        push_notifications_product_updates: settings.push_notifications_product_updates,
       })
     }
   }, [settings])
@@ -559,116 +675,58 @@ function NotificationSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Notification Preferences</CardTitle>
-        <CardDescription>Choose how you want to be notified</CardDescription>
+        <CardTitle>Email Notifications</CardTitle>
+        <CardDescription>Choose what email notifications you'd like to receive</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">New Referral</div>
-              <div className="text-sm text-muted-foreground">When someone signs up through your link</div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="email-referral" 
-                  checked={formData.email_notifications_new_referral}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_new_referral: checked }))}
-                />
-                <Label htmlFor="email-referral">Email</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="push-referral" 
-                  checked={formData.push_notifications_new_referral}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, push_notifications_new_referral: checked }))}
-                />
-                <Label htmlFor="push-referral">Push</Label>
-              </div>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-medium">New Referrals</div>
+            <div className="text-sm text-muted-foreground">Get notified when someone signs up using your referral link</div>
           </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Link Clicks</div>
-              <div className="text-sm text-muted-foreground">When someone clicks on your referral link</div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="email-clicks" 
-                  checked={formData.email_notifications_link_clicks}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_link_clicks: checked }))}
-                />
-                <Label htmlFor="email-clicks">Email</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="push-clicks" 
-                  checked={formData.push_notifications_link_clicks}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, push_notifications_link_clicks: checked }))}
-                />
-                <Label htmlFor="push-clicks">Push</Label>
-              </div>
-            </div>
+          <Switch 
+            checked={formData.email_notifications_new_referral}
+            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_new_referral: checked }))}
+          />
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-medium">Link Clicks</div>
+            <div className="text-sm text-muted-foreground">Get notified when someone clicks your referral links</div>
           </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Weekly Reports</div>
-              <div className="text-sm text-muted-foreground">Weekly summary of your referral activity</div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="email-reports" 
-                  checked={formData.email_notifications_weekly_reports}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_weekly_reports: checked }))}
-                />
-                <Label htmlFor="email-reports">Email</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="push-reports" 
-                  checked={formData.push_notifications_weekly_reports}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, push_notifications_weekly_reports: checked }))}
-                />
-                <Label htmlFor="push-reports">Push</Label>
-              </div>
-            </div>
+          <Switch 
+            checked={formData.email_notifications_link_clicks}
+            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_link_clicks: checked }))}
+          />
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-medium">Weekly Reports</div>
+            <div className="text-sm text-muted-foreground">Receive weekly summaries of your referral performance</div>
           </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Product Updates</div>
-              <div className="text-sm text-muted-foreground">News about product and feature updates</div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="email-updates" 
-                  checked={formData.email_notifications_product_updates}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_product_updates: checked }))}
-                />
-                <Label htmlFor="email-updates">Email</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Switch 
-                  id="push-updates" 
-                  checked={formData.push_notifications_product_updates}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, push_notifications_product_updates: checked }))}
-                />
-                <Label htmlFor="push-updates">Push</Label>
-              </div>
-            </div>
+          <Switch 
+            checked={formData.email_notifications_weekly_reports}
+            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_weekly_reports: checked }))}
+          />
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-medium">Product Updates</div>
+            <div className="text-sm text-muted-foreground">Stay informed about new features and improvements</div>
           </div>
+          <Switch 
+            checked={formData.email_notifications_product_updates}
+            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_product_updates: checked }))}
+          />
         </div>
       </CardContent>
       <CardFooter>
         <Button onClick={handleSave} disabled={saving}>
           <Save className="mr-2 h-4 w-4" />
-          {saving ? "Saving..." : "Save Preferences"}
+          {saving ? "Saving..." : "Save Notification Preferences"}
         </Button>
       </CardFooter>
     </Card>
@@ -679,11 +737,15 @@ function PrivacySettings() {
   const { settings, updateSettings } = useUserSettings()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [testingWebhook, setTestingWebhook] = useState(false)
+  const [webhookTestResult, setWebhookTestResult] = useState<WebhookTestResult | null>(null)
 
   const [formData, setFormData] = useState({
     profile_visibility: "public",
     show_earnings: false,
     show_referral_count: true,
+    webhook_url: "",
+    webhook_events: ["signup", "click", "conversion"],
   })
 
   useEffect(() => {
@@ -692,6 +754,8 @@ function PrivacySettings() {
         profile_visibility: settings.profile_visibility,
         show_earnings: settings.show_earnings,
         show_referral_count: settings.show_referral_count,
+        webhook_url: settings.webhook_url || "",
+        webhook_events: settings.webhook_events || ["signup", "click", "conversion"],
       })
     }
   }, [settings])
@@ -719,154 +783,43 @@ function PrivacySettings() {
     }
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Privacy Settings</CardTitle>
-        <CardDescription>Control your privacy and what others can see</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="profile-visibility">Profile Visibility</Label>
-            <Select value={formData.profile_visibility} onValueChange={(value) => setFormData(prev => ({ ...prev, profile_visibility: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select visibility" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Public - Anyone can see your profile</SelectItem>
-                <SelectItem value="contacts_only">Contacts Only - Only your contacts can see your profile</SelectItem>
-                <SelectItem value="private">Private - Only you can see your profile</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Show Earnings</div>
-              <div className="text-sm text-muted-foreground">Display your earnings on your public profile</div>
-            </div>
-            <Switch 
-              checked={formData.show_earnings}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, show_earnings: checked }))}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Show Referral Count</div>
-              <div className="text-sm text-muted-foreground">Display the number of referrals on your profile</div>
-            </div>
-            <Switch 
-              checked={formData.show_referral_count}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, show_referral_count: checked }))}
-            />
-          </div>
-        </div>
-      </CardContent>
-      <CardFooter>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" />
-          {saving ? "Saving..." : "Save Privacy Settings"}
-        </Button>
-      </CardFooter>
-    </Card>
-  )
-}
-
-function ApiSettings() {
-  const { settings, updateSettings, regenerateApiKeys } = useUserSettings()
-  const { toast } = useToast()
-  const [saving, setSaving] = useState(false)
-  const [regenerating, setRegenerating] = useState(false)
-  const [showGeneratedKeys, setShowGeneratedKeys] = useState(false)
-  const [generatedKeys, setGeneratedKeys] = useState<{ liveKey: string; testKey: string } | null>(null)
-  const [copiedLive, setCopiedLive] = useState(false)
-  const [copiedTest, setCopiedTest] = useState(false)
-
-  const [formData, setFormData] = useState({
-    webhook_url: "",
-    webhook_events: ["signup", "click", "conversion"],
-  })
-
-  useEffect(() => {
-    if (settings) {
-      setFormData({
-        webhook_url: settings.webhook_url || "",
-        webhook_events: settings.webhook_events || ["signup", "click", "conversion"],
-      })
-    }
-  }, [settings])
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      const success = await updateSettings(formData)
-      if (success) {
-        toast({
-          title: "API settings updated",
-          description: "Your webhook settings have been saved successfully.",
-        })
-      } else {
-        throw new Error("Failed to update API settings")
-      }
-    } catch (error) {
+  const testWebhook = async () => {
+    if (!formData.webhook_url.trim()) {
       toast({
         title: "Error",
-        description: "Failed to update API settings. Please try again.",
+        description: "Please enter a webhook URL before testing",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setTestingWebhook(true)
+    setWebhookTestResult(null)
+
+    try {
+      const result = await WebhookTester.testWebhook(formData.webhook_url, formData.webhook_events)
+      setWebhookTestResult(result)
+      
+      if (result.success) {
+        toast({
+          title: "Webhook test successful",
+          description: `Webhook responded in ${result.responseTime}ms with status ${result.status}`,
+        })
+      } else {
+        toast({
+          title: "Webhook test failed",
+          description: result.error || "Unknown error occurred",
+          variant: "destructive",
+        })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Test failed",
+        description: error.message || "Failed to test webhook",
         variant: "destructive",
       })
     } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleRegenerateKeys = async () => {
-    setRegenerating(true)
-    try {
-      const keys = await regenerateApiKeys()
-      if (keys) {
-        setGeneratedKeys(keys)
-        setShowGeneratedKeys(true)
-        toast({
-          title: "API keys regenerated",
-          description: "Your new API keys are displayed below. Copy them now as they won't be shown again.",
-          duration: 8000,
-        })
-      } else {
-        throw new Error("Failed to regenerate API keys")
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to regenerate API keys. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setRegenerating(false)
-    }
-  }
-
-  const copyApiKey = async (key: string, type: 'live' | 'test') => {
-    try {
-      await navigator.clipboard.writeText(key)
-      if (type === 'live') {
-        setCopiedLive(true)
-        setTimeout(() => setCopiedLive(false), 2000)
-      } else {
-        setCopiedTest(true)
-        setTimeout(() => setCopiedTest(false), 2000)
-      }
-      toast({
-        title: "API key copied",
-        description: `The ${type} API key has been copied to your clipboard.`,
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to copy API key to clipboard.",
-        variant: "destructive",
-      })
+      setTestingWebhook(false)
     }
   }
 
@@ -879,112 +832,129 @@ function ApiSettings() {
     }))
   }
 
-  const hasApiKeys = settings?.api_key && settings?.api_key_test
-  const displayLiveKey = showGeneratedKeys && generatedKeys ? generatedKeys.liveKey : (hasApiKeys ? "sk_live_••••••••••••••••••••••••••••" : "No API key generated")
-  const displayTestKey = showGeneratedKeys && generatedKeys ? generatedKeys.testKey : (hasApiKeys ? "sk_test_••••••••••••••••••••••••••••" : "No API key generated")
-
-  const dismissGeneratedKeys = () => {
-    setShowGeneratedKeys(false)
-    setGeneratedKeys(null)
-  }
-
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>API Keys</CardTitle>
-          <CardDescription>Manage your API keys for external integrations</CardDescription>
+          <CardTitle>Profile Privacy</CardTitle>
+          <CardDescription>Control what information is visible to others</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {showGeneratedKeys && generatedKeys && (
-            <div className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/20">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-yellow-800 dark:text-yellow-200">🔑 New API Keys Generated</h4>
-                <Button variant="ghost" size="sm" onClick={dismissGeneratedKeys}>
-                  ×
-                </Button>
-              </div>
-              <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
-                Copy these keys now! They won't be shown again for security reasons.
-              </p>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="profile-visibility">Profile Visibility</Label>
+            <Select value={formData.profile_visibility} onValueChange={(value) => setFormData(prev => ({ ...prev, profile_visibility: value }))}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select visibility" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">Public</SelectItem>
+                <SelectItem value="private">Private</SelectItem>
+                <SelectItem value="unlisted">Unlisted</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              {formData.profile_visibility === "public" && "Your profile is visible to everyone"}
+              {formData.profile_visibility === "private" && "Your profile is only visible to you"}
+              {formData.profile_visibility === "unlisted" && "Your profile is not discoverable but accessible via direct link"}
+            </p>
+          </div>
           
-          <div className="space-y-4">
-            <div className="flex flex-col gap-2">
-              <div className="font-medium">Live API Key</div>
-              <div className="flex items-center gap-2">
-                <Input 
-                  value={displayLiveKey} 
-                  type="text" 
-                  readOnly 
-                />
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => copyApiKey(displayLiveKey, 'live')}
-                  disabled={!hasApiKeys && !generatedKeys}
-                >
-                  {copiedLive ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Show Earnings</div>
+              <div className="text-sm text-muted-foreground">Display your total earnings on your public profile</div>
             </div>
-            <div className="flex flex-col gap-2">
-              <div className="font-medium">Test API Key</div>
-              <div className="flex items-center gap-2">
-                <Input 
-                  value={displayTestKey} 
-                  type="text" 
-                  readOnly 
-                />
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => copyApiKey(displayTestKey, 'test')}
-                  disabled={!hasApiKeys && !generatedKeys}
-                >
-                  {copiedTest ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
+            <Switch 
+              checked={formData.show_earnings}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, show_earnings: checked }))}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Show Referral Count</div>
+              <div className="text-sm text-muted-foreground">Display the number of successful referrals on your profile</div>
             </div>
-            {settings?.api_key_regenerated_at && (
-              <div className="text-sm text-muted-foreground">
-                Last regenerated: {new Date(settings.api_key_regenerated_at).toLocaleDateString()}
-              </div>
-            )}
+            <Switch 
+              checked={formData.show_referral_count}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, show_referral_count: checked }))}
+            />
           </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleRegenerateKeys} disabled={regenerating}>
-            {regenerating ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Regenerating...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                {hasApiKeys ? "Regenerate Keys" : "Generate Keys"}
-              </>
-            )}
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="mr-2 h-4 w-4" />
+            {saving ? "Saving..." : "Save Privacy Settings"}
           </Button>
         </CardFooter>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Webhook Endpoints</CardTitle>
+          <CardTitle>Webhook Settings</CardTitle>
           <CardDescription>Configure webhook endpoints for real-time updates</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="webhook-url">Webhook URL</Label>
-            <Input 
-              id="webhook-url" 
-              placeholder="https://your-server.com/webhook"
-              value={formData.webhook_url}
-              onChange={(e) => setFormData(prev => ({ ...prev, webhook_url: e.target.value }))}
-            />
+            <div className="flex gap-2">
+              <Input 
+                id="webhook-url" 
+                placeholder="https://your-server.com/webhook"
+                value={formData.webhook_url}
+                onChange={(e) => setFormData(prev => ({ ...prev, webhook_url: e.target.value }))}
+                className="flex-1"
+              />
+              <Button 
+                variant="outline" 
+                onClick={testWebhook}
+                disabled={testingWebhook || !formData.webhook_url.trim()}
+              >
+                {testingWebhook ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  "Test"
+                )}
+              </Button>
+            </div>
+            {webhookTestResult && (
+              <div className={`p-3 rounded-lg text-sm ${
+                webhookTestResult.success 
+                  ? 'bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-200' 
+                  : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-200'
+              }`}>
+                <div className="font-medium">
+                  {webhookTestResult.success ? "✅ Test Successful" : "❌ Test Failed"}
+                </div>
+                <div className="mt-1">
+                  {webhookTestResult.success ? (
+                    <div>
+                      <div>Status: {webhookTestResult.status}</div>
+                      <div>Response time: {webhookTestResult.responseTime}ms</div>
+                      {webhookTestResult.headers && Object.keys(webhookTestResult.headers).length > 0 && (
+                        <div className="mt-2">
+                          <div className="font-medium">Response headers:</div>
+                          {Object.entries(webhookTestResult.headers).map(([key, value]) => (
+                            <div key={key} className="ml-2 text-xs">
+                              {key}: {value}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <div>Error: {webhookTestResult.error}</div>
+                      {webhookTestResult.status && <div>Status: {webhookTestResult.status}</div>}
+                      {webhookTestResult.responseTime && <div>Response time: {webhookTestResult.responseTime}ms</div>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <div className="space-y-4">
             <div className="font-medium">Events to send</div>
@@ -1014,6 +984,14 @@ function ApiSettings() {
                 <Label htmlFor="event-conversion">Conversion</Label>
               </div>
             </div>
+            <div className="text-sm text-muted-foreground">
+              <p>Webhook payload examples:</p>
+              <div className="mt-2 space-y-1">
+                <div><strong>signup:</strong> Sent when a user signs up using your referral link</div>
+                <div><strong>click:</strong> Sent when someone clicks your referral link</div>
+                <div><strong>conversion:</strong> Sent when a referral converts to a paying customer</div>
+              </div>
+            </div>
           </div>
         </CardContent>
         <CardFooter>
@@ -1027,118 +1005,201 @@ function ApiSettings() {
   )
 }
 
-function TeamSettings() {
+function ApiSettings() {
+  const { settings, updateSettings, regenerateApiKeys } = useUserSettings()
+  const { toast } = useToast()
+  const [saving, setSaving] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+  const [showKeys, setShowKeys] = useState({ live: false, test: false })
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+  const [generatedKeys, setGeneratedKeys] = useState<{ liveKey: string; testKey: string } | null>(null)
+
+  const hasApiKeys = settings?.api_key || settings?.api_key_test
+
+  const handleRegenerateKeys = async () => {
+    setRegenerating(true)
+    try {
+      const keys = await regenerateApiKeys()
+      if (keys) {
+        setGeneratedKeys(keys)
+        toast({
+          title: "API keys generated",
+          description: "Your new API keys have been generated successfully. Make sure to copy them now as they won't be shown again.",
+        })
+      } else {
+        throw new Error("Failed to generate API keys")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate API keys. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  const copyApiKey = async (key: string, type: 'live' | 'test') => {
+    try {
+      await navigator.clipboard.writeText(key)
+      setCopiedKey(type)
+      toast({
+        title: "Copied!",
+        description: `${type === 'live' ? 'Live' : 'Test'} API key copied to clipboard.`,
+      })
+      setTimeout(() => setCopiedKey(null), 2000)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy API key to clipboard.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const dismissGeneratedKeys = () => {
+    setGeneratedKeys(null)
+  }
+
+  if (generatedKeys) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Your New API Keys</CardTitle>
+          <CardDescription>
+            Copy these keys now - they won't be shown again for security reasons.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Live API Key</Label>
+            <div className="flex gap-2">
+              <Input value={generatedKeys.liveKey} readOnly className="font-mono" />
+              <Button 
+                size="sm" 
+                onClick={() => copyApiKey(generatedKeys.liveKey, 'live')}
+              >
+                {copiedKey === 'live' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Test API Key</Label>
+            <div className="flex gap-2">
+              <Input value={generatedKeys.testKey} readOnly className="font-mono" />
+              <Button 
+                size="sm" 
+                onClick={() => copyApiKey(generatedKeys.testKey, 'test')}
+              >
+                {copiedKey === 'test' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button onClick={dismissGeneratedKeys}>
+            I've saved my keys
+          </Button>
+        </CardFooter>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Team Members</CardTitle>
-          <CardDescription>Manage your team and their permissions</CardDescription>
+          <CardTitle>API Keys</CardTitle>
+          <CardDescription>
+            {hasApiKeys 
+              ? "Manage your API keys for accessing the Virion Labs API"
+              : "Generate API keys to access the Virion Labs API"
+            }
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b pb-4">
-              <div className="flex items-center gap-4">
-                <Avatar>
-                  <AvatarImage src="/placeholder.svg" alt="Admin User" />
-                  <AvatarFallback>AU</AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="font-medium">Admin User</div>
-                  <div className="text-sm text-muted-foreground">admin@virionlabs.com</div>
+        <CardContent className="space-y-4">
+          {hasApiKeys ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Live API Key</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={showKeys.live ? "sk_live_********************************" : "sk_live_••••••••••••••••••••••••••••••••"} 
+                    readOnly 
+                    className="font-mono"
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setShowKeys(prev => ({ ...prev, live: !prev.live }))}
+                  >
+                    {showKeys.live ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={() => copyApiKey("sk_live_********************************", 'live')}
+                  >
+                    {copiedKey === 'live' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
-              <div className="text-sm font-medium">Owner</div>
-            </div>
-
-            <div className="flex items-center justify-between border-b pb-4">
-              <div className="flex items-center gap-4">
-                <Avatar>
-                  <AvatarImage src="/placeholder.svg" alt="Sarah Johnson" />
-                  <AvatarFallback>SJ</AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="font-medium">Sarah Johnson</div>
-                  <div className="text-sm text-muted-foreground">sarah@virionlabs.com</div>
+              <div className="space-y-2">
+                <Label>Test API Key</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={showKeys.test ? "sk_test_********************************" : "sk_test_••••••••••••••••••••••••••••••••"} 
+                    readOnly 
+                    className="font-mono"
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setShowKeys(prev => ({ ...prev, test: !prev.test }))}
+                  >
+                    {showKeys.test ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={() => copyApiKey("sk_test_********************************", 'test')}
+                  >
+                    {copiedKey === 'test' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
-              <div className="text-sm font-medium">Admin</div>
             </div>
-
-            <div className="flex items-center justify-between border-b pb-4">
-              <div className="flex items-center gap-4">
-                <Avatar>
-                  <AvatarImage src="/placeholder.svg" alt="Mike Peterson" />
-                  <AvatarFallback>MP</AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="font-medium">Mike Peterson</div>
-                  <div className="text-sm text-muted-foreground">mike@virionlabs.com</div>
-                </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-4">
+                You haven't generated any API keys yet. Click the button below to generate your first set of keys.
+              </p>
+            </div>
+          )}
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>• Use live keys for production environments</p>
+            <p>• Use test keys for development and testing</p>
+            <p>• Keep your API keys secure and never share them publicly</p>
+            {settings?.api_key_regenerated_at && (
+              <div className="text-sm text-muted-foreground">
+                Last regenerated: {new Date(settings.api_key_regenerated_at).toLocaleDateString()}
               </div>
-              <div className="text-sm font-medium">Support</div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Avatar>
-                  <AvatarImage src="/placeholder.svg" alt="Emma Wilson" />
-                  <AvatarFallback>EW</AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="font-medium">Emma Wilson</div>
-                  <div className="text-sm text-muted-foreground">emma@virionlabs.com</div>
-                </div>
-              </div>
-              <div className="text-sm font-medium">Support</div>
-            </div>
+            )}
           </div>
         </CardContent>
         <CardFooter>
-          <Button>Invite Team Member</Button>
-        </CardFooter>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Roles & Permissions</CardTitle>
-          <CardDescription>Configure roles and their permissions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b pb-4">
-              <div>
-                <div className="font-medium">Admin</div>
-                <div className="text-sm text-muted-foreground">Full access to all settings and features</div>
-              </div>
-              <Button variant="outline" size="sm">
-                Edit
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between border-b pb-4">
-              <div>
-                <div className="font-medium">Support</div>
-                <div className="text-sm text-muted-foreground">Can view and manage user data and referrals</div>
-              </div>
-              <Button variant="outline" size="sm">
-                Edit
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium">Viewer</div>
-                <div className="text-sm text-muted-foreground">Can only view data, no edit permissions</div>
-              </div>
-              <Button variant="outline" size="sm">
-                Edit
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button>Create New Role</Button>
+          <Button onClick={handleRegenerateKeys} disabled={regenerating}>
+            {regenerating ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Regenerating...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {hasApiKeys ? "Regenerate Keys" : "Generate Keys"}
+              </>
+            )}
+          </Button>
         </CardFooter>
       </Card>
     </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Calendar, Download } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -26,14 +26,85 @@ import {
   Pie,
   Cell,
 } from "recharts"
+import { AnalyticsService, AnalyticsData } from "@/lib/analytics-service"
 
 export function AnalyticsPage() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const [dateRange, setDateRange] = useState("last-30-days")
   const [date, setDate] = useState(new Date())
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
+  const [loading, setLoading] = useState(true)
 
   const isAdmin = profile?.role === "admin"
+
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      if (!user?.id || !profile?.role) return
+
+      setLoading(true)
+      try {
+        const data = await AnalyticsService.getAnalytics(user.id, profile.role, dateRange)
+        setAnalyticsData(data)
+      } catch (error) {
+        console.error('Error fetching analytics:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAnalytics()
+  }, [user?.id, profile?.role, dateRange])
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+            <p className="text-muted-foreground">Loading analytics data...</p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <div className="h-4 bg-muted rounded animate-pulse" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-muted rounded animate-pulse mb-2" />
+                <div className="h-3 bg-muted rounded animate-pulse w-2/3" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (!analyticsData) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+            <p className="text-muted-foreground">Failed to load analytics data.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(value)
+  }
+
+  const formatNumber = (value: number) => {
+    return new Intl.NumberFormat('en-US').format(value)
+  }
 
   return (
     <div className="space-y-6">
@@ -91,8 +162,10 @@ export function AnalyticsPage() {
             <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,234</div>
-            <p className="text-xs text-muted-foreground">+12% from last period</p>
+            <div className="text-2xl font-bold">{formatNumber(analyticsData.totalClicks)}</div>
+            <p className="text-xs text-muted-foreground">
+              {analyticsData.totalClicks > 0 ? "Tracking clicks across all links" : "No clicks recorded yet"}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -100,8 +173,10 @@ export function AnalyticsPage() {
             <CardTitle className="text-sm font-medium">Total Signups</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">324</div>
-            <p className="text-xs text-muted-foreground">+18% from last period</p>
+            <div className="text-2xl font-bold">{formatNumber(analyticsData.totalSignups)}</div>
+            <p className="text-xs text-muted-foreground">
+              {analyticsData.totalSignups > 0 ? "Successful referral conversions" : "No signups recorded yet"}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -109,17 +184,28 @@ export function AnalyticsPage() {
             <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">26.3%</div>
-            <p className="text-xs text-muted-foreground">+5% from last period</p>
+            <div className="text-2xl font-bold">{analyticsData.conversionRate.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">
+              {analyticsData.conversionRate > 0 ? "Signups per click ratio" : "No conversions yet"}
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">{isAdmin ? "Active Influencers" : "Total Earnings"}</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {isAdmin ? "Active Influencers" : "Total Earnings"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isAdmin ? "42" : "$1,245.00"}</div>
-            <p className="text-xs text-muted-foreground">{isAdmin ? "+3 from last month" : "+$245 from last period"}</p>
+            <div className="text-2xl font-bold">
+              {isAdmin ? formatNumber(analyticsData.totalEarnings) : formatCurrency(analyticsData.totalEarnings)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {isAdmin 
+                ? (analyticsData.totalEarnings > 0 ? "Currently active in system" : "No active influencers")
+                : (analyticsData.totalEarnings > 0 ? "Total commission earned" : "No earnings yet")
+              }
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -139,26 +225,35 @@ export function AnalyticsPage() {
               <CardDescription>Clicks and conversions over the selected period</CardDescription>
             </CardHeader>
             <CardContent className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={performanceData}
-                  margin={{
-                    top: 5,
-                    right: 30,
-                    left: 20,
-                    bottom: 5,
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip />
-                  <Legend />
-                  <Line yAxisId="left" type="monotone" dataKey="clicks" stroke="#8884d8" activeDot={{ r: 8 }} />
-                  <Line yAxisId="right" type="monotone" dataKey="conversions" stroke="#82ca9d" />
-                </LineChart>
-              </ResponsiveContainer>
+              {analyticsData.performanceData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={analyticsData.performanceData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip />
+                    <Legend />
+                    <Line yAxisId="left" type="monotone" dataKey="clicks" stroke="#8884d8" activeDot={{ r: 8 }} />
+                    <Line yAxisId="right" type="monotone" dataKey="conversions" stroke="#82ca9d" />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <p className="text-muted-foreground">No performance data available for this period</p>
+                    <p className="text-sm text-muted-foreground mt-2">Performance data will appear once you have clicks and conversions</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -171,26 +266,32 @@ export function AnalyticsPage() {
                 <CardDescription>Distribution of clicks by platform</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={platformData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {platformData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                {analyticsData.platformData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={analyticsData.platformData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {analyticsData.platformData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">No platform data available</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -200,24 +301,30 @@ export function AnalyticsPage() {
                 <CardDescription>Conversion rates by platform</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={conversionRateData}
-                    margin={{
-                      top: 5,
-                      right: 30,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="rate" fill="#8884d8" name="Conversion Rate (%)" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {analyticsData.conversionRateData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={analyticsData.conversionRateData}
+                      margin={{
+                        top: 5,
+                        right: 30,
+                        left: 20,
+                        bottom: 5,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="rate" fill="#8884d8" name="Conversion Rate (%)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">No conversion data available</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -231,24 +338,30 @@ export function AnalyticsPage() {
                 <CardDescription>Age groups of your referrals</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={ageData}
-                    margin={{
-                      top: 5,
-                      right: 30,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="age" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="count" fill="#82ca9d" name="Number of Users" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {analyticsData.ageData.some(item => item.count > 0) ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={analyticsData.ageData}
+                      margin={{
+                        top: 5,
+                        right: 30,
+                        left: 20,
+                        bottom: 5,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="age" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="count" fill="#82ca9d" name="Number of Users" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">No age data available</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -258,25 +371,31 @@ export function AnalyticsPage() {
                 <CardDescription>Location of your referrals</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
-                    data={locationData}
-                    margin={{
-                      top: 5,
-                      right: 30,
-                      left: 100,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
-                    <YAxis dataKey="country" type="category" />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="count" fill="#8884d8" name="Number of Users" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {analyticsData.locationData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={analyticsData.locationData}
+                      margin={{
+                        top: 5,
+                        right: 30,
+                        left: 100,
+                        bottom: 5,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis dataKey="country" type="category" />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="count" fill="#8884d8" name="Number of Users" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">No location data available</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -290,25 +409,34 @@ export function AnalyticsPage() {
                 <CardDescription>Ranked by conversion rate</CardDescription>
               </CardHeader>
               <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={influencerData}
-                    margin={{
-                      top: 5,
-                      right: 30,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="conversions" fill="#8884d8" name="Conversions" />
-                    <Bar dataKey="rate" fill="#82ca9d" name="Conversion Rate (%)" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {analyticsData.influencerData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={analyticsData.influencerData}
+                      margin={{
+                        top: 5,
+                        right: 30,
+                        left: 20,
+                        bottom: 5,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="conversions" fill="#8884d8" name="Conversions" />
+                      <Bar dataKey="rate" fill="#82ca9d" name="Conversion Rate (%)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <p className="text-muted-foreground">No influencer performance data available</p>
+                      <p className="text-sm text-muted-foreground mt-2">Data will appear once influencers start generating referrals</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -319,54 +447,3 @@ export function AnalyticsPage() {
 }
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
-
-const performanceData = [
-  { date: "May 1", clicks: 100, conversions: 20 },
-  { date: "May 2", clicks: 120, conversions: 25 },
-  { date: "May 3", clicks: 140, conversions: 30 },
-  { date: "May 4", clicks: 130, conversions: 28 },
-  { date: "May 5", clicks: 150, conversions: 35 },
-  { date: "May 6", clicks: 160, conversions: 40 },
-  { date: "May 7", clicks: 170, conversions: 45 },
-  { date: "May 8", clicks: 180, conversions: 48 },
-  { date: "May 9", clicks: 190, conversions: 50 },
-  { date: "May 10", clicks: 200, conversions: 55 },
-]
-
-const platformData = [
-  { name: "YouTube", value: 45 },
-  { name: "Instagram", value: 30 },
-  { name: "TikTok", value: 15 },
-  { name: "Twitter", value: 10 },
-]
-
-const conversionRateData = [
-  { name: "YouTube", rate: 22 },
-  { name: "Instagram", rate: 18 },
-  { name: "TikTok", rate: 15 },
-  { name: "Twitter", rate: 12 },
-]
-
-const ageData = [
-  { age: "18-24", count: 120 },
-  { age: "25-34", count: 150 },
-  { age: "35-44", count: 80 },
-  { age: "45-54", count: 40 },
-  { age: "55+", count: 20 },
-]
-
-const locationData = [
-  { country: "United States", count: 150 },
-  { country: "United Kingdom", count: 80 },
-  { country: "Canada", count: 60 },
-  { country: "Australia", count: 40 },
-  { country: "Germany", count: 30 },
-]
-
-const influencerData = [
-  { name: "John Smith", conversions: 89, rate: 19.8 },
-  { name: "Emma Wilson", conversions: 72, rate: 18.9 },
-  { name: "Alex Thompson", conversions: 65, rate: 20.3 },
-  { name: "Sarah Johnson", conversions: 58, rate: 17.5 },
-  { name: "Mike Peterson", conversions: 42, rate: 15.0 },
-]
