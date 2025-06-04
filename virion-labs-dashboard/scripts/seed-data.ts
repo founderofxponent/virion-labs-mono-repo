@@ -97,6 +97,118 @@ async function seedData() {
 
     console.log(`Inserted ${insertedLinks.length} referral links`)
 
+    // Get or create sample clients
+    const { data: existingClients } = await supabase
+      .from('clients')
+      .select('id, name')
+      .limit(1)
+
+    let clientId
+    if (existingClients && existingClients.length > 0) {
+      clientId = existingClients[0].id
+      console.log('Using existing client:', existingClients[0].name)
+    } else {
+      // Create a sample client
+      const { data: newClient, error: clientError } = await supabase
+        .from('clients')
+        .insert([{
+          name: 'GameTech Pro',
+          industry: 'Gaming & Technology',
+          status: 'active',
+          join_date: new Date().toISOString(),
+          contact_email: 'partnerships@gametechpro.com',
+          website: 'https://gametechpro.com'
+        }])
+        .select()
+        .single()
+
+      if (clientError) {
+        console.error('Error creating client:', clientError)
+        return
+      }
+
+      clientId = newClient.id
+      console.log('Created new client:', newClient.name)
+    }
+
+    // Create sample campaigns
+    const sampleCampaigns = [
+      {
+        client_id: clientId,
+        guild_id: '123456789012345678',
+        channel_id: '987654321098765432',
+        campaign_name: 'Summer Gaming Collection 2024',
+        campaign_type: 'product_promotion',
+        influencer_id: influencerId,
+        referral_tracking_enabled: true,
+        auto_role_assignment: false,
+        welcome_message: 'Welcome to our Summer Gaming Campaign! Check out these amazing products.',
+        onboarding_flow: {},
+        total_interactions: 0,
+        successful_onboardings: 0,
+        referral_conversions: 0,
+        is_active: true,
+        metadata: {},
+        created_at: '2024-01-05T10:00:00Z'
+      },
+      {
+        client_id: clientId,
+        guild_id: '234567890123456789',
+        campaign_name: 'Tech Review Partnership',
+        campaign_type: 'influencer_collaboration',
+        influencer_id: influencerId,
+        referral_tracking_enabled: true,
+        auto_role_assignment: false,
+        welcome_message: 'Join our tech community and discover the latest gadgets!',
+        onboarding_flow: {},
+        total_interactions: 0,
+        successful_onboardings: 0,
+        referral_conversions: 0,
+        is_active: true,
+        metadata: {},
+        created_at: '2024-01-08T14:30:00Z'
+      }
+    ]
+
+    const { data: insertedCampaigns, error: campaignsError } = await supabase
+      .from('discord_guild_campaigns')
+      .insert(sampleCampaigns)
+      .select()
+
+    if (campaignsError) {
+      console.error('Error inserting campaigns:', campaignsError)
+      return
+    }
+
+    console.log(`Inserted ${insertedCampaigns.length} campaigns`)
+
+    // Update some referral links to be associated with campaigns
+    const linkUpdates = [
+      // Gaming Setup link -> Summer Gaming Collection campaign
+      {
+        id: insertedLinks[0].id,
+        campaign_id: insertedCampaigns[0].id
+      },
+      // Tech Gadgets link -> Tech Review Partnership campaign  
+      {
+        id: insertedLinks[2].id,
+        campaign_id: insertedCampaigns[1].id
+      }
+    ]
+
+    for (const update of linkUpdates) {
+      const { error: updateError } = await supabase
+        .from('referral_links')
+        .update({ campaign_id: update.campaign_id })
+        .eq('id', update.id)
+
+      if (updateError) {
+        console.error('Error updating link with campaign:', updateError)
+      }
+    }
+
+    console.log('Updated referral links with campaign associations')
+
     // Create sample referrals
     const sampleReferrals = [
       {

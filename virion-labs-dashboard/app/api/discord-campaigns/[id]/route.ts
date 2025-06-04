@@ -9,9 +9,10 @@ const supabase = createClient(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { data, error } = await supabase
       .from('discord_guild_campaigns')
       .select(`
@@ -19,7 +20,7 @@ export async function GET(
         clients:client_id(name, industry),
         referral_links:referral_link_id(title, referral_code, platform)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error) {
@@ -55,9 +56,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
 
     const {
@@ -130,7 +132,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('discord_guild_campaigns')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select(`
         *,
         clients:client_id(name, industry),
@@ -171,13 +173,14 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { error } = await supabase
       .from('discord_guild_campaigns')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (error) {
       console.error('Error deleting Discord campaign:', error)
@@ -194,9 +197,10 @@ export async function DELETE(
 // PATCH method for partial updates (like pause/resume)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { action, ...updateData } = body
 
@@ -215,7 +219,7 @@ export async function PATCH(
     const { data, error } = await supabase
       .from('discord_guild_campaigns')
       .update(finalUpdateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select(`
         *,
         clients:client_id(name, industry),

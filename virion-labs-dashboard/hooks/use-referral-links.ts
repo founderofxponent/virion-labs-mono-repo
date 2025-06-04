@@ -37,11 +37,11 @@ export function useReferralLinks() {
         .from('referral_links')
         .select(`
           *,
-          discord_guild_campaigns!referral_links_campaign_id_fkey(
+          campaign:discord_guild_campaigns!referral_links_campaign_id_fkey(
             id,
             campaign_name,
             campaign_type,
-            clients(name)
+            client:clients(name)
           )
         `)
         .eq('influencer_id', user.id)
@@ -52,13 +52,11 @@ export function useReferralLinks() {
       // Transform data to include analytics and campaign context
       const linksWithAnalytics: ReferralLinkWithAnalytics[] = (data || []).map(link => ({
         ...link,
-        campaign_context: link.discord_guild_campaigns ? {
-          campaign_id: link.discord_guild_campaigns.id,
-          campaign_name: link.discord_guild_campaigns.campaign_name,
-          campaign_type: link.discord_guild_campaigns.campaign_type,
-          client_name: Array.isArray(link.discord_guild_campaigns.clients) 
-            ? link.discord_guild_campaigns.clients[0]?.name 
-            : link.discord_guild_campaigns.clients?.name
+        campaign_context: link.campaign ? {
+          campaign_id: link.campaign.id,
+          campaign_name: link.campaign.campaign_name,
+          campaign_type: link.campaign.campaign_type,
+          client_name: link.campaign.client?.name || 'Unknown Client'
         } : null,
         analytics: {
           totalClicks: link.clicks,

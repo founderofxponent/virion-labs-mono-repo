@@ -146,10 +146,114 @@ export type Database = {
         }
         Relationships: []
       }
+      discord_guild_campaigns: {
+        Row: {
+          id: string
+          client_id: string
+          guild_id: string
+          channel_id: string | null
+          campaign_name: string
+          campaign_type: string
+          referral_link_id: string | null
+          influencer_id: string | null
+          webhook_url: string | null
+          bot_configuration_id: string | null
+          welcome_message: string | null
+          onboarding_flow: Json
+          referral_tracking_enabled: boolean
+          auto_role_assignment: boolean
+          target_role_id: string | null
+          total_interactions: number
+          successful_onboardings: number
+          referral_conversions: number
+          is_active: boolean
+          campaign_start_date: string | null
+          campaign_end_date: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          guild_id: string
+          channel_id?: string | null
+          campaign_name: string
+          campaign_type: string
+          referral_link_id?: string | null
+          influencer_id?: string | null
+          webhook_url?: string | null
+          bot_configuration_id?: string | null
+          welcome_message?: string | null
+          onboarding_flow?: Json
+          referral_tracking_enabled?: boolean
+          auto_role_assignment?: boolean
+          target_role_id?: string | null
+          total_interactions?: number
+          successful_onboardings?: number
+          referral_conversions?: number
+          is_active?: boolean
+          campaign_start_date?: string | null
+          campaign_end_date?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          guild_id?: string
+          channel_id?: string | null
+          campaign_name?: string
+          campaign_type?: string
+          referral_link_id?: string | null
+          influencer_id?: string | null
+          webhook_url?: string | null
+          bot_configuration_id?: string | null
+          welcome_message?: string | null
+          onboarding_flow?: Json
+          referral_tracking_enabled?: boolean
+          auto_role_assignment?: boolean
+          target_role_id?: string | null
+          total_interactions?: number
+          successful_onboardings?: number
+          referral_conversions?: number
+          is_active?: boolean
+          campaign_start_date?: string | null
+          campaign_end_date?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discord_guild_campaigns_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discord_guild_campaigns_referral_link_id_fkey"
+            columns: ["referral_link_id"]
+            isOneToOne: false
+            referencedRelation: "referral_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discord_guild_campaigns_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       referral_links: {
         Row: {
           id: string
           influencer_id: string
+          campaign_id: string | null
           title: string
           description: string | null
           platform: string
@@ -169,6 +273,7 @@ export type Database = {
         Insert: {
           id?: string
           influencer_id: string
+          campaign_id?: string | null
           title: string
           description?: string | null
           platform: string
@@ -187,6 +292,7 @@ export type Database = {
         Update: {
           id?: string
           influencer_id?: string
+          campaign_id?: string | null
           title?: string
           description?: string | null
           platform?: string
@@ -208,6 +314,13 @@ export type Database = {
             columns: ["influencer_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_links_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "discord_guild_campaigns"
             referencedColumns: ["id"]
           },
         ]

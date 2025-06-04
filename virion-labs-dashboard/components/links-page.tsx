@@ -58,7 +58,17 @@ export function LinksPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [filterPlatform, setFilterPlatform] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
+  const [filterCampaign, setFilterCampaign] = useState("all")
   const [sortBy, setSortBy] = useState("newest")
+
+  // Get unique campaigns for filter dropdown
+  const uniqueCampaigns = Array.from(
+    new Set(
+      links
+        .filter(link => link.campaign_context)
+        .map(link => link.campaign_context!.campaign_name)
+    )
+  ).sort()
 
   const filteredLinks = links
     .filter((link) => {
@@ -70,6 +80,14 @@ export function LinksPage() {
       }
       if (filterStatus === "inactive" && link.is_active) {
         return false
+      }
+      if (filterCampaign !== "all") {
+        if (filterCampaign === "no-campaign" && link.campaign_context) {
+          return false
+        }
+        if (filterCampaign !== "no-campaign" && (!link.campaign_context || link.campaign_context.campaign_name !== filterCampaign)) {
+          return false
+        }
       }
       if (searchQuery && !link.title.toLowerCase().includes(searchQuery.toLowerCase())) {
         return false
@@ -244,7 +262,7 @@ export function LinksPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Select value={filterPlatform} onValueChange={setFilterPlatform}>
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="Platform" />
@@ -270,6 +288,20 @@ export function LinksPage() {
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={filterCampaign} onValueChange={setFilterCampaign}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Campaign" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Campaigns</SelectItem>
+              <SelectItem value="no-campaign">No Campaign</SelectItem>
+              {uniqueCampaigns.map((campaign) => (
+                <SelectItem key={campaign} value={campaign}>
+                  {campaign}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Sort by" />
@@ -291,7 +323,7 @@ export function LinksPage() {
           <CardContent className="p-6">
             <div className="text-center">
               <p className="text-muted-foreground">
-                {searchQuery || filterPlatform !== "all" || filterStatus !== "all"
+                {searchQuery || filterPlatform !== "all" || filterStatus !== "all" || filterCampaign !== "all"
                   ? "No links found matching your criteria"
                   : "No referral links yet. Create your first link to get started!"}
               </p>

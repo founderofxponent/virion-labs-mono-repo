@@ -8,16 +8,17 @@ const supabase = createClient(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { data, error } = await supabase
       .from('bot_configurations')
       .select(`
         *,
         client:clients(id, name, industry, logo)
       `)
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error) {
@@ -44,9 +45,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const {
       display_name,
@@ -70,7 +72,7 @@ export async function PUT(
     const { data: existingConfig, error: fetchError } = await supabase
       .from('bot_configurations')
       .select('id, client_id, configuration_version')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (fetchError || !existingConfig) {
@@ -105,7 +107,7 @@ export async function PUT(
     const { data: updatedConfig, error: updateError } = await supabase
       .from('bot_configurations')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select(`
         *,
         client:clients(id, name, industry, logo)
@@ -137,14 +139,15 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     // Get configuration details before deletion
     const { data: configData, error: fetchError } = await supabase
       .from('bot_configurations')
       .select('client_id')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (fetchError || !configData) {
@@ -158,7 +161,7 @@ export async function DELETE(
     const { error: deleteError } = await supabase
       .from('bot_configurations')
       .update({ is_active: false })
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (deleteError) {
       console.error('Error deleting bot configuration:', deleteError)
