@@ -509,6 +509,8 @@ export type Database = {
           webhook_url: string | null
           webhook_events: string[] | null
           api_key_regenerated_at: string | null
+          api_key: string | null
+          api_key_test: string | null
           theme: string
           language: string
           timezone: string
@@ -542,6 +544,8 @@ export type Database = {
           webhook_url?: string | null
           webhook_events?: string[] | null
           api_key_regenerated_at?: string | null
+          api_key?: string | null
+          api_key_test?: string | null
           theme?: string
           language?: string
           timezone?: string
@@ -575,6 +579,8 @@ export type Database = {
           webhook_url?: string | null
           webhook_events?: string[] | null
           api_key_regenerated_at?: string | null
+          api_key?: string | null
+          api_key_test?: string | null
           theme?: string
           language?: string
           timezone?: string

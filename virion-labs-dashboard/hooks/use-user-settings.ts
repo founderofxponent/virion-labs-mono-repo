@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react"
 import { supabase, UserSettings, UserSettingsInsert, UserSettingsUpdate } from "@/lib/supabase"
 import { useAuth } from "@/components/auth-provider"
+import { generateUserApiKeys } from "@/lib/api-keys"
+import { uploadAvatar, UploadAvatarResult } from "@/lib/avatar-upload"
 
 export function useUserSettings() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -72,6 +74,8 @@ export function useUserSettings() {
         currency: 'USD',
         two_factor_enabled: false,
         login_notifications: true,
+        api_key: null,
+        api_key_test: null,
       }
 
       const { data, error } = await supabase
@@ -115,6 +119,49 @@ export function useUserSettings() {
     }
   }
 
+  // Generate new API keys
+  const regenerateApiKeys = async (): Promise<{ liveKey: string; testKey: string } | null> => {
+    if (!user?.id) return null
+
+    try {
+      const keys = await generateUserApiKeys(user.id)
+      if (keys) {
+        // Refresh settings to get updated api_key_regenerated_at
+        await fetchSettings()
+      }
+      return keys
+    } catch (err: any) {
+      setError(err.message)
+      console.error('Error regenerating API keys:', err)
+      return null
+    }
+  }
+
+  // Upload avatar
+  const uploadUserAvatar = async (file: File): Promise<UploadAvatarResult> => {
+    if (!user?.id) {
+      return {
+        success: false,
+        error: 'User not authenticated'
+      }
+    }
+
+    try {
+      const result = await uploadAvatar(file, user.id)
+      if (result.success) {
+        // Refresh auth context to update profile
+        window.location.reload() // Simple approach - you might want to implement a more elegant refresh
+      }
+      return result
+    } catch (err: any) {
+      console.error('Error uploading avatar:', err)
+      return {
+        success: false,
+        error: 'An unexpected error occurred while uploading avatar'
+      }
+    }
+  }
+
   // Initialize settings on user change
   useEffect(() => {
     if (user?.id) {
@@ -138,5 +185,7 @@ export function useUserSettings() {
     error,
     updateSettings,
     refetch: fetchSettings,
+    regenerateApiKeys,
+    uploadUserAvatar,
   }
 } 

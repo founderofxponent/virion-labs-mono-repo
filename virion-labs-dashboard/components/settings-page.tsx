@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Save, Eye, EyeOff, Copy, Check } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Save, Eye, EyeOff, Copy, Check, Upload, RefreshCw } from "lucide-react"
 
 import { generateInitials } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -72,9 +72,11 @@ export function SettingsPage() {
 
 function ProfileSettings() {
   const { profile } = useAuth()
-  const { settings, loading, updateSettings } = useUserSettings()
+  const { settings, loading, updateSettings, uploadUserAvatar } = useUserSettings()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
     bio: "",
@@ -123,6 +125,40 @@ function ProfileSettings() {
     }
   }
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const result = await uploadUserAvatar(file)
+      if (result.success) {
+        toast({
+          title: "Avatar updated",
+          description: "Your profile picture has been updated successfully.",
+        })
+      } else {
+        toast({
+          title: "Upload failed",
+          description: result.error || "Failed to upload avatar. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setUploading(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
   if (loading) {
     return <div>Loading...</div>
   }
@@ -141,10 +177,35 @@ function ProfileSettings() {
             )}
             <AvatarFallback>{generateInitials(profile?.full_name)}</AvatarFallback>
           </Avatar>
-          <div>
-            <Button variant="outline" size="sm">
-              Change Avatar
+          <div className="space-y-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Change Avatar
+                </>
+              )}
             </Button>
+            <p className="text-xs text-muted-foreground">
+              JPEG, PNG, WebP or GIF (max 5MB)
+            </p>
           </div>
         </div>
 
@@ -714,11 +775,14 @@ function PrivacySettings() {
 }
 
 function ApiSettings() {
-  const { settings, updateSettings } = useUserSettings()
+  const { settings, updateSettings, regenerateApiKeys } = useUserSettings()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
-  const [showApiKey, setShowApiKey] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+  const [showGeneratedKeys, setShowGeneratedKeys] = useState(false)
+  const [generatedKeys, setGeneratedKeys] = useState<{ liveKey: string; testKey: string } | null>(null)
+  const [copiedLive, setCopiedLive] = useState(false)
+  const [copiedTest, setCopiedTest] = useState(false)
 
   const [formData, setFormData] = useState({
     webhook_url: "",
@@ -757,14 +821,45 @@ function ApiSettings() {
     }
   }
 
-  const copyApiKey = async () => {
+  const handleRegenerateKeys = async () => {
+    setRegenerating(true)
     try {
-      await navigator.clipboard.writeText("sk_live_51Hb9ksJHMXNjV0xj3...")
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      const keys = await regenerateApiKeys()
+      if (keys) {
+        setGeneratedKeys(keys)
+        setShowGeneratedKeys(true)
+        toast({
+          title: "API keys regenerated",
+          description: "Your new API keys are displayed below. Copy them now as they won't be shown again.",
+          duration: 8000,
+        })
+      } else {
+        throw new Error("Failed to regenerate API keys")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to regenerate API keys. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  const copyApiKey = async (key: string, type: 'live' | 'test') => {
+    try {
+      await navigator.clipboard.writeText(key)
+      if (type === 'live') {
+        setCopiedLive(true)
+        setTimeout(() => setCopiedLive(false), 2000)
+      } else {
+        setCopiedTest(true)
+        setTimeout(() => setCopiedTest(false), 2000)
+      }
       toast({
         title: "API key copied",
-        description: "The API key has been copied to your clipboard.",
+        description: `The ${type} API key has been copied to your clipboard.`,
       })
     } catch (error) {
       toast({
@@ -784,6 +879,15 @@ function ApiSettings() {
     }))
   }
 
+  const hasApiKeys = settings?.api_key && settings?.api_key_test
+  const displayLiveKey = showGeneratedKeys && generatedKeys ? generatedKeys.liveKey : (hasApiKeys ? "sk_live_••••••••••••••••••••••••••••" : "No API key generated")
+  const displayTestKey = showGeneratedKeys && generatedKeys ? generatedKeys.testKey : (hasApiKeys ? "sk_test_••••••••••••••••••••••••••••" : "No API key generated")
+
+  const dismissGeneratedKeys = () => {
+    setShowGeneratedKeys(false)
+    setGeneratedKeys(null)
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -792,20 +896,36 @@ function ApiSettings() {
           <CardDescription>Manage your API keys for external integrations</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {showGeneratedKeys && generatedKeys && (
+            <div className="border rounded-lg p-4 bg-yellow-50 dark:bg-yellow-900/20">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-medium text-yellow-800 dark:text-yellow-200">🔑 New API Keys Generated</h4>
+                <Button variant="ghost" size="sm" onClick={dismissGeneratedKeys}>
+                  ×
+                </Button>
+              </div>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                Copy these keys now! They won't be shown again for security reasons.
+              </p>
+            </div>
+          )}
+          
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
               <div className="font-medium">Live API Key</div>
               <div className="flex items-center gap-2">
                 <Input 
-                  value={showApiKey ? "sk_live_51Hb9ksJHMXNjV0xj3..." : "••••••••••••••••••••••••••••••••"} 
-                  type={showApiKey ? "text" : "password"} 
+                  value={displayLiveKey} 
+                  type="text" 
                   readOnly 
                 />
-                <Button variant="outline" size="sm" onClick={copyApiKey}>
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowApiKey(!showApiKey)}>
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => copyApiKey(displayLiveKey, 'live')}
+                  disabled={!hasApiKeys && !generatedKeys}
+                >
+                  {copiedLive ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
@@ -813,22 +933,41 @@ function ApiSettings() {
               <div className="font-medium">Test API Key</div>
               <div className="flex items-center gap-2">
                 <Input 
-                  value={showApiKey ? "sk_test_51Hb9ksJHMXNjV0xj3..." : "••••••••••••••••••••••••••••••••"} 
-                  type={showApiKey ? "text" : "password"} 
+                  value={displayTestKey} 
+                  type="text" 
                   readOnly 
                 />
-                <Button variant="outline" size="sm" onClick={copyApiKey}>
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowApiKey(!showApiKey)}>
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => copyApiKey(displayTestKey, 'test')}
+                  disabled={!hasApiKeys && !generatedKeys}
+                >
+                  {copiedTest ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
+            {settings?.api_key_regenerated_at && (
+              <div className="text-sm text-muted-foreground">
+                Last regenerated: {new Date(settings.api_key_regenerated_at).toLocaleDateString()}
+              </div>
+            )}
           </div>
         </CardContent>
         <CardFooter>
-          <Button>Regenerate Keys</Button>
+          <Button onClick={handleRegenerateKeys} disabled={regenerating}>
+            {regenerating ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Regenerating...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {hasApiKeys ? "Regenerate Keys" : "Generate Keys"}
+              </>
+            )}
+          </Button>
         </CardFooter>
       </Card>
 
