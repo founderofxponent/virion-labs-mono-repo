@@ -51,6 +51,7 @@ export function LinksPage() {
     toggleLinkStatus,
     getAnalyticsSummary,
     formatDate,
+    fetchLinks,
   } = useReferralLinks()
 
   const [showLinkForm, setShowLinkForm] = useState(false)
@@ -146,12 +147,20 @@ export function LinksPage() {
     setCreatedLink(link)
     setShowLinkForm(false)
     setShowSuccessModal(true)
+    fetchLinks()
   }
 
   const handleCreateAnother = () => {
     setShowSuccessModal(false)
     setCreatedLink(null)
     setShowLinkForm(true)
+    fetchLinks()
+  }
+
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false)
+    setCreatedLink(null)
+    fetchLinks()
   }
 
   if (loading) {
@@ -402,10 +411,7 @@ export function LinksPage() {
       {/* Success Modal */}
       <ReferralLinkSuccessModal
         isOpen={showSuccessModal}
-        onClose={() => {
-          setShowSuccessModal(false)
-          setCreatedLink(null)
-        }}
+        onClose={handleSuccessModalClose}
         link={createdLink}
         campaignName={createdLink?.campaign_context?.campaign_name}
         clientName={createdLink?.campaign_context?.client_name}
