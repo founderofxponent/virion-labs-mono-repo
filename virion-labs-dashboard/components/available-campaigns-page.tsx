@@ -1,414 +1,234 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAvailableCampaigns, type AvailableCampaign } from "@/hooks/use-available-campaigns"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { toast } from "sonner"
-import { 
-  Target, 
-  Users, 
-  Calendar, 
-  DollarSign, 
-  ExternalLink, 
-  Plus,
-  Search,
-  Clock,
-  Building,
-  Tag,
-  Filter
-} from "lucide-react"
-import { ReferralLinkSuccessModal } from "./referral-link-success-modal"
-import { ReferralLinkForm } from "./referral-link-form"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { Users, MessageSquare, TrendingUp, Clock, CheckCircle, XCircle } from "lucide-react"
+import { CreateReferralLinkDialog } from "@/components/create-referral-link-dialog"
+
+interface AvailableCampaign {
+  campaign_id: string
+  campaign_name: string
+  campaign_type: string
+  client_name: string
+  client_industry: string
+  guild_id: string
+  discord_server_name: string
+  campaign_description: string
+  campaign_start_date: string
+  campaign_end_date: string | null
+  total_interactions: number
+  referral_conversions: number
+  has_access: boolean
+}
 
 export function AvailableCampaignsPage() {
-  const router = useRouter()
   const { profile } = useAuth()
-  const {
-    campaigns,
-    loading,
-    error,
-    getCampaignTypes,
-    getClients,
-    formatCampaignType,
-    isCampaignEndingSoon,
-    getCampaignStats
-  } = useAvailableCampaigns()
-
-  const [searchQuery, setSearchQuery] = useState("")
-  const [filterType, setFilterType] = useState("all")
-  const [filterClient, setFilterClient] = useState("all")
+  const [campaigns, setCampaigns] = useState<AvailableCampaign[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedCampaign, setSelectedCampaign] = useState<AvailableCampaign | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [createdLink, setCreatedLink] = useState<any>(null)
 
-  // Filter campaigns based on search and filters
-  const filteredCampaigns = campaigns
-    .filter(campaign => {
-      if (searchQuery && !campaign.campaign_name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-          !campaign.client_name.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false
+  useEffect(() => {
+    if (profile?.id) {
+      fetchAvailableCampaigns()
+    }
+  }, [profile?.id])
+
+  const fetchAvailableCampaigns = async () => {
+    try {
+      const response = await fetch(`/api/campaigns/available?influencer_id=${profile?.id}`)
+      const data = await response.json()
+      
+      if (response.ok) {
+        setCampaigns(data.campaigns || [])
+      } else {
+        console.error('Failed to fetch campaigns:', data.error)
       }
-      return true
-    })
-    .filter(campaign => filterType === "all" || campaign.campaign_type === filterType)
-    .filter(campaign => filterClient === "all" || campaign.client_name === filterClient)
-
-  const stats = getCampaignStats()
-
-  const handleLinkCreated = (link: any) => {
-    setCreatedLink(link)
-    setShowCreateDialog(false)
-    setShowSuccessModal(true)
-  }
-
-  const handleCreateAnother = () => {
-    setShowSuccessModal(false)
-    setCreatedLink(null)
-    // Reopen the create dialog for the same campaign
-    if (selectedCampaign) {
-      openCreateDialog(selectedCampaign)
+    } catch (error) {
+      console.error('Error fetching campaigns:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleViewAllLinks = () => {
-    setShowSuccessModal(false)
-    setCreatedLink(null)
-    router.push('/dashboard/links')
-  }
-
-  const openCreateDialog = (campaign: AvailableCampaign) => {
+  const handleCreateLink = (campaign: AvailableCampaign) => {
+    if (!campaign.has_access) {
+      // TODO: Show access request dialog or message
+      console.log('Access required for campaign:', campaign.campaign_name)
+      return
+    }
     setSelectedCampaign(campaign)
     setShowCreateDialog(true)
   }
 
-  if (profile?.role !== 'influencer') {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">This page is only available to influencers.</p>
-      </div>
-    )
+  const getCampaignTypeColor = (type: string) => {
+    switch (type) {
+      case 'referral_onboarding': return 'bg-blue-500'
+      case 'product_promotion': return 'bg-green-500'
+      case 'community_engagement': return 'bg-purple-500'
+      case 'support': return 'bg-orange-500'
+      default: return 'bg-gray-500'
+    }
+  }
+
+  const formatCampaignType = (type: string) => {
+    return type.replace('_', ' ').toUpperCase()
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString()
   }
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Available Campaigns</h1>
-            <p className="text-muted-foreground">Browse active campaigns and create referral links to start earning</p>
-          </div>
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2 text-muted-foreground">Loading campaigns...</span>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <div className="h-4 bg-muted rounded animate-pulse" />
-              </CardHeader>
-              <CardContent>
-                <div className="h-8 bg-muted rounded animate-pulse" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Available Campaigns</h1>
-            <p className="text-muted-foreground">Browse active campaigns and create referral links to start earning</p>
-          </div>
-        </div>
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <p className="text-red-500">Error loading campaigns: {error}</p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Available Campaigns</h1>
-          <p className="text-muted-foreground">
-            Browse active campaigns and create referral links to start earning
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Available Campaigns</h1>
+        <p className="text-muted-foreground">
+          Browse and create referral links for campaigns you have access to
+        </p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {campaigns.length === 0 && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalCampaigns}</div>
-            <p className="text-xs text-muted-foreground">Active campaigns available</p>
+          <CardContent className="p-8 text-center">
+            <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-lg">
+              No campaigns available at the moment
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Check back later or contact support for access to campaigns!
+            </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Campaign Types</CardTitle>
-            <Tag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.campaignTypes}</div>
-            <p className="text-xs text-muted-foreground">Different campaign types</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clients</CardTitle>
-            <Building className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.clients}</div>
-            <p className="text-xs text-muted-foreground">Unique clients</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ending Soon</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.endingSoon}</div>
-            <p className="text-xs text-muted-foreground">Campaigns ending in 7 days</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search campaigns..."
-            className="pl-8 w-full"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Campaign Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {getCampaignTypes().map(type => (
-                <SelectItem key={type} value={type}>
-                  {formatCampaignType(type)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={filterClient} onValueChange={setFilterClient}>
-            <SelectTrigger className="w-[130px]">
-              <SelectValue placeholder="Client" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Clients</SelectItem>
-              {getClients().map(client => (
-                <SelectItem key={client} value={client}>
-                  {client}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Campaigns List/Grid */}
-      {filteredCampaigns.length === 0 ? (
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <p className="text-muted-foreground">
-                {searchQuery || filterType !== "all" || filterClient !== "all"
-                  ? "No campaigns found matching your criteria"
-                  : "No campaigns available at the moment. Check back later!"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {filteredCampaigns.map((campaign) => (
-            <CampaignCard 
-              key={campaign.id} 
-              campaign={campaign} 
-              onCreateLink={openCreateDialog}
-              formatCampaignType={formatCampaignType}
-              isCampaignEndingSoon={isCampaignEndingSoon}
-            />
-          ))}
-        </div>
       )}
 
-      {/* Create Referral Link Dialog */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create Referral Link</DialogTitle>
-            <DialogDescription>
-              Create a referral link for {selectedCampaign?.campaign_name}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <ReferralLinkForm 
-            onSuccess={handleLinkCreated}
-            onCancel={() => setShowCreateDialog(false)}
-            preselectedCampaignId={selectedCampaign?.id}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* Success Modal */}
-      <ReferralLinkSuccessModal
-        isOpen={showSuccessModal}
-        onClose={() => {
-          setShowSuccessModal(false)
-          setCreatedLink(null)
-        }}
-        link={createdLink}
-        campaignName={selectedCampaign?.campaign_name}
-        clientName={selectedCampaign?.client_name}
-        onCreateAnother={handleCreateAnother}
-        onViewAllLinks={handleViewAllLinks}
-        createdFrom="campaigns"
-      />
-    </div>
-  )
-}
-
-interface CampaignCardProps {
-  campaign: AvailableCampaign
-  onCreateLink: (campaign: AvailableCampaign) => void
-  formatCampaignType: (type: string) => string
-  isCampaignEndingSoon: (campaign: AvailableCampaign) => boolean
-}
-
-function CampaignCard({ campaign, onCreateLink, formatCampaignType, isCampaignEndingSoon }: CampaignCardProps) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="grid gap-4 md:grid-cols-[auto_1fr_auto] items-start">
-          {/* Campaign Logo/Icon */}
-          <div className="w-16 h-16 bg-muted rounded-md overflow-hidden flex items-center justify-center">
-            {campaign.client_logo ? (
-              <img 
-                src={campaign.client_logo} 
-                alt={campaign.client_name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <Building className="h-8 w-8 text-muted-foreground" />
-            )}
-          </div>
-
-          {/* Campaign Details */}
-          <div className="space-y-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-semibold text-lg">{campaign.campaign_name}</h3>
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Building className="h-3 w-3" />
-                  {campaign.client_name}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {campaigns.map((campaign) => (
+          <Card key={campaign.campaign_id} className="relative hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-lg leading-6">{campaign.campaign_name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {campaign.client_name} • {campaign.client_industry}
+                  </p>
+                </div>
+                <Badge 
+                  className={`${getCampaignTypeColor(campaign.campaign_type)} text-white text-xs`}
+                >
+                  {formatCampaignType(campaign.campaign_type)}
+                </Badge>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="space-y-4">
+              {/* Campaign Description */}
+              {campaign.campaign_description && (
+                <p className="text-sm text-muted-foreground">
+                  {campaign.campaign_description}
                 </p>
-              </div>
-              {isCampaignEndingSoon(campaign) && (
-                <Badge variant="secondary" className="bg-orange-100 text-orange-700">
-                  <Clock className="h-3 w-3 mr-1" />
-                  Ending Soon
-                </Badge>
               )}
-            </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">
-                {formatCampaignType(campaign.campaign_type)}
-              </Badge>
-              {campaign.campaign_end_date && (
-                <Badge variant="outline" className="text-xs">
-                  <Calendar className="h-3 w-3 mr-1" />
-                  Ends {new Date(campaign.campaign_end_date).toLocaleDateString()}
-                </Badge>
-              )}
-            </div>
-
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {campaign.description}
-            </p>
-
-            <div className="grid gap-2 text-sm md:grid-cols-2">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{campaign.target_audience}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span>{campaign.estimated_earnings}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{campaign.discord_server}</span>
-              </div>
-            </div>
-
-            {campaign.requirements && campaign.requirements.length > 0 && (
-              <div>
-                <Label className="text-xs font-medium">Requirements:</Label>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {campaign.requirements.slice(0, 3).map((req, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
-                      {req}
-                    </Badge>
-                  ))}
-                  {campaign.requirements.length > 3 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{campaign.requirements.length - 3} more
-                    </Badge>
-                  )}
+              {/* Discord Server Info */}
+              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">Discord Server</p>
+                  <p className="text-xs text-muted-foreground">
+                    {campaign.discord_server_name || 'Discord Community'}
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Action Button */}
-          <Button 
-            onClick={() => onCreateLink(campaign)}
-            size="sm"
-            className="shrink-0"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Create Link
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+              {/* Campaign Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    <p className="font-semibold">{campaign.total_interactions}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Interactions</p>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <p className="font-semibold">{campaign.referral_conversions}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Conversions</p>
+                </div>
+              </div>
+
+              {/* Campaign Dates */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>Started: {formatDate(campaign.campaign_start_date)}</span>
+                </div>
+                {campaign.campaign_end_date && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span>Ends: {formatDate(campaign.campaign_end_date)}</span>
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Access Status & Action */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  {campaign.has_access ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span className="text-sm text-green-600 font-medium">Access Granted</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-4 w-4 text-red-500" />
+                      <span className="text-sm text-red-600 font-medium">Access Required</span>
+                    </>
+                  )}
+                </div>
+
+                <Button 
+                  onClick={() => handleCreateLink(campaign)}
+                  disabled={!campaign.has_access}
+                  className="w-full"
+                  variant={campaign.has_access ? "default" : "outline"}
+                >
+                  {campaign.has_access ? 'Create Referral Link' : 'Request Access'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <CreateReferralLinkDialog
+        campaign={selectedCampaign}
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSuccess={() => {
+          setShowCreateDialog(false)
+          // Optionally redirect to links page or show success message
+          console.log('Referral link created successfully!')
+        }}
+      />
+    </div>
   )
 } 
