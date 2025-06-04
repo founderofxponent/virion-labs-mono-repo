@@ -407,6 +407,8 @@ export function LinksPage() {
           setCreatedLink(null)
         }}
         link={createdLink}
+        campaignName={createdLink?.campaign_context?.campaign_name}
+        clientName={createdLink?.campaign_context?.client_name}
         onCreateAnother={handleCreateAnother}
         createdFrom="links"
       />

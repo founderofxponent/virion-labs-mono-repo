@@ -96,7 +96,15 @@ export function useReferralLinks() {
           referral_code: referralCode,
           referral_url: referralUrl,
         }])
-        .select()
+        .select(`
+          *,
+          campaign:discord_guild_campaigns!referral_links_campaign_id_fkey(
+            id,
+            campaign_name,
+            campaign_type,
+            client:clients(name)
+          )
+        `)
         .single()
 
       if (error) throw error
@@ -104,6 +112,12 @@ export function useReferralLinks() {
       if (data) {
         const linkWithAnalytics: ReferralLinkWithAnalytics = {
           ...data,
+          campaign_context: data.campaign ? {
+            campaign_id: data.campaign.id,
+            campaign_name: data.campaign.campaign_name,
+            campaign_type: data.campaign.campaign_type,
+            client_name: data.campaign.client?.name || 'Unknown Client'
+          } : null,
           analytics: {
             totalClicks: 0,
             totalConversions: 0,
@@ -114,6 +128,9 @@ export function useReferralLinks() {
           }
         }
         setLinks(prev => [linkWithAnalytics, ...prev])
+        
+        // Return the full link with campaign context for the success modal
+        return { data: linkWithAnalytics, error: null }
       }
       
       return { data, error: null }

@@ -28,6 +28,7 @@ import {
   Filter
 } from "lucide-react"
 import { ReferralLinkSuccessModal } from "./referral-link-success-modal"
+import { ReferralLinkForm } from "./referral-link-form"
 
 export function AvailableCampaignsPage() {
   const router = useRouter()
@@ -36,7 +37,6 @@ export function AvailableCampaignsPage() {
     campaigns,
     loading,
     error,
-    createReferralLink,
     getCampaignTypes,
     getClients,
     formatCampaignType,
@@ -51,17 +51,6 @@ export function AvailableCampaignsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [createdLink, setCreatedLink] = useState<any>(null)
-  const [creating, setCreating] = useState(false)
-
-  // Form state for creating referral links
-  const [linkForm, setLinkForm] = useState({
-    title: "",
-    description: "",
-    platform: "",
-    original_url: "",
-    thumbnail_url: "",
-    expires_at: ""
-  })
 
   // Filter campaigns based on search and filters
   const filteredCampaigns = campaigns
@@ -77,44 +66,10 @@ export function AvailableCampaignsPage() {
 
   const stats = getCampaignStats()
 
-  const handleCreateReferralLink = async () => {
-    if (!selectedCampaign) return
-
-    setCreating(true)
-    try {
-      const { data, error } = await createReferralLink(selectedCampaign.id, {
-        title: linkForm.title,
-        description: linkForm.description || undefined,
-        platform: linkForm.platform,
-        original_url: linkForm.original_url,
-        thumbnail_url: linkForm.thumbnail_url || undefined,
-        expires_at: linkForm.expires_at || undefined
-      })
-
-      if (error) {
-        toast.error(`Error: ${error}`)
-        return
-      }
-
-      // Store the created link and show success modal instead of just toast
-      setCreatedLink(data)
-      setShowCreateDialog(false)
-      setShowSuccessModal(true)
-      
-      // Reset form
-      setLinkForm({
-        title: "",
-        description: "",
-        platform: "",
-        original_url: "",
-        thumbnail_url: "",
-        expires_at: ""
-      })
-    } catch (err) {
-      toast.error('Failed to create referral link')
-    } finally {
-      setCreating(false)
-    }
+  const handleLinkCreated = (link: any) => {
+    setCreatedLink(link)
+    setShowCreateDialog(false)
+    setShowSuccessModal(true)
   }
 
   const handleCreateAnother = () => {
@@ -134,11 +89,6 @@ export function AvailableCampaignsPage() {
 
   const openCreateDialog = (campaign: AvailableCampaign) => {
     setSelectedCampaign(campaign)
-    setLinkForm({
-      ...linkForm,
-      title: `${campaign.campaign_name} Promotion`,
-      original_url: `https://${campaign.client_name.toLowerCase().replace(/\s+/g, '')}.com`
-    })
     setShowCreateDialog(true)
   }
 
@@ -329,93 +279,11 @@ export function AvailableCampaignsPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="title">Link Title *</Label>
-              <Input
-                id="title"
-                value={linkForm.title}
-                onChange={(e) => setLinkForm({...linkForm, title: e.target.value})}
-                placeholder="My awesome campaign promotion"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={linkForm.description}
-                onChange={(e) => setLinkForm({...linkForm, description: e.target.value})}
-                placeholder="Describe your content..."
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="platform">Platform *</Label>
-              <Select value={linkForm.platform} onValueChange={(value) => setLinkForm({...linkForm, platform: value})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select platform" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="YouTube">YouTube</SelectItem>
-                  <SelectItem value="Instagram">Instagram</SelectItem>
-                  <SelectItem value="TikTok">TikTok</SelectItem>
-                  <SelectItem value="Twitter">Twitter</SelectItem>
-                  <SelectItem value="Facebook">Facebook</SelectItem>
-                  <SelectItem value="LinkedIn">LinkedIn</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="original_url">Original URL *</Label>
-              <Input
-                id="original_url"
-                value={linkForm.original_url}
-                onChange={(e) => setLinkForm({...linkForm, original_url: e.target.value})}
-                placeholder="https://example.com/product"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="thumbnail_url">Thumbnail URL</Label>
-              <Input
-                id="thumbnail_url"
-                value={linkForm.thumbnail_url}
-                onChange={(e) => setLinkForm({...linkForm, thumbnail_url: e.target.value})}
-                placeholder="https://example.com/image.jpg"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="expires_at">Expiration Date</Label>
-              <Input
-                id="expires_at"
-                type="datetime-local"
-                value={linkForm.expires_at}
-                onChange={(e) => setLinkForm({...linkForm, expires_at: e.target.value})}
-              />
-            </div>
-
-            <div className="flex gap-2 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowCreateDialog(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleCreateReferralLink}
-                disabled={creating || !linkForm.title || !linkForm.platform || !linkForm.original_url}
-                className="flex-1"
-              >
-                {creating ? "Creating..." : "Create Link"}
-              </Button>
-            </div>
-          </div>
+          <ReferralLinkForm 
+            onSuccess={handleLinkCreated}
+            onCancel={() => setShowCreateDialog(false)}
+            preselectedCampaignId={selectedCampaign?.id}
+          />
         </DialogContent>
       </Dialog>
 
