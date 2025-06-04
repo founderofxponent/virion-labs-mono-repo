@@ -547,6 +547,7 @@ function AccountSettings() {
                   <SelectItem value="Europe/London">London</SelectItem>
                   <SelectItem value="Europe/Paris">Paris</SelectItem>
                   <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
+                  <SelectItem value="Asia/Manila">Manila, Philippines</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -562,6 +563,7 @@ function AccountSettings() {
                   <SelectItem value="GBP">GBP (£)</SelectItem>
                   <SelectItem value="JPY">JPY (¥)</SelectItem>
                   <SelectItem value="CAD">CAD (C$)</SelectItem>
+                  <SelectItem value="PHP">PHP (₱)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
