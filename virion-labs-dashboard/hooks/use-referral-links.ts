@@ -3,24 +3,13 @@
 import { useState, useEffect } from 'react'
 import { supabase, type ReferralLink, type ReferralLinkInsert, type ReferralLinkUpdate, type ReferralLinkWithAnalytics } from '@/lib/supabase'
 import { useAuth } from '@/components/auth-provider'
+import { generateReferralCode, generateReferralUrl } from '@/lib/url-utils'
 
 export function useReferralLinks() {
   const [links, setLinks] = useState<ReferralLinkWithAnalytics[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { user } = useAuth()
-
-  // Generate a unique referral code
-  const generateReferralCode = (title: string): string => {
-    const cleanTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
-    const randomSuffix = Math.random().toString(36).substring(2, 8)
-    return `${cleanTitle}-${randomSuffix}`
-  }
-
-  // Generate referral URL
-  const generateReferralUrl = (code: string): string => {
-    return `https://ref.virionlabs.com/${code}`
-  }
 
   // Fetch all referral links for the current user
   const fetchLinks = async () => {

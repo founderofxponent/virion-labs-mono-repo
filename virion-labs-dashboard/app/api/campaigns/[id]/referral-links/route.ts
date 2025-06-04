@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { generateReferralCode, generateReferralUrl } from '@/lib/url-utils'
 
 // Use service role client for server-side operations to bypass RLS
 const supabase = createClient(
@@ -54,17 +55,7 @@ export async function POST(
       )
     }
 
-    // Generate referral code and URL
-    const generateReferralCode = (title: string): string => {
-      const cleanTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
-      const randomSuffix = Math.random().toString(36).substring(2, 8)
-      return `${cleanTitle}-${randomSuffix}`
-    }
-
-    const generateReferralUrl = (code: string): string => {
-      return `https://ref.virionlabs.com/${code}`
-    }
-
+    // Generate referral code and URL using utility functions
     const referralCode = generateReferralCode(title)
     const referralUrl = generateReferralUrl(referralCode)
 

@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase'
+import { createClient } from '@supabase/supabase-js'
+import { generateReferralUrl } from '../lib/url-utils'
 
 async function seedData() {
   try {
@@ -43,7 +45,7 @@ async function seedData() {
         platform: 'TikTok',
         original_url: 'https://bestbuy.com/site/gaming-chair-deluxe',
         referral_code: 'gaming-setup-ghi789',
-        referral_url: 'https://ref.virionlabs.com/gaming-setup-ghi789',
+        referral_url: generateReferralUrl('gaming-setup-ghi789'),
         thumbnail_url: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400',
         clicks: 2161,
         conversions: 237,
@@ -59,7 +61,7 @@ async function seedData() {
         platform: 'Instagram',
         original_url: 'https://sephora.com/product/retinol-serum-P12345',
         referral_code: 'skincare-routine-def456',
-        referral_url: 'https://ref.virionlabs.com/skincare-routine-def456',
+        referral_url: generateReferralUrl('skincare-routine-def456'),
         thumbnail_url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400',
         clicks: 896,
         conversions: 157,
@@ -74,7 +76,7 @@ async function seedData() {
         platform: 'YouTube',
         original_url: 'https://amazon.com/dp/B08N5WRWNW',
         referral_code: 'summer-tech-gadgets-abc123',
-        referral_url: 'https://ref.virionlabs.com/summer-tech-gadgets-abc123',
+        referral_url: generateReferralUrl('summer-tech-gadgets-abc123'),
         thumbnail_url: 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=400',
         clicks: 1250,
         conversions: 91,
