@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Save, Eye, EyeOff, Copy, Check, Upload, RefreshCw, Trash2 } from "lucide-react"
+import { Save, Eye, EyeOff, Copy, Check, Upload, RefreshCw, Trash2, CheckCircle, Loader2 } from "lucide-react"
 
 import { generateInitials } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -80,6 +80,7 @@ function ProfileSettings() {
   const { settings, loading, updateSettings, uploadUserAvatar } = useUserSettings()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -122,9 +123,16 @@ function ProfileSettings() {
       const success = await updateSettings(formData)
       if (success) {
         toast({
-          title: "Profile updated",
+          title: "✅ Profile updated successfully!",
           description: "Your profile information has been saved successfully.",
+          duration: 4000,
         })
+        setProfileSaveSuccess(true)
+        
+        // Reset success state after 3 seconds
+        setTimeout(() => {
+          setProfileSaveSuccess(false)
+        }, 3000)
       } else {
         throw new Error("Failed to update profile")
       }
@@ -307,9 +315,27 @@ function ProfileSettings() {
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" />
-          {saving ? "Saving..." : "Save Profile"}
+        <Button 
+          onClick={handleSave} 
+          disabled={saving || profileSaveSuccess}
+          className={`${profileSaveSuccess ? 'bg-green-600 hover:bg-green-700' : ''}`}
+        >
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving Profile...
+            </>
+          ) : profileSaveSuccess ? (
+            <>
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Profile Saved!
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Save Profile
+            </>
+          )}
         </Button>
       </CardFooter>
     </Card>
@@ -321,6 +347,7 @@ function AccountSettings() {
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
+  const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false)
   const [deletingAccount, setDeletingAccount] = useState(false)
 
   const [formData, setFormData] = useState({
@@ -397,15 +424,22 @@ function AccountSettings() {
     try {
       const result = await changePassword(passwordData.currentPassword, passwordData.newPassword)
       if (result.success) {
+        setPasswordChangeSuccess(true)
         toast({
-          title: "Password updated",
-          description: "Your password has been changed successfully.",
+          title: "✅ Password updated successfully!",
+          description: "Your password has been changed and is now active.",
+          duration: 5000,
         })
         setPasswordData({
           currentPassword: "",
           newPassword: "",
           confirmPassword: "",
         })
+        
+        // Reset success state after 3 seconds
+        setTimeout(() => {
+          setPasswordChangeSuccess(false)
+        }, 3000)
       } else {
         toast({
           title: "Error",
@@ -545,8 +579,17 @@ function AccountSettings() {
         </CardContent>
         <CardFooter>
           <Button onClick={handleSave} disabled={saving}>
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? "Saving..." : "Save Preferences"}
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving Preferences...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Save Preferences
+              </>
+            )}
           </Button>
         </CardFooter>
       </Card>
@@ -588,9 +631,25 @@ function AccountSettings() {
         <CardFooter>
           <Button 
             onClick={handlePasswordChange} 
-            disabled={changingPassword || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+            disabled={changingPassword || passwordChangeSuccess || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+            className={`relative ${passwordChangeSuccess ? 'bg-green-600 hover:bg-green-700' : ''}`}
           >
-            {changingPassword ? "Updating..." : "Update Password"}
+            {changingPassword ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating Password...
+              </>
+            ) : passwordChangeSuccess ? (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Password Updated!
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Update Password
+              </>
+            )}
           </Button>
         </CardFooter>
       </Card>
@@ -638,7 +697,17 @@ function AccountSettings() {
                   disabled={deletingAccount || !deletePassword.trim()}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
-                  {deletingAccount ? "Deleting..." : "Delete Account"}
+                  {deletingAccount ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting Account...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Account
+                    </>
+                  )}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -748,8 +817,17 @@ function NotificationSettings() {
       </CardContent>
       <CardFooter>
         <Button onClick={handleSave} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" />
-          {saving ? "Saving..." : "Save Notification Preferences"}
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving Notifications...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Save Notification Preferences
+            </>
+          )}
         </Button>
       </CardFooter>
     </Card>
@@ -906,8 +984,17 @@ function PrivacySettings() {
       </CardContent>
       <CardFooter>
         <Button onClick={handleSave} disabled={saving}>
-          <Save className="mr-2 h-4 w-4" />
-          {saving ? "Saving..." : "Save Privacy Settings"}
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving Privacy Settings...
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Save Privacy Settings
+            </>
+          )}
         </Button>
       </CardFooter>
     </Card>
@@ -1213,8 +1300,8 @@ function ApiSettings() {
           <Button onClick={handleRegenerateKeys} disabled={regenerating}>
             {regenerating ? (
               <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Regenerating...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Regenerating Keys...
               </>
             ) : (
               <>
