@@ -11,6 +11,7 @@ export function useUserSettings() {
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isCreatingDefaults, setIsCreatingDefaults] = useState(false)
 
   // Fetch user settings
   const fetchSettings = async () => {
@@ -43,9 +44,33 @@ export function useUserSettings() {
 
   // Create default settings for new user
   const createDefaultSettings = async (): Promise<UserSettings | null> => {
-    if (!user?.id) return null
+    if (!user?.id) {
+      console.error('createDefaultSettings: No user ID available')
+      return null
+    }
+
+    if (isCreatingDefaults) {
+      console.log('createDefaultSettings: Already creating defaults, skipping...')
+      return null
+    }
+
+    console.log('createDefaultSettings: Creating default settings for user:', user.id)
+    setIsCreatingDefaults(true)
 
     try {
+      // Double-check that settings don't already exist
+      const { data: existingSettings } = await supabase
+        .from('user_settings')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (existingSettings) {
+        console.log('createDefaultSettings: Settings already exist, fetching...')
+        await fetchSettings()
+        return null
+      }
+
       const defaultSettings: UserSettingsInsert = {
         user_id: user.id,
         bio: null,
@@ -78,20 +103,43 @@ export function useUserSettings() {
         api_key_test: null,
       }
 
+      console.log('createDefaultSettings: Inserting settings:', defaultSettings)
+
       const { data, error } = await supabase
         .from('user_settings')
         .insert(defaultSettings)
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('createDefaultSettings: Database error:', error)
+        throw error
+      }
 
+      if (!data) {
+        console.error('createDefaultSettings: No data returned from insert')
+        throw new Error('No data returned from settings creation')
+      }
+
+      console.log('createDefaultSettings: Successfully created settings:', data.id)
       setSettings(data)
       return data
     } catch (err: any) {
-      setError(err.message)
-      console.error('Error creating default settings:', err)
+      const errorMessage = err?.message || err?.toString() || 'Unknown error occurred'
+      const errorDetails = {
+        message: errorMessage,
+        code: err?.code,
+        details: err?.details,
+        hint: err?.hint,
+        userId: user?.id,
+        timestamp: new Date().toISOString()
+      }
+      
+      console.error('Error creating default settings:', errorDetails)
+      setError(errorMessage)
       return null
+    } finally {
+      setIsCreatingDefaults(false)
     }
   }
 
@@ -254,10 +302,11 @@ export function useUserSettings() {
 
   // Create default settings if none exist
   useEffect(() => {
-    if (!loading && user?.id && !settings && !error) {
+    if (!loading && user?.id && !settings && !error && !isCreatingDefaults) {
+      console.log('useUserSettings: Triggering createDefaultSettings for user:', user.id)
       createDefaultSettings()
     }
-  }, [loading, user?.id, settings, error])
+  }, [loading, user?.id, settings, error, isCreatingDefaults])
 
   return {
     settings,
