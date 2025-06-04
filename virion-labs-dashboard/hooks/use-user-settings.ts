@@ -166,46 +166,24 @@ export function useUserSettings() {
     }
 
     try {
-      // First verify password
-      const { error: verifyError } = await supabase.auth.signInWithPassword({
-        email: user?.email || '',
-        password: password
+      // Call the server-side API route for user deletion
+      const response = await fetch('/api/user/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          password,
+          userId: user.id
+        })
       })
 
-      if (verifyError) {
+      const data = await response.json()
+
+      if (!response.ok) {
         return {
           success: false,
-          error: 'Password is incorrect'
-        }
-      }
-
-      // Delete user settings and related data
-      const { error: settingsError } = await supabase
-        .from('user_settings')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (settingsError) {
-        console.error('Error deleting user settings:', settingsError)
-      }
-
-      // Delete user profile
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .delete()
-        .eq('id', user.id)
-
-      if (profileError) {
-        console.error('Error deleting user profile:', profileError)
-      }
-
-      // Delete from auth (this will cascade delete related data)
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id)
-
-      if (deleteError) {
-        return {
-          success: false,
-          error: deleteError.message
+          error: data.error || 'Failed to delete account'
         }
       }
 
