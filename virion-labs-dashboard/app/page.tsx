@@ -37,7 +37,7 @@ function DashboardContent() {
   if (dataLoading) {
     console.log('📊 DashboardContent: Profile available, data is loading for UnifiedDashboard. Rendering skeleton via UnifiedDashboard.');
     return (
-      <DashboardLayout debugData={{ loading: dataLoading, error: dataError }}>
+      <DashboardLayout>
         <UnifiedDashboard />
       </DashboardLayout>
     );
@@ -46,7 +46,7 @@ function DashboardContent() {
   if (dataError) {
      console.log('📊 DashboardContent: Profile available, data error for UnifiedDashboard.');
      return (
-      <DashboardLayout debugData={{ loading: false, error: dataError }}>
+      <DashboardLayout>
         <UnifiedDashboard />
       </DashboardLayout>
     );
@@ -55,7 +55,7 @@ function DashboardContent() {
   if (data) {
     console.log('📊 DashboardContent: Profile and data available. Rendering main UnifiedDashboard.');
     return (
-      <DashboardLayout debugData={{ loading: dataLoading, error: dataError }}>
+      <DashboardLayout>
         <UnifiedDashboard />
       </DashboardLayout>
     );
@@ -63,7 +63,7 @@ function DashboardContent() {
   
   console.log('📊 DashboardContent: Profile available, but no data from useUnifiedData (and not loading/error). Showing no data available message.');
   return (
-    <DashboardLayout debugData={{ loading: dataLoading, error: dataError }}>
+    <DashboardLayout>
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">No data available for your dashboard at the moment.</p>
       </div>

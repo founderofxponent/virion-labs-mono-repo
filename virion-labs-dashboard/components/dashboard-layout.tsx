@@ -18,18 +18,12 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useAuth } from "@/components/auth-provider"
 import { Sidebar } from "@/components/sidebar"
-import { PerformanceMonitor } from "@/components/performance-monitor"
-import { DebugInfo } from "@/components/debug-info"
 
 interface DashboardLayoutProps {
   children: ReactNode
-  debugData?: {
-    loading?: boolean
-    error?: string | null
-  }
 }
 
-export function DashboardLayout({ children, debugData }: DashboardLayoutProps) {
+export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
@@ -125,9 +119,6 @@ export function DashboardLayout({ children, debugData }: DashboardLayoutProps) {
         {/* Page Content */}
         <main className="flex-1 overflow-auto p-6 w-full max-w-none">{children}</main>
       </div>
-      
-      <PerformanceMonitor />
-      <DebugInfo dataLoading={debugData?.loading} error={debugData?.error} />
     </div>
   )
 }
