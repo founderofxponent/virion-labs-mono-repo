@@ -107,6 +107,15 @@ function ProfileSettings() {
     }
   }, [settings])
 
+  // Debug current profile state
+  useEffect(() => {
+    console.log('ProfileSettings: Current profile state:', { 
+      id: profile?.id, 
+      full_name: profile?.full_name, 
+      avatar_url: profile?.avatar_url 
+    })
+  }, [profile])
+
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -134,9 +143,12 @@ function ProfileSettings() {
     const file = event.target.files?.[0]
     if (!file) return
 
+    console.log('ProfileSettings: Starting avatar upload for file:', file.name)
     setUploading(true)
     try {
       const result = await uploadUserAvatar(file)
+      console.log('ProfileSettings: Avatar upload result:', result)
+      
       if (result.success) {
         toast({
           title: "Avatar updated",
@@ -150,6 +162,7 @@ function ProfileSettings() {
         })
       }
     } catch (error) {
+      console.error('ProfileSettings: Avatar upload error:', error)
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
@@ -178,7 +191,12 @@ function ProfileSettings() {
         <div className="flex items-center gap-4">
           <Avatar className="h-20 w-20">
             {profile?.avatar_url && (
-              <AvatarImage src={profile.avatar_url} alt={profile?.full_name} />
+              <AvatarImage 
+                src={profile.avatar_url} 
+                alt={profile?.full_name}
+                onLoad={() => console.log('ProfileSettings: Avatar image loaded:', profile.avatar_url)}
+                onError={() => console.log('ProfileSettings: Avatar image failed to load:', profile.avatar_url)}
+              />
             )}
             <AvatarFallback>{generateInitials(profile?.full_name)}</AvatarFallback>
           </Avatar>
@@ -211,6 +229,11 @@ function ProfileSettings() {
             <p className="text-xs text-muted-foreground">
               JPG, PNG, WebP or GIF. Max size 5MB.
             </p>
+            {profile?.avatar_url && (
+              <p className="text-xs text-gray-500 truncate max-w-sm">
+                Current: {profile.avatar_url}
+              </p>
+            )}
           </div>
         </div>
 
@@ -227,9 +250,9 @@ function ProfileSettings() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Phone Number</Label>
-            <Input
-              id="phone"
-              type="tel"
+            <Input 
+              id="phone" 
+              type="tel" 
               placeholder="+1 (555) 123-4567"
               value={formData.phone_number}
               onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
@@ -237,18 +260,18 @@ function ProfileSettings() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="website">Website</Label>
-            <Input
-              id="website"
-              type="url"
+            <Input 
+              id="website" 
+              type="url" 
               placeholder="https://your-website.com"
               value={formData.website_url}
               onChange={(e) => setFormData(prev => ({ ...prev, website_url: e.target.value }))}
             />
           </div>
-          <div className="space-y-2">
+        <div className="space-y-2">
             <Label htmlFor="twitter">Twitter Handle</Label>
-            <Input
-              id="twitter"
+            <Input 
+              id="twitter" 
               placeholder="@username"
               value={formData.twitter_handle}
               onChange={(e) => setFormData(prev => ({ ...prev, twitter_handle: e.target.value }))}
@@ -256,8 +279,8 @@ function ProfileSettings() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="instagram">Instagram Handle</Label>
-            <Input
-              id="instagram"
+            <Input 
+              id="instagram" 
               placeholder="@username"
               value={formData.instagram_handle}
               onChange={(e) => setFormData(prev => ({ ...prev, instagram_handle: e.target.value }))}
@@ -265,8 +288,8 @@ function ProfileSettings() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="youtube">YouTube Channel</Label>
-            <Input
-              id="youtube"
+            <Input 
+              id="youtube" 
               placeholder="https://youtube.com/@channel"
               value={formData.youtube_channel}
               onChange={(e) => setFormData(prev => ({ ...prev, youtube_channel: e.target.value }))}
@@ -274,8 +297,8 @@ function ProfileSettings() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="discord">Discord Username</Label>
-            <Input
-              id="discord"
+            <Input 
+              id="discord" 
               placeholder="username#1234"
               value={formData.discord_username}
               onChange={(e) => setFormData(prev => ({ ...prev, discord_username: e.target.value }))}
@@ -679,48 +702,48 @@ function NotificationSettings() {
         <CardDescription>Choose what email notifications you'd like to receive</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
+          <div className="flex items-center justify-between">
+            <div>
             <div className="font-medium">New Referrals</div>
             <div className="text-sm text-muted-foreground">Get notified when someone signs up using your referral link</div>
+            </div>
+                <Switch 
+                  checked={formData.email_notifications_new_referral}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_new_referral: checked }))}
+                />
           </div>
-          <Switch 
-            checked={formData.email_notifications_new_referral}
-            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_new_referral: checked }))}
-          />
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-medium">Link Clicks</div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Link Clicks</div>
             <div className="text-sm text-muted-foreground">Get notified when someone clicks your referral links</div>
+            </div>
+                <Switch 
+                  checked={formData.email_notifications_link_clicks}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_link_clicks: checked }))}
+                />
           </div>
-          <Switch 
-            checked={formData.email_notifications_link_clicks}
-            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_link_clicks: checked }))}
-          />
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-medium">Weekly Reports</div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Weekly Reports</div>
             <div className="text-sm text-muted-foreground">Receive weekly summaries of your referral performance</div>
+            </div>
+                <Switch 
+                  checked={formData.email_notifications_weekly_reports}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_weekly_reports: checked }))}
+                />
           </div>
-          <Switch 
-            checked={formData.email_notifications_weekly_reports}
-            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_weekly_reports: checked }))}
-          />
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-medium">Product Updates</div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Product Updates</div>
             <div className="text-sm text-muted-foreground">Stay informed about new features and improvements</div>
-          </div>
-          <Switch 
-            checked={formData.email_notifications_product_updates}
-            onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_product_updates: checked }))}
-          />
+            </div>
+                <Switch 
+                  checked={formData.email_notifications_product_updates}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_product_updates: checked }))}
+                />
         </div>
       </CardContent>
       <CardFooter>
@@ -834,12 +857,12 @@ function PrivacySettings() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
+    <Card>
+      <CardHeader>
           <CardTitle>Profile Privacy</CardTitle>
           <CardDescription>Control what information is visible to others</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      </CardHeader>
+      <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="profile-visibility">Profile Visibility</Label>
             <Select value={formData.profile_visibility} onValueChange={(value) => setFormData(prev => ({ ...prev, profile_visibility: value }))}>
@@ -858,7 +881,7 @@ function PrivacySettings() {
               {formData.profile_visibility === "unlisted" && "Your profile is not discoverable but accessible via direct link"}
             </p>
           </div>
-          
+
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Show Earnings</div>
@@ -869,7 +892,7 @@ function PrivacySettings() {
               onCheckedChange={(checked) => setFormData(prev => ({ ...prev, show_earnings: checked }))}
             />
           </div>
-          
+
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Show Referral Count</div>
@@ -879,15 +902,15 @@ function PrivacySettings() {
               checked={formData.show_referral_count}
               onCheckedChange={(checked) => setFormData(prev => ({ ...prev, show_referral_count: checked }))}
             />
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="mr-2 h-4 w-4" />
-            {saving ? "Saving..." : "Save Privacy Settings"}
-          </Button>
-        </CardFooter>
-      </Card>
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Button onClick={handleSave} disabled={saving}>
+          <Save className="mr-2 h-4 w-4" />
+          {saving ? "Saving..." : "Save Privacy Settings"}
+        </Button>
+      </CardFooter>
+    </Card>
 
       <Card>
         <CardHeader>
@@ -898,11 +921,11 @@ function PrivacySettings() {
           <div className="space-y-2">
             <Label htmlFor="webhook-url">Webhook URL</Label>
             <div className="flex gap-2">
-              <Input 
-                id="webhook-url" 
-                placeholder="https://your-server.com/webhook"
-                value={formData.webhook_url}
-                onChange={(e) => setFormData(prev => ({ ...prev, webhook_url: e.target.value }))}
+            <Input 
+              id="webhook-url" 
+              placeholder="https://your-server.com/webhook"
+              value={formData.webhook_url}
+              onChange={(e) => setFormData(prev => ({ ...prev, webhook_url: e.target.value }))}
                 className="flex-1"
               />
               <Button 
@@ -1063,7 +1086,7 @@ function ApiSettings() {
   }
 
   if (generatedKeys) {
-    return (
+  return (
       <Card>
         <CardHeader>
           <CardTitle>Your New API Keys</CardTitle>
@@ -1082,8 +1105,8 @@ function ApiSettings() {
               >
                 {copiedKey === 'live' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
-            </div>
-          </div>
+                </div>
+              </div>
           <div className="space-y-2">
             <Label>Test API Key</Label>
             <div className="flex gap-2">
@@ -1120,7 +1143,7 @@ function ApiSettings() {
         </CardHeader>
         <CardContent className="space-y-4">
           {hasApiKeys ? (
-            <div className="space-y-4">
+          <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Live API Key</Label>
                 <div className="flex gap-2">
@@ -1141,8 +1164,8 @@ function ApiSettings() {
                     onClick={() => copyApiKey("sk_live_********************************", 'live')}
                   >
                     {copiedKey === 'live' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
+              </Button>
+            </div>
               </div>
               <div className="space-y-2">
                 <Label>Test API Key</Label>
@@ -1164,8 +1187,8 @@ function ApiSettings() {
                     onClick={() => copyApiKey("sk_test_********************************", 'test')}
                   >
                     {copiedKey === 'test' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
+              </Button>
+            </div>
               </div>
             </div>
           ) : (

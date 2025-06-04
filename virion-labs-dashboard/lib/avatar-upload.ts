@@ -29,7 +29,8 @@ export async function uploadAvatar(file: File, userId: string): Promise<UploadAv
 
     // Generate unique filename
     const fileExt = file.name.split('.').pop()
-    const fileName = `${userId}/avatar-${Date.now()}.${fileExt}`
+    const timestamp = Date.now()
+    const fileName = `${userId}/avatar-${timestamp}.${fileExt}`
 
     // Delete existing avatar if any
     const { data: existingFiles } = await supabase.storage
@@ -59,17 +60,21 @@ export async function uploadAvatar(file: File, userId: string): Promise<UploadAv
       }
     }
 
-    // Get public URL
+    // Get public URL with cache busting parameter
     const { data: urlData } = supabase.storage
       .from('avatars')
       .getPublicUrl(fileName)
 
-    const avatarUrl = urlData.publicUrl
+    // Add cache busting parameter to ensure browser doesn't cache old images
+    const avatarUrl = `${urlData.publicUrl}?t=${timestamp}`
 
     // Update user profile with new avatar URL
     const { error: updateError } = await supabase
       .from('user_profiles')
-      .update({ avatar_url: avatarUrl })
+      .update({ 
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', userId)
 
     if (updateError) {
@@ -80,6 +85,8 @@ export async function uploadAvatar(file: File, userId: string): Promise<UploadAv
       }
     }
 
+    console.log('Avatar uploaded successfully:', avatarUrl)
+    
     return {
       success: true,
       avatarUrl

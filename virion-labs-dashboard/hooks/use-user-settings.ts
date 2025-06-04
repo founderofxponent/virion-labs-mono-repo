@@ -7,7 +7,7 @@ import { generateUserApiKeys } from "@/lib/api-keys"
 import { uploadAvatar, UploadAvatarResult } from "@/lib/avatar-upload"
 
 export function useUserSettings() {
-  const { user, profile, signOut } = useAuth()
+  const { user, profile, signOut, refreshProfile } = useAuth()
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -251,8 +251,8 @@ export function useUserSettings() {
     try {
       const result = await uploadAvatar(file, user.id)
       if (result.success) {
-        // Refresh auth context to update profile
-        window.location.reload() // Simple approach - you might want to implement a more elegant refresh
+        // Refresh profile to get updated avatar
+        await refreshProfile()
       }
       return result
     } catch (err: any) {
