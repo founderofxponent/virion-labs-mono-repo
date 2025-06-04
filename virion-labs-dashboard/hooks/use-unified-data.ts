@@ -49,7 +49,7 @@ export interface UnifiedData {
 }
 
 // Data transformers for each role
-const transformInfluencerData = (linksData: any[], referralsData: any[]): UnifiedData => {
+const transformInfluencerData = (linksData: any[], referralsData: any[], campaignsData: any[]): UnifiedData => {
   const totalClicks = linksData.reduce((sum, link) => sum + (link.clicks || 0), 0)
   const totalConversions = linksData.reduce((sum, link) => sum + (link.conversions || 0), 0)
   const totalEarnings = linksData.reduce((sum, link) => sum + parseFloat(String(link.earnings || '0')), 0)
@@ -59,11 +59,11 @@ const transformInfluencerData = (linksData: any[], referralsData: any[]): Unifie
     primary: totalClicks,
     secondary: totalConversions,
     tertiary: totalEarnings,
-    quaternary: activeLinks,
+    quaternary: campaignsData.length,
     primaryLabel: "Total Clicks",
     secondaryLabel: "Conversions",
     tertiaryLabel: "Earnings",
-    quaternaryLabel: "Active Links",
+    quaternaryLabel: "Available Campaigns",
     conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0
   }
 
@@ -76,33 +76,44 @@ const transformInfluencerData = (linksData: any[], referralsData: any[]): Unifie
     metadata: {
       conversions: link.conversions || 0,
       earnings: parseFloat(String(link.earnings || '0')),
-      url: link.referral_url
+      url: link.referral_url,
+      campaign: link.discord_guild_campaigns?.campaign_name || 'Independent'
     },
     created: new Date(link.created_at).toLocaleDateString()
   }))
 
-  const secondaryList: UnifiedListItem[] = referralsData.slice(0, 10).map(referral => ({
-    id: referral.id,
-    title: referral.name,
-    subtitle: referral.email,
-    value: parseFloat(String(referral.conversion_value || '0')),
-    status: referral.status,
+  const secondaryList: UnifiedListItem[] = campaignsData.slice(0, 10).map(campaign => ({
+    id: campaign.id,
+    title: campaign.campaign_name,
+    subtitle: campaign.client_name,
+    value: 0, // Could be estimated earnings or participants
+    status: campaign.is_active ? 'active' : 'inactive',
     metadata: {
-      source: referral.source_platform,
-      referralLink: referral.referral_links?.title || 'Unknown'
+      type: campaign.campaign_type,
+      endDate: campaign.campaign_end_date,
+      requirements: campaign.requirements || []
     },
-    created: new Date(referral.created_at).toLocaleDateString()
+    created: new Date(campaign.campaign_start_date || campaign.created_at).toLocaleDateString()
   }))
 
-  const recentActivity: UnifiedActivity[] = referralsData.slice(0, 5).map(referral => ({
-    id: referral.id,
-    user: referral.name,
-    action: referral.status === 'completed' 
-      ? `Completed purchase - $${parseFloat(String(referral.conversion_value || '0')).toFixed(2)}`
-      : `${referral.status === 'active' ? 'Signed up' : 'Clicked'} via ${referral.source_platform}`,
-    time: getTimeAgo(new Date(referral.created_at)),
-    type: referral.status === 'completed' ? 'success' : 'info'
-  }))
+  const recentActivity: UnifiedActivity[] = [
+    ...referralsData.slice(0, 3).map(referral => ({
+      id: referral.id,
+      user: referral.name,
+      action: referral.status === 'completed' 
+        ? `Completed purchase - $${parseFloat(String(referral.conversion_value || '0')).toFixed(2)}`
+        : `${referral.status === 'active' ? 'Signed up' : 'Clicked'} via ${referral.source_platform}`,
+      time: getTimeAgo(new Date(referral.created_at)),
+      type: referral.status === 'completed' ? 'success' : 'info'
+    } as UnifiedActivity)),
+    ...campaignsData.slice(0, 2).map(campaign => ({
+      id: `campaign-${campaign.id}`,
+      user: 'System',
+      action: `New campaign "${campaign.campaign_name}" available`,
+      time: getTimeAgo(new Date(campaign.created_at)),
+      type: 'info'
+    } as UnifiedActivity))
+  ].slice(0, 5)
 
   return {
     stats,
@@ -111,7 +122,7 @@ const transformInfluencerData = (linksData: any[], referralsData: any[]): Unifie
     recentActivity,
     metadata: {
       role: 'influencer',
-      permissions: ['view_links', 'create_links', 'view_referrals'],
+      permissions: ['view_links', 'create_links', 'view_referrals', 'view_campaigns'],
       lastUpdated: new Date().toISOString()
     }
   }
@@ -316,10 +327,18 @@ export function useUnifiedData() {
 
       switch (profile.role) {
         case 'influencer': {
-          const [linksResponse, referralsResponse] = await Promise.all([
+          const [linksResponse, referralsResponse, campaignsResponse] = await Promise.all([
             supabase
               .from('referral_links')
-              .select('*')
+              .select(`
+                *,
+                discord_guild_campaigns!referral_links_campaign_id_fkey(
+                  id,
+                  campaign_name,
+                  campaign_type,
+                  clients(name)
+                )
+              `)
               .eq('influencer_id', user.id)
               .order('created_at', { ascending: false })
               .limit(50),
@@ -332,15 +351,39 @@ export function useUnifiedData() {
               `)
               .eq('influencer_id', user.id)
               .order('created_at', { ascending: false })
-              .limit(100)
+              .limit(100),
+
+            supabase
+              .from('discord_guild_campaigns')
+              .select(`
+                id,
+                campaign_name,
+                campaign_type,
+                campaign_start_date,
+                campaign_end_date,
+                is_active,
+                created_at,
+                clients!inner(name)
+              `)
+              .eq('is_active', true)
+              .order('created_at', { ascending: false })
+              .limit(50)
           ])
 
           if (linksResponse.error) throw linksResponse.error
           if (referralsResponse.error) throw referralsResponse.error
+          if (campaignsResponse.error) throw campaignsResponse.error
+
+          // Transform campaigns data to match expected format
+          const transformedCampaigns = (campaignsResponse.data || []).map(campaign => ({
+            ...campaign,
+            client_name: (campaign.clients as any)?.name || 'Unknown Client'
+          }))
 
           transformedData = transformInfluencerData(
             linksResponse.data || [],
-            referralsResponse.data || []
+            referralsResponse.data || [],
+            transformedCampaigns
           )
           break
         }

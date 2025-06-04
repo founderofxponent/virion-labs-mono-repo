@@ -393,10 +393,38 @@ function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }
                   <Badge variant={link.is_active ? "default" : "secondary"}>
                     {link.is_active ? "Active" : "Inactive"}
                   </Badge>
+                  {link.campaign_context && (
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                      Campaign
+                    </Badge>
+                  )}
                 </div>
                 {link.description && (
                   <p className="text-sm text-muted-foreground">{link.description}</p>
                 )}
+                
+                {/* Campaign Context */}
+                {link.campaign_context && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-2 space-y-1">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium text-blue-900">Campaign:</span>
+                      <span className="text-blue-800">{link.campaign_context.campaign_name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium text-blue-900">Client:</span>
+                      <span className="text-blue-800">{link.campaign_context.client_name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-medium text-blue-900">Type:</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {link.campaign_context.campaign_type.split('_').map(word => 
+                          word.charAt(0).toUpperCase() + word.slice(1)
+                        ).join(' ')}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span>{link.platform}</span>
                   <span>•</span>

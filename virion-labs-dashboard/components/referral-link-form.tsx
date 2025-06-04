@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { useReferralLinks } from "@/hooks/use-referral-links"
+import { useAvailableCampaigns } from "@/hooks/use-available-campaigns"
 import { type ReferralLink, type Platform } from "@/lib/supabase"
 import { toast } from "sonner"
 
@@ -28,6 +29,7 @@ const linkFormSchema = z.object({
   thumbnail_url: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
   is_active: z.boolean().default(true),
   expires_at: z.date().optional(),
+  campaign_id: z.string().optional(),
 })
 
 type LinkFormData = z.infer<typeof linkFormSchema>
@@ -36,11 +38,13 @@ interface ReferralLinkFormProps {
   link?: ReferralLink
   onSuccess?: () => void
   onCancel?: () => void
+  preselectedCampaignId?: string
 }
 
-export function ReferralLinkForm({ link, onSuccess, onCancel }: ReferralLinkFormProps) {
+export function ReferralLinkForm({ link, onSuccess, onCancel, preselectedCampaignId }: ReferralLinkFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { addLink, updateLink } = useReferralLinks()
+  const { campaigns: availableCampaigns } = useAvailableCampaigns()
   const isEditing = !!link
 
   const form = useForm<LinkFormData>({
@@ -53,6 +57,7 @@ export function ReferralLinkForm({ link, onSuccess, onCancel }: ReferralLinkForm
       thumbnail_url: link?.thumbnail_url || "",
       is_active: link?.is_active ?? true,
       expires_at: link?.expires_at ? new Date(link.expires_at) : undefined,
+      campaign_id: preselectedCampaignId || (link as any)?.campaign_id || "",
     },
   })
 
@@ -65,6 +70,7 @@ export function ReferralLinkForm({ link, onSuccess, onCancel }: ReferralLinkForm
         expires_at: data.expires_at?.toISOString() || null,
         thumbnail_url: data.thumbnail_url || null,
         description: data.description || null,
+        campaign_id: data.campaign_id || null,
       }
 
       let result
@@ -113,6 +119,29 @@ export function ReferralLinkForm({ link, onSuccess, onCancel }: ReferralLinkForm
           {form.formState.errors.description && (
             <p className="text-sm text-red-500">{form.formState.errors.description.message}</p>
           )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="campaign">Campaign (Optional)</Label>
+          <Select
+            value={form.watch("campaign_id") || "none"}
+            onValueChange={(value) => form.setValue("campaign_id", value === "none" ? "" : value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a campaign or create independent link" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Independent Link (No Campaign)</SelectItem>
+              {availableCampaigns.map((campaign) => (
+                <SelectItem key={campaign.id} value={campaign.id}>
+                  {campaign.campaign_name} - {campaign.client_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Link to a specific campaign for better tracking and context
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -11,6 +11,7 @@ import {
   Activity,
   Bot,
   Database,
+  Target,
 } from "lucide-react"
 import { cn, generateInitials } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -28,6 +29,12 @@ export function Sidebar() {
       href: "/",
       icon: LayoutDashboard,
       active: pathname === "/",
+    },
+    {
+      title: "Available Campaigns",
+      href: "/campaigns",
+      icon: Target,
+      active: pathname === "/campaigns",
     },
     {
       title: "My Links",
@@ -61,6 +68,12 @@ export function Sidebar() {
       href: "/clients",
       icon: Users,
       active: pathname === "/clients",
+    },
+    {
+      title: "Discord Campaigns",
+      href: "/discord-campaigns",
+      icon: Target,
+      active: pathname === "/discord-campaigns",
     },
     {
       title: "Bots",

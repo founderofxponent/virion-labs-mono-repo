@@ -571,6 +571,12 @@ export interface BotWithClient extends Bot {
 
 // Extended ReferralLink type with analytics
 export interface ReferralLinkWithAnalytics extends ReferralLink {
+  campaign_context?: {
+    campaign_id: string
+    campaign_name: string
+    campaign_type: string
+    client_name: string
+  } | null
   analytics?: {
     totalClicks: number
     totalConversions: number

@@ -35,15 +35,31 @@ export function useReferralLinks() {
       
       const { data, error } = await supabase
         .from('referral_links')
-        .select('*')
+        .select(`
+          *,
+          discord_guild_campaigns!referral_links_campaign_id_fkey(
+            id,
+            campaign_name,
+            campaign_type,
+            clients(name)
+          )
+        `)
         .eq('influencer_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
       
-      // Transform data to include analytics
+      // Transform data to include analytics and campaign context
       const linksWithAnalytics: ReferralLinkWithAnalytics[] = (data || []).map(link => ({
         ...link,
+        campaign_context: link.discord_guild_campaigns ? {
+          campaign_id: link.discord_guild_campaigns.id,
+          campaign_name: link.discord_guild_campaigns.campaign_name,
+          campaign_type: link.discord_guild_campaigns.campaign_type,
+          client_name: Array.isArray(link.discord_guild_campaigns.clients) 
+            ? link.discord_guild_campaigns.clients[0]?.name 
+            : link.discord_guild_campaigns.clients?.name
+        } : null,
         analytics: {
           totalClicks: link.clicks,
           totalConversions: link.conversions,
