@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Save, Eye, EyeOff, Copy, Check, Upload, RefreshCw, Trash2, CheckCircle, Loader2 } from "lucide-react"
+import { useTheme } from "next-themes"
 
 import { generateInitials } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -345,6 +346,7 @@ function ProfileSettings() {
 function AccountSettings() {
   const { settings, updateSettings, changePassword, deleteAccount } = useUserSettings()
   const { toast } = useToast()
+  const { setTheme } = useTheme()
   const [saving, setSaving] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState(false)
@@ -383,6 +385,8 @@ function AccountSettings() {
     try {
       const success = await updateSettings(formData)
       if (success) {
+        // Apply theme immediately
+        setTheme(formData.theme)
         toast({
           title: "Account settings updated",
           description: "Your account preferences have been saved successfully.",
