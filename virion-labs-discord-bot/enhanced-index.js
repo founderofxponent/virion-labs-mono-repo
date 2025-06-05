@@ -133,13 +133,15 @@ async function trackInteraction(guildId, channelId, message, interactionType, bo
   }
 }
 
-// Extract referral code from message
+// Extract referral code from message with enhanced patterns
 function extractReferralCode(content) {
   // Look for common referral code patterns
   const patterns = [
     /(?:referral|ref|code)[\s:]*([a-zA-Z0-9\-_]+)/i,
     /\b([a-zA-Z0-9\-_]+-[a-zA-Z0-9\-_]+-[a-zA-Z0-9\-_]+)\b/,
-    /(?:use|enter)[\s:]*([a-zA-Z0-9\-_]+)/i
+    /(?:use|enter)[\s:]*([a-zA-Z0-9\-_]+)/i,
+    /^([a-zA-Z0-9\-_]{6,20})$/,  // Direct code
+    /(?:my code is|code:|ref:)\s*([a-zA-Z0-9\-_]+)/i // More specific patterns
   ];
 
   for (const pattern of patterns) {
@@ -149,6 +151,114 @@ function extractReferralCode(content) {
     }
   }
   return null;
+}
+
+// Validate referral code with the dashboard
+async function validateReferralCode(code, guildId, userId = null) {
+  try {
+    const response = await fetch(`${DASHBOARD_API_URL}/referral/${code}/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Virion-Discord-Bot/2.0'
+      },
+      body: JSON.stringify({ 
+        guild_id: guildId,
+        user_id: userId 
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      return result.valid ? result : null;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error validating referral code:', error);
+    return null;
+  }
+}
+
+// Detect referral context from Discord invite and auto-assign
+async function handleReferralInviteContext(member) {
+  try {
+    // Check if the member joined through a campaign-generated invite
+    const invites = await member.guild.invites.fetch();
+    
+    for (const invite of invites.values()) {
+      // Check if this is a campaign-generated invite (look for our naming pattern)
+      if (invite.code && invite.code.startsWith('camp-')) {
+        console.log(`🔍 Detected campaign invite: ${invite.code}`);
+        
+        // Extract campaign context from invite
+        try {
+          const response = await fetch(`${DASHBOARD_API_URL}/discord/invite/${invite.code}/context`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'User-Agent': 'Virion-Discord-Bot/2.0'
+            }
+          });
+          
+          if (response.ok) {
+            const context = await response.json();
+            if (context.referral_code) {
+              console.log(`🎯 Auto-detected referral: ${context.referral_code} for ${member.user.tag}`);
+              
+              // Simulate a message to trigger referral onboarding
+              const config = await getGuildConfig(member.guild.id);
+              if (config?.configured) {
+                // Create a synthetic message for referral processing
+                const syntheticMessage = {
+                  author: member.user,
+                  member: member,
+                  guild: member.guild,
+                  channel: member.guild.systemChannel || { id: 'auto-referral' },
+                  content: context.referral_code,
+                  reply: async (options) => {
+                    // Send to system channel or DM
+                    try {
+                      await member.send(options);
+                    } catch {
+                      if (member.guild.systemChannel) {
+                        await member.guild.systemChannel.send({
+                          content: `${member.user}`,
+                          ...options
+                        });
+                      }
+                    }
+                  },
+                  followUp: async (options) => {
+                    try {
+                      await member.send(options);
+                    } catch {
+                      if (member.guild.systemChannel) {
+                        await member.guild.systemChannel.send({
+                          content: `${member.user}`,
+                          ...options
+                        });
+                      }
+                    }
+                  }
+                };
+                
+                // Process the referral automatically
+                await handleReferralOnboarding(syntheticMessage, config);
+                return true;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching invite context:', error);
+        }
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error handling referral invite context:', error);
+    return false;
+  }
 }
 
 // Create campaign-specific embed
@@ -171,21 +281,71 @@ function createCampaignEmbed(config, title, description, color = null) {
   return embed;
 }
 
-// Handle referral onboarding flow
+// Handle referral onboarding flow with enhanced campaign integration
 async function handleReferralOnboarding(message, config) {
   const referralCode = extractReferralCode(message.content);
   
-  if (referralCode && config.campaign?.referral) {
-    // Check if this matches the campaign's referral code
-    if (referralCode === config.campaign.referral.code) {
+  if (referralCode) {
+    // Validate the referral code against our new API
+    const validation = await validateReferralCode(
+      referralCode, 
+      message.guild.id, 
+      message.author.id
+    );
+    
+    if (validation && validation.valid) {
+      const { campaign, influencer, referral_link } = validation;
+      
+      // Create campaign-specific welcome message
+      let welcomeMessage = `Thanks for joining through **${influencer.name}'s** referral link!`;
+      
+      if (campaign.welcome_message) {
+        welcomeMessage = campaign.welcome_message.replace('{influencer_name}', influencer.name);
+      }
+      
+      welcomeMessage += `\n\n🎯 **Campaign**: ${campaign.name}`;
+      welcomeMessage += `\n📝 **Type**: ${campaign.type.replace('_', ' ').toUpperCase()}`;
+      
+      if (campaign.description) {
+        welcomeMessage += `\n💭 **About**: ${campaign.description}`;
+      }
+      
+      welcomeMessage += `\n\n✨ **What's next?**`;
+      welcomeMessage += `\n• Explore our community channels`;
+      welcomeMessage += `\n• Connect with other members`;
+      welcomeMessage += `\n• Get exclusive campaign benefits`;
+      
       const embed = createCampaignEmbed(
         config,
         '🎉 Welcome to the Community!',
-        `Thanks for joining through ${config.campaign.referral.influencer.name}'s referral link!\n\nYou're now part of our exclusive community. Here's what you can do next:\n\n• Explore our products and services\n• Connect with other community members\n• Get exclusive updates and offers`,
+        welcomeMessage,
         '#00ff00'
       );
 
       await message.reply({ embeds: [embed] });
+      
+      // Assign role if configured
+      if (campaign.auto_role_assignment && campaign.target_role_id) {
+        try {
+          const role = message.guild.roles.cache.get(campaign.target_role_id);
+          if (role && message.member) {
+            await message.member.roles.add(role);
+            
+            // Send role assignment confirmation
+            const roleEmbed = createCampaignEmbed(
+              config,
+              '🎖️ Role Assigned!',
+              `You've been assigned the **${role.name}** role for this campaign!`,
+              '#00aa00'
+            );
+            
+            await message.followUp({ embeds: [roleEmbed] });
+            console.log(`✅ Assigned role ${role.name} to ${message.author.tag} via referral ${referralCode}`);
+          }
+        } catch (error) {
+          console.error('Error assigning role:', error);
+        }
+      }
       
       // Track successful referral signup
       await trackInteraction(
@@ -193,7 +353,30 @@ async function handleReferralOnboarding(message, config) {
         message.channel.id,
         message,
         'referral_signup',
-        'Referral onboarding completed',
+        'Referral onboarding completed with campaign context',
+        referralCode
+      );
+      
+      console.log(`🎯 Successful referral signup: ${message.author.tag} used code ${referralCode} for campaign ${campaign.name}`);
+      return true;
+    } else {
+      // Invalid referral code - provide helpful feedback
+      const embed = createCampaignEmbed(
+        config,
+        '❌ Invalid Referral Code',
+        `The referral code **"${referralCode}"** is not valid for this server.\n\n💡 **Tips:**\n• Make sure you copied the code correctly\n• Check that the code hasn't expired\n• Verify you're in the right Discord server\n\nIf you need help, contact our support team!`,
+        '#ff0000'
+      );
+
+      await message.reply({ embeds: [embed] });
+      
+      // Track failed referral attempt
+      await trackInteraction(
+        message.guild?.id,
+        message.channel.id,
+        message,
+        'referral_failed',
+        'Invalid referral code provided',
         referralCode
       );
       
@@ -201,7 +384,7 @@ async function handleReferralOnboarding(message, config) {
     }
   }
   
-  // General onboarding message
+  // Check for general onboarding message patterns
   if (message.content.toLowerCase().includes('hello') || 
       message.content.toLowerCase().includes('hi') ||
       message.content.toLowerCase().includes('welcome')) {
@@ -492,26 +675,84 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// Guild member add event for automatic onboarding
+// Guild member add event for enhanced campaign-specific onboarding
 client.on('guildMemberAdd', async (member) => {
   try {
     const config = await getGuildConfig(member.guild.id);
     
-    if (config?.configured && config.campaign.type === 'referral_onboarding') {
-      // Send welcome message with referral instructions
+    if (config?.configured) {
+      console.log(`👤 New member ${member.user.tag} joined ${member.guild.name} with campaign: ${config.campaign.name}`);
+      
+      // Check for automatic referral context from invite links
+      const autoReferralProcessed = await handleReferralInviteContext(member);
+      if (autoReferralProcessed) {
+        console.log(`✅ Auto-processed referral for ${member.user.tag}`);
+        return; // Skip general welcome if referral was processed
+      }
+      
+      let welcomeTitle = '🎉 Welcome to the Server!';
+      let welcomeMessage = `Welcome to ${config.campaign.client.name}, ${member.user.username}!`;
+      
+      // Customize message based on campaign type
+      switch (config.campaign.type) {
+        case 'referral_onboarding':
+          welcomeMessage += `\n\n🎯 **Referral Campaign**: ${config.campaign.name}`;
+          welcomeMessage += `\n\n💎 **Got a referral code?** Share it in any channel to unlock exclusive benefits and connect with your referrer!`;
+          welcomeMessage += `\n\n🏷️ **How to use:** Simply type your referral code in any channel, and I'll help you get started with special perks.`;
+          break;
+          
+        case 'community_engagement':
+          welcomeMessage += `\n\n🌟 **Community Campaign**: ${config.campaign.name}`;
+          welcomeMessage += `\n\n💬 **Let's connect!** This server is all about building an amazing community together.`;
+          welcomeMessage += `\n\n🤝 **Get started:** Say hello in the chat, and I'll help you navigate your journey here!`;
+          break;
+          
+        case 'gaming_community':
+          welcomeMessage += `\n\n🎮 **Gaming Campaign**: ${config.campaign.name}`;
+          welcomeMessage += `\n\n🕹️ **Ready to game?** Share your favorite games and connect with fellow gamers!`;
+          welcomeMessage += `\n\n🏆 **Tip:** Use any referral codes to unlock gaming perks and exclusive content!`;
+          break;
+          
+        default:
+          welcomeMessage += `\n\n✨ **Campaign**: ${config.campaign.name}`;
+          welcomeMessage += `\n\n📢 I'm here to help you get the most out of this community!`;
+      }
+      
+      // Add campaign-specific instructions
+      if (config.campaign.description) {
+        welcomeMessage += `\n\n📝 **About this campaign:**\n${config.campaign.description}`;
+      }
+      
+      // Add call to action
+      welcomeMessage += `\n\n🚀 **Ready to start?** Drop a message in any channel and I'll assist you!`;
+
       const embed = createCampaignEmbed(
         config,
-        '🎉 Welcome to the Server!',
-        `Welcome to ${config.campaign.client.name}, ${member.user.username}!\n\nIf you joined through a referral link, please share your referral code in any channel to unlock exclusive benefits!`
+        welcomeTitle,
+        welcomeMessage
       );
 
       // Try to send DM first, fallback to system channel
+      let messageSent = false;
       try {
         await member.send({ embeds: [embed] });
+        messageSent = true;
+        console.log(`📩 Sent welcome DM to ${member.user.tag}`);
       } catch (dmError) {
+        console.log(`⚠️ Could not DM ${member.user.tag}, trying system channel...`);
+        
         const systemChannel = member.guild.systemChannel;
         if (systemChannel) {
-          await systemChannel.send({ content: `${member.user}`, embeds: [embed] });
+          try {
+            await systemChannel.send({ 
+              content: `${member.user} Welcome! 👋`, 
+              embeds: [embed] 
+            });
+            messageSent = true;
+            console.log(`📢 Sent welcome message to system channel for ${member.user.tag}`);
+          } catch (channelError) {
+            console.error(`Failed to send to system channel:`, channelError);
+          }
         }
       }
 
@@ -526,9 +767,12 @@ client.on('guildMemberAdd', async (member) => {
           guild: member.guild,
           channel: { id: member.guild.systemChannel?.id || 'dm' }
         },
-        'join',
-        'Welcome message sent'
+        'guild_join',
+        messageSent ? 'Campaign-specific welcome message sent' : 'Welcome message failed',
+        null
       );
+      
+      console.log(`✅ Processed guild join for ${member.user.tag} in campaign ${config.campaign.name}`);
     }
   } catch (error) {
     console.error('Error handling guild member add:', error);
