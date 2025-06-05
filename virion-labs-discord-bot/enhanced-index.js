@@ -186,11 +186,10 @@ async function handleReferralInviteContext(member) {
     const invites = await member.guild.invites.fetch();
     
     for (const invite of invites.values()) {
-      // Check if this is a campaign-generated invite (look for our naming pattern)
-      if (invite.code && invite.code.startsWith('camp-')) {
-        console.log(`🔍 Detected campaign invite: ${invite.code}`);
+      if (invite.code) {
+        console.log(`🔍 Checking invite: ${invite.code} (uses: ${invite.uses})`);
         
-        // Extract campaign context from invite
+        // Check if this invite is associated with any referral campaign
         try {
           const response = await fetch(`${DASHBOARD_API_URL}/discord/invite/${invite.code}/context`, {
             method: 'GET',
@@ -201,11 +200,12 @@ async function handleReferralInviteContext(member) {
           });
           
           if (response.ok) {
-            const context = await response.json();
-            if (context.referral_code) {
-              console.log(`🎯 Auto-detected referral: ${context.referral_code} for ${member.user.tag}`);
+            const result = await response.json();
+            if (result.success && result.invite_context?.referral_code) {
+              const context = result.invite_context;
+              console.log(`🎯 Auto-detected referral: ${context.referral_code} for ${member.user.tag} via invite ${invite.code}`);
               
-              // Simulate a message to trigger referral onboarding
+              // Get guild configuration
               const config = await getGuildConfig(member.guild.id);
               if (config?.configured) {
                 // Create a synthetic message for referral processing
@@ -215,6 +215,7 @@ async function handleReferralInviteContext(member) {
                   guild: member.guild,
                   channel: member.guild.systemChannel || { id: 'auto-referral' },
                   content: context.referral_code,
+                  id: `auto-referral-${member.user.id}-${Date.now()}`,
                   reply: async (options) => {
                     // Send to system channel or DM
                     try {
@@ -243,10 +244,61 @@ async function handleReferralInviteContext(member) {
                 };
                 
                 // Process the referral automatically
+                console.log(`🤖 Processing auto-referral for ${member.user.tag} with code ${context.referral_code}`);
                 await handleReferralOnboarding(syntheticMessage, config);
+                
+                // Record the successful referral in the dashboard
+                try {
+                  const completionResponse = await fetch(`${DASHBOARD_API_URL}/referral/complete`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'User-Agent': 'Virion-Discord-Bot/2.0'
+                    },
+                    body: JSON.stringify({
+                      referral_code: context.referral_code,
+                      discord_user_id: member.user.id,
+                      discord_username: member.user.tag,
+                      guild_id: member.guild.id,
+                      conversion_source: 'discord_auto_detection'
+                    })
+                  });
+                  
+                  if (completionResponse.ok) {
+                    const completionResult = await completionResponse.json();
+                    console.log(`✅ Referral completion recorded: ${completionResult.referral_id} (duplicate: ${completionResult.duplicate})`);
+                  } else {
+                    console.error('❌ Failed to record referral completion:', completionResponse.status);
+                  }
+                } catch (error) {
+                  console.error('❌ Error recording referral completion:', error);
+                }
+                
+                // Also notify about successful auto-processing
+                const welcomeEmbed = createCampaignEmbed(
+                  config,
+                  '🎉 Welcome via Referral!',
+                  `Great news! We automatically detected that you joined through **${context.influencer.name}'s** referral link for the **${context.campaign.name}** campaign.\n\n✨ Your referral benefits have been automatically applied!`,
+                  config.campaign?.brand_color || '#00ff00'
+                );
+                
+                try {
+                  await member.send({ embeds: [welcomeEmbed] });
+                } catch {
+                  if (member.guild.systemChannel) {
+                    await member.guild.systemChannel.send({
+                      content: `${member.user} Welcome! 👋`,
+                      embeds: [welcomeEmbed]
+                    });
+                  }
+                }
+                
                 return true;
               }
             }
+          } else if (response.status !== 404) {
+            // Log non-404 errors (404 is expected for non-campaign invites)
+            console.log(`⚠️ API error checking invite ${invite.code}: ${response.status}`);
           }
         } catch (error) {
           console.error('Error fetching invite context:', error);
@@ -356,6 +408,33 @@ async function handleReferralOnboarding(message, config) {
         'Referral onboarding completed with campaign context',
         referralCode
       );
+      
+      // Record the successful referral in the dashboard
+      try {
+        const completionResponse = await fetch(`${DASHBOARD_API_URL}/referral/complete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Virion-Discord-Bot/2.0'
+          },
+          body: JSON.stringify({
+            referral_code: referralCode,
+            discord_user_id: message.author.id,
+            discord_username: message.author.tag,
+            guild_id: message.guild.id,
+            conversion_source: 'manual_referral_code'
+          })
+        });
+        
+        if (completionResponse.ok) {
+          const completionResult = await completionResponse.json();
+          console.log(`✅ Manual referral completion recorded: ${completionResult.referral_id} (duplicate: ${completionResult.duplicate})`);
+        } else {
+          console.error('❌ Failed to record manual referral completion:', completionResponse.status);
+        }
+      } catch (error) {
+        console.error('❌ Error recording manual referral completion:', error);
+      }
       
       console.log(`🎯 Successful referral signup: ${message.author.tag} used code ${referralCode} for campaign ${campaign.name}`);
       return true;

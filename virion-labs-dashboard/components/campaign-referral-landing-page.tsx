@@ -23,6 +23,7 @@ interface CampaignData {
     description: string
     platform: string
     discord_invite_url: string
+    influencer_id: string
   }
   campaign: {
     id: string
@@ -87,14 +88,42 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
     }
   }
 
-  const handleJoinDiscord = () => {
+  const handleJoinDiscord = async () => {
     if (data?.referral_link.discord_invite_url) {
       setJoining(true)
-      // Open Discord invite in new tab
-      window.open(data.referral_link.discord_invite_url, '_blank')
       
-      // Reset joining state after a few seconds
-      setTimeout(() => setJoining(false), 3000)
+      try {
+        // First, record the conversion intent
+        await fetch(`/api/referral/${referralCode}/convert`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'discord_redirect',
+            discord_invite_url: data.referral_link.discord_invite_url,
+            campaign_id: data.campaign.id,
+            influencer_id: data.referral_link.influencer_id
+          })
+        })
+        
+        // Store referral context in sessionStorage for later retrieval
+        sessionStorage.setItem('virion_referral_context', JSON.stringify({
+          referral_code: referralCode,
+          campaign_id: data.campaign.id,
+          campaign_name: data.campaign.campaign_name,
+          influencer_name: data.influencer.full_name,
+          discord_guild_id: data.campaign.guild_id,
+          timestamp: Date.now()
+        }))
+        
+        // Open Discord invite in the same tab for better tracking
+        window.location.href = data.referral_link.discord_invite_url
+        
+      } catch (error) {
+        console.error('Error tracking conversion:', error)
+        // Still proceed to Discord even if tracking fails
+        window.open(data.referral_link.discord_invite_url, '_blank')
+        setTimeout(() => setJoining(false), 3000)
+      }
     }
   }
 
@@ -240,14 +269,23 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
                     style={{ backgroundColor: brandColor }}
                   >
                     <MessageSquare className="mr-3 h-6 w-6" />
-                    {joining ? "Opening Discord..." : "Join Discord Server"}
+                    {joining ? "Redirecting to Discord..." : "Join Discord Server"}
                     <ChevronRight className="ml-3 h-6 w-6" />
                   </Button>
 
-                  <p className="text-sm text-muted-foreground">
-                    You'll be taken to Discord where our bot will welcome you with 
-                    campaign-specific information and exclusive benefits.
-                  </p>
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p>
+                      You'll be taken to Discord where our bot will automatically welcome you with 
+                      campaign-specific information and exclusive benefits.
+                    </p>
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-blue-800 font-medium">
+                        📱 <strong>Manual Backup:</strong> If automatic detection doesn't work, 
+                        simply type <code className="bg-blue-100 px-1 rounded font-mono">{referralCode}</code> in 
+                        any Discord channel after joining!
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
