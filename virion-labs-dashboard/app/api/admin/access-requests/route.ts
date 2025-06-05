@@ -30,12 +30,6 @@ export async function GET(request: NextRequest) {
           campaign_name,
           campaign_type,
           clients(name, industry)
-        ),
-        user_profiles!campaign_influencer_access_influencer_id_fkey(
-          id,
-          full_name,
-          email,
-          avatar_url
         )
       `)
       .eq('request_status', status)
@@ -52,7 +46,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ requests: data || [] })
+    // Fetch user profiles separately for each request
+    const requestsWithProfiles = await Promise.all(
+      (data || []).map(async (request) => {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('id, full_name, email, avatar_url')
+          .eq('id', request.influencer_id)
+          .single()
+
+        return {
+          ...request,
+          user_profiles: userProfile
+        }
+      })
+    )
+
+    return NextResponse.json({ requests: requestsWithProfiles })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

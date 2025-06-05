@@ -12,16 +12,20 @@ import {
   Bot,
   Database,
   Target,
+  UserCheck,
 } from "lucide-react"
 import { cn, generateInitials } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/components/auth-provider"
+import { useAccessRequests } from "@/hooks/use-access-requests"
 
 export function Sidebar() {
   const { profile } = useAuth()
   const pathname = usePathname()
   const isAdmin = profile?.role === "admin"
   const isClient = profile?.role === "client"
+  const { pendingCount } = useAccessRequests()
 
   const influencerNavItems = [
     {
@@ -74,6 +78,12 @@ export function Sidebar() {
       href: "/discord-campaigns",
       icon: Target,
       active: pathname === "/discord-campaigns",
+    },
+    {
+      title: "Access Requests",
+      href: "/admin/access-requests",
+      icon: UserCheck,
+      active: pathname === "/admin/access-requests",
     },
     {
       title: "Bots",
@@ -150,14 +160,20 @@ export function Sidebar() {
               <Link
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors relative",
                   item.active
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 <item.icon className="h-5 w-5" />
-                <span>{item.title}</span>
+                <span className="flex-1">{item.title}</span>
+                {/* Show badge for Access Requests if there are pending requests */}
+                {isAdmin && item.title === "Access Requests" && pendingCount > 0 && (
+                  <Badge variant="destructive" className="h-5 min-w-5 text-xs px-1.5 animate-pulse">
+                    {pendingCount}
+                  </Badge>
+                )}
               </Link>
             </li>
           ))}

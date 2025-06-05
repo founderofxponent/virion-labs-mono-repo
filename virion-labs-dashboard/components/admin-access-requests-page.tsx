@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
+import { useAccessRequests } from "@/hooks/use-access-requests"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -57,6 +58,7 @@ interface AccessRequest {
 
 export function AdminAccessRequestsPage() {
   const { profile } = useAuth()
+  const { refreshCount } = useAccessRequests()
   const [requests, setRequests] = useState<AccessRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedRequest, setSelectedRequest] = useState<AccessRequest | null>(null)
@@ -112,8 +114,9 @@ export function AdminAccessRequestsPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Refresh the requests list
+        // Refresh the requests list and sidebar count
         fetchAccessRequests()
+        refreshCount()
         setShowResponseDialog(false)
         setSelectedRequest(null)
         console.log(`Access request ${responseAction}d successfully`)
