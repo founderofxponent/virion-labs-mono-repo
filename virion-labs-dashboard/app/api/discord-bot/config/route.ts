@@ -40,6 +40,19 @@ export async function GET(request: NextRequest) {
 
     const config = data[0]
 
+    // Fetch onboarding fields for this campaign
+    const { data: onboardingFields, error: fieldsError } = await supabase
+      .from('campaign_onboarding_fields')
+      .select('*')
+      .eq('campaign_id', config.campaign_id)
+      .eq('is_enabled', true)
+      .order('sort_order', { ascending: true })
+
+    if (fieldsError) {
+      console.error('Error fetching onboarding fields:', fieldsError)
+      // Continue without fields rather than failing completely
+    }
+
     return NextResponse.json({
       configured: true,
       campaign: {
@@ -60,7 +73,8 @@ export async function GET(request: NextRequest) {
           }
         } : null,
         bot_config: config.bot_config,
-        onboarding_flow: config.onboarding_flow
+        onboarding_flow: config.onboarding_flow,
+        onboarding_fields: onboardingFields || []
       }
     })
   } catch (error) {
