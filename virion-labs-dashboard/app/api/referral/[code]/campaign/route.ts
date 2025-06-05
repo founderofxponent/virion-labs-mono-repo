@@ -13,44 +13,15 @@ export async function GET(
   try {
     const { code } = await params
 
-    // Get referral link with campaign details
-    const { data, error } = await supabase
+    // Get referral link first
+    const { data: referralData, error: referralError } = await supabase
       .from('referral_links')
-      .select(`
-        id,
-        title,
-        description,
-        platform,
-        discord_invite_url,
-        landing_page_enabled,
-        is_active,
-        expires_at,
-        campaign_id,
-        discord_guild_campaigns (
-          id,
-          campaign_name,
-          campaign_type,
-          guild_id,
-          welcome_message,
-          brand_color,
-          brand_logo_url,
-          metadata,
-          clients (
-            name,
-            industry,
-            logo
-          )
-        ),
-        user_profiles (
-          full_name,
-          avatar_url
-        )
-      `)
+      .select('id, title, description, platform, discord_invite_url, landing_page_enabled, is_active, expires_at, campaign_id, influencer_id')
       .eq('referral_code', code)
       .eq('is_active', true)
       .single()
 
-    if (error || !data) {
+    if (referralError || !referralData) {
       return NextResponse.json(
         { error: 'Referral link not found' },
         { status: 404 }
@@ -58,7 +29,7 @@ export async function GET(
     }
 
     // Check if link has expired
-    if (data.expires_at && new Date(data.expires_at) < new Date()) {
+    if (referralData.expires_at && new Date(referralData.expires_at) < new Date()) {
       return NextResponse.json(
         { error: 'Referral link has expired' },
         { status: 410 }
@@ -66,17 +37,48 @@ export async function GET(
     }
 
     // Check if landing page is enabled
-    if (!data.landing_page_enabled) {
+    if (!referralData.landing_page_enabled) {
       return NextResponse.json(
         { error: 'Landing page not enabled for this referral link' },
         { status: 403 }
       )
     }
 
+    // Get campaign details
+    const { data: campaignData, error: campaignError } = await supabase
+      .from('discord_guild_campaigns')
+      .select('id, campaign_name, campaign_type, guild_id, welcome_message, brand_color, brand_logo_url, metadata, client_id')
+      .eq('id', referralData.campaign_id)
+      .single()
+
+    if (campaignError || !campaignData) {
+      return NextResponse.json(
+        { error: 'Campaign not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get client details
+    const { data: clientData } = await supabase
+      .from('clients')
+      .select('name, industry, logo')
+      .eq('id', campaignData.client_id)
+      .single()
+
+    // Get influencer details
+    const { data: influencerData } = await supabase
+      .from('user_profiles')
+      .select('full_name, avatar_url')
+      .eq('id', referralData.influencer_id)
+      .single()
+
     return NextResponse.json({
-      referral_link: data,
-      campaign: data.discord_guild_campaigns,
-      influencer: data.user_profiles
+      referral_link: referralData,
+      campaign: {
+        ...campaignData,
+        client: clientData
+      },
+      influencer: influencerData
     })
 
   } catch (error) {

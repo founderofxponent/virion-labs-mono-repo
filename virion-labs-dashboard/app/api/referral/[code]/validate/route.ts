@@ -21,36 +21,15 @@ export async function POST(
       )
     }
 
-    // Find and validate referral link
-    const { data, error } = await supabase
+    // Find referral link first
+    const { data: referralData, error: referralError } = await supabase
       .from('referral_links')
-      .select(`
-        id,
-        title,
-        influencer_id,
-        campaign_id,
-        discord_guild_id,
-        is_active,
-        expires_at,
-        discord_guild_campaigns (
-          id,
-          campaign_name,
-          campaign_type,
-          guild_id,
-          welcome_message,
-          auto_role_assignment,
-          target_role_id,
-          metadata,
-          user_profiles (
-            full_name
-          )
-        )
-      `)
+      .select('id, title, influencer_id, campaign_id, discord_guild_id, is_active, expires_at')
       .eq('referral_code', code)
       .eq('is_active', true)
       .single()
 
-    if (error || !data) {
+    if (referralError || !referralData) {
       return NextResponse.json({ 
         valid: false, 
         error: 'Invalid referral code' 
@@ -58,57 +37,66 @@ export async function POST(
     }
 
     // Check expiration
-    if (data.expires_at && new Date(data.expires_at) < new Date()) {
+    if (referralData.expires_at && new Date(referralData.expires_at) < new Date()) {
       return NextResponse.json({ 
         valid: false, 
         error: 'Referral code has expired' 
       })
     }
 
-    // Get the campaign (handle array/object conversion)
-    const campaign = Array.isArray(data.discord_guild_campaigns) 
-      ? data.discord_guild_campaigns[0] 
-      : data.discord_guild_campaigns
+    // Get campaign details
+    const { data: campaignData, error: campaignError } = await supabase
+      .from('discord_guild_campaigns')
+      .select('id, campaign_name, campaign_type, guild_id, welcome_message, auto_role_assignment, target_role_id, metadata')
+      .eq('id', referralData.campaign_id)
+      .single()
+
+    if (campaignError || !campaignData) {
+      return NextResponse.json({ 
+        valid: false, 
+        error: 'Campaign not found' 
+      })
+    }
 
     // Check guild match
-    if (campaign?.guild_id !== guild_id) {
+    if (campaignData.guild_id !== guild_id) {
       return NextResponse.json({ 
         valid: false, 
         error: 'Referral code not valid for this server' 
       })
     }
 
+    // Get influencer details
+    const { data: influencerData } = await supabase
+      .from('user_profiles')
+      .select('full_name')
+      .eq('id', referralData.influencer_id)
+      .single()
+
     // Track the validation if user_id is provided
     if (user_id) {
-      // This could be used for analytics - tracking when someone validates a referral code
-      // For now we'll just log it
       console.log(`Referral code ${code} validated for user ${user_id} in guild ${guild_id}`)
     }
-
-    // Get the influencer (handle array/object conversion)
-    const influencer = Array.isArray(campaign?.user_profiles) 
-      ? campaign.user_profiles[0] 
-      : campaign?.user_profiles
 
     return NextResponse.json({
       valid: true,
       referral_link: {
-        id: data.id,
-        title: data.title,
-        campaign_id: data.campaign_id
+        id: referralData.id,
+        title: referralData.title,
+        campaign_id: referralData.campaign_id
       },
       campaign: {
-        id: campaign?.id,
-        name: campaign?.campaign_name,
-        type: campaign?.campaign_type,
-        welcome_message: campaign?.welcome_message,
-        auto_role_assignment: campaign?.auto_role_assignment,
-        target_role_id: campaign?.target_role_id,
-        description: campaign?.metadata?.description
+        id: campaignData.id,
+        name: campaignData.campaign_name,
+        type: campaignData.campaign_type,
+        welcome_message: campaignData.welcome_message,
+        auto_role_assignment: campaignData.auto_role_assignment,
+        target_role_id: campaignData.target_role_id,
+        description: campaignData.metadata?.description
       },
       influencer: {
-        id: data.influencer_id,
-        name: influencer?.full_name
+        id: referralData.influencer_id,
+        name: influencerData?.full_name
       }
     })
 
