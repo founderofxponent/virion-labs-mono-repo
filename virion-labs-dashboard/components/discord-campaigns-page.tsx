@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { formatDate } from '@/lib/utils'
+import { OnboardingFieldsPage } from '@/components/onboarding-fields-page'
 import { 
   Bot, 
   Settings, 
@@ -39,7 +40,8 @@ import {
   Target,
   TrendingUp,
   Calendar,
-  Hash
+  Hash,
+  MessageSquare
 } from 'lucide-react'
 import {
   Table,
@@ -65,6 +67,7 @@ export function DiscordCampaignsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [editingCampaign, setEditingCampaign] = useState<any>(null)
+  const [selectedCampaignForOnboarding, setSelectedCampaignForOnboarding] = useState<string>('')
   const [filterClient, setFilterClient] = useState('all')
   const [filterType, setFilterType] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -294,6 +297,7 @@ export function DiscordCampaignsPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+          <TabsTrigger value="onboarding">Onboarding Fields</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -561,6 +565,64 @@ export function DiscordCampaignsPage() {
                   </TableBody>
                 </Table>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="onboarding" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Campaign Onboarding Fields
+              </CardTitle>
+              <CardDescription>
+                Configure the questions your Discord bots will ask during user onboarding for each campaign
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <Label htmlFor="campaign-select" className="text-sm font-medium">
+                    Select Campaign:
+                  </Label>
+                  <Select value={selectedCampaignForOnboarding} onValueChange={setSelectedCampaignForOnboarding}>
+                    <SelectTrigger className="w-80">
+                      <SelectValue placeholder="Choose a campaign to configure onboarding fields" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {campaigns.map((campaign) => (
+                        <SelectItem key={campaign.id} value={campaign.id}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: getCampaignTypeColor(campaign.campaign_type) }}
+                            />
+                            <span>{campaign.campaign_name}</span>
+                            <Badge variant="outline" className="ml-2">
+                              {campaign.clients?.name}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {selectedCampaignForOnboarding && (
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <OnboardingFieldsPage campaignId={selectedCampaignForOnboarding} />
+                  </div>
+                )}
+                
+                {!selectedCampaignForOnboarding && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">No Campaign Selected</p>
+                    <p>Please select a campaign above to configure its onboarding fields.</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
