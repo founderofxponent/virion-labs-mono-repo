@@ -93,9 +93,9 @@ export function Sidebar() {
     },
     {
       title: "Analytics",
-      href: "/analytics",
+      href: "/dashboard/analytics",
       icon: Activity,
-      active: pathname === "/analytics",
+      active: pathname === "/dashboard/analytics",
     },
     {
       title: "Onboarding Fields",
@@ -120,9 +120,9 @@ export function Sidebar() {
     },
     {
       title: "Analytics",
-      href: "/analytics",
+      href: "/dashboard/analytics",
       icon: Activity,
-      active: pathname === "/analytics",
+      active: pathname === "/dashboard/analytics",
     },
     {
       title: "Settings",

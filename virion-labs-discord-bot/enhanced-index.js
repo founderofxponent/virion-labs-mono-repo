@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const OnboardingManager = require('./onboarding-manager');
 require('dotenv').config();
 
 // Configuration
@@ -21,6 +22,9 @@ const client = new Client({
 // Cache for guild configurations to avoid repeated API calls
 const configCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Initialize onboarding manager
+const onboardingManager = new OnboardingManager();
 
 // Bot ready event
 client.once('ready', () => {
@@ -313,6 +317,50 @@ async function handleReferralInviteContext(member) {
   }
 }
 
+// Auto-start onboarding for new members
+async function handleNewMemberOnboarding(member) {
+  try {
+    // Get guild configuration
+    const config = await getGuildConfig(member.guild.id);
+    
+    if (!config || !config.configured) {
+      return; // No campaign configured for this guild
+    }
+    
+    // Wait a bit to let Discord settle the member join
+    setTimeout(async () => {
+      try {
+        // Send welcome DM with onboarding start option
+        const welcomeEmbed = new EmbedBuilder()
+          .setTitle(`🎉 Welcome to ${member.guild.name}!`)
+          .setDescription(`Hi ${member.user.username}! Welcome to **${config.campaign.client.name}**.\n\nI'm here to help you get started. Would you like to complete a quick onboarding to unlock all community features?\n\n💡 You can also share a referral code if you have one!`)
+          .setColor(config.campaign.bot_config?.brand_color || '#6366f1')
+          .addFields([
+            {
+              name: '🚀 Get Started',
+              value: 'Reply with "start" to begin onboarding\nOr share your referral code if you have one',
+              inline: false
+            }
+          ])
+          .setTimestamp();
+
+        await member.send({ embeds: [welcomeEmbed] });
+        console.log(`📨 Sent welcome DM to ${member.user.tag}`);
+        
+      } catch (error) {
+        if (error.code === 50007) {
+          console.log(`❌ Cannot send DM to ${member.user.tag} (DMs disabled)`);
+        } else {
+          console.error('Error sending welcome DM:', error);
+        }
+      }
+    }, 2000); // 2 second delay
+    
+  } catch (error) {
+    console.error('Error handling new member onboarding:', error);
+  }
+}
+
 // Create campaign-specific embed
 function createCampaignEmbed(config, title, description, color = null) {
   const embed = new EmbedBuilder()
@@ -335,6 +383,15 @@ function createCampaignEmbed(config, title, description, color = null) {
 
 // Handle referral onboarding flow with enhanced campaign integration
 async function handleReferralOnboarding(message, config) {
+  const userId = message.author.id;
+  const campaignId = config.campaign.id;
+  
+  // Check if user is in an active onboarding session
+  if (onboardingManager.isInOnboardingSession(userId, campaignId)) {
+    // Handle response to onboarding question
+    return await onboardingManager.handleResponse(message, config);
+  }
+  
   const referralCode = extractReferralCode(message.content);
   
   if (referralCode) {
@@ -346,98 +403,11 @@ async function handleReferralOnboarding(message, config) {
     );
     
     if (validation && validation.valid) {
-      const { campaign, influencer, referral_link } = validation;
-      
-      // Create campaign-specific welcome message
-      let welcomeMessage = `Thanks for joining through **${influencer.name}'s** referral link!`;
-      
-      if (campaign.welcome_message) {
-        welcomeMessage = campaign.welcome_message.replace('{influencer_name}', influencer.name);
-      }
-      
-      welcomeMessage += `\n\n🎯 **Campaign**: ${campaign.name}`;
-      welcomeMessage += `\n📝 **Type**: ${campaign.type.replace('_', ' ').toUpperCase()}`;
-      
-      if (campaign.description) {
-        welcomeMessage += `\n💭 **About**: ${campaign.description}`;
-      }
-      
-      welcomeMessage += `\n\n✨ **What's next?**`;
-      welcomeMessage += `\n• Explore our community channels`;
-      welcomeMessage += `\n• Connect with other members`;
-      welcomeMessage += `\n• Get exclusive campaign benefits`;
-      
-      const embed = createCampaignEmbed(
-        config,
-        '🎉 Welcome to the Community!',
-        welcomeMessage,
-        '#00ff00'
-      );
-
-      await message.reply({ embeds: [embed] });
-      
-      // Assign role if configured
-      if (campaign.auto_role_assignment && campaign.target_role_id) {
-        try {
-          const role = message.guild.roles.cache.get(campaign.target_role_id);
-          if (role && message.member) {
-            await message.member.roles.add(role);
-            
-            // Send role assignment confirmation
-            const roleEmbed = createCampaignEmbed(
-              config,
-              '🎖️ Role Assigned!',
-              `You've been assigned the **${role.name}** role for this campaign!`,
-              '#00aa00'
-            );
-            
-            await message.followUp({ embeds: [roleEmbed] });
-            console.log(`✅ Assigned role ${role.name} to ${message.author.tag} via referral ${referralCode}`);
-          }
-        } catch (error) {
-          console.error('Error assigning role:', error);
-        }
-      }
-      
-      // Track successful referral signup
-      await trackInteraction(
-        message.guild?.id,
-        message.channel.id,
-        message,
-        'referral_signup',
-        'Referral onboarding completed with campaign context',
-        referralCode
-      );
-      
-      // Record the successful referral in the dashboard
-      try {
-        const completionResponse = await fetch(`${DASHBOARD_API_URL}/referral/complete`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Virion-Discord-Bot/2.0'
-          },
-          body: JSON.stringify({
-            referral_code: referralCode,
-            discord_user_id: message.author.id,
-            discord_username: message.author.tag,
-            guild_id: message.guild.id,
-            conversion_source: 'manual_referral_code'
-          })
-        });
-        
-        if (completionResponse.ok) {
-          const completionResult = await completionResponse.json();
-          console.log(`✅ Manual referral completion recorded: ${completionResult.referral_id} (duplicate: ${completionResult.duplicate})`);
-        } else {
-          console.error('❌ Failed to record manual referral completion:', completionResponse.status);
-        }
-      } catch (error) {
-        console.error('❌ Error recording manual referral completion:', error);
-      }
-      
-      console.log(`🎯 Successful referral signup: ${message.author.tag} used code ${referralCode} for campaign ${campaign.name}`);
-      return true;
+      // Start dynamic onboarding process with referral context
+      return await onboardingManager.startOnboarding(message, config, {
+        referralCode,
+        referralValidation: validation
+      });
     } else {
       // Invalid referral code - provide helpful feedback
       const embed = createCampaignEmbed(
@@ -466,25 +436,11 @@ async function handleReferralOnboarding(message, config) {
   // Check for general onboarding message patterns
   if (message.content.toLowerCase().includes('hello') || 
       message.content.toLowerCase().includes('hi') ||
-      message.content.toLowerCase().includes('welcome')) {
+      message.content.toLowerCase().includes('welcome') ||
+      message.content.toLowerCase().includes('start')) {
     
-    const embed = createCampaignEmbed(
-      config,
-      '👋 Welcome!',
-      `Welcome to ${config.campaign.client.name}!\n\nIf you have a referral code, please share it with me to get started with exclusive benefits.`
-    );
-
-    await message.reply({ embeds: [embed] });
-    
-    await trackInteraction(
-      message.guild?.id,
-      message.channel.id,
-      message,
-      'message',
-      'Welcome message sent'
-    );
-    
-    return true;
+    // Start onboarding without referral context
+    return await onboardingManager.startOnboarding(message, config);
   }
   
   return false;
@@ -768,6 +724,9 @@ client.on('guildMemberAdd', async (member) => {
         console.log(`✅ Auto-processed referral for ${member.user.tag}`);
         return; // Skip general welcome if referral was processed
       }
+      
+      // Trigger new member onboarding process
+      await handleNewMemberOnboarding(member);
       
       let welcomeTitle = '🎉 Welcome to the Server!';
       let welcomeMessage = `Welcome to ${config.campaign.client.name}, ${member.user.username}!`;
