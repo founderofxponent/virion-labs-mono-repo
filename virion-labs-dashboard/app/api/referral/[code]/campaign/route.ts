@@ -76,7 +76,7 @@ export async function GET(
       referral_link: referralData,
       campaign: {
         ...campaignData,
-        client: clientData
+        clients: clientData
       },
       influencer: influencerData
     })
