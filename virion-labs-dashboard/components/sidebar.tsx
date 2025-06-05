@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   Activity,
   Bot,
-  Database,
   Target,
   UserCheck,
 } from "lucide-react"
@@ -96,12 +95,6 @@ export function Sidebar() {
       href: "/dashboard/analytics",
       icon: Activity,
       active: pathname === "/dashboard/analytics",
-    },
-    {
-      title: "Onboarding Fields",
-      href: "/onboarding",
-      icon: Database,
-      active: pathname === "/onboarding",
     },
     {
       title: "Settings",

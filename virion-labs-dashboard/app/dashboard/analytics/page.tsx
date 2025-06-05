@@ -38,7 +38,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useAnalytics } from '@/app/hooks/useAnalytics';
-import { useCampaigns } from '@/app/hooks/useCampaigns';
+import { useDiscordCampaigns } from '@/hooks/use-discord-campaigns';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981', '#06b6d4'];
 
@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
     refreshAllAnalytics
   } = useAnalytics();
 
-  const { campaigns, fetchCampaigns } = useCampaigns();
+  const { campaigns, fetchCampaigns } = useDiscordCampaigns();
 
   useEffect(() => {
     fetchCampaigns();
