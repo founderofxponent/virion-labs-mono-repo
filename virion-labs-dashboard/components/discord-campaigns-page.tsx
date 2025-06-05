@@ -7,7 +7,6 @@ import { useClients } from '@/hooks/use-clients'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -63,9 +62,9 @@ export function DiscordCampaignsPage() {
   const { profile } = useAuth()
   const { toast } = useToast()
   const { clients } = useClients()
-  const [activeTab, setActiveTab] = useState('overview')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showOnboardingDialog, setShowOnboardingDialog] = useState(false)
   const [editingCampaign, setEditingCampaign] = useState<any>(null)
   const [selectedCampaignForOnboarding, setSelectedCampaignForOnboarding] = useState<string>('')
   const [filterClient, setFilterClient] = useState('all')
@@ -257,6 +256,11 @@ export function DiscordCampaignsPage() {
     setShowEditDialog(true)
   }
 
+  const openOnboardingDialog = (campaign: any) => {
+    setSelectedCampaignForOnboarding(campaign.id)
+    setShowOnboardingDialog(true)
+  }
+
   // Filter campaigns
   const filteredCampaigns = campaigns.filter((campaign) => {
     if (filterClient !== 'all' && campaign.client_id !== filterClient) return false
@@ -293,383 +297,237 @@ export function DiscordCampaignsPage() {
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
-          <TabsTrigger value="onboarding">Onboarding Fields</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalCampaigns}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.activeCampaigns} active
+            </p>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="overview" className="space-y-4">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
-                <Target className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalCampaigns}</div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.activeCampaigns} active
-                </p>
-              </CardContent>
-            </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Interactions</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalInteractions}</div>
+            <p className="text-xs text-muted-foreground">
+              Avg {stats.avgInteractionsPerCampaign.toFixed(1)} per campaign
+            </p>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Interactions</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalInteractions}</div>
-                <p className="text-xs text-muted-foreground">
-                  Avg {stats.avgInteractionsPerCampaign.toFixed(1)} per campaign
-                </p>
-              </CardContent>
-            </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.conversionRate.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.totalConversions} total conversions
+            </p>
+          </CardContent>
+        </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.conversionRate.toFixed(1)}%</div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.totalConversions} total conversions
-                </p>
-              </CardContent>
-            </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Onboarding Rate</CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.onboardingRate.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.totalOnboardings} successful onboardings
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Onboarding Rate</CardTitle>
-                <Zap className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.onboardingRate.toFixed(1)}%</div>
-                <p className="text-xs text-muted-foreground">
-                  {stats.totalOnboardings} successful onboardings
-                </p>
-              </CardContent>
-            </Card>
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Search campaigns..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Select value={filterClient} onValueChange={setFilterClient}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by client" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Clients</SelectItem>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id}>
+                    {client.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterType} onValueChange={setFilterType}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="referral_onboarding">Referral Onboarding</SelectItem>
+                <SelectItem value="product_promotion">Product Promotion</SelectItem>
+                <SelectItem value="community_engagement">Community Engagement</SelectItem>
+                <SelectItem value="support">Support</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Recent Campaigns */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Campaigns</CardTitle>
-              <CardDescription>Latest campaign activity</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {campaigns.slice(0, 5).map((campaign) => (
-                  <div key={campaign.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: getCampaignTypeColor(campaign.campaign_type) }}
-                      />
+      {/* Campaigns Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Campaigns ({filteredCampaigns.length})</CardTitle>
+          <CardDescription>Manage your Discord bot campaigns</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">Loading campaigns...</div>
+          ) : filteredCampaigns.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No campaigns found</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Campaign</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Interactions</TableHead>
+                  <TableHead>Conversions</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredCampaigns.map((campaign) => (
+                  <TableRow key={campaign.id}>
+                    <TableCell>
                       <div>
                         <p className="font-medium">{campaign.campaign_name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {campaign.clients?.name} • {getCampaignTypeLabel(campaign.campaign_type)}
+                          Guild: {campaign.guild_id}
                         </p>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{campaign.clients?.name}</p>
+                        <p className="text-sm text-muted-foreground">{campaign.clients?.industry}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="outline"
+                        style={{ 
+                          borderColor: getCampaignTypeColor(campaign.campaign_type),
+                          color: getCampaignTypeColor(campaign.campaign_type)
+                        }}
+                      >
+                        {getCampaignTypeLabel(campaign.campaign_type)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={campaign.is_active ? "default" : "secondary"}>
                         {campaign.is_active ? "Active" : "Paused"}
                       </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {campaign.total_interactions} interactions
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="campaigns" className="space-y-4">
-          {/* Filters */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1">
-                  <Input
-                    placeholder="Search campaigns..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                <Select value={filterClient} onValueChange={setFilterClient}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Filter by client" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Clients</SelectItem>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Filter by type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Types</SelectItem>
-                    <SelectItem value="referral_onboarding">Referral Onboarding</SelectItem>
-                    <SelectItem value="product_promotion">Product Promotion</SelectItem>
-                    <SelectItem value="community_engagement">Community Engagement</SelectItem>
-                    <SelectItem value="support">Support</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="paused">Paused</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Campaigns Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Campaigns ({filteredCampaigns.length})</CardTitle>
-              <CardDescription>Manage your Discord bot campaigns</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="text-center py-8">Loading campaigns...</div>
-              ) : filteredCampaigns.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No campaigns found</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Campaign</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Interactions</TableHead>
-                      <TableHead>Conversions</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredCampaigns.map((campaign) => (
-                      <TableRow key={campaign.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{campaign.campaign_name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              Guild: {campaign.guild_id}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{campaign.clients?.name}</p>
-                            <p className="text-sm text-muted-foreground">{campaign.clients?.industry}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant="outline"
-                            style={{ 
-                              borderColor: getCampaignTypeColor(campaign.campaign_type),
-                              color: getCampaignTypeColor(campaign.campaign_type)
-                            }}
-                          >
-                            {getCampaignTypeLabel(campaign.campaign_type)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={campaign.is_active ? "default" : "secondary"}>
-                            {campaign.is_active ? "Active" : "Paused"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{campaign.total_interactions}</TableCell>
-                        <TableCell>
-                          <div>
-                            <p>{campaign.referral_conversions}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {campaign.total_interactions > 0 
-                                ? ((campaign.referral_conversions / campaign.total_interactions) * 100).toFixed(1)
-                                : 0}%
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {formatCampaignDate(campaign.created_at)}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openEditDialog(campaign)}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => campaign.is_active 
-                                  ? handlePauseCampaign(campaign.id) 
-                                  : handleResumeCampaign(campaign.id)
-                                }
-                              >
-                                {campaign.is_active ? (
-                                  <>
-                                    <Pause className="h-4 w-4 mr-2" />
-                                    Pause
-                                  </>
-                                ) : (
-                                  <>
-                                    <Play className="h-4 w-4 mr-2" />
-                                    Resume
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => handleDeleteCampaign(campaign.id)}
-                                className="text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="onboarding" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Campaign Onboarding Fields
-              </CardTitle>
-              <CardDescription>
-                Configure the questions your Discord bots will ask during user onboarding for each campaign
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Label htmlFor="campaign-select" className="text-sm font-medium">
-                    Select Campaign:
-                  </Label>
-                  <Select value={selectedCampaignForOnboarding} onValueChange={setSelectedCampaignForOnboarding}>
-                    <SelectTrigger className="w-80">
-                      <SelectValue placeholder="Choose a campaign to configure onboarding fields" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {campaigns.map((campaign) => (
-                        <SelectItem key={campaign.id} value={campaign.id}>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: getCampaignTypeColor(campaign.campaign_type) }}
-                            />
-                            <span>{campaign.campaign_name}</span>
-                            <Badge variant="outline" className="ml-2">
-                              {campaign.clients?.name}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                {selectedCampaignForOnboarding && (
-                  <div className="border rounded-lg p-4 bg-muted/30">
-                    <OnboardingFieldsPage campaignId={selectedCampaignForOnboarding} />
-                  </div>
-                )}
-                
-                {!selectedCampaignForOnboarding && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium mb-2">No Campaign Selected</p>
-                    <p>Please select a campaign above to configure its onboarding fields.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="analytics" className="space-y-4">
-          {/* Campaign Type Distribution */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Campaigns by Type</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {Object.entries(stats.campaignsByType).map(([type, count]) => (
-                    <div key={type} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: getCampaignTypeColor(type) }}
-                        />
-                        <span>{getCampaignTypeLabel(type)}</span>
+                    </TableCell>
+                    <TableCell>{campaign.total_interactions}</TableCell>
+                    <TableCell>
+                      <div>
+                        <p>{campaign.referral_conversions}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {campaign.total_interactions > 0 
+                            ? ((campaign.referral_conversions / campaign.total_interactions) * 100).toFixed(1)
+                            : 0}%
+                        </p>
                       </div>
-                      <span className="font-medium">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Campaigns by Client</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {Object.entries(stats.campaignsByClient).map(([client, count]) => (
-                    <div key={client} className="flex items-center justify-between">
-                      <span>{client}</span>
-                      <span className="font-medium">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+                    </TableCell>
+                    <TableCell>
+                      {formatCampaignDate(campaign.created_at)}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditDialog(campaign)}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openOnboardingDialog(campaign)}>
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Onboarding Fields
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => campaign.is_active 
+                              ? handlePauseCampaign(campaign.id) 
+                              : handleResumeCampaign(campaign.id)
+                            }
+                          >
+                            {campaign.is_active ? (
+                              <>
+                                <Pause className="h-4 w-4 mr-2" />
+                                Pause
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-4 w-4 mr-2" />
+                                Resume
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteCampaign(campaign.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Create Campaign Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
@@ -869,6 +727,31 @@ export function DiscordCampaignsPage() {
             </Button>
             <Button onClick={handleEditCampaign}>
               Update Campaign
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Onboarding Fields Dialog */}
+      <Dialog open={showOnboardingDialog} onOpenChange={setShowOnboardingDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Configure Onboarding Fields
+            </DialogTitle>
+            <DialogDescription>
+              Set up the questions your Discord bot will ask during user onboarding for this campaign
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedCampaignForOnboarding && (
+              <OnboardingFieldsPage campaignId={selectedCampaignForOnboarding} />
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setShowOnboardingDialog(false)}>
+              Close
             </Button>
           </div>
         </DialogContent>
