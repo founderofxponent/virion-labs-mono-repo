@@ -8,7 +8,6 @@ import {
   Users,
   Settings,
   LayoutDashboard,
-  Activity,
   Bot,
   Target,
   UserCheck,
@@ -91,12 +90,6 @@ export function Sidebar() {
       active: pathname === "/bots",
     },
     {
-      title: "Analytics",
-      href: "/dashboard/analytics",
-      icon: Activity,
-      active: pathname === "/dashboard/analytics",
-    },
-    {
       title: "Settings",
       href: "/settings",
       icon: Settings,
@@ -110,12 +103,6 @@ export function Sidebar() {
       href: "/",
       icon: LayoutDashboard,
       active: pathname === "/",
-    },
-    {
-      title: "Analytics",
-      href: "/dashboard/analytics",
-      icon: Activity,
-      active: pathname === "/dashboard/analytics",
     },
     {
       title: "Settings",
