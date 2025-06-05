@@ -104,28 +104,77 @@ export async function POST(
     // Create Discord invite if needed
     let discordInvite = null
     if (redirect_to_discord) {
-      const { data: inviteData, error: inviteError } = await supabase.rpc(
-        'create_campaign_discord_invite',
-        { 
-          p_campaign_id: campaignId,
-          p_referral_link_id: referralLink.id 
-        }
-      )
+      try {
+        // Call our Discord invite creation API
+        const inviteResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/discord/create-invite`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            guild_id: campaign.guild_id,
+            channel_id: null, // Will use campaign's channel or find a suitable one
+            campaign_id: campaignId,
+            referral_link_id: referralLink.id,
+            max_uses: 0, // Unlimited uses
+            max_age: 0 // Never expires
+          })
+        })
 
-      if (inviteError) {
-        console.error('Error creating Discord invite:', inviteError)
-        // Don't fail the whole request, just log the error
-      } else if (inviteData && inviteData.length > 0) {
-        discordInvite = inviteData[0]
-        
-        // Update referral link with Discord invite URL
-        await supabase
-          .from('referral_links')
-          .update({ discord_invite_url: inviteData[0].invite_url })
-          .eq('id', referralLink.id)
+        if (inviteResponse.ok) {
+          const inviteData = await inviteResponse.json()
+          discordInvite = inviteData.invite
           
-        // Update the local object
-        referralLink.discord_invite_url = inviteData[0].invite_url
+          // Update referral link with real Discord invite URL
+          await supabase
+            .from('referral_links')
+            .update({ discord_invite_url: inviteData.invite.url })
+            .eq('id', referralLink.id)
+            
+          // Update the local object
+          referralLink.discord_invite_url = inviteData.invite.url
+        } else {
+          const errorData = await inviteResponse.json()
+          console.error('Error creating Discord invite:', errorData)
+          
+          // Fallback: create a placeholder invite using the old function
+          const { data: fallbackData, error: fallbackError } = await supabase.rpc(
+            'create_campaign_discord_invite',
+            { 
+              p_campaign_id: campaignId,
+              p_referral_link_id: referralLink.id 
+            }
+          )
+          
+          if (fallbackData && fallbackData.length > 0) {
+            await supabase
+              .from('referral_links')
+              .update({ discord_invite_url: fallbackData[0].invite_url })
+              .eq('id', referralLink.id)
+              
+            referralLink.discord_invite_url = fallbackData[0].invite_url
+          }
+        }
+      } catch (error) {
+        console.error('Error calling Discord invite API:', error)
+        
+        // Fallback: create a placeholder invite using the old function
+        const { data: fallbackData, error: fallbackError } = await supabase.rpc(
+          'create_campaign_discord_invite',
+          { 
+            p_campaign_id: campaignId,
+            p_referral_link_id: referralLink.id 
+          }
+        )
+        
+        if (fallbackData && fallbackData.length > 0) {
+          await supabase
+            .from('referral_links')
+            .update({ discord_invite_url: fallbackData[0].invite_url })
+            .eq('id', referralLink.id)
+            
+          referralLink.discord_invite_url = fallbackData[0].invite_url
+        }
       }
     }
 
