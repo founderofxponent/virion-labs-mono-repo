@@ -258,10 +258,13 @@ export function ReferralsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sources</SelectItem>
-              <SelectItem value="youtube">YouTube</SelectItem>
-              <SelectItem value="instagram">Instagram</SelectItem>
-              <SelectItem value="tiktok">TikTok</SelectItem>
-              <SelectItem value="twitter">Twitter</SelectItem>
+              <SelectItem value="YouTube">YouTube</SelectItem>
+              <SelectItem value="Instagram">Instagram</SelectItem>
+              <SelectItem value="TikTok">TikTok</SelectItem>
+              <SelectItem value="Twitter">Twitter</SelectItem>
+              <SelectItem value="Facebook">Facebook</SelectItem>
+              <SelectItem value="LinkedIn">LinkedIn</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
             </SelectContent>
           </Select>
           <Select value={filterStatus} onValueChange={setFilterStatus}>

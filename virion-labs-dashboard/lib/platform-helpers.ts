@@ -14,6 +14,8 @@ export function generateShareText(platform: string, title: string, campaignName?
       return `${baseText} - Link in description!`
     case "linkedin":
       return `Excited to share: ${baseText}`
+    case "facebook":
+      return `${baseText} 📱 Check it out!`
     default:
       return baseText
   }

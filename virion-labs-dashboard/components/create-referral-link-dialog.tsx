@@ -43,13 +43,13 @@ interface CreateReferralLinkDialogProps {
 }
 
 const PLATFORMS = [
-  { value: "twitter", label: "Twitter/X" },
-  { value: "instagram", label: "Instagram" },
-  { value: "tiktok", label: "TikTok" },
-  { value: "youtube", label: "YouTube" },
-  { value: "discord", label: "Discord" },
-  { value: "telegram", label: "Telegram" },
-  { value: "other", label: "Other" }
+  { value: "Twitter", label: "Twitter/X" },
+  { value: "Instagram", label: "Instagram" },
+  { value: "TikTok", label: "TikTok" },
+  { value: "YouTube", label: "YouTube" },
+  { value: "Facebook", label: "Facebook" },
+  { value: "LinkedIn", label: "LinkedIn" },
+  { value: "Other", label: "Other" }
 ]
 
 export function CreateReferralLinkDialog({

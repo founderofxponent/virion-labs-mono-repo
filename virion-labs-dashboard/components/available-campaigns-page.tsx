@@ -23,6 +23,8 @@ interface AvailableCampaign {
   total_interactions: number
   referral_conversions: number
   has_access: boolean
+  request_status: string
+  can_request_access: boolean
 }
 
 export function AvailableCampaignsPage() {
@@ -57,12 +59,40 @@ export function AvailableCampaignsPage() {
 
   const handleCreateLink = (campaign: AvailableCampaign) => {
     if (!campaign.has_access) {
-      // TODO: Show access request dialog or message
-      console.log('Access required for campaign:', campaign.campaign_name)
+      handleRequestAccess(campaign)
       return
     }
     setSelectedCampaign(campaign)
     setShowCreateDialog(true)
+  }
+
+  const handleRequestAccess = async (campaign: AvailableCampaign) => {
+    if (!profile?.id) return
+
+    try {
+      const response = await fetch(`/api/campaigns/${campaign.campaign_id}/request-access`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          influencer_id: profile.id,
+          message: `I would like to request access to the "${campaign.campaign_name}" campaign to create referral links.`
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // Refresh campaigns to show updated status
+        fetchAvailableCampaigns()
+        console.log('Access request submitted successfully')
+      } else {
+        console.error('Failed to request access:', data.error)
+      }
+    } catch (error) {
+      console.error('Error requesting access:', error)
+    }
   }
 
   const getCampaignTypeColor = (type: string) => {
@@ -197,6 +227,16 @@ export function AvailableCampaignsPage() {
                       <CheckCircle className="h-4 w-4 text-green-500" />
                       <span className="text-sm text-green-600 font-medium">Access Granted</span>
                     </>
+                  ) : campaign.request_status === 'pending' ? (
+                    <>
+                      <Clock className="h-4 w-4 text-yellow-500" />
+                      <span className="text-sm text-yellow-600 font-medium">Request Pending</span>
+                    </>
+                  ) : campaign.request_status === 'denied' ? (
+                    <>
+                      <XCircle className="h-4 w-4 text-red-500" />
+                      <span className="text-sm text-red-600 font-medium">Access Denied</span>
+                    </>
                   ) : (
                     <>
                       <XCircle className="h-4 w-4 text-red-500" />
@@ -207,11 +247,14 @@ export function AvailableCampaignsPage() {
 
                 <Button 
                   onClick={() => handleCreateLink(campaign)}
-                  disabled={!campaign.has_access}
+                  disabled={!campaign.has_access && !campaign.can_request_access}
                   className="w-full"
                   variant={campaign.has_access ? "default" : "outline"}
                 >
-                  {campaign.has_access ? 'Create Referral Link' : 'Request Access'}
+                  {campaign.has_access ? 'Create Referral Link' : 
+                   campaign.request_status === 'pending' ? 'Request Pending' :
+                   campaign.request_status === 'denied' ? 'Request Again' :
+                   'Request Access'}
                 </Button>
               </div>
             </CardContent>
