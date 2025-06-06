@@ -40,7 +40,8 @@ import {
   TrendingUp,
   Calendar,
   Hash,
-  MessageSquare
+  MessageSquare,
+  Download
 } from 'lucide-react'
 import {
   Table,
@@ -294,6 +295,41 @@ export function DiscordCampaignsPage() {
     setShowOnboardingDialog(true)
   }
 
+  const handleExportCampaignCSV = async (campaignId: string, campaignName: string) => {
+    try {
+      const response = await fetch(`/api/discord-campaigns/${campaignId}/export-csv`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to export CSV')
+      }
+
+      // Get the CSV content
+      const csvContent = await response.text()
+      
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${campaignName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_onboarding_data.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Success",
+        description: "Onboarding data exported successfully!",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to export CSV data",
+        variant: "destructive"
+      })
+    }
+  }
+
   // Filter campaigns
   const filteredCampaigns = campaigns.filter((campaign) => {
     if (filterClient !== 'all' && campaign.client_id !== filterClient) return false
@@ -525,6 +561,11 @@ export function DiscordCampaignsPage() {
                             <MessageSquare className="h-4 w-4 mr-2" />
                             Onboarding Fields
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.campaign_name)}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Export CSV
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => campaign.is_active 
                               ? handlePauseCampaign(campaign.id) 
