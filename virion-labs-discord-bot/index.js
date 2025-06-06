@@ -20,7 +20,7 @@ const client = new Client({
 
 // Cache for guild configurations to avoid repeated API calls
 const configCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 30 * 1000; // 30 seconds (reduced from 5 minutes for faster updates)
 
 // Initialize onboarding manager
 const onboardingManager = new OnboardingManager();
@@ -705,4 +705,23 @@ client.login(DISCORD_TOKEN).catch((error) => {
   console.log('4. Make sure the bot isn\'t already running elsewhere');
   console.log('5. Check if "Message Content Intent" is enabled in Discord Developer Portal');
   process.exit(1);
-}); 
+});
+
+// Function to clear cache for a specific guild
+function clearGuildCache(guildId) {
+  const keysToDelete = [];
+  for (const key of configCache.keys()) {
+    if (key.startsWith(`${guildId}:`)) {
+      keysToDelete.push(key);
+    }
+  }
+  keysToDelete.forEach(key => configCache.delete(key));
+  console.log(`🗑️ Cleared cache for guild ${guildId} (${keysToDelete.length} entries)`);
+}
+
+// Function to clear all cache
+function clearAllCache() {
+  const size = configCache.size;
+  configCache.clear();
+  console.log(`🗑️ Cleared all config cache (${size} entries)`);
+} 

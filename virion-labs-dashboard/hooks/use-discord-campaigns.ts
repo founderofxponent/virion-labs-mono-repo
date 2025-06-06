@@ -299,11 +299,53 @@ export function useDiscordCampaigns() {
   }
 
   const pauseCampaign = async (id: string) => {
-    return updateCampaign(id, { is_active: false })
+    const result = await updateCampaign(id, { is_active: false })
+    
+    // Invalidate Discord bot cache for immediate effect
+    if (!result.error) {
+      try {
+        const campaign = campaigns.find(c => c.id === id)
+        if (campaign?.guild_id) {
+          await fetch('/api/discord-bot/cache', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'invalidate',
+              guild_id: campaign.guild_id
+            })
+          })
+        }
+      } catch (error) {
+        console.warn('Failed to invalidate bot cache:', error)
+      }
+    }
+    
+    return result
   }
 
   const resumeCampaign = async (id: string) => {
-    return updateCampaign(id, { is_active: true })
+    const result = await updateCampaign(id, { is_active: true })
+    
+    // Invalidate Discord bot cache for immediate effect
+    if (!result.error) {
+      try {
+        const campaign = campaigns.find(c => c.id === id)
+        if (campaign?.guild_id) {
+          await fetch('/api/discord-bot/cache', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'invalidate',
+              guild_id: campaign.guild_id
+            })
+          })
+        }
+      } catch (error) {
+        console.warn('Failed to invalidate bot cache:', error)
+      }
+    }
+    
+    return result
   }
 
   const getCampaignById = async (id: string) => {
