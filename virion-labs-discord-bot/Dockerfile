@@ -11,7 +11,7 @@ RUN npm ci --only=production && npm cache clean --force
 
 # Copy application files
 COPY index.js ./
-COPY test-webhook.js ./
+COPY onboarding-manager.js ./
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
