@@ -1,13 +1,13 @@
 {
   "name": "virion-labs-discord-bot",
   "version": "1.0.0",
-  "description": "Discord bot that forwards messages to n8n webhook for AI processing",
-  "main": "enhanced-index.js",
+  "description": "Discord bot for server management and campaign handling",
+  "main": "index.js",
   "scripts": {
-    "start": "node enhanced-index.js",
-    "dev": "node enhanced-index.js",
-    "test": "node test-webhook.js",
-    "pm2:start": "pm2 start enhanced-index.js --name virion-discord-bot",
+    "start": "node index.js",
+    "dev": "node index.js",
+    "test": "echo \"No tests specified\"",
+    "pm2:start": "pm2 start index.js --name virion-discord-bot",
     "pm2:stop": "pm2 stop virion-discord-bot",
     "pm2:restart": "pm2 restart virion-discord-bot",
     "pm2:logs": "pm2 logs virion-discord-bot",
@@ -18,9 +18,9 @@
   "keywords": [
     "discord",
     "bot",
-    "n8n",
-    "webhook",
-    "ai",
+    "server-management",
+    "campaigns",
+    "onboarding",
     "virion-labs"
   ],
   "author": "Virion Labs",
