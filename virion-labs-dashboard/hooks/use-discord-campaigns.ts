@@ -97,6 +97,9 @@ export interface CreateDiscordCampaignData {
 }
 
 export interface UpdateDiscordCampaignData {
+  client_id?: string
+  guild_id?: string
+  channel_id?: string
   campaign_name?: string
   campaign_type?: 'referral_onboarding' | 'product_promotion' | 'community_engagement' | 'support'
   referral_link_id?: string

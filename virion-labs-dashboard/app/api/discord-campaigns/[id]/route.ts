@@ -63,6 +63,9 @@ export async function PUT(
     const body = await request.json()
 
     const {
+      client_id,
+      guild_id,
+      channel_id,
       campaign_name,
       campaign_type,
       referral_link_id,
@@ -96,6 +99,9 @@ export async function PUT(
     // Prepare update data, converting empty strings to null for optional fields
     const updateData: any = {}
     
+    if (client_id !== undefined) updateData.client_id = client_id
+    if (guild_id !== undefined) updateData.guild_id = guild_id
+    if (channel_id !== undefined) updateData.channel_id = channel_id || null
     if (campaign_name !== undefined) updateData.campaign_name = campaign_name
     if (campaign_type !== undefined) updateData.campaign_type = campaign_type
     if (referral_link_id !== undefined) updateData.referral_link_id = referral_link_id || null

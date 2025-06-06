@@ -112,11 +112,23 @@ export function DiscordCampaignsPage() {
   })
 
   const [editForm, setEditForm] = useState({
+    client_id: '',
+    guild_id: '',
+    channel_id: '',
     campaign_name: '',
+    campaign_type: 'referral_onboarding' as const,
+    referral_link_id: '',
+    influencer_id: '',
+    webhook_url: '',
     welcome_message: '',
-    is_active: true,
+    campaign_start_date: '',
+    campaign_end_date: '',
+    // Bot configuration
     bot_name: '',
-    brand_color: '#6366f1'
+    bot_personality: 'helpful',
+    bot_response_style: 'friendly',
+    brand_color: '#6366f1',
+    is_active: true
   })
 
   useEffect(() => {
@@ -174,6 +186,15 @@ export function DiscordCampaignsPage() {
 
   const handleEditCampaign = async () => {
     if (!editingCampaign) return
+
+    if (!editForm.client_id || !editForm.guild_id || !editForm.campaign_name) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
 
     const result = await updateCampaign(editingCampaign.id, editForm)
 
@@ -247,11 +268,23 @@ export function DiscordCampaignsPage() {
   const openEditDialog = (campaign: any) => {
     setEditingCampaign(campaign)
     setEditForm({
-      campaign_name: campaign.campaign_name,
+      client_id: campaign.client_id || '',
+      guild_id: campaign.guild_id || '',
+      channel_id: campaign.channel_id || '',
+      campaign_name: campaign.campaign_name || '',
+      campaign_type: campaign.campaign_type || 'referral_onboarding',
+      referral_link_id: campaign.referral_link_id || '',
+      influencer_id: campaign.influencer_id || '',
+      webhook_url: campaign.webhook_url || '',
       welcome_message: campaign.welcome_message || '',
-      is_active: campaign.is_active,
-      bot_name: campaign.bot_name,
-      brand_color: campaign.brand_color
+      campaign_start_date: campaign.campaign_start_date || '',
+      campaign_end_date: campaign.campaign_end_date || '',
+      // Bot configuration
+      bot_name: campaign.bot_name || '',
+      bot_personality: campaign.bot_personality || 'helpful',
+      bot_response_style: campaign.bot_response_style || 'friendly',
+      brand_color: campaign.brand_color || '#6366f1',
+      is_active: campaign.is_active ?? true
     })
     setShowEditDialog(true)
   }
@@ -665,27 +698,82 @@ export function DiscordCampaignsPage() {
 
       {/* Edit Campaign Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Campaign</DialogTitle>
             <DialogDescription>
-              Update campaign settings
+              Update campaign settings including server and channel configuration
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-client">Client *</Label>
+                <Select value={editForm.client_id} onValueChange={(value) => setEditForm({ ...editForm, client_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-campaign-type">Campaign Type *</Label>
+                <Select value={editForm.campaign_type} onValueChange={(value: any) => setEditForm({ ...editForm, campaign_type: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="referral_onboarding">Referral Onboarding</SelectItem>
+                    <SelectItem value="product_promotion">Product Promotion</SelectItem>
+                    <SelectItem value="community_engagement">Community Engagement</SelectItem>
+                    <SelectItem value="support">Support</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="edit-campaign-name">Campaign Name</Label>
+              <Label htmlFor="edit-campaign-name">Campaign Name *</Label>
               <Input
                 id="edit-campaign-name"
+                placeholder="e.g., Gaming Community Welcome"
                 value={editForm.campaign_name}
                 onChange={(e) => setEditForm({ ...editForm, campaign_name: e.target.value })}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-guild-id">Discord Server ID *</Label>
+                <Input
+                  id="edit-guild-id"
+                  placeholder="e.g., 1234567890123456789"
+                  value={editForm.guild_id}
+                  onChange={(e) => setEditForm({ ...editForm, guild_id: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-channel-id">Channel ID (Optional)</Label>
+                <Input
+                  id="edit-channel-id"
+                  placeholder="e.g., 9876543210987654321"
+                  value={editForm.channel_id}
+                  onChange={(e) => setEditForm({ ...editForm, channel_id: e.target.value })}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="edit-welcome-message">Welcome Message</Label>
               <Textarea
                 id="edit-welcome-message"
+                placeholder="Welcome message for new users"
                 value={editForm.welcome_message}
                 onChange={(e) => setEditForm({ ...editForm, welcome_message: e.target.value })}
               />
@@ -696,6 +784,7 @@ export function DiscordCampaignsPage() {
                 <Label htmlFor="edit-bot-name">Bot Name</Label>
                 <Input
                   id="edit-bot-name"
+                  placeholder="e.g., Welcome Bot"
                   value={editForm.bot_name}
                   onChange={(e) => setEditForm({ ...editForm, bot_name: e.target.value })}
                 />
