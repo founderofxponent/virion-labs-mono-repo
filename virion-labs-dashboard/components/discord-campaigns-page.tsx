@@ -1,21 +1,39 @@
-'use client'
+"use client"
 
-import { useState, useEffect } from 'react'
-import { useAuth } from '@/components/auth-provider'
-import { useDiscordCampaigns } from '@/hooks/use-discord-campaigns'
-import { useClients } from '@/hooks/use-clients'
-import { supabase } from '@/lib/supabase'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useToast } from '@/hooks/use-toast'
-import { formatDate } from '@/lib/utils'
-import { OnboardingFieldsPage } from '@/components/onboarding-fields-page'
+import { useState, useEffect } from "react"
+import { format } from "date-fns"
+import { useAuth } from "@/components/auth-provider"
+import { useDiscordCampaigns } from "@/hooks/use-discord-campaigns"
+import { useClients } from "@/hooks/use-clients"
+import { supabase } from "@/lib/supabase"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useToast } from "@/hooks/use-toast"
+import { formatDate, cn } from "@/lib/utils"
+import { OnboardingFieldsPage } from "@/components/onboarding-fields-page"
 import { 
   Bot, 
   Settings, 
@@ -39,26 +57,12 @@ import {
   Pause,
   Target,
   TrendingUp,
-  Calendar,
   Hash,
   MessageSquare,
-  Download
-} from 'lucide-react'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  Download,
+  Filter,
+  CalendarIcon
+} from "lucide-react"
 
 export function DiscordCampaignsPage() {
   const { profile, user } = useAuth()
@@ -68,11 +72,11 @@ export function DiscordCampaignsPage() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showOnboardingDialog, setShowOnboardingDialog] = useState(false)
   const [editingCampaign, setEditingCampaign] = useState<any>(null)
-  const [selectedCampaignForOnboarding, setSelectedCampaignForOnboarding] = useState<string>('')
-  const [filterClient, setFilterClient] = useState('all')
-  const [filterType, setFilterType] = useState('all')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCampaignForOnboarding, setSelectedCampaignForOnboarding] = useState<string>("")
+  const [filterClient, setFilterClient] = useState("all")
+  const [filterType, setFilterType] = useState("all")
+  const [filterStatus, setFilterStatus] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
 
   const {
     campaigns,
@@ -94,42 +98,42 @@ export function DiscordCampaignsPage() {
   } = useDiscordCampaigns()
 
   const [createForm, setCreateForm] = useState({
-    client_id: '',
-    guild_id: '',
-    channel_id: '',
-    campaign_name: '',
-    campaign_type: 'referral_onboarding' as const,
-    template_id: '',
-    referral_link_id: '',
-    influencer_id: '',
-    webhook_url: '',
-    welcome_message: '',
-    campaign_start_date: '',
-    campaign_end_date: '',
+    client_id: "",
+    guild_id: "",
+    channel_id: "",
+    campaign_name: "",
+    campaign_type: "referral_onboarding" as const,
+    template_id: "",
+    referral_link_id: "",
+    influencer_id: "",
+    webhook_url: "",
+    welcome_message: "",
+    campaign_start_date: "",
+    campaign_end_date: null as Date | null,
     // Bot configuration
-    bot_name: '',
-    bot_personality: 'helpful',
-    bot_response_style: 'friendly',
-    brand_color: '#6366f1'
+    bot_name: "",
+    bot_personality: "helpful",
+    bot_response_style: "friendly",
+    brand_color: "#6366f1"
   })
 
   const [editForm, setEditForm] = useState({
-    client_id: '',
-    guild_id: '',
-    channel_id: '',
-    campaign_name: '',
-    campaign_type: 'referral_onboarding' as const,
-    referral_link_id: '',
-    influencer_id: '',
-    webhook_url: '',
-    welcome_message: '',
-    campaign_start_date: '',
-    campaign_end_date: '',
+    client_id: "",
+    guild_id: "",
+    channel_id: "",
+    campaign_name: "",
+    campaign_type: "referral_onboarding" as const,
+    referral_link_id: "",
+    influencer_id: "",
+    webhook_url: "",
+    welcome_message: "",
+    campaign_start_date: "",
+    campaign_end_date: null as Date | null,
     // Bot configuration
-    bot_name: '',
-    bot_personality: 'helpful',
-    bot_response_style: 'friendly',
-    brand_color: '#6366f1',
+    bot_name: "",
+    bot_personality: "helpful",
+    bot_response_style: "friendly",
+    brand_color: "#6366f1",
     is_active: true
   })
 
@@ -149,9 +153,14 @@ export function DiscordCampaignsPage() {
       return
     }
 
+    const formData = {
+      ...createForm,
+      campaign_end_date: createForm.campaign_end_date?.toISOString() || undefined
+    }
+    
     const result = createForm.template_id 
-      ? await createCampaignFromTemplate(createForm.template_id, createForm)
-      : await createCampaign(createForm)
+      ? await createCampaignFromTemplate(createForm.template_id, formData)
+      : await createCampaign(formData)
 
     if (result.error) {
       toast({
@@ -166,22 +175,22 @@ export function DiscordCampaignsPage() {
       })
       setShowCreateDialog(false)
       setCreateForm({
-        client_id: '',
-        guild_id: '',
-        channel_id: '',
-        campaign_name: '',
-        campaign_type: 'referral_onboarding',
-        template_id: '',
-        referral_link_id: '',
-        influencer_id: '',
-        webhook_url: '',
-        welcome_message: '',
-        campaign_start_date: '',
-        campaign_end_date: '',
-        bot_name: '',
-        bot_personality: 'helpful',
-        bot_response_style: 'friendly',
-        brand_color: '#6366f1'
+        client_id: "",
+        guild_id: "",
+        channel_id: "",
+        campaign_name: "",
+        campaign_type: "referral_onboarding",
+        template_id: "",
+        referral_link_id: "",
+        influencer_id: "",
+        webhook_url: "",
+        welcome_message: "",
+        campaign_start_date: "",
+        campaign_end_date: null,
+        bot_name: "",
+        bot_personality: "helpful",
+        bot_response_style: "friendly",
+        brand_color: "#6366f1"
       })
     }
   }
@@ -198,7 +207,12 @@ export function DiscordCampaignsPage() {
       return
     }
 
-    const result = await updateCampaign(editingCampaign.id, editForm)
+    const formData = {
+      ...editForm,
+      campaign_end_date: editForm.campaign_end_date?.toISOString() || undefined
+    }
+    
+    const result = await updateCampaign(editingCampaign.id, formData)
 
     if (result.error) {
       toast({
@@ -217,7 +231,7 @@ export function DiscordCampaignsPage() {
   }
 
   const handleDeleteCampaign = async (campaignId: string) => {
-    if (!confirm('Are you sure you want to delete this campaign?')) return
+    if (!confirm("Are you sure you want to delete this campaign?")) return
 
     const result = await deleteCampaign(campaignId)
 
@@ -270,22 +284,22 @@ export function DiscordCampaignsPage() {
   const openEditDialog = (campaign: any) => {
     setEditingCampaign(campaign)
     setEditForm({
-      client_id: campaign.client_id || '',
-      guild_id: campaign.guild_id || '',
-      channel_id: campaign.channel_id || '',
-      campaign_name: campaign.campaign_name || '',
-      campaign_type: campaign.campaign_type || 'referral_onboarding',
-      referral_link_id: campaign.referral_link_id || '',
-      influencer_id: campaign.influencer_id || '',
-      webhook_url: campaign.webhook_url || '',
-      welcome_message: campaign.welcome_message || '',
-      campaign_start_date: campaign.campaign_start_date || '',
-      campaign_end_date: campaign.campaign_end_date || '',
+      client_id: campaign.client_id || "",
+      guild_id: campaign.guild_id || "",
+      channel_id: campaign.channel_id || "",
+      campaign_name: campaign.campaign_name || "",
+      campaign_type: campaign.campaign_type || "referral_onboarding",
+      referral_link_id: campaign.referral_link_id || "",
+      influencer_id: campaign.influencer_id || "",
+      webhook_url: campaign.webhook_url || "",
+      welcome_message: campaign.welcome_message || "",
+      campaign_start_date: campaign.campaign_start_date || "",
+      campaign_end_date: campaign.campaign_end_date ? new Date(campaign.campaign_end_date) : null,
       // Bot configuration
-      bot_name: campaign.bot_name || '',
-      bot_personality: campaign.bot_personality || 'helpful',
-      bot_response_style: campaign.bot_response_style || 'friendly',
-      brand_color: campaign.brand_color || '#6366f1',
+      bot_name: campaign.bot_name || "",
+      bot_personality: campaign.bot_personality || "helpful",
+      bot_response_style: campaign.bot_response_style || "friendly",
+      brand_color: campaign.brand_color || "#6366f1",
       is_active: campaign.is_active ?? true
     })
     setShowEditDialog(true)
@@ -299,36 +313,36 @@ export function DiscordCampaignsPage() {
   const handleExportCampaignCSV = async (campaignId: string, campaignName: string) => {
     try {
       // Only admin users can export data
-      if (profile?.role !== 'admin') {
-        throw new Error('Access denied. Admin privileges required.')
+      if (profile?.role !== "admin") {
+        throw new Error("Access denied. Admin privileges required.")
       }
 
       // Get the current session token for authentication
       const { data: { session } } = await supabase.auth.getSession()
       
       if (!session?.access_token) {
-        throw new Error('Authentication required')
+        throw new Error("Authentication required")
       }
 
       const response = await fetch(`/api/discord-campaigns/${campaignId}/export-csv`, {
         headers: {
-          'Authorization': `Bearer ${session.access_token}`
+          "Authorization": `Bearer ${session.access_token}`
         }
       })
       
       if (!response.ok) {
-        throw new Error('Failed to export CSV')
+        throw new Error("Failed to export CSV")
       }
 
       // Get the CSV content
       const csvContent = await response.text()
       
       // Create blob and download
-      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const blob = new Blob([csvContent], { type: "text/csv" })
       const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
+      const link = document.createElement("a")
       link.href = url
-      link.download = `${campaignName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_onboarding_data.csv`
+      link.download = `${campaignName.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_onboarding_data.csv`
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -349,11 +363,11 @@ export function DiscordCampaignsPage() {
 
   // Filter campaigns
   const filteredCampaigns = campaigns.filter((campaign) => {
-    if (filterClient !== 'all' && campaign.client_id !== filterClient) return false
-    if (filterType !== 'all' && campaign.campaign_type !== filterType) return false
-    if (filterStatus !== 'all') {
-      if (filterStatus === 'active' && !campaign.is_active) return false
-      if (filterStatus === 'paused' && campaign.is_active) return false
+    if (filterClient !== "all" && campaign.client_id !== filterClient) return false
+    if (filterType !== "all" && campaign.campaign_type !== filterType) return false
+    if (filterStatus !== "all") {
+      if (filterStatus === "active" && !campaign.is_active) return false
+      if (filterStatus === "paused" && campaign.is_active) return false
     }
     if (searchQuery && !campaign.campaign_name.toLowerCase().includes(searchQuery.toLowerCase()) && 
         !campaign.clients?.name.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -362,7 +376,7 @@ export function DiscordCampaignsPage() {
     return true
   })
 
-  if (profile?.role !== 'admin') {
+  if (profile?.role !== "admin") {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Access denied. Admin privileges required.</p>
@@ -695,7 +709,7 @@ export function DiscordCampaignsPage() {
 
             <div className="space-y-2">
               <Label htmlFor="template">Template (Optional)</Label>
-              <Select value={createForm.template_id || 'none'} onValueChange={(value) => setCreateForm({ ...createForm, template_id: value === 'none' ? '' : value })}>
+              <Select value={createForm.template_id || "none"} onValueChange={(value) => setCreateForm({ ...createForm, template_id: value === "none" ? "" : value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select template for quick setup" />
                 </SelectTrigger>
@@ -741,6 +755,49 @@ export function DiscordCampaignsPage() {
                   onChange={(e) => setCreateForm({ ...createForm, brand_color: e.target.value })}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Campaign Expiry Date (Optional)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !createForm.campaign_end_date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {createForm.campaign_end_date ? (
+                      format(createForm.campaign_end_date, "PPP")
+                    ) : (
+                      <span>No expiry date (default)</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={createForm.campaign_end_date}
+                    onSelect={(date) => setCreateForm({ ...createForm, campaign_end_date: date })}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                  />
+                  <div className="p-3 border-t">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setCreateForm({ ...createForm, campaign_end_date: null })}
+                    >
+                      Clear (No Expiry)
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Leave empty for no expiry date. Campaign will run indefinitely until manually stopped.
+              </p>
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -856,6 +913,49 @@ export function DiscordCampaignsPage() {
                   onChange={(e) => setEditForm({ ...editForm, brand_color: e.target.value })}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Campaign Expiry Date (Optional)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !editForm.campaign_end_date && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editForm.campaign_end_date ? (
+                      format(editForm.campaign_end_date, "PPP")
+                    ) : (
+                      <span>No expiry date (default)</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={editForm.campaign_end_date}
+                    onSelect={(date) => setEditForm({ ...editForm, campaign_end_date: date })}
+                    disabled={(date) => date < new Date()}
+                    initialFocus
+                  />
+                  <div className="p-3 border-t">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => setEditForm({ ...editForm, campaign_end_date: null })}
+                    >
+                      Clear (No Expiry)
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Leave empty for no expiry date. Campaign will run indefinitely until manually stopped.
+              </p>
             </div>
 
             <div className="flex items-center space-x-2">
