@@ -108,6 +108,13 @@ async function getGuildConfig(guildId, channelId = null) {
 // Track interaction with dashboard
 async function trackInteraction(guildId, channelId, message, interactionType, botResponse = null, referralCode = null) {
   try {
+    if (DEBUG) {
+      console.log(`🔍 Tracking interaction: ${interactionType} for ${message.author.tag} in guild ${guildId}`);
+      if (referralCode) {
+        console.log(`🎯 Referral code detected: ${referralCode}`);
+      }
+    }
+
     const response = await fetch(`${DASHBOARD_API_URL}/discord-bot/config`, {
       method: 'POST',
       headers: {
@@ -128,10 +135,16 @@ async function trackInteraction(guildId, channelId, message, interactionType, bo
     });
 
     if (!response.ok) {
-      console.error(`Failed to track interaction: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`❌ Failed to track interaction: ${response.status} ${response.statusText} - ${errorText}`);
+    } else {
+      const result = await response.json();
+      if (DEBUG) {
+        console.log(`✅ Successfully tracked interaction: ${result.interaction_id}`);
+      }
     }
   } catch (error) {
-    console.error('Error tracking interaction:', error);
+    console.error('❌ Error tracking interaction:', error);
   }
 }
 

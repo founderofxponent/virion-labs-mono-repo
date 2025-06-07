@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 export interface DiscordCampaign {
   id: string
@@ -371,47 +371,63 @@ export function useDiscordCampaigns() {
     }
   }
 
-  const getCampaignStats = () => {
+  const getCampaignStats = useCallback(() => {
+    if (!campaigns || campaigns.length === 0) {
+      return {
+        totalCampaigns: 0,
+        activeCampaigns: 0,
+        totalInteractions: 0,
+        totalConversions: 0,
+        totalOnboardings: 0,
+        conversionRate: 0,
+        onboardingRate: 0
+      }
+    }
+
+    // Calculate statistics from real database data - NO HARDCODED VALUES
     const totalCampaigns = campaigns.length
     const activeCampaigns = campaigns.filter(c => c.is_active).length
-    const totalInteractions = campaigns.reduce((sum, c) => sum + c.total_interactions, 0)
-    const totalConversions = campaigns.reduce((sum, c) => sum + c.referral_conversions, 0)
-    const totalOnboardings = campaigns.reduce((sum, c) => sum + c.successful_onboardings, 0)
+    
+    // Sum up all campaign statistics - ensure we use actual database values
+    const totalInteractions = campaigns.reduce((sum, c) => sum + (c.total_interactions || 0), 0)
+    const totalConversions = campaigns.reduce((sum, c) => sum + (c.referral_conversions || 0), 0)
+    const totalOnboardings = campaigns.reduce((sum, c) => sum + (c.successful_onboardings || 0), 0)
+    
+    // Calculate rates based on actual data
+    const conversionRate = totalInteractions > 0 ? (totalConversions / totalInteractions) * 100 : 0
+    const onboardingRate = totalInteractions > 0 ? (totalOnboardings / totalInteractions) * 100 : 0
 
-    const campaignsByType = campaigns.reduce((acc, campaign) => {
-      acc[campaign.campaign_type] = (acc[campaign.campaign_type] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    const campaignsByClient = campaigns.reduce((acc, campaign) => {
-      const clientName = campaign.clients?.name || 'Unknown'
-      acc[clientName] = (acc[clientName] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    const activeCampaignsByType = campaigns
-      .filter(c => c.is_active)
-      .reduce((acc, campaign) => {
-        acc[campaign.campaign_type] = (acc[campaign.campaign_type] || 0) + 1
-        return acc
-      }, {} as Record<string, number>)
+    // Debug logging to verify calculations
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📊 Campaign Statistics Debug:', {
+        campaigns: campaigns.map(c => ({
+          name: c.campaign_name,
+          interactions: c.total_interactions || 0,
+          conversions: c.referral_conversions || 0,
+          onboardings: c.successful_onboardings || 0
+        })),
+        totals: {
+          totalInteractions,
+          totalConversions, 
+          totalOnboardings
+        },
+        rates: {
+          conversionRate: `${conversionRate.toFixed(2)}%`,
+          onboardingRate: `${onboardingRate.toFixed(2)}%`
+        }
+      })
+    }
 
     return {
       totalCampaigns,
       activeCampaigns,
-      inactiveCampaigns: totalCampaigns - activeCampaigns,
       totalInteractions,
       totalConversions,
       totalOnboardings,
-      conversionRate: totalInteractions > 0 ? (totalConversions / totalInteractions) * 100 : 0,
-      onboardingRate: totalInteractions > 0 ? (totalOnboardings / totalInteractions) * 100 : 0,
-      campaignsByType,
-      campaignsByClient,
-      activeCampaignsByType,
-      avgInteractionsPerCampaign: totalCampaigns > 0 ? totalInteractions / totalCampaigns : 0,
-      avgConversionsPerCampaign: totalCampaigns > 0 ? totalConversions / totalCampaigns : 0
+      conversionRate: parseFloat(conversionRate.toFixed(2)),
+      onboardingRate: parseFloat(onboardingRate.toFixed(2))
     }
-  }
+  }, [campaigns])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

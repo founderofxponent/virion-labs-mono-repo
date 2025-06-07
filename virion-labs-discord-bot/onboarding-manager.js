@@ -343,6 +343,7 @@ class OnboardingManager {
 
   async trackCompletion(message, config, referralValidation = null) {
     try {
+      // Track onboarding completion interaction
       const trackingResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/config`, {
         method: 'POST',
         headers: {
@@ -364,8 +365,37 @@ class OnboardingManager {
 
       if (!trackingResponse.ok) {
         console.error('Failed to track onboarding completion:', trackingResponse.status);
+      } else {
+        console.log(`✅ Successfully tracked onboarding completion for ${message.author.tag}`);
       }
 
+      // Increment successful_onboardings count in campaign
+      try {
+        const incrementResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding/complete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Virion-Discord-Bot/2.0'
+          },
+          body: JSON.stringify({
+            campaign_id: config.campaign.id,
+            discord_user_id: message.author.id,
+            discord_username: message.author.tag,
+            guild_id: message.guild?.id
+          })
+        });
+
+        if (incrementResponse.ok) {
+          const incrementResult = await incrementResponse.json();
+          console.log(`✅ Incremented successful_onboardings for campaign: ${config.campaign.id}`);
+        } else {
+          console.error('❌ Failed to increment successful_onboardings:', incrementResponse.status);
+        }
+      } catch (error) {
+        console.error('❌ Error incrementing successful_onboardings:', error);
+      }
+
+      // Handle referral completion if applicable
       if (referralValidation && referralValidation.referral_code) {
         const completionResponse = await fetch(`${DASHBOARD_API_URL}/referral/complete`, {
           method: 'POST',
