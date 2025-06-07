@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth-provider'
 import { useDiscordCampaigns } from '@/hooks/use-discord-campaigns'
 import { useClients } from '@/hooks/use-clients'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -60,7 +61,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export function DiscordCampaignsPage() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const { toast } = useToast()
   const { clients } = useClients()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -297,7 +298,23 @@ export function DiscordCampaignsPage() {
 
   const handleExportCampaignCSV = async (campaignId: string, campaignName: string) => {
     try {
-      const response = await fetch(`/api/discord-campaigns/${campaignId}/export-csv`)
+      // Only admin users can export data
+      if (profile?.role !== 'admin') {
+        throw new Error('Access denied. Admin privileges required.')
+      }
+
+      // Get the current session token for authentication
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required')
+      }
+
+      const response = await fetch(`/api/discord-campaigns/${campaignId}/export-csv`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
       
       if (!response.ok) {
         throw new Error('Failed to export CSV')

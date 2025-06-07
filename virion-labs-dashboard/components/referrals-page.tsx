@@ -194,10 +194,12 @@ export function ReferralsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Referrals</h1>
           <p className="text-muted-foreground">Track all users who signed up through your links</p>
         </div>
-        <Button variant="outline" onClick={exportData}>
-          <Download className="mr-2 h-4 w-4" />
-          Export Data
-        </Button>
+        {profile?.role === 'admin' && (
+          <Button variant="outline" onClick={exportData}>
+            <Download className="mr-2 h-4 w-4" />
+            Export Data
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}

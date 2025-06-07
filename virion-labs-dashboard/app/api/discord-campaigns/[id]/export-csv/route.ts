@@ -7,11 +7,48 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Create client for auth checks
+const supabaseAuth = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Check authentication
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    // Get user from JWT token
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid authentication' }, { status: 401 });
+    }
+
+    // Check user role in database
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
+    }
+
+    // Only admin users can export data
+    if (profile.role !== 'admin') {
+      return NextResponse.json({ error: 'Access denied. Admin privileges required.' }, { status: 403 });
+    }
+
     const { id: campaignId } = await params
 
     // Get campaign details

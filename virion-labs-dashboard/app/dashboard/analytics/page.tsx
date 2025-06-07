@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { useAnalytics } from '@/app/hooks/useAnalytics';
 import { useDiscordCampaigns } from '@/hooks/use-discord-campaigns';
+import { useAuth } from '@/components/auth-provider';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981', '#06b6d4'];
 
@@ -46,6 +47,7 @@ export default function AnalyticsPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('30d');
   
+  const { profile } = useAuth();
   const {
     loading,
     error,
@@ -153,10 +155,12 @@ export default function AnalyticsPage() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
+          {profile?.role === 'admin' && (
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          )}
         </div>
       </div>
 
