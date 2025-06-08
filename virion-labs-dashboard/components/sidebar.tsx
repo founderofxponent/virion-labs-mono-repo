@@ -1,9 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import {
-  BarChart3,
   LinkIcon,
   Users,
   Settings,
@@ -125,8 +125,14 @@ export function Sidebar() {
       {/* Logo and Brand */}
       <div className="p-4 border-b">
         <div className="flex items-center gap-2">
-          <div className="bg-black rounded-md p-2 flex items-center justify-center">
-            <BarChart3 className="h-5 w-5 text-white" />
+          <div className="rounded-md p-1 flex items-center justify-center">
+            <Image 
+              src="/virion-labs-logo-black.png" 
+              alt="Virion Labs" 
+              width={32} 
+              height={32}
+              className="h-8 w-8 object-contain"
+            />
           </div>
           <span className="font-bold text-xl">Virion Labs</span>
         </div>

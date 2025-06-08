@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { BarChart3, Eye, EyeOff } from "lucide-react"
+import Image from "next/image"
+import { Eye, EyeOff } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -85,7 +86,13 @@ export default function LoginPage() {
         {/* Logo and Header */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2 font-semibold text-2xl">
-            <BarChart3 className="h-8 w-8" />
+            <Image 
+              src="/virion-labs-logo-black.png" 
+              alt="Virion Labs" 
+              width={32} 
+              height={32}
+              className="h-8 w-8 object-contain"
+            />
             <span>Virion Labs</span>
           </Link>
           <p className="text-muted-foreground">
