@@ -34,6 +34,19 @@ interface CampaignData {
     brand_color: string
     brand_logo_url: string
     metadata: any
+    // New landing page fields
+    offer_title?: string
+    offer_description?: string
+    offer_highlights?: string[]
+    offer_value?: string
+    offer_expiry_date?: string
+    hero_image_url?: string
+    product_images?: string[]
+    video_url?: string
+    what_you_get?: string
+    how_it_works?: string
+    requirements?: string
+    support_info?: string
     clients: {
       name: string
       industry: string
@@ -216,13 +229,43 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
             </Badge>
             
             <h1 className="text-4xl font-bold text-gray-900">
-              {campaign.campaign_name}
+              {campaign.offer_title || campaign.campaign_name}
             </h1>
             <p className="text-xl text-gray-600">
               by {campaign.clients.name}
             </p>
+            {campaign.offer_value && (
+              <div className="mt-4">
+                <Badge variant="outline" className="text-lg px-4 py-2 border-2" style={{ borderColor: brandColor, color: brandColor }}>
+                  {campaign.offer_value}
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Hero Image */}
+        {campaign.hero_image_url && (
+          <div className="relative rounded-xl overflow-hidden shadow-lg">
+            <img 
+              src={campaign.hero_image_url} 
+              alt={campaign.offer_title || campaign.campaign_name}
+              className="w-full h-64 md:h-80 object-cover"
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+              <div className="text-center text-white">
+                <h2 className="text-3xl md:text-4xl font-bold mb-2">
+                  {campaign.offer_title || campaign.campaign_name}
+                </h2>
+                {campaign.offer_description && (
+                  <p className="text-lg md:text-xl opacity-90">
+                    {campaign.offer_description}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-3 gap-8">
           {/* Main Content */}
@@ -230,15 +273,36 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
             {/* Main Campaign Card */}
             <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle className="text-2xl">{referral_link.title}</CardTitle>
-                {referral_link.description && (
+                <CardTitle className="text-2xl">
+                  {campaign.offer_title || referral_link.title}
+                </CardTitle>
+                {(campaign.offer_description || referral_link.description) && (
                   <p className="text-muted-foreground text-lg">
-                    {referral_link.description}
+                    {campaign.offer_description || referral_link.description}
                   </p>
                 )}
               </CardHeader>
               
               <CardContent className="space-y-6">
+                {/* Offer Highlights */}
+                {campaign.offer_highlights && campaign.offer_highlights.length > 0 && (
+                  <div className="bg-gray-50 p-6 rounded-lg">
+                    <h3 className="font-semibold text-lg mb-4">What's Included:</h3>
+                    <ul className="space-y-2">
+                      {campaign.offer_highlights.map((highlight, index) => (
+                        <li key={index} className="flex items-start gap-3">
+                          <div 
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-bold mt-0.5"
+                            style={{ backgroundColor: brandColor }}
+                          >
+                            ✓
+                          </div>
+                          <span className="text-gray-700">{highlight}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {/* Campaign Welcome Message */}
                 {campaign.welcome_message && (
                   <div 
@@ -290,75 +354,80 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
               </CardContent>
             </Card>
 
-            {/* Benefits Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle>What You'll Get</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="flex items-start gap-4">
-                    <div 
-                      className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
-                      style={{ backgroundColor: brandColor }}
-                    >
-                      <Users className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold mb-1">Exclusive Community</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Join a vibrant community of like-minded individuals with special access
-                      </p>
-                    </div>
+            {/* What You Get Section */}
+            {campaign.what_you_get && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>What You'll Get</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="prose prose-gray max-w-none">
+                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                      {campaign.what_you_get}
+                    </p>
                   </div>
+                </CardContent>
+              </Card>
+            )}
 
-                  <div className="flex items-start gap-4">
-                    <div 
-                      className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
-                      style={{ backgroundColor: brandColor }}
-                    >
-                      <Star className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold mb-1">Premium Perks</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Get exclusive content, early access, and special offers
-                      </p>
+            {/* How It Works Section */}
+            {campaign.how_it_works && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>How It Works</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="prose prose-gray max-w-none">
+                    <div className="text-gray-700 leading-relaxed whitespace-pre-line">
+                      {campaign.how_it_works}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            )}
 
-                  <div className="flex items-start gap-4">
-                    <div 
-                      className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
-                      style={{ backgroundColor: brandColor }}
-                    >
-                      <Shield className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold mb-1">Dedicated Support</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Direct access to support team and priority assistance
-                      </p>
-                    </div>
+            {/* Product Images */}
+            {campaign.product_images && campaign.product_images.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Gallery</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {campaign.product_images.map((image, index) => (
+                      <div key={index} className="relative rounded-lg overflow-hidden shadow-md">
+                        <img 
+                          src={image} 
+                          alt={`Product ${index + 1}`}
+                          className="w-full h-32 object-cover hover:scale-105 transition-transform cursor-pointer"
+                          onClick={() => window.open(image, '_blank')}
+                        />
+                      </div>
+                    ))}
                   </div>
+                </CardContent>
+              </Card>
+            )}
 
-                  <div className="flex items-start gap-4">
-                    <div 
-                      className="w-12 h-12 rounded-lg flex items-center justify-center text-white"
-                      style={{ backgroundColor: brandColor }}
-                    >
-                      <Zap className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold mb-1">Instant Access</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Immediate setup with automated onboarding process
-                      </p>
-                    </div>
+            {/* Video Section */}
+            {campaign.video_url && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Watch Demo</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="relative rounded-lg overflow-hidden shadow-lg">
+                    <iframe
+                      src={campaign.video_url.replace('watch?v=', 'embed/')}
+                      className="w-full h-64 md:h-80"
+                      frameBorder="0"
+                      allowFullScreen
+                      title="Demo Video"
+                    />
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Sidebar */}
@@ -430,6 +499,34 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Requirements */}
+            {campaign.requirements && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Requirements</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground whitespace-pre-line">
+                    {campaign.requirements}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Support Info */}
+            {campaign.support_info && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Need Help?</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground whitespace-pre-line">
+                    {campaign.support_info}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Trust Indicators */}
             <Card>

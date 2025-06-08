@@ -34,6 +34,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { formatDate, cn } from "@/lib/utils"
 import { OnboardingFieldsPage } from "@/components/onboarding-fields-page"
+import { LandingPageConfig } from "@/components/landing-page-config"
 import { 
   Bot, 
   Settings, 
@@ -62,7 +63,8 @@ import {
   Download,
   Filter,
   CalendarIcon,
-  Archive
+  Archive,
+  Eye
 } from "lucide-react"
 
 export function DiscordCampaignsPage() {
@@ -118,7 +120,21 @@ export function DiscordCampaignsPage() {
     bot_name: "",
     bot_personality: "helpful",
     bot_response_style: "friendly",
-    brand_color: "#6366f1"
+    brand_color: "#6366f1",
+    // Landing page configuration
+    landing_page_template_id: "",
+    offer_title: "",
+    offer_description: "",
+    offer_highlights: [] as string[],
+    offer_value: "",
+    offer_expiry_date: null as Date | null,
+    hero_image_url: "",
+    product_images: [] as string[],
+    video_url: "",
+    what_you_get: "",
+    how_it_works: "",
+    requirements: "",
+    support_info: ""
   })
 
   const [editForm, setEditForm] = useState({
@@ -138,7 +154,21 @@ export function DiscordCampaignsPage() {
     bot_personality: "helpful",
     bot_response_style: "friendly",
     brand_color: "#6366f1",
-    is_active: true
+    is_active: true,
+    // Landing page configuration
+    landing_page_template_id: "",
+    offer_title: "",
+    offer_description: "",
+    offer_highlights: [] as string[],
+    offer_value: "",
+    offer_expiry_date: null as Date | null,
+    hero_image_url: "",
+    product_images: [] as string[],
+    video_url: "",
+    what_you_get: "",
+    how_it_works: "",
+    requirements: "",
+    support_info: ""
   })
 
   useEffect(() => {
@@ -174,7 +204,8 @@ export function DiscordCampaignsPage() {
 
     const formData = {
       ...createForm,
-      campaign_end_date: createForm.campaign_end_date?.toISOString() || undefined
+      campaign_end_date: createForm.campaign_end_date?.toISOString() || undefined,
+      offer_expiry_date: createForm.offer_expiry_date?.toISOString() || undefined
     }
     
     const result = createForm.template_id 
@@ -209,7 +240,21 @@ export function DiscordCampaignsPage() {
         bot_name: "",
         bot_personality: "helpful",
         bot_response_style: "friendly",
-        brand_color: "#6366f1"
+        brand_color: "#6366f1",
+        // Landing page configuration
+        landing_page_template_id: "",
+        offer_title: "",
+        offer_description: "",
+        offer_highlights: [] as string[],
+        offer_value: "",
+        offer_expiry_date: null as Date | null,
+        hero_image_url: "",
+        product_images: [] as string[],
+        video_url: "",
+        what_you_get: "",
+        how_it_works: "",
+        requirements: "",
+        support_info: ""
       })
     }
   }
@@ -228,7 +273,8 @@ export function DiscordCampaignsPage() {
 
     const formData = {
       ...editForm,
-      campaign_end_date: editForm.campaign_end_date?.toISOString() || undefined
+      campaign_end_date: editForm.campaign_end_date?.toISOString() || undefined,
+      offer_expiry_date: editForm.offer_expiry_date?.toISOString() || undefined
     }
     
     const result = await updateCampaign(editingCampaign.id, formData)
@@ -341,7 +387,21 @@ export function DiscordCampaignsPage() {
       bot_personality: campaign.bot_personality || "helpful",
       bot_response_style: campaign.bot_response_style || "friendly",
       brand_color: campaign.brand_color || "#6366f1",
-      is_active: campaign.is_active ?? true
+      is_active: campaign.is_active ?? true,
+      // Landing page configuration
+      landing_page_template_id: campaign.landing_page_template_id || "",
+      offer_title: campaign.offer_title || "",
+      offer_description: campaign.offer_description || "",
+      offer_highlights: campaign.offer_highlights || [],
+      offer_value: campaign.offer_value || "",
+      offer_expiry_date: campaign.offer_expiry_date ? new Date(campaign.offer_expiry_date) : null,
+      hero_image_url: campaign.hero_image_url || "",
+      product_images: campaign.product_images || [],
+      video_url: campaign.video_url || "",
+      what_you_get: campaign.what_you_get || "",
+      how_it_works: campaign.how_it_works || "",
+      requirements: campaign.requirements || "",
+      support_info: campaign.support_info || ""
     })
     setShowEditDialog(true)
   }
@@ -349,6 +409,12 @@ export function DiscordCampaignsPage() {
   const openOnboardingDialog = (campaign: any) => {
     setSelectedCampaignForOnboarding(campaign.id)
     setShowOnboardingDialog(true)
+  }
+
+  const handlePreviewLandingPage = (campaign: any) => {
+    // Open landing page preview in a new window
+    const previewUrl = `/api/referral/preview/${campaign.id}`
+    window.open(previewUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes')
   }
 
   const handleExportCampaignCSV = async (campaignId: string, campaignName: string) => {
@@ -645,8 +711,13 @@ export function DiscordCampaignsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handlePreviewLandingPage(campaign)}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            Preview Landing Page
+                          </DropdownMenuItem>
                           {!campaign.archived && (
                             <>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => openEditDialog(campaign)}>
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit
@@ -717,7 +788,7 @@ export function DiscordCampaignsPage() {
 
       {/* Create Campaign Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Campaign</DialogTitle>
             <DialogDescription>
@@ -880,6 +951,30 @@ export function DiscordCampaignsPage() {
                 Leave empty for no expiry date. Campaign will run indefinitely until manually stopped.
               </p>
             </div>
+
+            {/* Landing Page Configuration */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-lg font-medium mb-4">Landing Page Configuration</h3>
+              <LandingPageConfig
+                campaignType={createForm.campaign_type}
+                initialData={{
+                  landing_page_template_id: createForm.landing_page_template_id,
+                  offer_title: createForm.offer_title,
+                  offer_description: createForm.offer_description,
+                  offer_highlights: createForm.offer_highlights,
+                  offer_value: createForm.offer_value,
+                  offer_expiry_date: createForm.offer_expiry_date,
+                  hero_image_url: createForm.hero_image_url,
+                  product_images: createForm.product_images,
+                  video_url: createForm.video_url,
+                  what_you_get: createForm.what_you_get,
+                  how_it_works: createForm.how_it_works,
+                  requirements: createForm.requirements,
+                  support_info: createForm.support_info,
+                }}
+                onChange={(data) => setCreateForm({ ...createForm, ...data })}
+              />
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
@@ -894,7 +989,7 @@ export function DiscordCampaignsPage() {
 
       {/* Edit Campaign Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Campaign</DialogTitle>
             <DialogDescription>
@@ -1047,6 +1142,30 @@ export function DiscordCampaignsPage() {
                 onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
               />
               <Label htmlFor="edit-is-active">Campaign Active</Label>
+            </div>
+
+            {/* Landing Page Configuration */}
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-lg font-medium mb-4">Landing Page Configuration</h3>
+              <LandingPageConfig
+                campaignType={editForm.campaign_type}
+                initialData={{
+                  landing_page_template_id: editForm.landing_page_template_id,
+                  offer_title: editForm.offer_title,
+                  offer_description: editForm.offer_description,
+                  offer_highlights: editForm.offer_highlights,
+                  offer_value: editForm.offer_value,
+                  offer_expiry_date: editForm.offer_expiry_date,
+                  hero_image_url: editForm.hero_image_url,
+                  product_images: editForm.product_images,
+                  video_url: editForm.video_url,
+                  what_you_get: editForm.what_you_get,
+                  how_it_works: editForm.how_it_works,
+                  requirements: editForm.requirements,
+                  support_info: editForm.support_info,
+                }}
+                onChange={(data) => setEditForm({ ...editForm, ...data })}
+              />
             </div>
           </div>
           <div className="flex justify-end gap-2">

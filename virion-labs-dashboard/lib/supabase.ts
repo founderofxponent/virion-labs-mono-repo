@@ -148,32 +148,57 @@ export type Database = {
       }
       discord_guild_campaigns: {
         Row: {
-          id: string
-          client_id: string
-          guild_id: string
-          channel_id: string | null
-          campaign_name: string
-          campaign_type: string
-          referral_link_id: string | null
-          influencer_id: string | null
-          webhook_url: string | null
-          bot_configuration_id: string | null
-          welcome_message: string | null
-          onboarding_flow: Json
-          referral_tracking_enabled: boolean
-          auto_role_assignment: boolean
-          target_role_id: string | null
-          total_interactions: number
-          successful_onboardings: number
-          referral_conversions: number
-          is_active: boolean
-          campaign_start_date: string | null
-          campaign_end_date: string | null
-          archived: boolean
+          allowed_channels: Json | null
+          archived: boolean | null
           archived_at: string | null
-          metadata: Json
-          created_at: string
-          updated_at: string
+          auto_responses: Json | null
+          auto_role_assignment: boolean | null
+          blocked_users: Json | null
+          bot_avatar_url: string | null
+          bot_name: string | null
+          bot_personality: string | null
+          bot_response_style: string | null
+          brand_color: string | null
+          brand_logo_url: string | null
+          campaign_end_date: string | null
+          campaign_name: string
+          campaign_start_date: string | null
+          campaign_type: string
+          channel_id: string | null
+          client_id: string
+          content_filters: Json | null
+          created_at: string | null
+          custom_commands: Json | null
+          guild_id: string
+          hero_image_url: string | null
+          how_it_works: string | null
+          id: string
+          influencer_id: string | null
+          is_active: boolean | null
+          landing_page_template_id: string | null
+          metadata: Json | null
+          moderation_enabled: boolean | null
+          offer_description: string | null
+          offer_expiry_date: string | null
+          offer_highlights: string[] | null
+          offer_title: string | null
+          offer_value: string | null
+          onboarding_flow: Json | null
+          product_images: string[] | null
+          rate_limit_per_user: number | null
+          referral_conversions: number | null
+          referral_link_id: string | null
+          referral_tracking_enabled: boolean | null
+          requirements: string | null
+          successful_onboardings: number | null
+          support_info: string | null
+          target_role_id: string | null
+          total_interactions: number | null
+          updated_at: string | null
+          video_url: string | null
+          webhook_url: string | null
+          welcome_message: string | null
+          what_you_get: string | null
         }
         Insert: {
           id?: string

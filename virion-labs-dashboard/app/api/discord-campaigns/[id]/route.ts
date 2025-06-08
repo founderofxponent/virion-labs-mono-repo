@@ -93,7 +93,21 @@ export async function PUT(
       allowed_channels,
       blocked_users,
       moderation_enabled,
-      content_filters
+      content_filters,
+      // Landing page fields
+      offer_title,
+      offer_description,
+      offer_highlights,
+      offer_value,
+      offer_expiry_date,
+      hero_image_url,
+      product_images,
+      video_url,
+      what_you_get,
+      how_it_works,
+      requirements,
+      support_info,
+      landing_page_template_id
     } = body
 
     // Prepare update data, converting empty strings to null for optional fields
@@ -131,6 +145,21 @@ export async function PUT(
     if (blocked_users !== undefined) updateData.blocked_users = blocked_users || []
     if (moderation_enabled !== undefined) updateData.moderation_enabled = moderation_enabled
     if (content_filters !== undefined) updateData.content_filters = content_filters || []
+    
+    // Landing page fields
+    if (offer_title !== undefined) updateData.offer_title = offer_title || null
+    if (offer_description !== undefined) updateData.offer_description = offer_description || null
+    if (offer_highlights !== undefined) updateData.offer_highlights = offer_highlights || null
+    if (offer_value !== undefined) updateData.offer_value = offer_value || null
+    if (offer_expiry_date !== undefined) updateData.offer_expiry_date = offer_expiry_date || null
+    if (hero_image_url !== undefined) updateData.hero_image_url = hero_image_url || null
+    if (product_images !== undefined) updateData.product_images = product_images || null
+    if (video_url !== undefined) updateData.video_url = video_url || null
+    if (what_you_get !== undefined) updateData.what_you_get = what_you_get || null
+    if (how_it_works !== undefined) updateData.how_it_works = how_it_works || null
+    if (requirements !== undefined) updateData.requirements = requirements || null
+    if (support_info !== undefined) updateData.support_info = support_info || null
+    if (landing_page_template_id !== undefined) updateData.landing_page_template_id = landing_page_template_id || null
 
     // Add updated_at timestamp
     updateData.updated_at = new Date().toISOString()

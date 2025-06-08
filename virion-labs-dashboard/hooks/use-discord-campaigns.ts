@@ -27,6 +27,21 @@ export interface DiscordCampaign {
   archived_at?: string
   metadata: Record<string, any>
   
+  // Landing page configuration fields
+  landing_page_template_id?: string
+  offer_title?: string
+  offer_description?: string
+  offer_highlights?: string[]
+  offer_value?: string
+  offer_expiry_date?: string
+  hero_image_url?: string
+  product_images?: string[]
+  video_url?: string
+  what_you_get?: string
+  how_it_works?: string
+  requirements?: string
+  support_info?: string
+  
   // Bot configuration fields (now part of campaign)
   bot_name: string
   bot_avatar_url?: string
@@ -79,6 +94,21 @@ export interface CreateDiscordCampaignData {
   campaign_end_date?: string
   metadata?: Record<string, any>
   
+  // Landing page configuration fields
+  landing_page_template_id?: string
+  offer_title?: string
+  offer_description?: string
+  offer_highlights?: string[]
+  offer_value?: string
+  offer_expiry_date?: string
+  hero_image_url?: string
+  product_images?: string[]
+  video_url?: string
+  what_you_get?: string
+  how_it_works?: string
+  requirements?: string
+  support_info?: string
+  
   // Bot configuration fields
   bot_name?: string
   bot_avatar_url?: string
@@ -116,6 +146,21 @@ export interface UpdateDiscordCampaignData {
   campaign_end_date?: string
   is_active?: boolean
   metadata?: Record<string, any>
+  
+  // Landing page configuration fields
+  landing_page_template_id?: string
+  offer_title?: string
+  offer_description?: string
+  offer_highlights?: string[]
+  offer_value?: string
+  offer_expiry_date?: string
+  hero_image_url?: string
+  product_images?: string[]
+  video_url?: string
+  what_you_get?: string
+  how_it_works?: string
+  requirements?: string
+  support_info?: string
   
   // Bot configuration fields
   bot_name?: string
