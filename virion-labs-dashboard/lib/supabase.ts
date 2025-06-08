@@ -169,6 +169,8 @@ export type Database = {
           is_active: boolean
           campaign_start_date: string | null
           campaign_end_date: string | null
+          archived: boolean
+          archived_at: string | null
           metadata: Json
           created_at: string
           updated_at: string
@@ -195,6 +197,8 @@ export type Database = {
           is_active?: boolean
           campaign_start_date?: string | null
           campaign_end_date?: string | null
+          archived?: boolean
+          archived_at?: string | null
           metadata?: Json
           created_at?: string
           updated_at?: string
@@ -221,6 +225,8 @@ export type Database = {
           is_active?: boolean
           campaign_start_date?: string | null
           campaign_end_date?: string | null
+          archived?: boolean
+          archived_at?: string | null
           metadata?: Json
           created_at?: string
           updated_at?: string

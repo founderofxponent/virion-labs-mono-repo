@@ -23,6 +23,8 @@ export interface DiscordCampaign {
   is_active: boolean
   campaign_start_date?: string
   campaign_end_date?: string
+  archived: boolean
+  archived_at?: string
   metadata: Record<string, any>
   
   // Bot configuration fields (now part of campaign)
@@ -154,6 +156,8 @@ export function useDiscordCampaigns() {
     guild_id?: string
     is_active?: boolean
     campaign_type?: string
+    include_archived?: boolean
+    only_archived?: boolean
   }) => {
     try {
       setLoading(true)
@@ -164,6 +168,8 @@ export function useDiscordCampaigns() {
       if (filters?.guild_id) params.set('guild_id', filters.guild_id)
       if (filters?.is_active !== undefined) params.set('is_active', filters.is_active.toString())
       if (filters?.campaign_type) params.set('campaign_type', filters.campaign_type)
+      if (filters?.include_archived) params.set('include_archived', filters.include_archived.toString())
+      if (filters?.only_archived) params.set('only_archived', filters.only_archived.toString())
 
       const response = await fetch(`/api/discord-campaigns?${params.toString()}`)
       
@@ -277,7 +283,7 @@ export function useDiscordCampaigns() {
     }
   }
 
-  const deleteCampaign = async (id: string) => {
+  const archiveCampaign = async (id: string) => {
     try {
       setError(null)
 
@@ -287,19 +293,62 @@ export function useDiscordCampaigns() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || `Failed to delete campaign: ${response.statusText}`)
+        throw new Error(errorData.error || `Failed to archive campaign: ${response.statusText}`)
       }
 
-      // Remove the campaign from the list
-      setCampaigns(prev => prev.filter(campaign => campaign.id !== id))
+      const data = await response.json()
+
+      // Update the campaign in the list to mark as archived
+      setCampaigns(prev => 
+        prev.map(campaign => 
+          campaign.id === id ? { ...campaign, archived: true, archived_at: data.archived_at, is_active: false } : campaign
+        )
+      )
       
-      return { error: null }
+      return { error: null, data }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       setError(errorMessage)
       return { error: errorMessage }
     }
   }
+
+  const restoreCampaign = async (id: string) => {
+    try {
+      setError(null)
+
+      const response = await fetch(`/api/discord-campaigns/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'restore' }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to restore campaign: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      // Update the campaign in the list
+      setCampaigns(prev => 
+        prev.map(campaign => 
+          campaign.id === id ? data.campaign : campaign
+        )
+      )
+      
+      return { data: data.campaign, error: null }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred'
+      setError(errorMessage)
+      return { data: null, error: errorMessage }
+    }
+  }
+
+  // Keep deleteCampaign for backward compatibility, but rename it
+  const deleteCampaign = archiveCampaign
 
   const pauseCampaign = async (id: string) => {
     const result = await updateCampaign(id, { is_active: false })
@@ -461,7 +510,7 @@ export function useDiscordCampaigns() {
 
   // Load campaigns and templates on mount
   useEffect(() => {
-    fetchCampaigns()
+    fetchCampaigns({ include_archived: false }) // Only fetch active campaigns by default
     fetchTemplates()
   }, [])
 
@@ -476,6 +525,8 @@ export function useDiscordCampaigns() {
     createCampaignFromTemplate,
     updateCampaign,
     deleteCampaign,
+    archiveCampaign,
+    restoreCampaign,
     pauseCampaign,
     resumeCampaign,
     getCampaignById,

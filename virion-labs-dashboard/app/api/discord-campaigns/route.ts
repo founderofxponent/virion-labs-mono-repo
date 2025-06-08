@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
     const guildId = searchParams.get('guild_id')
     const isActive = searchParams.get('is_active')
     const campaignType = searchParams.get('campaign_type')
+    const includeArchived = searchParams.get('include_archived') === 'true'
+    const onlyArchived = searchParams.get('only_archived') === 'true'
 
     let query = supabase
       .from('discord_guild_campaigns')
@@ -24,6 +26,14 @@ export async function GET(request: NextRequest) {
         referral_links:referral_link_id(title, referral_code, platform)
       `)
       .order('created_at', { ascending: false })
+
+    // Filter archived campaigns by default
+    if (onlyArchived) {
+      query = query.eq('archived', true)
+    } else if (!includeArchived) {
+      // Use OR condition to handle both false and null values for backward compatibility
+      query = query.or('archived.is.null,archived.eq.false')
+    }
 
     if (clientId) {
       query = query.eq('client_id', clientId)

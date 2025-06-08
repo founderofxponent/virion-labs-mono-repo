@@ -61,7 +61,8 @@ import {
   MessageSquare,
   Download,
   Filter,
-  CalendarIcon
+  CalendarIcon,
+  Archive
 } from "lucide-react"
 
 export function DiscordCampaignsPage() {
@@ -76,6 +77,7 @@ export function DiscordCampaignsPage() {
   const [filterClient, setFilterClient] = useState("all")
   const [filterType, setFilterType] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
+  const [filterArchived, setFilterArchived] = useState("active") // "active", "archived", "all"
   const [searchQuery, setSearchQuery] = useState("")
 
   const {
@@ -87,6 +89,8 @@ export function DiscordCampaignsPage() {
     createCampaignFromTemplate,
     updateCampaign,
     deleteCampaign,
+    archiveCampaign,
+    restoreCampaign,
     pauseCampaign,
     resumeCampaign,
     getCampaignStats,
@@ -230,10 +234,10 @@ export function DiscordCampaignsPage() {
     }
   }
 
-  const handleDeleteCampaign = async (campaignId: string) => {
-    if (!confirm("Are you sure you want to delete this campaign?")) return
+  const handleArchiveCampaign = async (campaignId: string) => {
+    if (!confirm("Are you sure you want to archive this campaign? It will be hidden from the active campaigns list but can be restored later.")) return
 
-    const result = await deleteCampaign(campaignId)
+    const result = await archiveCampaign(campaignId)
 
     if (result.error) {
       toast({
@@ -244,10 +248,32 @@ export function DiscordCampaignsPage() {
     } else {
       toast({
         title: "Success",
-        description: "Campaign deleted successfully!",
+        description: "Campaign archived successfully!",
       })
     }
   }
+
+  const handleRestoreCampaign = async (campaignId: string) => {
+    if (!confirm("Are you sure you want to restore this campaign? It will become active again.")) return
+
+    const result = await restoreCampaign(campaignId)
+
+    if (result.error) {
+      toast({
+        title: "Error",
+        description: result.error,
+        variant: "destructive"
+      })
+    } else {
+      toast({
+        title: "Success",
+        description: "Campaign restored successfully!",
+      })
+    }
+  }
+
+  // Keep the original delete function for backward compatibility
+  const handleDeleteCampaign = handleArchiveCampaign
 
   const handlePauseCampaign = async (campaignId: string) => {
     const result = await pauseCampaign(campaignId)
@@ -369,6 +395,10 @@ export function DiscordCampaignsPage() {
       if (filterStatus === "active" && !campaign.is_active) return false
       if (filterStatus === "paused" && campaign.is_active) return false
     }
+    if (filterArchived !== "all") {
+      if (filterArchived === "active" && campaign.archived) return false
+      if (filterArchived === "archived" && !campaign.archived) return false
+    }
     if (searchQuery && !campaign.campaign_name.toLowerCase().includes(searchQuery.toLowerCase()) && 
         !campaign.clients?.name.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false
@@ -420,7 +450,7 @@ export function DiscordCampaignsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalInteractions}</div>
             <p className="text-xs text-muted-foreground">
-              Avg {stats.avgInteractionsPerCampaign.toFixed(1)} per campaign
+              Avg {stats.totalCampaigns > 0 ? (stats.totalInteractions / stats.totalCampaigns).toFixed(1) : '0'} per campaign
             </p>
           </CardContent>
         </Card>
@@ -498,6 +528,16 @@ export function DiscordCampaignsPage() {
                 <SelectItem value="paused">Paused</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={filterArchived} onValueChange={setFilterArchived}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="View campaigns" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active Only</SelectItem>
+                <SelectItem value="archived">Archived Only</SelectItem>
+                <SelectItem value="all">All Campaigns</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -558,9 +598,16 @@ export function DiscordCampaignsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={campaign.is_active ? "default" : "secondary"}>
-                        {campaign.is_active ? "Active" : "Paused"}
-                      </Badge>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant={campaign.is_active ? "default" : "secondary"}>
+                          {campaign.is_active ? "Active" : "Paused"}
+                        </Badge>
+                        {campaign.archived && (
+                          <Badge variant="outline" className="text-orange-600 border-orange-600">
+                            Archived
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{campaign.total_interactions}</TableCell>
                     <TableCell>
@@ -584,45 +631,65 @@ export function DiscordCampaignsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDialog(campaign)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openOnboardingDialog(campaign)}>
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Onboarding Fields
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.campaign_name)}>
-                            <Download className="h-4 w-4 mr-2" />
-                            Export CSV
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => campaign.is_active 
-                              ? handlePauseCampaign(campaign.id) 
-                              : handleResumeCampaign(campaign.id)
-                            }
-                          >
-                            {campaign.is_active ? (
-                              <>
-                                <Pause className="h-4 w-4 mr-2" />
-                                Pause
-                              </>
-                            ) : (
-                              <>
-                                <Play className="h-4 w-4 mr-2" />
-                                Resume
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteCampaign(campaign.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
+                          {!campaign.archived && (
+                            <>
+                              <DropdownMenuItem onClick={() => openEditDialog(campaign)}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openOnboardingDialog(campaign)}>
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                                Onboarding Fields
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.campaign_name)}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Export CSV
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => campaign.is_active 
+                                  ? handlePauseCampaign(campaign.id) 
+                                  : handleResumeCampaign(campaign.id)
+                                }
+                              >
+                                {campaign.is_active ? (
+                                  <>
+                                    <Pause className="h-4 w-4 mr-2" />
+                                    Pause
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="h-4 w-4 mr-2" />
+                                    Resume
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleArchiveCampaign(campaign.id)}
+                                className="text-yellow-600"
+                              >
+                                <Archive className="h-4 w-4 mr-2" />
+                                Archive
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {campaign.archived && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.campaign_name)}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Export CSV
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleRestoreCampaign(campaign.id)}
+                                className="text-green-600"
+                              >
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Restore
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
