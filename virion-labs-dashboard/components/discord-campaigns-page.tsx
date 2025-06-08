@@ -145,6 +145,21 @@ export function DiscordCampaignsPage() {
     fetchTemplates()
   }, [])
 
+  // Refetch campaigns when archive filter changes
+  useEffect(() => {
+    const filters: any = {}
+    
+    if (filterArchived === "archived") {
+      filters.only_archived = true
+    } else if (filterArchived === "active") {
+      filters.include_archived = false
+    } else {
+      filters.include_archived = true
+    }
+    
+    fetchCampaigns(filters)
+  }, [filterArchived])
+
   const stats = getCampaignStats()
 
   const handleCreateCampaign = async () => {
@@ -598,16 +613,15 @@ export function DiscordCampaignsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-col gap-1">
+                      {campaign.archived ? (
+                        <Badge variant="outline" className="text-orange-600 border-orange-600">
+                          Archived
+                        </Badge>
+                      ) : (
                         <Badge variant={campaign.is_active ? "default" : "secondary"}>
                           {campaign.is_active ? "Active" : "Paused"}
                         </Badge>
-                        {campaign.archived && (
-                          <Badge variant="outline" className="text-orange-600 border-orange-600">
-                            Archived
-                          </Badge>
-                        )}
-                      </div>
+                      )}
                     </TableCell>
                     <TableCell>{campaign.total_interactions}</TableCell>
                     <TableCell>

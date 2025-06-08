@@ -288,7 +288,11 @@ export function useDiscordCampaigns() {
       setError(null)
 
       const response = await fetch(`/api/discord-campaigns/${id}`, {
-        method: 'DELETE',
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'archive' }),
       })
 
       if (!response.ok) {
@@ -301,7 +305,7 @@ export function useDiscordCampaigns() {
       // Update the campaign in the list to mark as archived
       setCampaigns(prev => 
         prev.map(campaign => 
-          campaign.id === id ? { ...campaign, archived: true, archived_at: data.archived_at, is_active: false } : campaign
+          campaign.id === id ? data.campaign : campaign
         )
       )
       

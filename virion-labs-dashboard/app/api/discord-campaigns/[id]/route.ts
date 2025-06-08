@@ -217,6 +217,14 @@ export async function PATCH(
       finalUpdateData.is_active = false
     } else if (action === 'resume') {
       finalUpdateData.is_active = true
+    } else if (action === 'archive') {
+      finalUpdateData.archived = true
+      finalUpdateData.archived_at = new Date().toISOString()
+      finalUpdateData.is_active = false
+    } else if (action === 'restore') {
+      finalUpdateData.archived = false
+      finalUpdateData.archived_at = null
+      finalUpdateData.is_active = true
     }
 
     // Add updated_at timestamp
