@@ -1,6 +1,7 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const OnboardingManager = require('./onboarding-manager');
 require('dotenv').config();
+const { supabase } = require('./supabase');
 
 // Configuration
 const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -62,46 +63,78 @@ async function testDashboardConnection() {
   }
 }
 
-// Get guild configuration from dashboard
-async function getGuildConfig(guildId, channelId = null) {
-  const cacheKey = `${guildId}:${channelId || 'default'}`;
-  const cached = configCache.get(cacheKey);
-  
-  // Return cached config if still valid
-  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-    return cached.config;
-  }
-
+// Update the getBotConfig function to use the new unified API
+async function getBotConfig(guildId, channelId = null) {
   try {
-    const url = new URL(`${DASHBOARD_API_URL}/discord-bot/config`);
-    url.searchParams.set('guild_id', guildId);
-    if (channelId) url.searchParams.set('channel_id', channelId);
+    console.log('🔍 Fetching bot configuration for guild:', guildId, 'channel:', channelId);
+    
+    // Use the new unified database function
+    const { data, error } = await supabase
+      .rpc('get_bot_config_for_guild', {
+        p_guild_id: guildId,
+        p_channel_id: channelId
+      })
+      .single();
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Virion-Discord-Bot/2.0'
-      }
-    });
-
-    if (response.ok) {
-      const config = await response.json();
-      
-      // Cache the configuration
-      configCache.set(cacheKey, {
-        config,
-        timestamp: Date.now()
-      });
-      
-      return config;
-    } else {
-      console.error(`Failed to fetch guild config: ${response.status} ${response.statusText}`);
+    if (error) {
+      console.error('❌ Error fetching bot config:', error);
       return null;
     }
+
+    if (!data || !data.configured) {
+      console.log('⚠️ No active bot configuration found for guild:', guildId);
+      return null;
+    }
+
+    console.log('✅ Bot configuration loaded:', {
+      campaign_name: data.campaign_name,
+      campaign_type: data.campaign_type,
+      client_name: data.client_name,
+      bot_name: data.bot_config.bot_name,
+      template: data.bot_config.template
+    });
+
+    return {
+      campaignId: data.campaign_id,
+      campaignName: data.campaign_name,
+      campaignType: data.campaign_type,
+      clientId: data.client_id,
+      clientName: data.client_name,
+      config: data.bot_config
+    };
+    
   } catch (error) {
-    console.error('Error fetching guild config:', error);
+    console.error('❌ Unexpected error fetching bot config:', error);
     return null;
+  }
+}
+
+// Update bot stats in the unified campaign table
+async function updateBotStats(guildId, channelId, statsUpdate) {
+  try {
+    const botConfig = await getBotConfig(guildId, channelId);
+    if (!botConfig) return;
+
+    // Update the campaign stats using the new unified structure
+    const { error } = await supabase
+      .from('discord_guild_campaigns')
+      .update({
+        commands_used: statsUpdate.commands_used || 0,
+        users_served: statsUpdate.users_served || 0,
+        last_activity_at: new Date().toISOString(),
+        total_interactions: statsUpdate.total_interactions || 0,
+        successful_onboardings: statsUpdate.successful_onboardings || 0,
+        referral_conversions: statsUpdate.referral_conversions || 0
+      })
+      .eq('id', botConfig.campaignId);
+
+    if (error) {
+      console.error('❌ Error updating bot stats:', error);
+    } else {
+      console.log('✅ Updated bot stats for campaign:', botConfig.campaignId);
+    }
+  } catch (error) {
+    console.error('❌ Unexpected error updating bot stats:', error);
   }
 }
 
@@ -221,8 +254,8 @@ async function handleReferralInviteContext(member) {
               console.log(`🎯 Auto-detected referral: ${context.referral_code} for ${member.user.tag} via invite ${invite.code}`);
               
               // Get guild configuration
-              const config = await getGuildConfig(member.guild.id);
-              if (config?.configured) {
+              const config = await getBotConfig(member.guild.id);
+              if (config) {
                 // Create a synthetic message for referral processing
                 const syntheticMessage = {
                   author: member.user,
@@ -294,7 +327,7 @@ async function handleReferralInviteContext(member) {
                   config,
                   '🎉 Welcome via Referral!',
                   `Great news! We automatically detected that you joined through **${context.influencer.name}'s** referral link for the **${context.campaign.name}** campaign.\n\n✨ Your referral benefits have been automatically applied!`,
-                  config.campaign?.brand_color || '#00ff00'
+                  config.bot_config?.brand_color || '#00ff00'
                 );
                 
                 try {
@@ -332,9 +365,9 @@ async function handleReferralInviteContext(member) {
 async function handleNewMemberOnboarding(member) {
   try {
     // Get guild configuration
-    const config = await getGuildConfig(member.guild.id);
+    const config = await getBotConfig(member.guild.id);
     
-    if (!config || !config.configured) {
+    if (!config) {
       return; // No campaign configured for this guild
     }
     
@@ -344,8 +377,8 @@ async function handleNewMemberOnboarding(member) {
         // Send welcome DM with onboarding start option
         const welcomeEmbed = new EmbedBuilder()
           .setTitle(`🎉 Welcome to ${member.guild.name}!`)
-          .setDescription(`Hi ${member.user.username}! Welcome to **${config.campaign.client.name}**.\n\nI'm here to help you get started. Would you like to complete a quick onboarding to unlock all community features?\n\n💡 You can also share a referral code if you have one!`)
-          .setColor(config.campaign.bot_config?.brand_color || '#6366f1')
+          .setDescription(`Hi ${member.user.username}! Welcome to **${config.clientName}**.\n\nI'm here to help you get started. Would you like to complete a quick onboarding to unlock all community features?\n\n💡 You can also share a referral code if you have one!`)
+          .setColor(config.bot_config?.brand_color || '#6366f1')
           .addFields([
             {
               name: '🚀 Get Started',
@@ -381,12 +414,12 @@ function createCampaignEmbed(config, title, description, color = null) {
 
   if (color) {
     embed.setColor(color);
-  } else if (config.campaign?.bot_config?.brand_color) {
-    embed.setColor(config.campaign.bot_config.brand_color);
+  } else if (config.bot_config?.brand_color) {
+    embed.setColor(config.bot_config.brand_color);
   }
 
-  if (config.campaign?.client?.name) {
-    embed.setFooter({ text: `${config.campaign.client.name} • Powered by Virion Labs` });
+  if (config.clientName) {
+    embed.setFooter({ text: `${config.clientName} • Powered by Virion Labs` });
   }
 
   return embed;
@@ -395,7 +428,7 @@ function createCampaignEmbed(config, title, description, color = null) {
 // Handle referral onboarding flow with enhanced campaign integration
 async function handleReferralOnboarding(message, config) {
   const userId = message.author.id;
-  const campaignId = config.campaign.id;
+  const campaignId = config.campaignId;
   
   // Check if user is in an active onboarding session
   if (onboardingManager.isInOnboardingSession(userId, campaignId)) {
@@ -474,17 +507,17 @@ client.on('messageCreate', async (message) => {
     }
 
     // Get guild configuration
-    const config = await getGuildConfig(guildId, channelId);
+    const config = await getBotConfig(guildId, channelId);
     
-    if (config && config.configured) {
+            if (config) {
       if (DEBUG) {
-        console.log(`🎯 Found campaign configuration: ${config.campaign.name} (${config.campaign.type})`);
+        console.log(`🎯 Found campaign configuration: ${config.campaignName} (${config.campaignType})`);
       }
 
       // Handle campaign-specific logic
       let handled = false;
       
-      switch (config.campaign.type) {
+      switch (config.campaignType) {
         case 'referral_onboarding':
           handled = await handleReferralOnboarding(message, config);
           break;
@@ -527,11 +560,11 @@ client.on('messageCreate', async (message) => {
 
     // Only respond to direct mentions or specific commands
     if (message.mentions.has(client.user) || message.content.toLowerCase().startsWith('!help')) {
-      const responseMessage = config?.configured 
+      const responseMessage = config
         ? 'Hello! I\'m here to help with server management and campaigns. The AI service has been disabled.'
         : 'Hello! I\'m a Discord bot for server management. The AI service has been disabled.';
       
-      if (config?.configured) {
+      if (config) {
         const embed = createCampaignEmbed(
           config,
           '👋 Hello!',
@@ -566,10 +599,10 @@ client.on('messageCreate', async (message) => {
 // Guild member add event for enhanced campaign-specific onboarding
 client.on('guildMemberAdd', async (member) => {
   try {
-    const config = await getGuildConfig(member.guild.id);
+    const config = await getBotConfig(member.guild.id);
     
-    if (config?.configured) {
-      console.log(`👤 New member ${member.user.tag} joined ${member.guild.name} with campaign: ${config.campaign.name}`);
+    if (config) {
+      console.log(`👤 New member ${member.user.tag} joined ${member.guild.name} with campaign: ${config.campaignName}`);
       
       // Check for automatic referral context from invite links
       const autoReferralProcessed = await handleReferralInviteContext(member);
@@ -582,36 +615,36 @@ client.on('guildMemberAdd', async (member) => {
       await handleNewMemberOnboarding(member);
       
       let welcomeTitle = '🎉 Welcome to the Server!';
-      let welcomeMessage = `Welcome to ${config.campaign.client.name}, ${member.user.username}!`;
+      let welcomeMessage = `Welcome to ${config.clientName}, ${member.user.username}!`;
       
       // Customize message based on campaign type
-      switch (config.campaign.type) {
+      switch (config.campaignType) {
         case 'referral_onboarding':
-          welcomeMessage += `\n\n🎯 **Referral Campaign**: ${config.campaign.name}`;
+          welcomeMessage += `\n\n🎯 **Referral Campaign**: ${config.campaignName}`;
           welcomeMessage += `\n\n💎 **Got a referral code?** Share it in any channel to unlock exclusive benefits and connect with your referrer!`;
           welcomeMessage += `\n\n🏷️ **How to use:** Simply type your referral code in any channel, and I'll help you get started with special perks.`;
           break;
           
         case 'community_engagement':
-          welcomeMessage += `\n\n🌟 **Community Campaign**: ${config.campaign.name}`;
+          welcomeMessage += `\n\n🌟 **Community Campaign**: ${config.campaignName}`;
           welcomeMessage += `\n\n💬 **Let's connect!** This server is all about building an amazing community together.`;
           welcomeMessage += `\n\n🤝 **Get started:** Say hello in the chat, and I'll help you navigate your journey here!`;
           break;
           
         case 'gaming_community':
-          welcomeMessage += `\n\n🎮 **Gaming Campaign**: ${config.campaign.name}`;
+          welcomeMessage += `\n\n🎮 **Gaming Campaign**: ${config.campaignName}`;
           welcomeMessage += `\n\n🕹️ **Ready to game?** Share your favorite games and connect with fellow gamers!`;
           welcomeMessage += `\n\n🏆 **Tip:** Use any referral codes to unlock gaming perks and exclusive content!`;
           break;
           
         default:
-          welcomeMessage += `\n\n✨ **Campaign**: ${config.campaign.name}`;
+          welcomeMessage += `\n\n✨ **Campaign**: ${config.campaignName}`;
           welcomeMessage += `\n\n📢 I'm here to help you get the most out of this community!`;
       }
       
       // Add campaign-specific instructions
-      if (config.campaign.description) {
-        welcomeMessage += `\n\n📝 **About this campaign:**\n${config.campaign.description}`;
+      if (config.config.description) {
+        welcomeMessage += `\n\n📝 **About this campaign:**\n${config.config.description}`;
       }
       
       // Add call to action
@@ -663,7 +696,7 @@ client.on('guildMemberAdd', async (member) => {
         null
       );
       
-      console.log(`✅ Processed guild join for ${member.user.tag} in campaign ${config.campaign.name}`);
+      console.log(`✅ Processed guild join for ${member.user.tag} in campaign ${config.campaignName}`);
     }
   } catch (error) {
     console.error('Error handling guild member add:', error);
