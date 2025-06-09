@@ -18,7 +18,7 @@ class OnboardingManager {
   async startOnboarding(message, config, options = {}) {
     const { referralCode, referralValidation } = options;
     const userId = message.author.id;
-    const campaignId = config.campaign.id;
+    const campaignId = config.campaignId;
     
     try {
       const session = await this.getOrCreateSession(campaignId, userId, message.author.tag, {
@@ -53,7 +53,7 @@ class OnboardingManager {
 
   async handleResponse(message, config) {
     const userId = message.author.id;
-    const campaignId = config.campaign.id;
+    const campaignId = config.campaignId;
     const sessionKey = `${campaignId}:${userId}`;
     
     const activeSession = activeSessions.get(sessionKey);
@@ -184,7 +184,7 @@ class OnboardingManager {
 
   async askNextQuestion(message, config, session) {
     const userId = message.author.id;
-    const campaignId = config.campaign.id;
+    const campaignId = config.campaignId;
     const sessionKey = `${campaignId}:${userId}`;
 
     if (!session.next_field) {
@@ -198,9 +198,9 @@ class OnboardingManager {
     const progressBar = this.createProgressBar(progress.completed, progress.total);
 
     const embed = new EmbedBuilder()
-      .setTitle(`📝 ${config.campaign.name} - Onboarding`)
+      .setTitle(`📝 ${config.campaignName} - Onboarding`)
       .setDescription(`**Question ${progress.completed + 1} of ${progress.total}**\n\n${field.field_label}`)
-      .setColor(config.campaign.bot_config?.brand_color || '#6366f1')
+      .setColor(config.config?.brand_color || '#6366f1')
       .setTimestamp()
       .addFields([
         {
@@ -272,12 +272,12 @@ class OnboardingManager {
 
   async completeOnboarding(message, config, referralValidation = null) {
     const userId = message.author.id;
-    const campaignId = config.campaign.id;
+    const campaignId = config.campaignId;
     const sessionKey = `${campaignId}:${userId}`;
 
     this.clearSession(sessionKey);
 
-    let completionMessage = `🎉 **Welcome to ${config.campaign.client.name}!**\n\nThank you for completing the onboarding process!`;
+    let completionMessage = `🎉 **Welcome to ${config.clientName}!**\n\nThank you for completing the onboarding process!`;
     
     if (referralValidation && referralValidation.influencer) {
       completionMessage += `\n\n🤝 You joined through **${referralValidation.influencer.name}'s** referral link.`;
@@ -294,18 +294,18 @@ class OnboardingManager {
       .setColor('#00ff00')
       .setTimestamp();
 
-    if (config.campaign.onboarding_flow && config.campaign.onboarding_flow.completion_message) {
+    if (config.config?.completion_message) {
       embed.addFields([{
         name: '📋 Important',
-        value: config.campaign.onboarding_flow.completion_message,
+        value: config.config.completion_message,
         inline: false
       }]);
     }
 
     await message.reply({ embeds: [embed] });
 
-    if (config.campaign.bot_config?.auto_role_assignment && config.campaign.bot_config?.target_role_id) {
-      await this.assignRole(message, config.campaign.bot_config.target_role_id);
+    if (config.config?.auto_role_assignment && config.config?.target_role_id) {
+      await this.assignRole(message, config.config.target_role_id);
     }
 
     await this.trackCompletion(message, config, referralValidation);
@@ -314,7 +314,7 @@ class OnboardingManager {
   async showCompletionMessage(message, config) {
     const embed = new EmbedBuilder()
       .setTitle('✅ Already Completed')
-      .setDescription(`You have already completed the onboarding process for **${config.campaign.name}**.\n\nWelcome back! If you need help, feel free to ask.`)
+      .setDescription(`You have already completed the onboarding process for **${config.campaignName}**.\n\nWelcome back! If you need help, feel free to ask.`)
       .setColor('#00aa00')
       .setTimestamp();
 
@@ -378,7 +378,7 @@ class OnboardingManager {
             'User-Agent': 'Virion-Discord-Bot/2.0'
           },
           body: JSON.stringify({
-            campaign_id: config.campaign.id,
+            campaign_id: config.campaignId,
             discord_user_id: message.author.id,
             discord_username: message.author.tag,
             guild_id: message.guild?.id
@@ -387,7 +387,7 @@ class OnboardingManager {
 
         if (incrementResponse.ok) {
           const incrementResult = await incrementResponse.json();
-          console.log(`✅ Incremented successful_onboardings for campaign: ${config.campaign.id}`);
+          console.log(`✅ Incremented successful_onboardings for campaign: ${config.campaignId}`);
         } else {
           console.error('❌ Failed to increment successful_onboardings:', incrementResponse.status);
         }

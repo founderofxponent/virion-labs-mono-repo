@@ -121,15 +121,10 @@ export function useOnboardingFields(campaignId?: string) {
 
   const fetchTemplates = async () => {
     try {
-      const response = await fetch('/api/onboarding-templates')
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch templates: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      setTemplates(data.templates || [])
-      return data.templates || []
+      // Campaign templates are now handled by the campaign template system
+      // This function is kept for backward compatibility but returns empty array
+      setTemplates([])
+      return []
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       setError(errorMessage)
