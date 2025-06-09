@@ -68,9 +68,9 @@ async function getBotConfig(guildId, channelId = null) {
   try {
     console.log('🔍 Fetching bot configuration for guild:', guildId, 'channel:', channelId);
     
-    // Use the new unified database function
+    // Use the new enriched database function that includes template data
     const { data, error } = await supabase
-      .rpc('get_bot_config_for_guild', {
+      .rpc('get_enriched_bot_config_for_guild', {
         p_guild_id: guildId,
         p_channel_id: channelId
       })
@@ -91,7 +91,9 @@ async function getBotConfig(guildId, channelId = null) {
       campaign_type: data.campaign_type,
       client_name: data.client_name,
       bot_name: data.bot_config.bot_name,
-      template: data.bot_config.template
+      template: data.bot_config.template,
+      auto_responses_count: Object.keys(data.bot_config.auto_responses || {}).length,
+      custom_commands_count: (data.bot_config.custom_commands || []).length
     });
 
     return {
@@ -100,7 +102,8 @@ async function getBotConfig(guildId, channelId = null) {
       campaignType: data.campaign_type,
       clientId: data.client_id,
       clientName: data.client_name,
-      config: data.bot_config
+      config: data.bot_config,
+      templateConfig: data.template_config
     };
     
   } catch (error) {
@@ -199,6 +202,90 @@ function extractReferralCode(content) {
     }
   }
   return null;
+}
+
+// Get template-driven response based on message content and campaign config
+function getTemplateResponse(config, messageContent) {
+  if (!config.config || !config.config.auto_responses) {
+    return null;
+  }
+
+  const content = messageContent.toLowerCase();
+  const autoResponses = config.config.auto_responses;
+
+  // Check for exact matches or keyword matches
+  const responseKeys = Object.keys(autoResponses);
+  
+  for (const key of responseKeys) {
+    if (content.includes(key.toLowerCase())) {
+      return {
+        title: `${getResponseIcon(key)} ${getResponseTitle(key)}`,
+        message: autoResponses[key],
+        color: config.config.brand_color || '#6366f1'
+      };
+    }
+  }
+
+  // Check for common variations
+  if (content.includes('hi') || content.includes('hey')) {
+    return autoResponses.hello ? {
+      title: '👋 Hello!',
+      message: autoResponses.hello,
+      color: config.config.brand_color || '#6366f1'
+    } : null;
+  }
+
+  if (content.includes('product') && autoResponses.products) {
+    return {
+      title: '🛍️ Products',
+      message: autoResponses.products,
+      color: config.config.brand_color || '#6366f1'
+    };
+  }
+
+  if (content.includes('price') && autoResponses.price) {
+    return {
+      title: '💰 Pricing',
+      message: autoResponses.price,
+      color: config.config.brand_color || '#6366f1'
+    };
+  }
+
+  return null;
+}
+
+// Get appropriate icon for response type
+function getResponseIcon(responseType) {
+  const icons = {
+    'hello': '👋',
+    'help': '🆘', 
+    'products': '🛍️',
+    'price': '💰',
+    'order': '📦',
+    'catalog': '📋',
+    'offers': '🏷️',
+    'events': '🎉',
+    'guidelines': '📋',
+    'connect': '🤝'
+  };
+  return icons[responseType] || '💬';
+}
+
+// Get appropriate title for response type
+function getResponseTitle(responseType) {
+  const titles = {
+    'hello': 'Hello!',
+    'help': 'How Can I Help?',
+    'products': 'Our Products', 
+    'price': 'Pricing Information',
+    'order': 'Ready to Order?',
+    'catalog': 'Product Catalog',
+    'offers': 'Special Offers',
+    'events': 'Community Events',
+    'guidelines': 'Guidelines',
+    'connect': 'Let\'s Connect'
+  };
+  return titles[responseType] || 'Information';
 }
 
 // Validate referral code with the dashboard
@@ -506,35 +593,116 @@ client.on('messageCreate', async (message) => {
       console.log(`📨 Message from ${message.author.tag} in ${message.guild?.name || 'DM'}: ${message.content}`);
     }
 
+    // Handle DM messages (for onboarding responses to welcome messages)
+    if (!message.guild) {
+      const content = message.content.toLowerCase().trim();
+      
+      // Check for onboarding start keywords in DMs
+      if (content.includes('start') || content.includes('begin') || 
+          content.includes('onboard') || content.includes('hello') ||
+          content.includes('hi') || content.includes('yes')) {
+        
+        // Find the user's most recent guild to determine campaign context
+        // This works because the welcome DM was sent after they joined a guild
+        const userGuilds = client.guilds.cache.filter(guild => 
+          guild.members.cache.has(message.author.id)
+        );
+        
+        for (const [guildId, guild] of userGuilds) {
+          const config = await getBotConfig(guildId);
+          if (config) {
+            console.log(`🚀 Starting DM onboarding for ${message.author.tag} in ${config.campaignType} campaign`);
+            
+            // Check if user already has an active onboarding session
+            if (onboardingManager.isInOnboardingSession(message.author.id, config.campaignId)) {
+              // Handle response to onboarding question in DM
+              await onboardingManager.handleResponse(message, config);
+            } else {
+              // Start onboarding process in DM
+              await onboardingManager.startOnboarding(message, config, {});
+            }
+            return; // Handle only first valid campaign found
+          }
+        }
+        
+        // If no campaign found, send helpful message
+        await message.reply("👋 Hi! I couldn't find an active campaign for you. Please make sure you're a member of a server with an active Virion Labs campaign and try again from that server.");
+        return;
+      }
+      
+      // Handle other DM content (like onboarding responses)
+      const userGuilds = client.guilds.cache.filter(guild => 
+        guild.members.cache.has(message.author.id)
+      );
+      
+      for (const [guildId, guild] of userGuilds) {
+        const config = await getBotConfig(guildId);
+        if (config && onboardingManager.isInOnboardingSession(message.author.id, config.campaignId)) {
+          // Handle onboarding response in DM
+          await onboardingManager.handleResponse(message, config);
+          return;
+        }
+      }
+      
+      // No active onboarding session found
+      return;
+    }
+
     // Get guild configuration
     const config = await getBotConfig(guildId, channelId);
     
-            if (config) {
+    if (config) {
       if (DEBUG) {
         console.log(`🎯 Found campaign configuration: ${config.campaignName} (${config.campaignType})`);
       }
 
-      // Handle campaign-specific logic
+      // Handle campaign-specific logic with template-driven responses
       let handled = false;
       
-      switch (config.campaignType) {
-        case 'referral_onboarding':
-          handled = await handleReferralOnboarding(message, config);
-          break;
-        
-        case 'community_engagement':
-          // Handle community engagement logic
-          if (message.content.toLowerCase().includes('help') || 
-              message.content.toLowerCase().includes('support')) {
-            const embed = createCampaignEmbed(
-              config,
-              '🆘 Need Help?',
-              'I\'m here to help! What can I assist you with today?'
-            );
-            await message.reply({ embeds: [embed] });
-            handled = true;
-          }
-          break;
+      // First try template-driven auto responses
+      const templateResponse = getTemplateResponse(config, message.content);
+      if (templateResponse) {
+        const embed = createCampaignEmbed(
+          config,
+          templateResponse.title,
+          templateResponse.message,
+          templateResponse.color
+        );
+        await message.reply({ embeds: [embed] });
+        handled = true;
+      }
+      
+      // If no template response found, use campaign-specific logic
+      if (!handled) {
+        switch (config.campaignType) {
+          case 'referral_onboarding':
+            handled = await handleReferralOnboarding(message, config);
+            break;
+          
+          case 'product_promotion':
+          case 'community_engagement':
+          case 'vip_support':
+          case 'custom':
+            // For these campaign types, check for interaction patterns that should trigger onboarding
+            const content = message.content.toLowerCase();
+            if (content.includes('hello') || content.includes('hi') || 
+                content.includes('help') || content.includes('start') ||
+                content.includes('info') || content.includes('welcome') ||
+                content.includes('onboard') || content.includes('begin') ||
+                content.includes('signup') || content.includes('join')) {
+              
+              // Check if user already has an active onboarding session
+              if (onboardingManager.isInOnboardingSession(message.author.id, config.campaignId)) {
+                // Handle response to onboarding question
+                handled = await onboardingManager.handleResponse(message, config);
+              } else {
+                // Start onboarding process for this campaign
+                console.log(`🚀 Starting onboarding for ${message.author.tag} in ${config.campaignType} campaign`);
+                handled = await onboardingManager.startOnboarding(message, config, {});
+              }
+            }
+            break;
+        }
       }
 
       // If campaign-specific logic handled the message, track and return

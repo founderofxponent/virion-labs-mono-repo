@@ -173,13 +173,14 @@ export async function PUT(request: NextRequest) {
       throw allResponsesError
     }
 
-    // Check completion status
-    const requiredFields = allFields.filter(f => f.is_required).map(f => f.field_key)
+    // Check completion status - only complete when ALL fields are answered
+    const allFieldKeys = allFields.map(f => f.field_key)
     const completedFields = allResponses
       .filter(r => r.field_value && r.field_value.trim() !== '')
       .map(r => r.field_key)
 
-    const isCompleted = requiredFields.every(field => completedFields.includes(field))
+    // Onboarding is complete only when ALL fields (required + optional) are answered
+    const isCompleted = allFieldKeys.every(field => completedFields.includes(field))
     const nextField = allFields.find(f => !completedFields.includes(f.field_key))
 
     // If completed, mark all responses as completed
@@ -198,7 +199,7 @@ export async function PUT(request: NextRequest) {
       next_field: nextField || null,
       completed_fields: completedFields,
       total_fields: allFields.length,
-      required_fields: requiredFields.length
+      required_fields: allFields.filter(f => f.is_required).length
     })
   } catch (error) {
     console.error('Error saving onboarding response:', error)
@@ -247,8 +248,9 @@ export async function GET(request: NextRequest) {
       responses?.filter(r => r.field_value && r.field_value.trim() !== '').map(r => r.field_key) || []
     )
 
-    const requiredFields = fields.filter(f => f.is_required)
-    const isCompleted = requiredFields.every(f => completedFieldKeys.has(f.field_key))
+    // Onboarding is complete only when ALL fields (required + optional) are answered
+    const allFieldKeys = fields.map(f => f.field_key)
+    const isCompleted = allFieldKeys.every(f => completedFieldKeys.has(f))
     const nextField = fields.find(f => !completedFieldKeys.has(f.field_key))
 
     return NextResponse.json({
@@ -261,18 +263,18 @@ export async function GET(request: NextRequest) {
       progress: {
         completed: completedFieldKeys.size,
         total: fields.length,
-        required_completed: requiredFields.filter(f => completedFieldKeys.has(f.field_key)).length,
-        required_total: requiredFields.length
+        required_completed: fields.filter(f => f.is_required && completedFieldKeys.has(f.field_key)).length,
+        required_total: fields.filter(f => f.is_required).length
       }
     })
   } catch (error) {
-    console.error('Error getting onboarding session:', error)
+    console.error('Error fetching onboarding session:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 // Field validation helper
-function validateFieldValue(field, value) {
+function validateFieldValue(field: any, value: any) {
   if (field.is_required && (!value || value.trim() === '')) {
     return { valid: false, message: 'This field is required' }
   }
