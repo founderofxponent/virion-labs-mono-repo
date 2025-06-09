@@ -169,7 +169,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'interests',
         question: 'What are you most interested in?',
         type: 'multiselect',
-        required: false,
+        required: true,
         options: [
           'Exclusive deals and discounts',
           'Early access to products',
@@ -190,7 +190,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'experience_level',
         question: 'How would you describe your experience level?',
         type: 'select',
-        required: false,
+        required: true,
         options: [
           'Complete beginner',
           'Some experience',
@@ -209,7 +209,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'goals',
         question: 'What are your main goals in joining our community?',
         type: 'text',
-        required: false,
+        required: true,
         placeholder: 'Tell us about your goals and what you hope to achieve...',
         description: 'Help us support your journey better',
         validation: {
@@ -350,7 +350,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'budget_range',
         question: 'What\'s your typical budget range for purchases?',
         type: 'select',
-        required: false,
+        required: true,
         options: [
           'Under $25',
           '$25 - $50',
@@ -371,7 +371,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'shopping_frequency',
         question: 'How often do you typically make online purchases?',
         type: 'select',
-        required: false,
+        required: true,
         options: [
           'Weekly',
           'Monthly',
@@ -391,7 +391,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'special_requests',
         question: 'Any special preferences or requirements?',
         type: 'text',
-        required: false,
+        required: true,
         placeholder: 'Size preferences, dietary restrictions, accessibility needs, etc.',
         description: 'Help us provide better product recommendations',
         validation: {
@@ -495,7 +495,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'location',
         question: 'Where are you joining us from?',
         type: 'text',
-        required: false,
+        required: true,
         placeholder: 'City, Country (optional)',
         description: 'Helps connect you with local community members',
         validation: {
@@ -535,7 +535,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'experience_sharing',
         question: 'What experience or skills could you share with the community?',
         type: 'text',
-        required: false,
+        required: true,
         placeholder: 'Professional skills, hobbies, expertise, etc.',
         description: 'Help us recognize your contributions and expertise',
         validation: {
@@ -552,7 +552,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'participation_level',
         question: 'How active do you plan to be in the community?',
         type: 'select',
-        required: false,
+        required: true,
         options: [
           'Very active - daily participation',
           'Regular - few times per week',
@@ -572,7 +572,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'community_goals',
         question: 'What do you hope to get from this community?',
         type: 'text',
-        required: false,
+        required: true,
         placeholder: 'Learning, networking, fun, support, collaboration, etc.',
         description: 'Help us create the best community experience for you',
         validation: {
@@ -692,7 +692,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'account_id',
         question: 'What is your account ID or customer number?',
         type: 'text',
-        required: false,
+        required: true,
         placeholder: 'Account ID, customer number, or username',
         description: 'Helps us quickly locate your account (if known)',
         validation: {
@@ -730,7 +730,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'urgency_level',
         question: 'How would you categorize your typical support needs?',
         type: 'select',
-        required: false,
+        required: true,
         options: [
           'Critical - Business impacting issues',
           'High - Important but not critical',
@@ -749,7 +749,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'preferred_contact',
         question: 'How do you prefer to be contacted for support follow-ups?',
         type: 'select',
-        required: false,
+        required: true,
         options: [
           'Discord DM (fastest)',
           'Email (detailed responses)',
@@ -769,7 +769,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'timezone',
         question: 'What timezone are you in?',
         type: 'select',
-        required: false,
+        required: true,
         options: [
           'UTC-12 (Baker Island)',
           'UTC-11 (American Samoa)',
@@ -876,7 +876,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         id: 'purpose',
         question: 'What brings you here?',
         type: 'text',
-        required: false,
+        required: true,
         placeholder: 'Tell us about your interest or goals...',
         description: 'Help us understand how to assist you better',
         validation: {

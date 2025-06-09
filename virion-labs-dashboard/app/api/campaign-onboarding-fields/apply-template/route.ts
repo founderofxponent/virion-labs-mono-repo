@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       field_placeholder: field.placeholder || '',
       field_description: field.description || '',
       field_options: field.options || [],
-      is_required: field.required,
+      is_required: true,
       is_enabled: true,
       sort_order: index,
       validation_rules: field.validation || {},

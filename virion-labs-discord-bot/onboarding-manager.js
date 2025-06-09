@@ -249,10 +249,6 @@ class OnboardingManager {
         guidance = '✏️ Please provide your answer';
     }
 
-    if (field.is_required) {
-      guidance += ' *(Required)*';
-    }
-
     embed.addFields([{
       name: '📝 How to respond',
       value: guidance,

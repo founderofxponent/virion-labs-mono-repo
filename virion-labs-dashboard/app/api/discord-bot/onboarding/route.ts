@@ -152,10 +152,10 @@ export async function PUT(request: NextRequest) {
       throw responseError
     }
 
-    // Check if all required fields are now completed
+    // Check if all fields are now completed
     const { data: allFields, error: allFieldsError } = await supabase
       .from('campaign_onboarding_fields')
-      .select('field_key, is_required')
+      .select('field_key')
       .eq('campaign_id', campaign_id)
       .eq('is_enabled', true)
 
@@ -179,7 +179,7 @@ export async function PUT(request: NextRequest) {
       .filter(r => r.field_value && r.field_value.trim() !== '')
       .map(r => r.field_key)
 
-    // Onboarding is complete only when ALL fields (required + optional) are answered
+    // Onboarding is complete only when ALL fields are answered
     const isCompleted = allFieldKeys.every(field => completedFields.includes(field))
     const nextField = allFields.find(f => !completedFields.includes(f.field_key))
 
@@ -198,8 +198,7 @@ export async function PUT(request: NextRequest) {
       is_completed: isCompleted,
       next_field: nextField || null,
       completed_fields: completedFields,
-      total_fields: allFields.length,
-      required_fields: allFields.filter(f => f.is_required).length
+      total_fields: allFields.length
     })
   } catch (error) {
     console.error('Error saving onboarding response:', error)
@@ -248,7 +247,7 @@ export async function GET(request: NextRequest) {
       responses?.filter(r => r.field_value && r.field_value.trim() !== '').map(r => r.field_key) || []
     )
 
-    // Onboarding is complete only when ALL fields (required + optional) are answered
+    // Onboarding is complete only when ALL fields are answered
     const allFieldKeys = fields.map(f => f.field_key)
     const isCompleted = allFieldKeys.every(f => completedFieldKeys.has(f))
     const nextField = fields.find(f => !completedFieldKeys.has(f.field_key))
@@ -262,9 +261,7 @@ export async function GET(request: NextRequest) {
       next_field: nextField || null,
       progress: {
         completed: completedFieldKeys.size,
-        total: fields.length,
-        required_completed: fields.filter(f => f.is_required && completedFieldKeys.has(f.field_key)).length,
-        required_total: fields.filter(f => f.is_required).length
+        total: fields.length
       }
     })
   } catch (error) {
@@ -275,12 +272,9 @@ export async function GET(request: NextRequest) {
 
 // Field validation helper
 function validateFieldValue(field: any, value: any) {
-  if (field.is_required && (!value || value.trim() === '')) {
-    return { valid: false, message: 'This field is required' }
-  }
-
+  // All fields are now required
   if (!value || value.trim() === '') {
-    return { valid: true, value: value }
+    return { valid: false, message: 'This field is required' }
   }
 
   const trimmedValue = value.trim()

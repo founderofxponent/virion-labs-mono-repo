@@ -58,7 +58,7 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
     field_placeholder: "",
     field_description: "",
     field_options: [] as string[],
-    is_required: false,
+    is_required: true,
     is_enabled: true,
     sort_order: 0,
   })
@@ -93,21 +93,7 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
     }
   }
 
-  const handleToggleRequired = async (index: number) => {
-    const field = fields[index]
-    const result = await updateField({
-      id: field.id,
-      is_required: !field.is_required
-    })
-    
-    if (!result.success) {
-      toast({
-        title: "Error",
-        description: result.error,
-        variant: "destructive"
-      })
-    }
-  }
+
 
   const handleToggleEnabled = async (index: number) => {
     const field = fields[index]
@@ -210,7 +196,7 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
         field_placeholder: "",
         field_description: "",
         field_options: [],
-        is_required: false,
+        is_required: true,
         is_enabled: true,
         sort_order: 0,
       })
@@ -362,14 +348,6 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <Checkbox 
-                      id="field-required" 
-                      checked={newField.is_required}
-                      onCheckedChange={(checked) => setNewField(prev => ({ ...prev, is_required: !!checked }))}
-                    />
-                    <Label htmlFor="field-required">Required Question</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Checkbox 
                       id="field-enabled" 
                       checked={newField.is_enabled}
                       onCheckedChange={(checked) => setNewField(prev => ({ ...prev, is_enabled: !!checked }))}
@@ -391,7 +369,7 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
                       field_placeholder: "",
                       field_description: "",
                       field_options: [],
-                      is_required: false,
+                      is_required: true,
                       is_enabled: true,
                       sort_order: 0,
                     })
@@ -423,7 +401,7 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
           <Card>
             <CardHeader>
               <CardTitle>Bot Onboarding Questions</CardTitle>
-              <CardDescription>Configure the questions your Discord bot will ask during onboarding</CardDescription>
+              <CardDescription>Configure the questions your Discord bot will ask during onboarding. All questions are required and must be answered for onboarding completion.</CardDescription>
             </CardHeader>
             <CardContent>
               {!selectedCampaign ? (
@@ -452,7 +430,6 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
                       </div>
                       <div className="flex items-center gap-2 ml-auto">
                         <Badge variant={field.field_type === "text" ? "default" : "secondary"}>{field.field_type}</Badge>
-                        {field.is_required && <Badge variant="outline">Required</Badge>}
                         <div className="flex items-center gap-1">
                           <Button variant="ghost" size="icon" onClick={() => handleMoveUp(index)} disabled={index === 0}>
                             <ArrowUp className="h-4 w-4" />
@@ -464,13 +441,6 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
                             disabled={index === fields.length - 1}
                           >
                             <ArrowDown className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleToggleRequired(index)}>
-                            {field.is_required ? (
-                              <span className="font-bold text-xs">REQ</span>
-                            ) : (
-                              <span className="font-bold text-xs text-muted-foreground">OPT</span>
-                            )}
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleToggleEnabled(index)}>
                             {field.is_enabled ? (
@@ -532,7 +502,6 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
                           <div className="flex-1 bg-background p-3 rounded-lg shadow-sm">
                             <p className="text-sm">
                               {field.field_label}
-                              {field.is_required && <span className="text-destructive ml-1">*</span>}
                             </p>
                             {field.field_placeholder && (
                               <p className="text-xs text-muted-foreground mt-1">Example: {field.field_placeholder}</p>
