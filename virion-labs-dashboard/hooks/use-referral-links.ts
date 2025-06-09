@@ -21,6 +21,29 @@ export function useReferralLinks() {
     try {
       setLoading(true)
       setError(null)
+
+      // First, refresh the conversion counts to ensure data consistency
+      try {
+        const refreshResponse = await fetch('/api/referral/refresh-counts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            influencer_id: user.id
+          })
+        })
+
+        if (refreshResponse.ok) {
+          const refreshResult = await refreshResponse.json()
+          console.log('Conversion counts refreshed:', refreshResult)
+        } else {
+          console.warn('Failed to refresh conversion counts:', refreshResponse.status)
+        }
+      } catch (refreshError) {
+        console.warn('Error refreshing conversion counts:', refreshError)
+        // Continue with normal fetch even if refresh fails
+      }
       
       const { data, error } = await supabase
         .from('referral_links')
@@ -240,6 +263,54 @@ export function useReferralLinks() {
       day: 'numeric',
     })
   }
+
+  // Real-time subscription to changes
+  useEffect(() => {
+    if (!user) return
+
+    // Set up real-time subscription for referral links
+    const linkSubscription = supabase
+      .channel('referral_links_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'referral_links',
+          filter: `influencer_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Referral link change detected:', payload)
+          // Refresh data when changes are detected
+          fetchLinks()
+        }
+      )
+      .subscribe()
+
+    // Set up real-time subscription for referrals (to update conversion counts)
+    const referralSubscription = supabase
+      .channel('referrals_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'referrals',
+          filter: `influencer_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Referral change detected:', payload)
+          // Refresh data when referral changes are detected
+          fetchLinks()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(linkSubscription)
+      supabase.removeChannel(referralSubscription)
+    }
+  }, [user])
 
   // Initialize data fetch
   useEffect(() => {

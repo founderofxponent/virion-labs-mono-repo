@@ -127,6 +127,34 @@ export function useReferrals() {
     })
   }
 
+  // Real-time subscription to changes
+  useEffect(() => {
+    if (!profile?.id) return
+
+    // Set up real-time subscription for referrals
+    const referralSubscription = supabase
+      .channel('referrals_influencer_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'referrals',
+          filter: `influencer_id=eq.${profile.id}`
+        },
+        (payload) => {
+          console.log('Referral change detected for influencer:', payload)
+          // Refresh data when changes are detected
+          fetchReferrals()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(referralSubscription)
+    }
+  }, [profile?.id])
+
   useEffect(() => {
     fetchReferrals()
   }, [profile?.id])

@@ -123,15 +123,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Update referral link conversion stats
+    // Get current count of all referrals for this link (not just active ones)
+    const { data: referralCount, error: countError } = await supabase
+      .from('referrals')
+      .select('id', { count: 'exact' })
+      .eq('referral_link_id', referralLink.id)
+
+    if (countError) {
+      console.error('Error counting referrals:', countError)
+    }
+
     const { error: updateError } = await supabase
       .from('referral_links')
       .update({
-        conversions: (await supabase
-          .from('referrals')
-          .select('id')
-          .eq('referral_link_id', referralLink.id)
-          .eq('status', 'active')
-        ).data?.length || 0,
+        conversions: referralCount?.length || 0,
         updated_at: new Date().toISOString()
       })
       .eq('id', referralLink.id)

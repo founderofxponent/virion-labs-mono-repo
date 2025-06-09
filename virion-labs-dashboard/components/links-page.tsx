@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Copy, ExternalLink, QrCode, Search, Plus, Edit, Trash2, MoreHorizontal, Power, PowerOff } from "lucide-react"
+import { Copy, ExternalLink, QrCode, Search, Plus, Edit, Trash2, MoreHorizontal, Power, PowerOff, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -215,24 +215,30 @@ export function LinksPage() {
           <h1 className="text-2xl font-bold tracking-tight">My Links</h1>
           <p className="text-muted-foreground">Manage and track all your referral links</p>
         </div>
-        <Dialog open={showLinkForm} onOpenChange={setShowLinkForm}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create New Link
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create Referral Link</DialogTitle>
-              <DialogDescription>Create a new referral link for your content</DialogDescription>
-            </DialogHeader>
-            <ReferralLinkForm 
-              onSuccess={handleLinkCreated}
-              onCancel={() => setShowLinkForm(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={fetchLinks} title="Refresh data">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <Dialog open={showLinkForm} onOpenChange={setShowLinkForm}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create New Link
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create Referral Link</DialogTitle>
+                <DialogDescription>Create a new referral link for your content</DialogDescription>
+              </DialogHeader>
+              <ReferralLinkForm 
+                onSuccess={handleLinkCreated}
+                onCancel={() => setShowLinkForm(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Analytics Summary */}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Download, Search, MoreHorizontal, Eye, Trash2, UserCheck, UserX } from "lucide-react"
+import { Download, Search, MoreHorizontal, Eye, Trash2, UserCheck, UserX, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,6 +41,7 @@ export function ReferralsPage() {
     deleteReferral,
     getReferralsSummary,
     formatDate,
+    refetch,
   } = useReferrals()
 
   const [searchQuery, setSearchQuery] = useState("")
@@ -194,12 +195,18 @@ export function ReferralsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Referrals</h1>
           <p className="text-muted-foreground">Track all users who signed up through your links</p>
         </div>
-        {profile?.role === 'admin' && (
-          <Button variant="outline" onClick={exportData}>
-            <Download className="mr-2 h-4 w-4" />
-            Export Data
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={refetch} title="Refresh data">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
           </Button>
-        )}
+          {profile?.role === 'admin' && (
+            <Button variant="outline" onClick={exportData}>
+              <Download className="mr-2 h-4 w-4" />
+              Export Data
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Summary Cards */}
