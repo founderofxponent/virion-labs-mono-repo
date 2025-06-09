@@ -12,6 +12,7 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy application files
 COPY index.js ./
 COPY onboarding-manager.js ./
+COPY supabase.js ./
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
