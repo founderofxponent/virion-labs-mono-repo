@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bot, Download, Plus, Search, User, Loader2 } from "lucide-react"
+import { Bot, Download, Plus, Search, User, Loader2, Zap } from "lucide-react"
 
 import { generateInitials } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -314,6 +314,52 @@ export function ClientsPage() {
         </div>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalClients}</div>
+            <p className="text-xs text-muted-foreground">+2 from last month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.activeClients}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.activePercentage.toFixed(1)}% of total
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Influencers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalInfluencers}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.avgInfluencersPerClient.toFixed(1)} avg per client
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">-</div>
+            <p className="text-xs text-muted-foreground">
+              Coming soon
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Tabs defaultValue="list" className="space-y-4">
         <TabsList>
           <TabsTrigger value="list">List View</TabsTrigger>
@@ -329,7 +375,7 @@ export function ClientsPage() {
                     <TableHead>Client</TableHead>
                     <TableHead>Industry</TableHead>
                     <TableHead>Influencers</TableHead>
-                    <TableHead>Bots</TableHead>
+                    <TableHead>Campaigns</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Join Date</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -351,7 +397,9 @@ export function ClientsPage() {
                       </TableCell>
                       <TableCell onClick={() => handleViewClient(client.id)}>{client.industry}</TableCell>
                       <TableCell onClick={() => handleViewClient(client.id)}>{client.influencers || 0}</TableCell>
-                      <TableCell onClick={() => handleViewClient(client.id)}>{client.bots || 0}</TableCell>
+                      <TableCell onClick={() => handleViewClient(client.id)}>
+                        <span className="text-muted-foreground">-</span>
+                      </TableCell>
                       <TableCell onClick={() => handleViewClient(client.id)}>
                         <Badge
                           variant={
@@ -430,8 +478,8 @@ export function ClientsPage() {
                       <span className="text-sm">{client.influencers || 0} Influencers</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Bot className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{client.bots || 0} Bots</span>
+                      <Zap className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">- Campaigns</span>
                     </div>
                   </div>
                 </CardContent>
@@ -465,51 +513,6 @@ export function ClientsPage() {
           </div>
         </TabsContent>
       </Tabs>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Clients</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalClients}</div>
-            <p className="text-xs text-muted-foreground">+2 from last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeClients}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.activePercentage.toFixed(1)}% of total
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Influencers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalInfluencers}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.avgInfluencersPerClient.toFixed(1)} avg per client
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Bots</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalBots}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.avgBotsPerClient.toFixed(1)} avg per client
-            </p>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   )
 }

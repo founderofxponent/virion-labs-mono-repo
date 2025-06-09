@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Bot, Calendar, Edit, Globe, Mail, Phone, Save, User, X, Loader2, Trash2 } from "lucide-react"
+import { ArrowLeft, Bot, Calendar, Edit, Globe, Mail, Phone, Save, User, X, Loader2, Trash2, Zap } from "lucide-react"
 
 import { generateInitials } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -31,7 +31,7 @@ interface EditFormState {
   primary_contact: string
   contact_email: string
   influencers: number
-  bots: number
+  bots: number // Kept for compatibility, but campaigns count is now calculated dynamically
   status: ClientStatus
 }
 
@@ -47,6 +47,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [campaignsCount, setCampaignsCount] = useState(0)
 
   // Form state for editing
   const [editForm, setEditForm] = useState<EditFormState>({
@@ -98,11 +99,35 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
           bots: data.bots || 0,
           status: data.status as ClientStatus
         })
+
+        // Fetch campaigns count for this client
+        await fetchCampaignsCount(data.id)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Fetch campaigns count
+  const fetchCampaignsCount = async (clientId: string) => {
+    try {
+      const { count, error } = await supabase
+        .from('discord_guild_campaigns')
+        .select('*', { count: 'exact', head: true })
+        .eq('client_id', clientId)
+        .neq('archived', true) // Don't count archived campaigns
+
+      if (error) {
+        console.error('Error fetching campaigns count:', error)
+        setCampaignsCount(0)
+      } else {
+        setCampaignsCount(count || 0)
+      }
+    } catch (err) {
+      console.error('Error fetching campaigns count:', err)
+      setCampaignsCount(0)
     }
   }
 
@@ -122,7 +147,6 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
         primary_contact: editForm.primary_contact || null,
         contact_email: editForm.contact_email || null,
         influencers: editForm.influencers,
-        bots: editForm.bots,
         status: editForm.status
       }
 
@@ -167,16 +191,16 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
   // Cancel edit
   const handleCancelEdit = () => {
     if (client) {
-      setEditForm({
-        name: client.name,
-        industry: client.industry,
-        website: client.website || "",
-        primary_contact: client.primary_contact || "",
-        contact_email: client.contact_email || "",
-        influencers: client.influencers || 0,
-        bots: client.bots || 0,
-        status: client.status as ClientStatus
-      })
+              setEditForm({
+          name: client.name,
+          industry: client.industry,
+          website: client.website || "",
+          primary_contact: client.primary_contact || "",
+          contact_email: client.contact_email || "",
+          influencers: client.influencers || 0,
+          bots: client.bots || 0,
+          status: client.status as ClientStatus
+        })
     }
     setIsEditing(false)
   }
@@ -477,17 +501,17 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-bots">Bots</Label>
+                  <Label htmlFor="edit-campaigns">Campaigns</Label>
                   <Input
-                    id="edit-bots"
+                    id="edit-campaigns"
                     type="number"
-                    min="0"
-                    value={editForm.bots}
-                    onChange={(e) => setEditForm(prev => ({ 
-                      ...prev, 
-                      bots: parseInt(e.target.value) || 0 
-                    }))}
+                    value={campaignsCount}
+                    disabled
+                    className="bg-muted text-muted-foreground"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Campaign count is automatically calculated from active campaigns
+                  </p>
                 </div>
               </div>
             ) : (
@@ -501,10 +525,10 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
                 </div>
                 <div className="text-center p-4 bg-muted rounded-lg">
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    <Bot className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">Bots</span>
+                    <Zap className="h-5 w-5 text-muted-foreground" />
+                    <span className="font-medium">Campaigns</span>
                   </div>
-                  <div className="text-2xl font-bold">{client.bots || 0}</div>
+                  <div className="text-2xl font-bold">{campaignsCount}</div>
                 </div>
               </div>
             )}
