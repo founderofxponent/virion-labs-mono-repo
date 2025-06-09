@@ -9,13 +9,14 @@ const supabase = createClient(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { data, error } = await supabase
       .from('bot_campaign_configs')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (error) {
@@ -36,14 +37,15 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
 
     // Remove read-only fields
     const {
-      id,
+      id: _id,
       created_at,
       updated_at,
       client_name,
@@ -103,13 +105,28 @@ export async function PUT(
       }
     }
 
+    // Clean up timestamp and UUID fields - convert empty strings to null
+    Object.keys(finalUpdateData).forEach(key => {
+      if (typeof finalUpdateData[key] === 'string' && finalUpdateData[key] === '') {
+        // Check if it's a timestamp field based on common naming patterns
+        if (key.includes('_at') || key.includes('_date') || key.includes('Date')) {
+          finalUpdateData[key] = null
+        }
+        // Check if it's a UUID field based on common naming patterns
+        else if (key.includes('_id') || key === 'id' || key.includes('Id') || 
+                 key.includes('client') || key.includes('referral') || key.includes('influencer')) {
+          finalUpdateData[key] = null
+        }
+      }
+    })
+
     // Update configuration_version to track changes
     finalUpdateData.configuration_version = (finalUpdateData.configuration_version || 1) + 1
 
     const { data, error } = await supabase
       .from('discord_guild_campaigns')
       .update(finalUpdateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select(`
         *,
         clients:client_id(name, industry),
@@ -135,13 +152,14 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const { data, error } = await supabase
       .from('discord_guild_campaigns')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -164,9 +182,10 @@ export async function DELETE(
 // Archive/activate a campaign
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { action } = body
 
@@ -185,7 +204,7 @@ export async function PATCH(
     const { data, error } = await supabase
       .from('discord_guild_campaigns')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 

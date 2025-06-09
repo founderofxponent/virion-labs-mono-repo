@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -397,6 +398,25 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div>
+                  <Label htmlFor="bot_response_style">Bot Response Style</Label>
+                  <Select
+                    value={formData.bot_response_style}
+                    onValueChange={(value) => handleFieldChange('bot_response_style', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={selectedTemplate.bot_config.bot_response_style} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="formal">Formal</SelectItem>
+                      <SelectItem value="casual">Casual</SelectItem>
+                      <SelectItem value="friendly">Friendly</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
 
@@ -447,6 +467,54 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
                     onChange={(e) => handleFieldChange('rate_limit_per_user', parseInt(e.target.value))}
                     placeholder="5"
                   />
+                </div>
+              </div>
+
+              {/* Feature Toggles */}
+              <div>
+                <h4 className="text-md font-medium mb-3">Bot Features</h4>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="referral_tracking">Referral Tracking</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Enable tracking of referral codes and conversions
+                      </p>
+                    </div>
+                    <Switch
+                      id="referral_tracking"
+                      checked={formData.referral_tracking_enabled || false}
+                      onCheckedChange={(checked) => handleFieldChange('referral_tracking_enabled', checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="auto_role">Auto Role Assignment</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Automatically assign roles to verified members
+                      </p>
+                    </div>
+                    <Switch
+                      id="auto_role"
+                      checked={formData.auto_role_assignment || false}
+                      onCheckedChange={(checked) => handleFieldChange('auto_role_assignment', checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="moderation">Moderation</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Enable automatic moderation and spam protection
+                      </p>
+                    </div>
+                    <Switch
+                      id="moderation"
+                      checked={formData.moderation_enabled || false}
+                      onCheckedChange={(checked) => handleFieldChange('moderation_enabled', checked)}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

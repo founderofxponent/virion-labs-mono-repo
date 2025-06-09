@@ -10,11 +10,13 @@ import { getCampaignTemplate } from "@/lib/campaign-templates"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import {
   Table,
   TableBody,
@@ -334,33 +336,45 @@ export default function BotCampaignsPage() {
 
   const openEditDialog = (campaign: any) => {
     setEditingCampaign(campaign)
+    
+    // Map database template values back to our new template IDs
+    const reverseTemplateMapping: Record<string, string> = {
+      'referral_campaign': 'referral_onboarding',
+      'standard': 'product_promotion',
+      'advanced': 'community_engagement',
+      'support_campaign': 'vip_support',
+      'custom': 'custom'
+    }
+    
+    const mappedTemplate = reverseTemplateMapping[campaign.template] || campaign.type || 'custom'
+    
     setEditForm({
       id: campaign.id,
       client_id: campaign.client_id,
       guild_id: campaign.guild_id,
       channel_id: campaign.channel_id || "",
       campaign_name: campaign.name,
-      campaign_template: campaign.template || campaign.type || "custom", // Use template field
-      prefix: campaign.prefix,
+      campaign_template: mappedTemplate,
+      prefix: campaign.prefix || "!",
       description: campaign.description || "",
-      bot_name: campaign.display_name,
-      bot_personality: campaign.bot_personality,
-      bot_response_style: campaign.bot_response_style,
-      brand_color: campaign.brand_color,
+      bot_name: campaign.display_name || "Bot",
+      bot_personality: campaign.bot_personality || "helpful",
+      bot_response_style: campaign.bot_response_style || "friendly",
+      brand_color: campaign.brand_color || "#6366f1",
       brand_logo_url: campaign.brand_logo_url || "",
       welcome_message: campaign.welcome_message || "",
       webhook_url: campaign.webhook_url || "",
       referral_link_id: campaign.referral_link_id || "",
       influencer_id: campaign.influencer_id || "",
-      referral_tracking_enabled: campaign.referral_tracking_enabled,
-      auto_role_assignment: campaign.auto_role_assignment,
+      referral_tracking_enabled: campaign.referral_tracking_enabled || false,
+      auto_role_assignment: campaign.auto_role_assignment || false,
       target_role_id: campaign.target_role_id || "",
-      moderation_enabled: campaign.moderation_enabled,
-      rate_limit_per_user: campaign.rate_limit_per_user,
+      moderation_enabled: campaign.moderation_enabled || true,
+      rate_limit_per_user: campaign.rate_limit_per_user || 5,
       campaign_start_date: campaign.campaign_start_date || "",
       campaign_end_date: campaign.campaign_end_date || "",
-      is_active: campaign.is_active,
-      metadata: campaign.metadata
+      is_active: campaign.is_active || true,
+      metadata: campaign.metadata || {}
     })
     setShowEditDialog(true)
   }
@@ -800,7 +814,7 @@ export default function BotCampaignsPage() {
 
       {/* Edit Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Bot Campaign</DialogTitle>
             <DialogDescription>
@@ -834,12 +848,34 @@ export default function BotCampaignsPage() {
             </Card>
           )}
           
-          <div className="space-y-4">
+          {/* Configuration Form - Matching Create Wizard Step 2 */}
+          <div className="space-y-6">
             <div>
               <Label htmlFor="edit_campaign_template">Campaign Template</Label>
               <Select
                 value={editForm.campaign_template}
-                onValueChange={(value) => setEditForm(prev => ({ ...prev, campaign_template: value }))}
+                onValueChange={(value) => {
+                  const template = getCampaignTemplate(value)
+                  if (template) {
+                    setEditForm(prev => ({
+                      ...prev,
+                      campaign_template: value,
+                      // Always populate template fields when template changes
+                      prefix: template.bot_config.prefix,
+                      description: template.bot_config.description,
+                      bot_name: template.bot_config.bot_name,
+                      bot_personality: template.bot_config.bot_personality,
+                      bot_response_style: template.bot_config.bot_response_style,
+                      brand_color: template.bot_config.brand_color,
+                      welcome_message: template.bot_config.welcome_message,
+                      referral_tracking_enabled: template.bot_config.features.referral_tracking,
+                      auto_role_assignment: template.bot_config.features.auto_role,
+                      moderation_enabled: template.bot_config.features.moderation,
+                    }))
+                  } else {
+                    setEditForm(prev => ({ ...prev, campaign_template: value }))
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select template" />
@@ -854,102 +890,226 @@ export default function BotCampaignsPage() {
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="edit_campaign_name">Campaign Name</Label>
-              <Input
-                id="edit_campaign_name"
-                value={editForm.campaign_name}
-                onChange={(e) => setEditForm(prev => ({ ...prev, campaign_name: e.target.value }))}
-              />
+            {/* Configuration Form */}
+            <div className="grid grid-cols-2 gap-6">
+              {/* Left Column - Basic Settings */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Basic Settings</h3>
+                
+                <div>
+                  <Label htmlFor="edit_campaign_name">Campaign Name *</Label>
+                  <Input
+                    id="edit_campaign_name"
+                    value={editForm.campaign_name}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, campaign_name: e.target.value }))}
+                    placeholder="Enter campaign name"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit_guild_id">Discord Server ID *</Label>
+                  <Input
+                    id="edit_guild_id"
+                    value={editForm.guild_id}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, guild_id: e.target.value }))}
+                    placeholder="123456789012345678"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit_channel_id">Private Channel ID (Optional)</Label>
+                  <Input
+                    id="edit_channel_id"
+                    value={editForm.channel_id}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, channel_id: e.target.value }))}
+                    placeholder="123456789012345678"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Discord channel where only referral users can interact with the bot
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Column - Bot Configuration */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Palette className="h-5 w-5" />
+                  Bot Configuration
+                </h3>
+
+                <div>
+                  <Label htmlFor="edit_bot_name">Bot Display Name</Label>
+                  <Input
+                    id="edit_bot_name"
+                    value={editForm.bot_name}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, bot_name: e.target.value }))}
+                    placeholder="Bot Display Name"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit_prefix">Bot Prefix</Label>
+                  <Input
+                    id="edit_prefix"
+                    value={editForm.prefix}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, prefix: e.target.value }))}
+                    placeholder="!"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit_brand_color">Brand Color</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      id="edit_brand_color"
+                      value={editForm.brand_color}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, brand_color: e.target.value }))}
+                      placeholder="#6366f1"
+                    />
+                    <div 
+                      className="w-10 h-10 rounded border"
+                      style={{ backgroundColor: editForm.brand_color }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit_personality">Bot Personality</Label>
+                  <Select
+                    value={editForm.bot_personality}
+                    onValueChange={(value) => setEditForm(prev => ({ ...prev, bot_personality: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select personality" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="helpful">Helpful</SelectItem>
+                      <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="friendly">Friendly</SelectItem>
+                      <SelectItem value="casual">Casual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit_response_style">Bot Response Style</Label>
+                  <Select
+                    value={editForm.bot_response_style}
+                    onValueChange={(value) => setEditForm(prev => ({ ...prev, bot_response_style: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select response style" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="formal">Formal</SelectItem>
+                      <SelectItem value="casual">Casual</SelectItem>
+                      <SelectItem value="friendly">Friendly</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="edit_bot_name">Bot Display Name</Label>
-                <Input
-                  id="edit_bot_name"
-                  value={editForm.bot_name}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, bot_name: e.target.value }))}
-                />
-              </div>
+            {/* Advanced Settings */}
+            <Separator />
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Advanced Settings</h3>
               
               <div>
-                <Label htmlFor="edit_prefix">Bot Prefix</Label>
-                <Input
-                  id="edit_prefix"
-                  value={editForm.prefix}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, prefix: e.target.value }))}
+                <Label htmlFor="edit_description">Description</Label>
+                <Textarea
+                  id="edit_description"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Describe what this bot campaign does..."
+                  rows={3}
                 />
               </div>
-            </div>
 
-            <div>
-              <Label htmlFor="edit_description">Description</Label>
-              <Textarea
-                id="edit_description"
-                value={editForm.description}
-                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="edit_personality">Bot Personality</Label>
-                <Select
-                  value={editForm.bot_personality}
-                  onValueChange={(value) => setEditForm(prev => ({ ...prev, bot_personality: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="helpful">Helpful</SelectItem>
-                    <SelectItem value="friendly">Friendly</SelectItem>
-                    <SelectItem value="professional">Professional</SelectItem>
-                    <SelectItem value="casual">Casual</SelectItem>
-                    <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="edit_welcome_message">Welcome Message</Label>
+                <Textarea
+                  id="edit_welcome_message"
+                  value={editForm.welcome_message}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, welcome_message: e.target.value }))}
+                  placeholder="Welcome message for new members..."
+                  rows={3}
+                />
               </div>
-              
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit_webhook_url">Webhook URL (Optional)</Label>
+                  <Input
+                    id="edit_webhook_url"
+                    value={editForm.webhook_url}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, webhook_url: e.target.value }))}
+                    placeholder="https://your-api.com/webhook"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit_rate_limit">Rate Limit (per user)</Label>
+                  <Input
+                    type="number"
+                    id="edit_rate_limit"
+                    value={editForm.rate_limit_per_user}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, rate_limit_per_user: parseInt(e.target.value) }))}
+                    placeholder="5"
+                  />
+                </div>
+              </div>
+
+              {/* Feature Toggles */}
               <div>
-                <Label htmlFor="edit_response_style">Response Style</Label>
-                <Select
-                  value={editForm.bot_response_style}
-                  onValueChange={(value) => setEditForm(prev => ({ ...prev, bot_response_style: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="friendly">Friendly</SelectItem>
-                    <SelectItem value="professional">Professional</SelectItem>
-                    <SelectItem value="concise">Concise</SelectItem>
-                    <SelectItem value="detailed">Detailed</SelectItem>
-                  </SelectContent>
-                </Select>
+                <h4 className="text-md font-medium mb-3">Bot Features</h4>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="edit_referral_tracking">Referral Tracking</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Enable tracking of referral codes and conversions
+                      </p>
+                    </div>
+                    <Switch
+                      id="edit_referral_tracking"
+                      checked={editForm.referral_tracking_enabled}
+                      onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, referral_tracking_enabled: checked }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="edit_auto_role">Auto Role Assignment</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Automatically assign roles to verified members
+                      </p>
+                    </div>
+                    <Switch
+                      id="edit_auto_role"
+                      checked={editForm.auto_role_assignment}
+                      onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, auto_role_assignment: checked }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="edit_moderation">Moderation</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Enable automatic moderation and spam protection
+                      </p>
+                    </div>
+                    <Switch
+                      id="edit_moderation"
+                      checked={editForm.moderation_enabled}
+                      onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, moderation_enabled: checked }))}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <div>
-              <Label htmlFor="edit_brand_color">Brand Color</Label>
-              <Input
-                id="edit_brand_color"
-                type="color"
-                value={editForm.brand_color}
-                onChange={(e) => setEditForm(prev => ({ ...prev, brand_color: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="edit_welcome_message">Welcome Message</Label>
-              <Textarea
-                id="edit_welcome_message"
-                value={editForm.welcome_message}
-                onChange={(e) => setEditForm(prev => ({ ...prev, welcome_message: e.target.value }))}
-                rows={3}
-              />
             </div>
           </div>
 
