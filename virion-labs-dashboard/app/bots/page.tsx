@@ -1,13 +1,6 @@
-import { DashboardLayout } from "@/components/dashboard-layout"
-import { AdaptiveBotPage } from "@/components/adaptive-bot-page"
-import { ProtectedRoute } from "@/components/protected-route"
+import { redirect } from 'next/navigation'
 
 export default function Bots() {
-  return (
-    <ProtectedRoute allowedRoles={["admin"]}>
-      <DashboardLayout>
-        <AdaptiveBotPage />
-      </DashboardLayout>
-    </ProtectedRoute>
-  )
+  // Redirect to the new unified bot campaigns page
+  redirect('/bot-campaigns')
 }

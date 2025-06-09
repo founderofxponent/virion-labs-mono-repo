@@ -72,22 +72,16 @@ export function Sidebar() {
       active: pathname === "/clients",
     },
     {
-      title: "Discord Campaigns",
-      href: "/discord-campaigns",
-      icon: Target,
-      active: pathname === "/discord-campaigns",
+      title: "Bot Campaigns",
+      href: "/bot-campaigns",
+      icon: Bot,
+      active: pathname === "/bot-campaigns" || pathname.startsWith("/bot-campaigns"),
     },
     {
       title: "Access Requests",
       href: "/admin/access-requests",
       icon: UserCheck,
       active: pathname === "/admin/access-requests",
-    },
-    {
-      title: "Bots",
-      href: "/bots",
-      icon: Bot,
-      active: pathname === "/bots",
     },
     {
       title: "Settings",

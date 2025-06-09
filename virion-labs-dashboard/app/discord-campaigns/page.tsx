@@ -1,13 +1,6 @@
-import { DashboardLayout } from "@/components/dashboard-layout"
-import { DiscordCampaignsPage } from "@/components/discord-campaigns-page"
-import { ProtectedRoute } from "@/components/protected-route"
+import { redirect } from 'next/navigation'
 
 export default function DiscordCampaigns() {
-  return (
-    <ProtectedRoute allowedRoles={["admin"]}>
-      <DashboardLayout>
-        <DiscordCampaignsPage />
-      </DashboardLayout>
-    </ProtectedRoute>
-  )
+  // Redirect to the new unified bot campaigns page
+  redirect('/bot-campaigns')
 } 

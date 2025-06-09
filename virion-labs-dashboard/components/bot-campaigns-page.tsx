@@ -1,0 +1,978 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { format } from "date-fns"
+import { useAuth } from "@/components/auth-provider"
+import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
+import { useClients } from "@/hooks/use-clients"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useToast } from "@/hooks/use-toast"
+import { formatDate, cn } from "@/lib/utils"
+import { 
+  Bot, 
+  Settings, 
+  Activity, 
+  Play, 
+  Square, 
+  Plus,
+  Server,
+  Users,
+  Zap,
+  Palette,
+  Code,
+  Edit,
+  Trash2,
+  MoreHorizontal,
+  Copy,
+  ExternalLink,
+  Pause,
+  Target,
+  TrendingUp,
+  Hash,
+  MessageSquare,
+  Archive,
+  Eye,
+  Filter,
+  Search
+} from "lucide-react"
+
+export default function BotCampaignsPage() {
+  const { profile } = useAuth()
+  const { toast } = useToast()
+  const { clients } = useClients()
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingCampaign, setEditingCampaign] = useState<any>(null)
+  const [filterClient, setFilterClient] = useState("all")
+  const [filterTemplate, setFilterTemplate] = useState("all")
+  const [filterStatus, setFilterStatus] = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const filters = {
+    ...(filterClient !== "all" && { client_id: filterClient }),
+    ...(filterStatus === "active" && { is_active: true }),
+    ...(filterStatus === "inactive" && { is_active: false }),
+    ...(filterTemplate !== "all" && { template: filterTemplate }),
+    include_archived: filterStatus === "all",
+    only_archived: filterStatus === "archived"
+  }
+
+  const {
+    campaigns,
+    loading,
+    error,
+    createCampaign,
+    updateCampaign,
+    deleteCampaign,
+    archiveCampaign,
+    activateCampaign,
+    refresh
+  } = useBotCampaigns(filters)
+
+  const [createForm, setCreateForm] = useState({
+    client_id: "",
+    guild_id: "",
+    channel_id: "",
+    campaign_name: "",
+    campaign_type: "referral_onboarding" as const,
+    template: "referral_campaign" as const,
+    prefix: "!",
+    description: "",
+    bot_name: "Virion Bot",
+    bot_personality: "helpful",
+    bot_response_style: "friendly",
+    brand_color: "#6366f1",
+    brand_logo_url: "",
+    welcome_message: "",
+    webhook_url: "",
+    referral_link_id: "",
+    influencer_id: "",
+    referral_tracking_enabled: true,
+    auto_role_assignment: false,
+    target_role_id: "",
+    moderation_enabled: true,
+    rate_limit_per_user: 5,
+    campaign_start_date: "",
+    campaign_end_date: "",
+    metadata: {}
+  })
+
+  const [editForm, setEditForm] = useState({
+    id: "",
+    client_id: "",
+    guild_id: "",
+    channel_id: "",
+    campaign_name: "",
+    campaign_type: "referral_onboarding" as const,
+    template: "referral_campaign" as const,
+    prefix: "!",
+    description: "",
+    bot_name: "Virion Bot",
+    bot_personality: "helpful",
+    bot_response_style: "friendly",
+    brand_color: "#6366f1",
+    brand_logo_url: "",
+    welcome_message: "",
+    webhook_url: "",
+    referral_link_id: "",
+    influencer_id: "",
+    referral_tracking_enabled: true,
+    auto_role_assignment: false,
+    target_role_id: "",
+    moderation_enabled: true,
+    rate_limit_per_user: 5,
+    campaign_start_date: "",
+    campaign_end_date: "",
+    is_active: true,
+    metadata: {}
+  })
+
+  // Filter campaigns based on search query
+  const filteredCampaigns = campaigns.filter(campaign => {
+    if (!searchQuery) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      campaign.name.toLowerCase().includes(query) ||
+      campaign.client_name.toLowerCase().includes(query) ||
+      campaign.guild_id.toLowerCase().includes(query) ||
+      campaign.type.toLowerCase().includes(query) ||
+      campaign.template.toLowerCase().includes(query)
+    )
+  })
+
+  const handleCreateCampaign = async () => {
+    if (!createForm.client_id || !createForm.guild_id || !createForm.campaign_name) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      await createCampaign(createForm)
+      toast({
+        title: "Success",
+        description: "Bot campaign created successfully"
+      })
+      setShowCreateDialog(false)
+      setCreateForm({
+        client_id: "",
+        guild_id: "",
+        channel_id: "",
+        campaign_name: "",
+        campaign_type: "referral_onboarding",
+        template: "referral_campaign",
+        prefix: "!",
+        description: "",
+        bot_name: "Virion Bot",
+        bot_personality: "helpful",
+        bot_response_style: "friendly",
+        brand_color: "#6366f1",
+        brand_logo_url: "",
+        welcome_message: "",
+        webhook_url: "",
+        referral_link_id: "",
+        influencer_id: "",
+        referral_tracking_enabled: true,
+        auto_role_assignment: false,
+        target_role_id: "",
+        moderation_enabled: true,
+        rate_limit_per_user: 5,
+        campaign_start_date: "",
+        campaign_end_date: "",
+        metadata: {}
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create campaign",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleUpdateCampaign = async () => {
+    if (!editForm.id) return
+
+    try {
+      await updateCampaign(editForm.id, editForm)
+      toast({
+        title: "Success",
+        description: "Bot campaign updated successfully"
+      })
+      setShowEditDialog(false)
+      setEditingCampaign(null)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update campaign",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDeleteCampaign = async (campaignId: string) => {
+    if (!confirm("Are you sure you want to delete this campaign? This action cannot be undone.")) {
+      return
+    }
+
+    try {
+      await deleteCampaign(campaignId)
+      toast({
+        title: "Success",
+        description: "Campaign deleted successfully"
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete campaign",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleArchiveCampaign = async (campaignId: string) => {
+    try {
+      await archiveCampaign(campaignId)
+      toast({
+        title: "Success",
+        description: "Campaign archived successfully"
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to archive campaign",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleActivateCampaign = async (campaignId: string) => {
+    try {
+      await activateCampaign(campaignId)
+      toast({
+        title: "Success",
+        description: "Campaign activated successfully"
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to activate campaign",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const openEditDialog = (campaign: any) => {
+    setEditingCampaign(campaign)
+    setEditForm({
+      id: campaign.id,
+      client_id: campaign.client_id,
+      guild_id: campaign.guild_id,
+      channel_id: campaign.channel_id || "",
+      campaign_name: campaign.name,
+      campaign_type: campaign.type,
+      template: campaign.template,
+      prefix: campaign.prefix,
+      description: campaign.description || "",
+      bot_name: campaign.display_name,
+      bot_personality: campaign.bot_personality,
+      bot_response_style: campaign.bot_response_style,
+      brand_color: campaign.brand_color,
+      brand_logo_url: campaign.brand_logo_url || "",
+      welcome_message: campaign.welcome_message || "",
+      webhook_url: campaign.webhook_url || "",
+      referral_link_id: campaign.referral_link_id || "",
+      influencer_id: campaign.influencer_id || "",
+      referral_tracking_enabled: campaign.referral_tracking_enabled,
+      auto_role_assignment: campaign.auto_role_assignment,
+      target_role_id: campaign.target_role_id || "",
+      moderation_enabled: campaign.moderation_enabled,
+      rate_limit_per_user: campaign.rate_limit_per_user,
+      campaign_start_date: campaign.campaign_start_date || "",
+      campaign_end_date: campaign.campaign_end_date || "",
+      is_active: campaign.is_active,
+      metadata: campaign.metadata
+    })
+    setShowEditDialog(true)
+  }
+
+  const getTemplateColor = (template: string) => {
+    switch (template) {
+      case 'referral_campaign': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+      case 'support_campaign': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+      case 'standard': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+      case 'advanced': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+      case 'custom': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+    }
+  }
+
+  const getCampaignTypeColor = (type: string) => {
+    switch (type) {
+      case 'referral_onboarding': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+      case 'product_promotion': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+      case 'community_engagement': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+      case 'support': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <Bot className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p>Loading bot campaigns...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Bot Campaigns</h1>
+          <p className="text-muted-foreground">
+            Manage your Discord bot configurations and campaigns in one place
+          </p>
+        </div>
+        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Campaign
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create Bot Campaign</DialogTitle>
+              <DialogDescription>
+                Create a new Discord bot campaign with integrated configuration
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="client">Client *</Label>
+                  <Select
+                    value={createForm.client_id}
+                    onValueChange={(value) => setCreateForm(prev => ({ ...prev, client_id: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((client) => (
+                        <SelectItem key={client.id} value={client.id}>
+                          {client.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="template">Bot Template *</Label>
+                  <Select
+                    value={createForm.template}
+                    onValueChange={(value) => setCreateForm(prev => ({ ...prev, template: value as any }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="referral_campaign">Referral Campaign</SelectItem>
+                      <SelectItem value="support_campaign">Support Campaign</SelectItem>
+                      <SelectItem value="standard">Standard Bot</SelectItem>
+                      <SelectItem value="advanced">Advanced Bot</SelectItem>
+                      <SelectItem value="custom">Custom Configuration</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="campaign_name">Campaign Name *</Label>
+                <Input
+                  id="campaign_name"
+                  value={createForm.campaign_name}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, campaign_name: e.target.value }))}
+                  placeholder="Enter campaign name"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="guild_id">Discord Server ID *</Label>
+                  <Input
+                    id="guild_id"
+                    value={createForm.guild_id}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, guild_id: e.target.value }))}
+                    placeholder="123456789012345678"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="channel_id">Channel ID (Optional)</Label>
+                  <Input
+                    id="channel_id"
+                    value={createForm.channel_id}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, channel_id: e.target.value }))}
+                    placeholder="123456789012345678"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="campaign_type">Campaign Type *</Label>
+                  <Select
+                    value={createForm.campaign_type}
+                    onValueChange={(value) => setCreateForm(prev => ({ ...prev, campaign_type: value as any }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="referral_onboarding">Referral Onboarding</SelectItem>
+                      <SelectItem value="product_promotion">Product Promotion</SelectItem>
+                      <SelectItem value="community_engagement">Community Engagement</SelectItem>
+                      <SelectItem value="support">Support</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="bot_name">Bot Display Name</Label>
+                  <Input
+                    id="bot_name"
+                    value={createForm.bot_name}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, bot_name: e.target.value }))}
+                    placeholder="Virion Bot"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Describe what this bot campaign does..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="brand_color">Brand Color</Label>
+                  <Input
+                    id="brand_color"
+                    type="color"
+                    value={createForm.brand_color}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, brand_color: e.target.value }))}
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="prefix">Bot Prefix</Label>
+                  <Input
+                    id="prefix"
+                    value={createForm.prefix}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, prefix: e.target.value }))}
+                    placeholder="!"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="welcome_message">Welcome Message</Label>
+                <Textarea
+                  id="welcome_message"
+                  value={createForm.welcome_message}
+                  onChange={(e) => setCreateForm(prev => ({ ...prev, welcome_message: e.target.value }))}
+                  placeholder="Welcome message for new members..."
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateCampaign}>
+                Create Campaign
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>
+            <Bot className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{campaigns.length}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {campaigns.filter(c => c.is_active).length}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Interactions</CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {campaigns.reduce((sum, c) => sum + (c.total_interactions || 0), 0)}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Successful Onboardings</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {campaigns.reduce((sum, c) => sum + (c.successful_onboardings || 0), 0)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Filters</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <Label htmlFor="search" className="text-sm font-medium">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search campaigns..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="client-filter" className="text-sm font-medium">Client</Label>
+              <Select value={filterClient} onValueChange={setFilterClient}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All clients" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Clients</SelectItem>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="template-filter" className="text-sm font-medium">Template</Label>
+              <Select value={filterTemplate} onValueChange={setFilterTemplate}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All templates" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Templates</SelectItem>
+                  <SelectItem value="referral_campaign">Referral Campaign</SelectItem>
+                  <SelectItem value="support_campaign">Support Campaign</SelectItem>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="status-filter" className="text-sm font-medium">Status</Label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Campaigns Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Bot Campaigns ({filteredCampaigns.length})</CardTitle>
+          <CardDescription>
+            Manage your Discord bot campaigns and their configurations
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filteredCampaigns.length === 0 ? (
+            <div className="text-center py-8">
+              <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No campaigns found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery || filterClient !== "all" || filterTemplate !== "all" || filterStatus !== "all"
+                  ? "No campaigns match your current filters."
+                  : "Get started by creating your first bot campaign."}
+              </p>
+              {!searchQuery && filterClient === "all" && filterTemplate === "all" && filterStatus === "all" && (
+                <Button onClick={() => setShowCreateDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Your First Campaign
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Campaign</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Discord Server</TableHead>
+                    <TableHead>Template</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Metrics</TableHead>
+                    <TableHead>Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCampaigns.map((campaign) => (
+                    <TableRow key={campaign.id}>
+                      <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0">
+                            <div 
+                              className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
+                              style={{ backgroundColor: campaign.brand_color }}
+                            >
+                              <Bot className="h-5 w-5" />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-medium">{campaign.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {campaign.display_name} • v{campaign.configuration_version}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="font-medium">{campaign.client_name}</div>
+                        {campaign.client_industry && (
+                          <div className="text-sm text-muted-foreground">
+                            {campaign.client_industry}
+                          </div>
+                        )}
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Server className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-mono text-sm">{campaign.guild_id}</span>
+                        </div>
+                        {campaign.channel_id && (
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Hash className="h-3 w-3 text-muted-foreground" />
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {campaign.channel_id}
+                            </span>
+                          </div>
+                        )}
+                      </TableCell>
+                      
+                      <TableCell>
+                        <Badge className={getTemplateColor(campaign.template)}>
+                          {campaign.template.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      
+                      <TableCell>
+                        <Badge className={getCampaignTypeColor(campaign.type)}>
+                          {campaign.type.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant={campaign.is_active ? "default" : "secondary"}>
+                            {campaign.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                          {campaign.last_activity_at && (
+                            <div className="text-xs text-muted-foreground">
+                              Last seen: {formatDate(campaign.last_activity_at)}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center text-xs">
+                            <MessageSquare className="h-3 w-3 mr-1" />
+                            {campaign.total_interactions || 0} interactions
+                          </div>
+                          <div className="flex items-center text-xs">
+                            <Users className="h-3 w-3 mr-1" />
+                            {campaign.successful_onboardings || 0} onboarded
+                          </div>
+                          <div className="flex items-center text-xs">
+                            <TrendingUp className="h-3 w-3 mr-1" />
+                            {campaign.referral_conversions || 0} referrals
+                          </div>
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell>
+                        <div className="text-sm">
+                          {formatDate(campaign.updated_at)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Created {formatDate(campaign.created_at)}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(campaign)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit Campaign
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuSeparator />
+                            
+                            {campaign.is_active ? (
+                              <DropdownMenuItem 
+                                onClick={() => handleArchiveCampaign(campaign.id)}
+                                className="text-orange-600"
+                              >
+                                <Archive className="h-4 w-4 mr-2" />
+                                Archive
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem 
+                                onClick={() => handleActivateCampaign(campaign.id)}
+                                className="text-green-600"
+                              >
+                                <Play className="h-4 w-4 mr-2" />
+                                Activate
+                              </DropdownMenuItem>
+                            )}
+                            
+                            <DropdownMenuSeparator />
+                            
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteCampaign(campaign.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Bot Campaign</DialogTitle>
+            <DialogDescription>
+              Update your bot campaign configuration
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit_campaign_name">Campaign Name</Label>
+              <Input
+                id="edit_campaign_name"
+                value={editForm.campaign_name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, campaign_name: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit_bot_name">Bot Display Name</Label>
+                <Input
+                  id="edit_bot_name"
+                  value={editForm.bot_name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, bot_name: e.target.value }))}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="edit_prefix">Bot Prefix</Label>
+                <Input
+                  id="edit_prefix"
+                  value={editForm.prefix}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, prefix: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit_description">Description</Label>
+              <Textarea
+                id="edit_description"
+                value={editForm.description}
+                onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit_personality">Bot Personality</Label>
+                <Select
+                  value={editForm.bot_personality}
+                  onValueChange={(value) => setEditForm(prev => ({ ...prev, bot_personality: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="helpful">Helpful</SelectItem>
+                    <SelectItem value="friendly">Friendly</SelectItem>
+                    <SelectItem value="professional">Professional</SelectItem>
+                    <SelectItem value="casual">Casual</SelectItem>
+                    <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="edit_response_style">Response Style</Label>
+                <Select
+                  value={editForm.bot_response_style}
+                  onValueChange={(value) => setEditForm(prev => ({ ...prev, bot_response_style: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="friendly">Friendly</SelectItem>
+                    <SelectItem value="professional">Professional</SelectItem>
+                    <SelectItem value="concise">Concise</SelectItem>
+                    <SelectItem value="detailed">Detailed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit_brand_color">Brand Color</Label>
+              <Input
+                id="edit_brand_color"
+                type="color"
+                value={editForm.brand_color}
+                onChange={(e) => setEditForm(prev => ({ ...prev, brand_color: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit_welcome_message">Welcome Message</Label>
+              <Textarea
+                id="edit_welcome_message"
+                value={editForm.welcome_message}
+                onChange={(e) => setEditForm(prev => ({ ...prev, welcome_message: e.target.value }))}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateCampaign}>
+              Update Campaign
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+} 
