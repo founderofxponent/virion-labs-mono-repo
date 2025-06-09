@@ -72,11 +72,10 @@ npm run script:add-admin john.doe@company.com MyPassword456 "John Doe"
 
 - `seed-data.ts` - Seeds the database with initial data
 
-### Bot Testing
+### Testing & Validation
 
-- `test-bot-creation.js` - Tests bot creation functionality
-- `test-bot-deployment.js` - Tests bot deployment processes
 - `test-unified-data.js` - Tests unified data systems
+- `validate-tracking-pipeline.js` - Validates tracking pipeline functionality
 
 ### Database Optimization
 

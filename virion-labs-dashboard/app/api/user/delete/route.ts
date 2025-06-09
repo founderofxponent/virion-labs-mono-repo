@@ -175,7 +175,7 @@ export async function DELETE(request: NextRequest) {
     try {
       // 6. Update bot configurations to remove influencer reference
       const { error: botConfigsError } = await supabase
-        .from('bot_configurations')
+        .from('discord_guild_campaigns')
         .update({ influencer_id: null })
         .eq('influencer_id', userId)
 

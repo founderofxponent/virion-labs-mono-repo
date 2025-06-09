@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     // Get additional statistics
     const { data: configStats } = await supabase
-      .from('bot_configurations')
+      .from('discord_guild_campaigns')
       .select('client_id')
       .eq('is_active', true)
 
