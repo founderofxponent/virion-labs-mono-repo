@@ -24,7 +24,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import { useOnboardingFields } from "@/hooks/use-onboarding-fields"
-import { useDiscordCampaigns } from "@/hooks/use-discord-campaigns"
+import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
 
 interface OnboardingFieldsPageProps {
   campaignId?: string
@@ -38,7 +38,7 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
   const [editingField, setEditingField] = useState<any>(null)
   const [selectedCampaign, setSelectedCampaign] = useState(campaignId || "")
   
-  const { campaigns } = useDiscordCampaigns()
+  const { campaigns } = useBotCampaigns()
   const {
     fields,
     templates,
@@ -274,11 +274,11 @@ export function OnboardingFieldsPage({ campaignId }: OnboardingFieldsPageProps) 
                 <SelectValue placeholder="Select a campaign" />
               </SelectTrigger>
               <SelectContent>
-                {campaigns.map((campaign) => (
+                {campaigns.map((campaign: any) => (
                   <SelectItem key={campaign.id} value={campaign.id}>
                     <div className="flex items-center gap-2">
                       <Target className="h-4 w-4" />
-                      {campaign.campaign_name}
+                      {campaign.name}
                     </div>
                   </SelectItem>
                 ))}

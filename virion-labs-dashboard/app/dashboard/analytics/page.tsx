@@ -38,7 +38,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useAnalytics } from '@/app/hooks/useAnalytics';
-import { useDiscordCampaigns } from '@/hooks/use-discord-campaigns';
+import { useBotCampaigns } from '@/hooks/use-bot-campaigns';
 import { useAuth } from '@/components/auth-provider';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981', '#06b6d4'];
@@ -62,12 +62,11 @@ export default function AnalyticsPage() {
     refreshAllAnalytics
   } = useAnalytics();
 
-  const { campaigns, fetchCampaigns } = useDiscordCampaigns();
+  const { campaigns, loading: campaignsLoading } = useBotCampaigns();
 
   useEffect(() => {
-    fetchCampaigns();
     fetchCampaignOverview();
-  }, [fetchCampaigns, fetchCampaignOverview]);
+  }, [fetchCampaignOverview]);
 
   useEffect(() => {
     if (selectedCampaign && selectedCampaign !== 'all') {
@@ -144,9 +143,9 @@ export default function AnalyticsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Campaigns</SelectItem>
-              {campaigns.map((campaign) => (
+              {campaigns.map((campaign: any) => (
                 <SelectItem key={campaign.id} value={campaign.id}>
-                  {campaign.campaign_name}
+                  {campaign.name}
                 </SelectItem>
               ))}
             </SelectContent>

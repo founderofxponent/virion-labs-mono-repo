@@ -557,13 +557,16 @@ export default function BotCampaignsPage() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="channel_id">Channel ID (Optional)</Label>
+                  <Label htmlFor="channel_id">Private Channel ID (Optional)</Label>
                   <Input
                     id="channel_id"
                     value={createForm.channel_id}
                     onChange={(e) => setCreateForm(prev => ({ ...prev, channel_id: e.target.value }))}
                     placeholder="123456789012345678"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Discord channel where only referral users can interact with the bot
+                  </p>
                 </div>
               </div>
 

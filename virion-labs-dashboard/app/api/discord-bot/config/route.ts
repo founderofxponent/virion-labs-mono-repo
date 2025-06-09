@@ -12,68 +12,92 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const guildId = searchParams.get('guild_id')
     const channelId = searchParams.get('channel_id')
+    const userId = searchParams.get('user_id')
 
     if (!guildId) {
-      return NextResponse.json(
-        { error: 'guild_id parameter is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'guild_id is required' }, { status: 400 })
     }
 
-    // Use the helper function to get guild campaign configuration
-    const { data, error } = await supabase.rpc('get_guild_campaign_config', {
-      p_guild_id: guildId,
-      p_channel_id: channelId
-    })
+    // Get campaign configuration with channel and access control support
+    const { data: config, error } = await supabase
+      .rpc('get_bot_config_for_guild', { guild_id_param: guildId })
 
-    if (error) {
-      console.error('Error fetching guild config:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    if (!data || data.length === 0) {
-      return NextResponse.json({
-        configured: false,
-        message: 'No campaign configuration found for this guild/channel'
+    if (error || !config || config.length === 0) {
+      return NextResponse.json({ 
+        configured: false, 
+        message: 'No bot configuration found for this guild' 
       })
     }
 
-    const config = data[0]
+    const campaignConfig = config[0]
 
-    // Fetch onboarding fields for this campaign
-    const { data: onboardingFields, error: fieldsError } = await supabase
+    // Check if this is a private channel campaign
+    if (campaignConfig.channel_id && channelId) {
+      // Verify the bot can only be used in the specified private channel
+      if (campaignConfig.channel_id !== channelId) {
+        return NextResponse.json({
+          configured: false,
+          access_denied: true,
+          message: 'This bot is only available in specific private channels',
+          private_channel_id: campaignConfig.channel_id
+        })
+      }
+
+      // For private channels, require referral access by default
+      if (userId) {
+        const { data: accessCheck } = await supabase
+          .from('discord_referral_channel_access')
+          .select('id, onboarding_completed')
+          .eq('campaign_id', campaignConfig.campaign_id)
+          .eq('discord_user_id', userId)
+          .eq('is_active', true)
+          .single()
+
+        if (!accessCheck) {
+          return NextResponse.json({
+            configured: false,
+            access_denied: true,
+            referral_required: true,
+            message: 'Access to this private bot requires a valid referral link',
+            campaign_name: campaignConfig.campaign_name
+          })
+        }
+      }
+    }
+
+    // Get onboarding fields for this campaign
+    const { data: onboardingFields } = await supabase
       .from('campaign_onboarding_fields')
       .select('*')
-      .eq('campaign_id', config.campaign_id)
-      .eq('is_enabled', true)
-      .order('sort_order', { ascending: true })
-
-    if (fieldsError) {
-      console.error('Error fetching onboarding fields:', fieldsError)
-      // Continue without fields rather than failing completely
-    }
+      .eq('campaign_id', campaignConfig.campaign_id)
+      .order('sort_order')
 
     return NextResponse.json({
       configured: true,
+      is_private_channel: !!campaignConfig.channel_id,
+      private_channel_id: campaignConfig.channel_id,
       campaign: {
-        id: config.campaign_id,
-        name: config.campaign_name,
-        type: config.campaign_type,
+        id: campaignConfig.campaign_id,
+        name: campaignConfig.campaign_name,
+        type: campaignConfig.campaign_type,
         client: {
-          id: config.client_id,
-          name: config.client_name
+          id: campaignConfig.client_id,
+          name: campaignConfig.client_name
         },
-        webhook_url: config.webhook_url,
-        referral: config.referral_link_id ? {
-          link_id: config.referral_link_id,
-          code: config.referral_code,
+        webhook_url: campaignConfig.webhook_url,
+        referral: campaignConfig.referral_link_id ? {
+          link_id: campaignConfig.referral_link_id,
+          code: campaignConfig.referral_code,
           influencer: {
-            id: config.influencer_id,
-            name: config.influencer_name
+            id: campaignConfig.influencer_id,
+            name: campaignConfig.influencer_name
           }
         } : null,
-        bot_config: config.bot_config,
-        onboarding_flow: config.onboarding_flow,
+        bot_config: {
+          ...campaignConfig.bot_config,
+          private_channel_id: campaignConfig.channel_id
+        },
+        onboarding_flow: campaignConfig.onboarding_flow,
         onboarding_fields: onboardingFields || []
       }
     })

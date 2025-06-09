@@ -180,6 +180,7 @@ export async function POST(request: NextRequest) {
       campaign_start_date,
       campaign_end_date,
       metadata = {},
+
       // Template-based creation
       template_id
     } = body
