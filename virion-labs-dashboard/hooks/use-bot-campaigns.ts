@@ -101,8 +101,7 @@ interface CreateBotCampaignData {
   guild_id: string
   channel_id?: string
   campaign_name: string
-  campaign_type: string
-  template?: string
+  campaign_template: string
   prefix?: string
   description?: string
   bot_name?: string
@@ -135,7 +134,6 @@ interface CreateBotCampaignData {
   campaign_start_date?: string
   campaign_end_date?: string
   metadata?: Record<string, any>
-  template_id?: string
 }
 
 interface UpdateBotCampaignData extends Partial<CreateBotCampaignData> {

@@ -5,6 +5,8 @@ import { format } from "date-fns"
 import { useAuth } from "@/components/auth-provider"
 import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
 import { useClients } from "@/hooks/use-clients"
+import { CampaignCreationWizard } from "@/components/campaign-creation-wizard"
+import { getCampaignTemplate } from "@/lib/campaign-templates"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -93,33 +95,7 @@ export default function BotCampaignsPage() {
     refresh
   } = useBotCampaigns(filters)
 
-  const [createForm, setCreateForm] = useState({
-    client_id: "",
-    guild_id: "",
-    channel_id: "",
-    campaign_name: "",
-    campaign_type: "referral_onboarding" as const,
-    template: "referral_campaign" as const,
-    prefix: "!",
-    description: "",
-    bot_name: "Virion Bot",
-    bot_personality: "helpful",
-    bot_response_style: "friendly",
-    brand_color: "#6366f1",
-    brand_logo_url: "",
-    welcome_message: "",
-    webhook_url: "",
-    referral_link_id: "",
-    influencer_id: "",
-    referral_tracking_enabled: true,
-    auto_role_assignment: false,
-    target_role_id: "",
-    moderation_enabled: true,
-    rate_limit_per_user: 5,
-    campaign_start_date: "",
-    campaign_end_date: "",
-    metadata: {}
-  })
+  // Remove old create form - now handled by CampaignCreationWizard
 
   const [editForm, setEditForm] = useState({
     id: "",
@@ -127,8 +103,7 @@ export default function BotCampaignsPage() {
     guild_id: "",
     channel_id: "",
     campaign_name: "",
-    campaign_type: "referral_onboarding" as const,
-    template: "referral_campaign" as const,
+    campaign_template: "custom",
     prefix: "!",
     description: "",
     bot_name: "Virion Bot",
@@ -164,57 +139,12 @@ export default function BotCampaignsPage() {
     )
   })
 
-  const handleCreateCampaign = async () => {
-    if (!createForm.client_id || !createForm.guild_id || !createForm.campaign_name) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      })
-      return
-    }
-
-    try {
-      await createCampaign(createForm)
-      toast({
-        title: "Success",
-        description: "Bot campaign created successfully"
-      })
-      setShowCreateDialog(false)
-      setCreateForm({
-        client_id: "",
-        guild_id: "",
-        channel_id: "",
-        campaign_name: "",
-        campaign_type: "referral_onboarding",
-        template: "referral_campaign",
-        prefix: "!",
-        description: "",
-        bot_name: "Virion Bot",
-        bot_personality: "helpful",
-        bot_response_style: "friendly",
-        brand_color: "#6366f1",
-        brand_logo_url: "",
-        welcome_message: "",
-        webhook_url: "",
-        referral_link_id: "",
-        influencer_id: "",
-        referral_tracking_enabled: true,
-        auto_role_assignment: false,
-        target_role_id: "",
-        moderation_enabled: true,
-        rate_limit_per_user: 5,
-        campaign_start_date: "",
-        campaign_end_date: "",
-        metadata: {}
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create campaign",
-        variant: "destructive"
-      })
-    }
+  const handleCampaignCreated = (campaign: any) => {
+    toast({
+      title: "Success",
+      description: "Bot campaign created successfully"
+    })
+    refresh() // Refresh the campaigns list
   }
 
   const handleUpdateCampaign = async () => {
@@ -410,8 +340,7 @@ export default function BotCampaignsPage() {
       guild_id: campaign.guild_id,
       channel_id: campaign.channel_id || "",
       campaign_name: campaign.name,
-      campaign_type: campaign.type,
-      template: campaign.template,
+      campaign_template: campaign.template || campaign.type || "custom", // Use template field
       prefix: campaign.prefix,
       description: campaign.description || "",
       bot_name: campaign.display_name,
@@ -480,181 +409,19 @@ export default function BotCampaignsPage() {
             Manage your Discord bot configurations and campaigns in one place
           </p>
         </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Campaign
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create Bot Campaign</DialogTitle>
-              <DialogDescription>
-                Create a new Discord bot campaign with integrated configuration
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="client">Client *</Label>
-                  <Select
-                    value={createForm.client_id}
-                    onValueChange={(value) => setCreateForm(prev => ({ ...prev, client_id: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select client" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="template">Bot Template *</Label>
-                  <Select
-                    value={createForm.template}
-                    onValueChange={(value) => setCreateForm(prev => ({ ...prev, template: value as any }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select template" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="referral_campaign">Referral Campaign</SelectItem>
-                      <SelectItem value="support_campaign">Support Campaign</SelectItem>
-                      <SelectItem value="standard">Standard Bot</SelectItem>
-                      <SelectItem value="advanced">Advanced Bot</SelectItem>
-                      <SelectItem value="custom">Custom Configuration</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+        {/* Create Campaign Button */}
+        <Button onClick={() => setShowCreateDialog(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Campaign
+        </Button>
 
-              <div>
-                <Label htmlFor="campaign_name">Campaign Name *</Label>
-                <Input
-                  id="campaign_name"
-                  value={createForm.campaign_name}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, campaign_name: e.target.value }))}
-                  placeholder="Enter campaign name"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="guild_id">Discord Server ID *</Label>
-                  <Input
-                    id="guild_id"
-                    value={createForm.guild_id}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, guild_id: e.target.value }))}
-                    placeholder="123456789012345678"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="channel_id">Private Channel ID (Optional)</Label>
-                  <Input
-                    id="channel_id"
-                    value={createForm.channel_id}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, channel_id: e.target.value }))}
-                    placeholder="123456789012345678"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Discord channel where only referral users can interact with the bot
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="campaign_type">Campaign Type *</Label>
-                  <Select
-                    value={createForm.campaign_type}
-                    onValueChange={(value) => setCreateForm(prev => ({ ...prev, campaign_type: value as any }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="referral_onboarding">Referral Onboarding</SelectItem>
-                      <SelectItem value="product_promotion">Product Promotion</SelectItem>
-                      <SelectItem value="community_engagement">Community Engagement</SelectItem>
-                      <SelectItem value="support">Support</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="bot_name">Bot Display Name</Label>
-                  <Input
-                    id="bot_name"
-                    value={createForm.bot_name}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, bot_name: e.target.value }))}
-                    placeholder="Virion Bot"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={createForm.description}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Describe what this bot campaign does..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="brand_color">Brand Color</Label>
-                  <Input
-                    id="brand_color"
-                    type="color"
-                    value={createForm.brand_color}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, brand_color: e.target.value }))}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="prefix">Bot Prefix</Label>
-                  <Input
-                    id="prefix"
-                    value={createForm.prefix}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, prefix: e.target.value }))}
-                    placeholder="!"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="welcome_message">Welcome Message</Label>
-                <Textarea
-                  id="welcome_message"
-                  value={createForm.welcome_message}
-                  onChange={(e) => setCreateForm(prev => ({ ...prev, welcome_message: e.target.value }))}
-                  placeholder="Welcome message for new members..."
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateCampaign}>
-                Create Campaign
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Campaign Creation Wizard */}
+        <CampaignCreationWizard
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onSuccess={handleCampaignCreated}
+          clients={clients}
+        />
       </div>
 
       {/* Stats Cards */}
@@ -1040,8 +807,53 @@ export default function BotCampaignsPage() {
               Update your bot campaign configuration
             </DialogDescription>
           </DialogHeader>
+
+          {/* Template Preview */}
+          {editForm.campaign_template && editForm.campaign_template !== 'custom' && (
+            <Card className="bg-muted/50 mb-4">
+              <CardHeader className="pb-3">
+                <div className="flex items-center space-x-3">
+                  <div className={`p-2 rounded-lg text-white ${
+                    editForm.campaign_template === 'referral_onboarding' ? 'bg-blue-500' :
+                    editForm.campaign_template === 'product_promotion' ? 'bg-green-500' :
+                    editForm.campaign_template === 'community_engagement' ? 'bg-purple-500' :
+                    editForm.campaign_template === 'vip_support' ? 'bg-orange-500' : 'bg-gray-500'
+                  }`}>
+                    <Bot className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">
+                      {getCampaignTemplate(editForm.campaign_template)?.name || editForm.campaign_template}
+                    </CardTitle>
+                    <CardDescription>
+                      {getCampaignTemplate(editForm.campaign_template)?.description}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+          )}
           
           <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit_campaign_template">Campaign Template</Label>
+              <Select
+                value={editForm.campaign_template}
+                onValueChange={(value) => setEditForm(prev => ({ ...prev, campaign_template: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="referral_onboarding">Referral Onboarding</SelectItem>
+                  <SelectItem value="product_promotion">Product Promotion</SelectItem>
+                  <SelectItem value="community_engagement">Community Engagement</SelectItem>
+                  <SelectItem value="vip_support">VIP Support</SelectItem>
+                  <SelectItem value="custom">Custom Configuration</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <Label htmlFor="edit_campaign_name">Campaign Name</Label>
               <Input

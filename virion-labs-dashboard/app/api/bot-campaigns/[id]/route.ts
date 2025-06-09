@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getCampaignTemplate } from '@/lib/campaign-templates'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,21 +60,60 @@ export async function PUT(
       total_interactions,
       successful_onboardings,
       referral_conversions,
+      campaign_template,
       ...updateData
     } = body
 
+    // Handle campaign template changes
+    let finalUpdateData = updateData
+    if (campaign_template) {
+      const template = getCampaignTemplate(campaign_template)
+      if (template) {
+        // Map new template IDs to database-compatible template values
+        const templateMapping: Record<string, string> = {
+          'referral_onboarding': 'referral_campaign',
+          'product_promotion': 'standard',
+          'community_engagement': 'advanced', 
+          'vip_support': 'support_campaign',
+          'custom': 'custom'
+        }
+
+        // Merge template defaults with provided overrides
+        finalUpdateData = {
+          campaign_type: campaign_template,
+          template: templateMapping[campaign_template] || 'custom',
+          prefix: updateData.prefix || template.bot_config.prefix,
+          description: updateData.description || template.bot_config.description,
+          bot_name: updateData.bot_name || template.bot_config.bot_name,
+          bot_personality: updateData.bot_personality || template.bot_config.bot_personality,
+          bot_response_style: updateData.bot_response_style || template.bot_config.bot_response_style,
+          brand_color: updateData.brand_color || template.bot_config.brand_color,
+          welcome_message: updateData.welcome_message || template.bot_config.welcome_message,
+          referral_tracking_enabled: updateData.referral_tracking_enabled !== undefined ? updateData.referral_tracking_enabled : template.bot_config.features.referral_tracking,
+          auto_role_assignment: updateData.auto_role_assignment !== undefined ? updateData.auto_role_assignment : template.bot_config.features.auto_role,
+          moderation_enabled: updateData.moderation_enabled !== undefined ? updateData.moderation_enabled : template.bot_config.features.moderation,
+          features: {
+            ...template.bot_config.features,
+            ...(updateData.features || {})
+          },
+          custom_commands: updateData.custom_commands || template.bot_config.custom_commands,
+          auto_responses: updateData.auto_responses || template.bot_config.auto_responses,
+          ...updateData
+        }
+      }
+    }
+
     // Update configuration_version to track changes
-    updateData.configuration_version = (updateData.configuration_version || 1) + 1
+    finalUpdateData.configuration_version = (finalUpdateData.configuration_version || 1) + 1
 
     const { data, error } = await supabase
       .from('discord_guild_campaigns')
-      .update(updateData)
+      .update(finalUpdateData)
       .eq('id', params.id)
       .select(`
         *,
         clients:client_id(name, industry),
-        referral_links:referral_link_id(title, referral_code, platform),
-        user_profiles:influencer_id(full_name, email)
+        referral_links:referral_link_id(title, referral_code, platform)
       `)
       .single()
 

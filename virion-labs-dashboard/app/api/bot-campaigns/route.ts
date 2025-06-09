@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getCampaignTemplate } from '@/lib/campaign-templates'
 
 // Initialize Supabase client for server-side operations
 const supabase = createClient(
@@ -144,16 +145,15 @@ export async function POST(request: NextRequest) {
       guild_id,
       channel_id,
       campaign_name,
-      campaign_type,
-      template = 'referral_campaign',
-      // Bot configuration fields
-      prefix = '!',
+      campaign_template = 'custom',
+      // Optional overrides for template defaults
+      prefix,
       description,
       bot_name,
       bot_avatar_url,
-      bot_personality = 'helpful',
-      bot_response_style = 'friendly',
-      brand_color = '#6366f1',
+      bot_personality,
+      bot_response_style,
+      brand_color,
       brand_logo_url,
       features = {},
       custom_commands = [],
@@ -168,91 +168,94 @@ export async function POST(request: NextRequest) {
       // Campaign-specific fields
       referral_link_id,
       influencer_id,
-      referral_tracking_enabled = true,
-      auto_role_assignment = false,
+      referral_tracking_enabled,
+      auto_role_assignment,
       target_role_id,
       onboarding_flow = {},
-      rate_limit_per_user = 5,
+      rate_limit_per_user,
       allowed_channels = [],
       blocked_users = [],
-      moderation_enabled = true,
+      moderation_enabled,
       content_filters = [],
       campaign_start_date,
       campaign_end_date,
-      metadata = {},
-
-      // Template-based creation
-      template_id
+      metadata = {}
     } = body
 
     // Validate required fields
-    if (!client_id || !guild_id || !campaign_name || !campaign_type) {
+    if (!client_id || !guild_id || !campaign_name || !campaign_template) {
       return NextResponse.json(
-        { error: 'Missing required fields: client_id, guild_id, campaign_name, campaign_type' },
+        { error: 'Missing required fields: client_id, guild_id, campaign_name, campaign_template' },
         { status: 400 }
       )
     }
 
-    // Validate campaign_type
-    const validCampaignTypes = ['referral_onboarding', 'product_promotion', 'community_engagement', 'support']
-    if (!validCampaignTypes.includes(campaign_type)) {
+    // Validate campaign_template
+    const validCampaignTemplates = ['referral_onboarding', 'product_promotion', 'community_engagement', 'vip_support', 'custom']
+    if (!validCampaignTemplates.includes(campaign_template)) {
       return NextResponse.json(
-        { error: `Invalid campaign_type. Must be one of: ${validCampaignTypes.join(', ')}` },
+        { error: `Invalid campaign_template. Must be one of: ${validCampaignTemplates.join(', ')}` },
         { status: 400 }
       )
     }
 
-    // Validate template
-    const validTemplates = ['standard', 'advanced', 'custom', 'referral_campaign', 'support_campaign']
-    if (!validTemplates.includes(template)) {
+    // Get template configuration
+    const template = getCampaignTemplate(campaign_template)
+    if (!template) {
       return NextResponse.json(
-        { error: `Invalid template. Must be one of: ${validTemplates.join(', ')}` },
+        { error: 'Invalid campaign template' },
         { status: 400 }
       )
     }
 
+    // Map new template IDs to database-compatible template values
+    const templateMapping: Record<string, string> = {
+      'referral_onboarding': 'referral_campaign',
+      'product_promotion': 'standard',
+      'community_engagement': 'advanced', 
+      'vip_support': 'support_campaign',
+      'custom': 'custom'
+    }
+
+    // Merge template defaults with provided overrides
     let campaignData = {
       client_id,
       guild_id,
       channel_id: channel_id || null,
       campaign_name,
-      campaign_type,
-      template,
-      prefix,
-      description: description || `${campaign_name} - Discord bot campaign`,
-      bot_name: bot_name || 'Virion Bot',
+      campaign_type: campaign_template, // Use new template ID as the type
+      template: templateMapping[campaign_template] || 'custom', // Map to database-compatible value
+      prefix: prefix || template.bot_config.prefix,
+      description: description || template.bot_config.description,
+      bot_name: bot_name || template.bot_config.bot_name,
       bot_avatar_url: bot_avatar_url || null,
-      bot_personality,
-      bot_response_style,
-      brand_color,
+      bot_personality: bot_personality || template.bot_config.bot_personality,
+      bot_response_style: bot_response_style || template.bot_config.bot_response_style,
+      brand_color: brand_color || template.bot_config.brand_color,
       brand_logo_url: brand_logo_url || null,
       features: {
-        welcome_enabled: true,
-        referral_tracking: referral_tracking_enabled,
-        onboarding: true,
-        auto_role: auto_role_assignment,
-        moderation: moderation_enabled,
+        ...template.bot_config.features,
         ...features
       },
-      custom_commands,
-      auto_responses,
+      custom_commands: [...template.bot_config.custom_commands, ...custom_commands],
+      auto_responses: { ...template.bot_config.auto_responses, ...auto_responses },
       response_templates,
       embed_footer: embed_footer || null,
-      welcome_message: welcome_message || null,
+      welcome_message: welcome_message || template.bot_config.welcome_message,
       webhook_url: webhook_url || null,
       webhook_routes,
       api_endpoints,
       external_integrations,
       referral_link_id: referral_link_id || null,
       influencer_id: influencer_id || null,
-      referral_tracking_enabled,
-      auto_role_assignment,
+      referral_tracking_enabled: referral_tracking_enabled !== undefined ? referral_tracking_enabled : template.bot_config.features.referral_tracking,
+      auto_role_assignment: auto_role_assignment !== undefined ? auto_role_assignment : template.bot_config.features.auto_role,
       target_role_id: target_role_id || null,
       onboarding_flow,
-      rate_limit_per_user,
+      rate_limit_per_user: rate_limit_per_user || 5,
       allowed_channels,
       blocked_users,
-      moderation_enabled,
+      moderation_enabled: moderation_enabled !== undefined ? moderation_enabled : template.bot_config.features.moderation,
       content_filters,
       campaign_start_date: campaign_start_date || null,
       campaign_end_date: campaign_end_date || null,
@@ -261,45 +264,13 @@ export async function POST(request: NextRequest) {
       is_active: true
     }
 
-    // If template_id is provided, merge template configuration
-    if (template_id) {
-      const { data: templateData, error: templateError } = await supabase
-        .from('campaign_templates')
-        .select('template_config')
-        .eq('id', template_id)
-        .single()
-
-      if (templateError) {
-        return NextResponse.json(
-          { error: 'Invalid template_id' },
-          { status: 400 }
-        )
-      }
-
-      // Merge template config with provided data (provided data takes precedence)
-      const templateConfig = templateData.template_config
-      campaignData = {
-        ...campaignData,
-        bot_name: bot_name || templateConfig.bot_name || 'Virion Bot',
-        bot_personality: bot_personality || templateConfig.bot_personality || 'helpful',
-        bot_response_style: bot_response_style || templateConfig.bot_response_style || 'friendly',
-        brand_color: brand_color || templateConfig.brand_color || '#6366f1',
-        welcome_message: welcome_message || templateConfig.welcome_message,
-        onboarding_flow: onboarding_flow || templateConfig.onboarding_flow || {},
-        custom_commands: [...(templateConfig.custom_commands || []), ...custom_commands],
-        auto_responses: { ...templateConfig.auto_responses, ...auto_responses },
-        features: { ...templateConfig.features, ...campaignData.features }
-      }
-    }
-
     const { data, error } = await supabase
       .from('discord_guild_campaigns')
       .insert([campaignData])
       .select(`
         *,
         clients:client_id(name, industry),
-        referral_links:referral_link_id(title, referral_code, platform),
-        user_profiles:influencer_id(full_name, email)
+        referral_links:referral_link_id(title, referral_code, platform)
       `)
       .single()
 
