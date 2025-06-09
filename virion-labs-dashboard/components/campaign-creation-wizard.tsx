@@ -133,6 +133,27 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
       const data = await response.json()
 
       if (response.ok) {
+        // Apply template onboarding fields if the template has them
+        if (selectedTemplate?.onboarding_fields && selectedTemplate.onboarding_fields.length > 0) {
+          try {
+            const templateResponse = await fetch('/api/campaign-onboarding-fields/apply-template', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                campaign_id: data.campaign.id,
+                template_id: selectedTemplate.id
+              })
+            })
+            
+            if (templateResponse.ok) {
+              const templateData = await templateResponse.json()
+              console.log(`Applied template with ${templateData.fields?.length || 0} onboarding fields`)
+            }
+          } catch (templateError) {
+            console.warn('Failed to apply template onboarding fields:', templateError)
+          }
+        }
+        
         onSuccess(data.campaign)
         handleClose()
       } else {

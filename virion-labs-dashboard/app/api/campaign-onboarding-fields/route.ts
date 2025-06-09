@@ -76,7 +76,11 @@ export async function POST(request: NextRequest) {
         is_required: is_required || false,
         is_enabled: is_enabled !== false,
         sort_order: sort_order || 0,
-        validation_rules: validation_rules || {}
+        validation_rules: validation_rules || {},
+        discord_integration: body.discord_integration || {
+          collect_in_dm: true,
+          show_in_embed: true
+        }
       })
       .select()
       .single()

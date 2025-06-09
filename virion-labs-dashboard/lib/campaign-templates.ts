@@ -28,6 +28,28 @@ export interface CampaignTemplate {
     }
   }
   
+  // Onboarding fields for data collection
+  onboarding_fields: Array<{
+    id: string
+    question: string
+    type: 'text' | 'email' | 'select' | 'multiselect' | 'number' | 'url' | 'boolean'
+    required: boolean
+    options?: string[] // For select/multiselect types
+    placeholder?: string
+    description?: string
+    validation?: {
+      min_length?: number
+      max_length?: number
+      pattern?: string
+      error_message?: string
+    }
+    discord_integration: {
+      collect_in_dm: boolean // Whether to collect this field in Discord DM
+      show_in_embed: boolean // Whether to show this field in Discord embeds
+      trigger_after?: string // Collect after this field is completed
+    }
+  }>
+  
   // Analytics configuration
   analytics_config: {
     primary_metrics: string[]
@@ -89,6 +111,118 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         moderation: true
       }
     },
+    onboarding_fields: [
+      {
+        id: 'full_name',
+        question: 'What\'s your full name?',
+        type: 'text',
+        required: true,
+        placeholder: 'Enter your full name',
+        description: 'We use this to personalize your experience',
+        validation: {
+          min_length: 2,
+          max_length: 100,
+          error_message: 'Please enter a valid full name (2-100 characters)'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true
+        }
+      },
+      {
+        id: 'email',
+        question: 'What\'s your email address?',
+        type: 'email',
+        required: true,
+        placeholder: 'your.email@example.com',
+        description: 'For exclusive updates and member benefits',
+        validation: {
+          pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+          error_message: 'Please enter a valid email address'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false
+        }
+      },
+      {
+        id: 'referral_source',
+        question: 'How did you hear about us?',
+        type: 'select',
+        required: true,
+        options: [
+          'Instagram',
+          'YouTube',
+          'TikTok',
+          'Twitter/X',
+          'Friend recommendation',
+          'Other social media',
+          'Other'
+        ],
+        description: 'Help us understand our community growth',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true
+        }
+      },
+      {
+        id: 'interests',
+        question: 'What are you most interested in?',
+        type: 'multiselect',
+        required: false,
+        options: [
+          'Exclusive deals and discounts',
+          'Early access to products',
+          'Community events',
+          'VIP support',
+          'Networking opportunities',
+          'Learning and education',
+          'Entertainment content'
+        ],
+        description: 'Select all that apply - helps us tailor your experience',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true,
+          trigger_after: 'referral_source'
+        }
+      },
+      {
+        id: 'experience_level',
+        question: 'How would you describe your experience level?',
+        type: 'select',
+        required: false,
+        options: [
+          'Complete beginner',
+          'Some experience',
+          'Intermediate',
+          'Advanced',
+          'Expert'
+        ],
+        description: 'Helps us provide appropriate content and support',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true,
+          trigger_after: 'interests'
+        }
+      },
+      {
+        id: 'goals',
+        question: 'What are your main goals in joining our community?',
+        type: 'text',
+        required: false,
+        placeholder: 'Tell us about your goals and what you hope to achieve...',
+        description: 'Help us support your journey better',
+        validation: {
+          max_length: 500,
+          error_message: 'Please keep your response under 500 characters'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false,
+          trigger_after: 'experience_level'
+        }
+      }
+    ],
     analytics_config: {
       primary_metrics: ['referral_conversions', 'successful_onboardings', 'role_assignments'],
       conversion_events: ['referral_code_validated', 'role_assigned', 'onboarding_completed'],
@@ -157,6 +291,120 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         moderation: true
       }
     },
+    onboarding_fields: [
+      {
+        id: 'customer_name',
+        question: 'What name should we use for your orders?',
+        type: 'text',
+        required: true,
+        placeholder: 'Enter your preferred name',
+        description: 'This will be used for shipping and customer service',
+        validation: {
+          min_length: 2,
+          max_length: 100,
+          error_message: 'Please enter a valid name (2-100 characters)'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true
+        }
+      },
+      {
+        id: 'email',
+        question: 'What\'s your email address?',
+        type: 'email',
+        required: true,
+        placeholder: 'your.email@example.com',
+        description: 'For order confirmations and exclusive product updates',
+        validation: {
+          pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+          error_message: 'Please enter a valid email address'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false
+        }
+      },
+      {
+        id: 'product_interest',
+        question: 'Which product categories interest you most?',
+        type: 'multiselect',
+        required: true,
+        options: [
+          'Electronics & Tech',
+          'Fashion & Apparel',
+          'Health & Wellness',
+          'Home & Garden',
+          'Sports & Fitness',
+          'Books & Education',
+          'Art & Crafts',
+          'Gaming & Entertainment'
+        ],
+        description: 'We\'ll prioritize showing you relevant products',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true
+        }
+      },
+      {
+        id: 'budget_range',
+        question: 'What\'s your typical budget range for purchases?',
+        type: 'select',
+        required: false,
+        options: [
+          'Under $25',
+          '$25 - $50',
+          '$50 - $100',
+          '$100 - $250',
+          '$250 - $500',
+          'Over $500',
+          'It depends on the product'
+        ],
+        description: 'Helps us show you products in your preferred price range',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false,
+          trigger_after: 'product_interest'
+        }
+      },
+      {
+        id: 'shopping_frequency',
+        question: 'How often do you typically make online purchases?',
+        type: 'select',
+        required: false,
+        options: [
+          'Weekly',
+          'Monthly',
+          'Every few months',
+          'Once or twice a year',
+          'Rarely',
+          'This is my first time'
+        ],
+        description: 'Helps us understand your shopping habits',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false,
+          trigger_after: 'budget_range'
+        }
+      },
+      {
+        id: 'special_requests',
+        question: 'Any special preferences or requirements?',
+        type: 'text',
+        required: false,
+        placeholder: 'Size preferences, dietary restrictions, accessibility needs, etc.',
+        description: 'Help us provide better product recommendations',
+        validation: {
+          max_length: 300,
+          error_message: 'Please keep your response under 300 characters'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false,
+          trigger_after: 'shopping_frequency'
+        }
+      }
+    ],
     analytics_config: {
       primary_metrics: ['product_inquiries', 'early_access_signups', 'purchase_assists'],
       conversion_events: ['product_viewed', 'early_access_requested', 'purchase_initiated'],
@@ -225,6 +473,119 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         moderation: true
       }
     },
+    onboarding_fields: [
+      {
+        id: 'display_name',
+        question: 'What would you like to be called in the community?',
+        type: 'text',
+        required: true,
+        placeholder: 'Enter your preferred name or nickname',
+        description: 'This is how other members will see you',
+        validation: {
+          min_length: 2,
+          max_length: 50,
+          error_message: 'Please enter a name between 2-50 characters'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true
+        }
+      },
+      {
+        id: 'location',
+        question: 'Where are you joining us from?',
+        type: 'text',
+        required: false,
+        placeholder: 'City, Country (optional)',
+        description: 'Helps connect you with local community members',
+        validation: {
+          max_length: 100,
+          error_message: 'Please keep location under 100 characters'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true
+        }
+      },
+      {
+        id: 'interests',
+        question: 'What topics interest you most?',
+        type: 'multiselect',
+        required: true,
+        options: [
+          'Technology & Programming',
+          'Gaming & Esports',
+          'Art & Design',
+          'Music & Entertainment',
+          'Business & Entrepreneurship',
+          'Health & Fitness',
+          'Travel & Adventure',
+          'Food & Cooking',
+          'Books & Literature',
+          'Science & Learning'
+        ],
+        description: 'We\'ll suggest relevant channels and events',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true,
+          trigger_after: 'location'
+        }
+      },
+      {
+        id: 'experience_sharing',
+        question: 'What experience or skills could you share with the community?',
+        type: 'text',
+        required: false,
+        placeholder: 'Professional skills, hobbies, expertise, etc.',
+        description: 'Help us recognize your contributions and expertise',
+        validation: {
+          max_length: 200,
+          error_message: 'Please keep your response under 200 characters'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true,
+          trigger_after: 'interests'
+        }
+      },
+      {
+        id: 'participation_level',
+        question: 'How active do you plan to be in the community?',
+        type: 'select',
+        required: false,
+        options: [
+          'Very active - daily participation',
+          'Regular - few times per week',
+          'Moderate - weekly participation',
+          'Casual - when time permits',
+          'Observer - mostly reading/lurking',
+          'Not sure yet'
+        ],
+        description: 'Helps us understand community engagement patterns',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false,
+          trigger_after: 'experience_sharing'
+        }
+      },
+      {
+        id: 'community_goals',
+        question: 'What do you hope to get from this community?',
+        type: 'text',
+        required: false,
+        placeholder: 'Learning, networking, fun, support, collaboration, etc.',
+        description: 'Help us create the best community experience for you',
+        validation: {
+          max_length: 300,
+          error_message: 'Please keep your response under 300 characters'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false,
+          trigger_after: 'participation_level'
+        }
+      }
+    ],
     analytics_config: {
       primary_metrics: ['community_participation', 'event_attendance', 'discussion_engagement'],
       conversion_events: ['member_introduced', 'event_joined', 'discussion_participated'],
@@ -293,6 +654,157 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         moderation: false
       }
     },
+    onboarding_fields: [
+      {
+        id: 'customer_name',
+        question: 'What is your full name as it appears on your account?',
+        type: 'text',
+        required: true,
+        placeholder: 'Enter your full legal name',
+        description: 'Must match your account information for verification',
+        validation: {
+          min_length: 2,
+          max_length: 100,
+          error_message: 'Please enter your full name (2-100 characters)'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true
+        }
+      },
+      {
+        id: 'account_email',
+        question: 'What email address is associated with your account?',
+        type: 'email',
+        required: true,
+        placeholder: 'account.email@example.com',
+        description: 'Primary email on your account for verification',
+        validation: {
+          pattern: '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$',
+          error_message: 'Please enter a valid email address'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false
+        }
+      },
+      {
+        id: 'account_id',
+        question: 'What is your account ID or customer number?',
+        type: 'text',
+        required: false,
+        placeholder: 'Account ID, customer number, or username',
+        description: 'Helps us quickly locate your account (if known)',
+        validation: {
+          max_length: 50,
+          error_message: 'Account ID should be under 50 characters'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false
+        }
+      },
+      {
+        id: 'support_priority',
+        question: 'What type of support do you primarily need?',
+        type: 'multiselect',
+        required: true,
+        options: [
+          'Technical issues & troubleshooting',
+          'Account & billing questions',
+          'Product information & guidance',
+          'Order status & shipping',
+          'Returns & refunds',
+          'Feature requests & feedback',
+          'Security & privacy concerns',
+          'General assistance'
+        ],
+        description: 'Helps us route you to the right specialists',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true,
+          trigger_after: 'account_id'
+        }
+      },
+      {
+        id: 'urgency_level',
+        question: 'How would you categorize your typical support needs?',
+        type: 'select',
+        required: false,
+        options: [
+          'Critical - Business impacting issues',
+          'High - Important but not critical',
+          'Medium - Standard questions and requests',
+          'Low - General inquiries and guidance',
+          'Varies by situation'
+        ],
+        description: 'Helps us prioritize and allocate appropriate resources',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false,
+          trigger_after: 'support_priority'
+        }
+      },
+      {
+        id: 'preferred_contact',
+        question: 'How do you prefer to be contacted for support follow-ups?',
+        type: 'select',
+        required: false,
+        options: [
+          'Discord DM (fastest)',
+          'Email (detailed responses)',
+          'Phone call (urgent matters)',
+          'Video call (complex issues)',
+          'Discord channel (community help)',
+          'No preference'
+        ],
+        description: 'We\'ll use your preferred method for important updates',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false,
+          trigger_after: 'urgency_level'
+        }
+      },
+      {
+        id: 'timezone',
+        question: 'What timezone are you in?',
+        type: 'select',
+        required: false,
+        options: [
+          'UTC-12 (Baker Island)',
+          'UTC-11 (American Samoa)',
+          'UTC-10 (Hawaii)',
+          'UTC-9 (Alaska)',
+          'UTC-8 (Pacific Time)',
+          'UTC-7 (Mountain Time)',
+          'UTC-6 (Central Time)',
+          'UTC-5 (Eastern Time)',
+          'UTC-4 (Atlantic Time)',
+          'UTC-3 (Argentina)',
+          'UTC-2 (South Georgia)',
+          'UTC-1 (Azores)',
+          'UTC+0 (London)',
+          'UTC+1 (Central Europe)',
+          'UTC+2 (Eastern Europe)',
+          'UTC+3 (Moscow)',
+          'UTC+4 (UAE)',
+          'UTC+5 (Pakistan)',
+          'UTC+6 (Bangladesh)',
+          'UTC+7 (Thailand)',
+          'UTC+8 (Singapore)',
+          'UTC+9 (Japan)',
+          'UTC+10 (Australia East)',
+          'UTC+11 (Solomon Islands)',
+          'UTC+12 (New Zealand)'
+        ],
+        description: 'Helps us schedule support during your active hours',
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false,
+          trigger_after: 'preferred_contact'
+        }
+      }
+    ],
     analytics_config: {
       primary_metrics: ['tickets_created', 'resolution_time', 'satisfaction_scores'],
       conversion_events: ['ticket_created', 'issue_resolved', 'escalation_requested'],
@@ -342,6 +854,41 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         moderation: true
       }
     },
+    onboarding_fields: [
+      {
+        id: 'user_name',
+        question: 'What should we call you?',
+        type: 'text',
+        required: true,
+        placeholder: 'Enter your preferred name',
+        description: 'Basic information for personalization',
+        validation: {
+          min_length: 1,
+          max_length: 100,
+          error_message: 'Please enter a valid name'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: true
+        }
+      },
+      {
+        id: 'purpose',
+        question: 'What brings you here?',
+        type: 'text',
+        required: false,
+        placeholder: 'Tell us about your interest or goals...',
+        description: 'Help us understand how to assist you better',
+        validation: {
+          max_length: 500,
+          error_message: 'Please keep your response under 500 characters'
+        },
+        discord_integration: {
+          collect_in_dm: true,
+          show_in_embed: false
+        }
+      }
+    ],
     analytics_config: {
       primary_metrics: ['custom_interactions', 'command_usage'],
       conversion_events: ['custom_event'],

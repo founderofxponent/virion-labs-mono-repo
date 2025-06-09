@@ -7,7 +7,7 @@ export interface OnboardingField {
   campaign_id: string
   field_key: string
   field_label: string
-  field_type: 'text' | 'email' | 'number' | 'select' | 'checkbox' | 'date'
+  field_type: 'text' | 'email' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'url' | 'boolean'
   field_placeholder?: string
   field_description?: string
   field_options: string[]
@@ -15,6 +15,11 @@ export interface OnboardingField {
   is_enabled: boolean
   sort_order: number
   validation_rules: Record<string, any>
+  discord_integration?: {
+    collect_in_dm: boolean
+    show_in_embed: boolean
+    trigger_after?: string
+  }
   created_at: string
   updated_at: string
 }
@@ -33,20 +38,25 @@ export interface OnboardingTemplate {
 export interface OnboardingFieldConfig {
   key: string
   label: string
-  type: 'text' | 'email' | 'number' | 'select' | 'checkbox' | 'date'
+  type: 'text' | 'email' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'url' | 'boolean'
   placeholder?: string
   description?: string
   options?: string[]
   required: boolean
   enabled: boolean
   sort_order: number
+  discord_integration?: {
+    collect_in_dm: boolean
+    show_in_embed: boolean
+    trigger_after?: string
+  }
 }
 
 export interface CreateOnboardingFieldData {
   campaign_id: string
   field_key: string
   field_label: string
-  field_type: 'text' | 'email' | 'number' | 'select' | 'checkbox' | 'date'
+  field_type: 'text' | 'email' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'url' | 'boolean'
   field_placeholder?: string
   field_description?: string
   field_options?: string[]
@@ -54,12 +64,17 @@ export interface CreateOnboardingFieldData {
   is_enabled?: boolean
   sort_order?: number
   validation_rules?: Record<string, any>
+  discord_integration?: {
+    collect_in_dm: boolean
+    show_in_embed: boolean
+    trigger_after?: string
+  }
 }
 
 export interface UpdateOnboardingFieldData {
   id: string
   field_label?: string
-  field_type?: 'text' | 'email' | 'number' | 'select' | 'checkbox' | 'date'
+  field_type?: 'text' | 'email' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'url' | 'boolean'
   field_placeholder?: string
   field_description?: string
   field_options?: string[]
@@ -67,6 +82,11 @@ export interface UpdateOnboardingFieldData {
   is_enabled?: boolean
   sort_order?: number
   validation_rules?: Record<string, any>
+  discord_integration?: {
+    collect_in_dm: boolean
+    show_in_embed: boolean
+    trigger_after?: string
+  }
 }
 
 export function useOnboardingFields(campaignId?: string) {
