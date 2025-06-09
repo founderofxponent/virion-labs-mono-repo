@@ -204,23 +204,77 @@ function extractReferralCode(content) {
   return null;
 }
 
+// Check if onboarding is complete based on campaign template requirements
+async function checkOnboardingCompletion(userId, campaignId, config) {
+  try {
+    const completionRequirements = config.config.onboarding_completion_requirements || {};
+    
+    if (!completionRequirements.required_fields || completionRequirements.required_fields.length === 0) {
+      // No specific requirements, consider complete if any responses exist
+      return { isComplete: true, message: 'Onboarding completed!' };
+    }
+
+    // Check completion via dashboard API
+    const response = await fetch(`${DASHBOARD_API_URL}/campaign-onboarding-responses/complete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Virion-Discord-Bot/2.0'
+      },
+      body: JSON.stringify({
+        campaign_id: campaignId,
+        discord_user_id: userId
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      return {
+        isComplete: result.completed,
+        message: result.completed 
+          ? (result.completion_message || 'Congratulations! Your onboarding is complete.')
+          : `Please complete the remaining fields: ${result.missing_fields?.join(', ') || 'unknown'}`,
+        autoRole: result.auto_role_on_completion,
+        completionPercentage: result.completion_percentage || 0
+      };
+    }
+
+    return { isComplete: false, message: 'Unable to check completion status.' };
+  } catch (error) {
+    console.error('Error checking onboarding completion:', error);
+    return { isComplete: false, message: 'Error checking completion status.' };
+  }
+}
+
 // Get template-driven response based on message content and campaign config
 function getTemplateResponse(config, messageContent) {
-  if (!config.config || !config.config.auto_responses) {
+  if (!config.config) {
     return null;
   }
 
   const content = messageContent.toLowerCase();
-  const autoResponses = config.config.auto_responses;
+  const autoResponses = config.config.auto_responses || {};
+  const responseTemplates = config.config.response_templates || {};
 
-  // Check for exact matches or keyword matches
+  // Check auto responses first
   const responseKeys = Object.keys(autoResponses);
-  
   for (const key of responseKeys) {
     if (content.includes(key.toLowerCase())) {
       return {
         title: `${getResponseIcon(key)} ${getResponseTitle(key)}`,
         message: autoResponses[key],
+        color: config.config.brand_color || '#6366f1'
+      };
+    }
+  }
+
+  // Check response templates
+  const templateKeys = Object.keys(responseTemplates);
+  for (const key of templateKeys) {
+    if (content.includes(key.toLowerCase())) {
+      return {
+        title: `${getResponseIcon(key)} ${getResponseTitle(key)}`,
+        message: responseTemplates[key],
         color: config.config.brand_color || '#6366f1'
       };
     }
@@ -670,6 +724,50 @@ client.on('messageCreate', async (message) => {
         );
         await message.reply({ embeds: [embed] });
         handled = true;
+      }
+      
+      // Handle onboarding status check with template requirements
+      if (!handled && (message.content.toLowerCase().includes('onboarding') || 
+                       message.content.toLowerCase().includes('status') || 
+                       message.content.toLowerCase().includes('complete'))) {
+        if (config.campaign_id && config.campaign_name) {
+          try {
+            const completionStatus = await checkOnboardingCompletion(
+              message.author.id,
+              config.campaign_id,
+              config
+            );
+
+            const statusEmoji = completionStatus.isComplete ? '✅' : '⏳';
+            const statusTitle = `${statusEmoji} Onboarding Status`;
+            
+            let statusMessage = completionStatus.message;
+            if (!completionStatus.isComplete && completionStatus.completionPercentage > 0) {
+              statusMessage += `\n\n📊 Progress: ${completionStatus.completionPercentage}% complete`;
+            }
+            
+            statusMessage += `\n\n🔗 Continue here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaign_id}`;
+
+            const embed = createCampaignEmbed(
+              config,
+              statusTitle,
+              statusMessage,
+              completionStatus.isComplete ? '#10b981' : '#f59e0b'
+            );
+            await message.reply({ embeds: [embed] });
+            handled = true;
+          } catch (error) {
+            console.error('Error checking onboarding status:', error);
+            const embed = createCampaignEmbed(
+              config,
+              '📋 Onboarding Status',
+              `Check your onboarding progress for the ${config.campaign_name} campaign here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaign_id}`,
+              '#3b82f6'
+            );
+            await message.reply({ embeds: [embed] });
+            handled = true;
+          }
+        }
       }
       
       // If no template response found, use campaign-specific logic

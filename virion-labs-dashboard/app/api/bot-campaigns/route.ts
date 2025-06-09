@@ -208,59 +208,86 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Map new template IDs to database-compatible template values
-    const templateMapping: Record<string, string> = {
-      'referral_onboarding': 'referral_campaign',
-      'product_promotion': 'standard',
-      'community_engagement': 'advanced', 
-      'vip_support': 'support_campaign',
-      'custom': 'custom'
-    }
-
-    // Merge template defaults with provided overrides
+    // Merge template bot configuration with provided overrides
+    const templateBotConfig = template.bot_config
+    
     let campaignData = {
       client_id,
       guild_id,
       channel_id: channel_id || null,
       campaign_name,
-      campaign_type: campaign_template, // Use new template ID as the type
-      template: templateMapping[campaign_template] || 'custom', // Map to database-compatible value
-      prefix: prefix || template.bot_config.prefix,
-      description: description || template.bot_config.description,
-      bot_name: bot_name || template.bot_config.bot_name,
-      bot_avatar_url: bot_avatar_url || null,
-      bot_personality: bot_personality || template.bot_config.bot_personality,
-      bot_response_style: bot_response_style || template.bot_config.bot_response_style,
-      brand_color: brand_color || template.bot_config.brand_color,
+      campaign_type: campaign_template, // Use template ID as the type
+      template: templateBotConfig.template, // Use template's bot configuration template
+      prefix: prefix || templateBotConfig.prefix,
+      description: description || templateBotConfig.description,
+      bot_name: bot_name || templateBotConfig.bot_name,
+      bot_avatar_url: bot_avatar_url || templateBotConfig.avatar_url || null,
+      bot_personality: bot_personality || templateBotConfig.bot_personality,
+      bot_response_style: bot_response_style || templateBotConfig.bot_response_style,
+      brand_color: brand_color || templateBotConfig.brand_color,
       brand_logo_url: brand_logo_url || null,
+      embed_footer: embed_footer || templateBotConfig.embed_footer || null,
+      welcome_message: welcome_message || templateBotConfig.welcome_message,
+      
+      // Merge features from template with overrides
       features: {
-        ...template.bot_config.features,
+        ...templateBotConfig.features,
         ...features
       },
-      custom_commands: [...template.bot_config.custom_commands, ...custom_commands],
-      auto_responses: { ...template.bot_config.auto_responses, ...auto_responses },
-      response_templates,
-      embed_footer: embed_footer || null,
-      welcome_message: welcome_message || template.bot_config.welcome_message,
-      webhook_url: webhook_url || null,
-      webhook_routes,
-      api_endpoints,
-      external_integrations,
+      
+      // Merge commands and responses from template with overrides
+      custom_commands: [...templateBotConfig.custom_commands, ...custom_commands],
+      auto_responses: { ...templateBotConfig.auto_responses, ...auto_responses },
+      response_templates: { ...templateBotConfig.response_templates, ...response_templates },
+      
+      // Integration settings from template with overrides
+      webhook_url: webhook_url || templateBotConfig.webhook_url || null,
+      webhook_routes: webhook_routes.length > 0 ? webhook_routes : (templateBotConfig.webhook_routes || []),
+      api_endpoints: Object.keys(api_endpoints).length > 0 ? api_endpoints : (templateBotConfig.api_endpoints || {}),
+      external_integrations: Object.keys(external_integrations).length > 0 ? external_integrations : (templateBotConfig.external_integrations || {}),
+      
+      // Behavior controls from template with overrides
+      rate_limit_per_user: rate_limit_per_user || templateBotConfig.rate_limit_per_user || 5,
+      allowed_channels: allowed_channels.length > 0 ? allowed_channels : (templateBotConfig.allowed_channels || []),
+      blocked_users: blocked_users.length > 0 ? blocked_users : (templateBotConfig.blocked_users || []),
+      content_filters: content_filters.length > 0 ? content_filters : (templateBotConfig.content_filters || []),
+      
+      // Campaign-specific settings from template with overrides
       referral_link_id: referral_link_id || null,
       influencer_id: influencer_id || null,
-      referral_tracking_enabled: referral_tracking_enabled !== undefined ? referral_tracking_enabled : template.bot_config.features.referral_tracking,
-      auto_role_assignment: auto_role_assignment !== undefined ? auto_role_assignment : template.bot_config.features.auto_role,
-      target_role_id: target_role_id || null,
+      referral_tracking_enabled: referral_tracking_enabled !== undefined ? 
+        referral_tracking_enabled : (templateBotConfig.referral_tracking_enabled || templateBotConfig.features.referral_tracking),
+      auto_role_assignment: auto_role_assignment !== undefined ? 
+        auto_role_assignment : (templateBotConfig.auto_role_assignment || templateBotConfig.features.auto_role),
+      target_role_id: target_role_id || templateBotConfig.target_role_id || null,
+      moderation_enabled: moderation_enabled !== undefined ? 
+        moderation_enabled : (templateBotConfig.moderation_enabled || templateBotConfig.features.moderation),
+      
+      // Access control from template
+      access_control_enabled: templateBotConfig.access_control_enabled || false,
+      referral_only_access: templateBotConfig.referral_only_access || false,
+      auto_role_on_join: templateBotConfig.auto_role_on_join || null,
+      onboarding_channel_type: templateBotConfig.onboarding_channel_type || 'dm',
+      
+      // Private channel setup from template
+      private_channel_setup: templateBotConfig.private_channel_setup || {},
+      
+      // Onboarding completion requirements from template
+      onboarding_completion_requirements: templateBotConfig.onboarding_completion_requirements || {},
+      
+      // Legacy onboarding_flow for backwards compatibility
       onboarding_flow,
-      rate_limit_per_user: rate_limit_per_user || 5,
-      allowed_channels,
-      blocked_users,
-      moderation_enabled: moderation_enabled !== undefined ? moderation_enabled : template.bot_config.features.moderation,
-      content_filters,
+      
+      // Campaign dates and metadata
       campaign_start_date: campaign_start_date || null,
       campaign_end_date: campaign_end_date || null,
-      metadata,
-      configuration_version: 1,
+      metadata: {
+        ...metadata,
+        template_id: campaign_template,
+        template_version: 1,
+        applied_at: new Date().toISOString()
+      },
+      configuration_version: 2, // Increment version to indicate new template system
       is_active: true
     }
 
@@ -279,7 +306,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ campaign: data }, { status: 201 })
+    return NextResponse.json({ 
+      campaign: data,
+      template: {
+        id: template.id,
+        name: template.name,
+        onboarding_fields_count: template.onboarding_fields.length
+      }
+    }, { status: 201 })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -4,27 +4,79 @@ export interface CampaignTemplate {
   description: string
   category: 'referral' | 'promotion' | 'community' | 'support' | 'custom'
   
-  // Default bot configuration
+  // Comprehensive bot configuration (replaces standalone bot_configurations)
   bot_config: {
+    // Core bot identity
     bot_name: string
     bot_personality: 'helpful' | 'enthusiastic' | 'professional' | 'friendly' | 'casual'
     bot_response_style: 'formal' | 'casual' | 'friendly' | 'professional' | 'enthusiastic'
     prefix: string
-    brand_color: string
     description: string
+    avatar_url?: string
+    
+    // Visual branding
+    brand_color: string
+    embed_footer?: string
     welcome_message: string
+    
+    // Bot behavior configuration
+    template: 'standard' | 'advanced' | 'custom' | 'referral_campaign' | 'support_campaign'
+    
+    // Response system
     auto_responses: Record<string, string>
+    response_templates: Record<string, any>
     custom_commands: Array<{
       command: string
       response: string
       description?: string
     }>
+    
+    // Feature flags
     features: {
       welcome_enabled: boolean
       referral_tracking: boolean
       onboarding: boolean
       auto_role: boolean
       moderation: boolean
+    }
+    
+    // Integration settings
+    webhook_url?: string
+    webhook_routes?: Array<{
+      pattern: string
+      url: string
+      method: 'POST' | 'GET'
+    }>
+    api_endpoints?: Record<string, any>
+    external_integrations?: Record<string, any>
+    
+    // Behavior controls
+    rate_limit_per_user?: number
+    allowed_channels?: string[]
+    blocked_users?: string[]
+    moderation_enabled?: boolean
+    content_filters?: string[]
+    
+    // Campaign-specific settings
+    referral_tracking_enabled?: boolean
+    auto_role_assignment?: boolean
+    target_role_id?: string
+    onboarding_completion_requirements?: {
+      required_fields: string[] // Field IDs that must be completed
+      auto_role_on_completion?: string
+      completion_message?: string
+      completion_webhook?: string
+    }
+    
+    // Access control
+    access_control_enabled?: boolean
+    referral_only_access?: boolean
+    auto_role_on_join?: string
+    onboarding_channel_type?: 'dm' | 'channel' | 'any'
+    private_channel_setup?: {
+      create_private_channel: boolean
+      channel_name_template?: string
+      invite_expiry_hours?: number
     }
   }
   
@@ -84,12 +136,19 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
       brand_color: '#00ff88',
       description: 'Automated referral onboarding bot that welcomes new members and tracks conversions',
       welcome_message: '🎉 Welcome to our community! Thanks for joining through a referral link. I\'ll help you get started with exclusive perks!',
+      template: 'referral_campaign',
       auto_responses: {
         'hello': '👋 Hey there! Welcome to the community! If you have a referral code, just share it and I\'ll unlock your special benefits.',
         'help': '🆘 I can help you with referral codes, getting started, and accessing your member benefits. What do you need help with?',
         'referral_success': '🎉 Amazing! Thanks for joining through {influencer_name}\'s referral! You now have access to exclusive benefits.',
         'referral_invalid': '🤔 I couldn\'t find that referral code. Please double-check and try again, or contact support if you need help.',
         'welcome': 'Welcome! Share your referral code to unlock exclusive member benefits and connect with your referrer!'
+      },
+      response_templates: {
+        'onboarding_start': 'Let\'s get you set up! I\'ll need to collect some information to personalize your experience.',
+        'field_prompt': 'Next, I need to know: {question}',
+        'field_success': 'Got it! {field_name} recorded.',
+        'completion_success': '🎉 Onboarding complete! Welcome to the community, {name}!'
       },
       custom_commands: [
         {
@@ -109,7 +168,18 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         onboarding: true,
         auto_role: true,
         moderation: true
-      }
+      },
+      referral_tracking_enabled: true,
+      auto_role_assignment: true,
+      onboarding_completion_requirements: {
+        required_fields: ['full_name', 'email', 'referral_source', 'interests'],
+        auto_role_on_completion: 'Member',
+        completion_message: '🎉 Welcome to our community! You now have full access to all member benefits.',
+        completion_webhook: undefined
+      },
+      rate_limit_per_user: 5,
+      moderation_enabled: true,
+      onboarding_channel_type: 'dm'
     },
     onboarding_fields: [
       {
@@ -289,7 +359,22 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         onboarding: true,
         auto_role: false,
         moderation: true
-      }
+      },
+      template: 'advanced',
+      response_templates: {
+        'product_info': 'Here are the details for {product_name}: {description}. Price: {price}',
+        'early_access': 'You now have early access to {product_name}! Use code {access_code}',
+        'purchase_help': 'I can help you complete your purchase. What questions do you have?'
+      },
+      referral_tracking_enabled: true,
+      auto_role_assignment: false,
+      onboarding_completion_requirements: {
+        required_fields: ['customer_name', 'email', 'product_interest'],
+        completion_message: '🛍️ Great! You\'re all set up to receive product updates and exclusive offers.'
+      },
+      rate_limit_per_user: 10,
+      moderation_enabled: true,
+      onboarding_channel_type: 'dm'
     },
     onboarding_fields: [
       {
@@ -471,7 +556,22 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         onboarding: true,
         auto_role: false,
         moderation: true
-      }
+      },
+      template: 'standard',
+      response_templates: {
+        'event_notification': '📅 New event: {event_name} on {date}. Join us!',
+        'discussion_starter': 'Great topic! What does everyone else think about {topic}?',
+        'welcome_intro': 'Welcome {member_name}! We\'re excited to have you in our community.'
+      },
+      referral_tracking_enabled: false,
+      auto_role_assignment: false,
+      onboarding_completion_requirements: {
+        required_fields: ['display_name', 'interests', 'community_goals'],
+        completion_message: '🌟 Welcome to the community! You\'re all set to participate and connect with others.'
+      },
+      rate_limit_per_user: 8,
+      moderation_enabled: true,
+      onboarding_channel_type: 'dm'
     },
     onboarding_fields: [
       {
@@ -652,6 +752,28 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         onboarding: true,
         auto_role: true,
         moderation: false
+      },
+      template: 'support_campaign',
+      response_templates: {
+        'ticket_created': 'Support ticket #{ticket_id} created with priority status. Expected response within 15 minutes.',
+        'escalation_notice': 'Your issue has been escalated to our VIP specialists. You\'ll receive attention shortly.',
+        'status_update': 'Ticket #{ticket_id} status: {status}. Next update in {timeframe}.'
+      },
+      referral_tracking_enabled: false,
+      auto_role_assignment: true,
+      target_role_id: 'VIP Member',
+      onboarding_completion_requirements: {
+        required_fields: ['customer_name', 'account_email', 'account_id', 'support_priority'],
+        auto_role_on_completion: 'VIP Member',
+        completion_message: '🌟 VIP Support access activated! You now have priority access to our support team.'
+      },
+      rate_limit_per_user: 20,
+      moderation_enabled: false,
+      onboarding_channel_type: 'dm',
+      private_channel_setup: {
+        create_private_channel: true,
+        channel_name_template: 'vip-support-{user}',
+        invite_expiry_hours: 24
       }
     },
     onboarding_fields: [
@@ -852,7 +974,21 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         onboarding: false,
         auto_role: false,
         moderation: true
-      }
+      },
+      template: 'custom',
+      response_templates: {
+        'welcome': 'Welcome to our custom configured space! How can I help you today?',
+        'help': 'I\'ve been customized to help with your specific needs. What would you like to know?'
+      },
+      referral_tracking_enabled: false,
+      auto_role_assignment: false,
+      onboarding_completion_requirements: {
+        required_fields: ['user_name'],
+        completion_message: 'Welcome! You\'re all set up in our custom environment.'
+      },
+      rate_limit_per_user: 5,
+      moderation_enabled: true,
+      onboarding_channel_type: 'any'
     },
     onboarding_fields: [
       {
