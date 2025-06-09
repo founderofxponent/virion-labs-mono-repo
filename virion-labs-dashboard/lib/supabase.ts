@@ -731,7 +731,6 @@ export interface ReferralLinkWithAnalytics extends ReferralLink {
     totalClicks: number
     totalConversions: number
     conversionRate: number
-    totalEarnings: number
     recentClicks: number
     recentConversions: number
   }

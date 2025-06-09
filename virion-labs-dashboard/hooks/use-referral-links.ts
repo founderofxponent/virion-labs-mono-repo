@@ -51,7 +51,6 @@ export function useReferralLinks() {
           totalClicks: link.clicks,
           totalConversions: link.conversions,
           conversionRate: link.conversion_rate || 0,
-          totalEarnings: link.earnings,
           recentClicks: link.clicks, // TODO: Calculate recent clicks from analytics
           recentConversions: link.conversions, // TODO: Calculate recent conversions from analytics
         }
@@ -111,7 +110,6 @@ export function useReferralLinks() {
             totalClicks: 0,
             totalConversions: 0,
             conversionRate: 0,
-            totalEarnings: 0,
             recentClicks: 0,
             recentConversions: 0,
           }
@@ -153,7 +151,6 @@ export function useReferralLinks() {
                   totalClicks: data.clicks,
                   totalConversions: data.conversions,
                   conversionRate: data.conversion_rate || 0,
-                  totalEarnings: data.earnings,
                   recentClicks: data.clicks,
                   recentConversions: data.conversions,
                 }
@@ -224,7 +221,6 @@ export function useReferralLinks() {
     const activeLinks = links.filter(link => link.is_active).length
     const totalClicks = links.reduce((sum, link) => sum + link.clicks, 0)
     const totalConversions = links.reduce((sum, link) => sum + link.conversions, 0)
-    const totalEarnings = links.reduce((sum, link) => sum + link.earnings, 0)
     const averageConversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0
 
     return {
@@ -232,7 +228,6 @@ export function useReferralLinks() {
       activeLinks,
       totalClicks,
       totalConversions,
-      totalEarnings,
       averageConversionRate,
     }
   }

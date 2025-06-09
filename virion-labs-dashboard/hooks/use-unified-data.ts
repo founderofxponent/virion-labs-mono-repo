@@ -52,17 +52,17 @@ export interface UnifiedData {
 const transformInfluencerData = (linksData: any[], referralsData: any[], campaignsData: any[]): UnifiedData => {
   const totalClicks = linksData.reduce((sum, link) => sum + (link.clicks || 0), 0)
   const totalConversions = linksData.reduce((sum, link) => sum + (link.conversions || 0), 0)
-  const totalEarnings = linksData.reduce((sum, link) => sum + parseFloat(String(link.earnings || '0')), 0)
-  const activeLinks = linksData.filter(link => (link.clicks || 0) > 0).length
+  const activeLinks = linksData.filter(link => link.is_active).length
+  const totalReferrals = referralsData.length
 
   const stats: UnifiedStats = {
     primary: totalClicks,
     secondary: totalConversions,
-    tertiary: totalEarnings,
+    tertiary: totalReferrals,
     quaternary: campaignsData.length,
     primaryLabel: "Total Clicks",
     secondaryLabel: "Conversions",
-    tertiaryLabel: "Earnings",
+    tertiaryLabel: "Total Referrals",
     quaternaryLabel: "Available Campaigns",
     conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0
   }
@@ -72,10 +72,10 @@ const transformInfluencerData = (linksData: any[], referralsData: any[], campaig
     title: link.title,
     subtitle: link.platform,
     value: link.clicks || 0,
-    status: (link.clicks || 0) > 0 ? 'active' : 'inactive',
+    status: link.is_active ? 'active' : 'inactive',
     metadata: {
       conversions: link.conversions || 0,
-      earnings: parseFloat(String(link.earnings || '0')),
+      conversionRate: link.conversion_rate || 0,
       url: link.referral_url,
       campaign: link.discord_guild_campaigns?.campaign_name || 'Independent'
     },
@@ -211,17 +211,17 @@ const transformClientData = (campaignsData: any[], influencersData: any[], conve
   const totalCampaigns = campaignsData.length
   const activeInfluencers = new Set(conversionsData.map(c => c.influencer_id)).size
   const totalConversions = conversionsData.length
-  const totalRevenue = campaignsData.reduce((sum, campaign) => sum + parseFloat(String(campaign.earnings || '0')), 0)
+  const activeCampaigns = campaignsData.filter(campaign => campaign.is_active).length
 
   const stats: UnifiedStats = {
     primary: totalCampaigns,
     secondary: activeInfluencers,
     tertiary: totalConversions,
-    quaternary: Math.round(totalRevenue),
+    quaternary: activeCampaigns,
     primaryLabel: "Campaigns",
     secondaryLabel: "Active Influencers",
     tertiaryLabel: "Conversions",
-    quaternaryLabel: "Revenue ($)"
+    quaternaryLabel: "Active Campaigns"
   }
 
   const primaryList: UnifiedListItem[] = campaignsData.slice(0, 10).map(campaign => ({
@@ -229,10 +229,10 @@ const transformClientData = (campaignsData: any[], influencersData: any[], conve
     title: campaign.title,
     subtitle: campaign.platform,
     value: campaign.conversions || 0,
-    status: (campaign.conversions || 0) > 0 ? 'active' : 'inactive',
+    status: campaign.is_active ? 'active' : 'inactive',
     metadata: {
       clicks: campaign.clicks || 0,
-      earnings: parseFloat(String(campaign.earnings || '0')),
+      interactions: campaign.total_interactions || 0,
       influencer: campaign.influencer_name || 'Unknown'
     },
     created: new Date(campaign.created_at).toLocaleDateString()

@@ -441,8 +441,8 @@ export function UnifiedDashboard() {
           },
           {
             title: "View Referrals",
-            description: "Check your referral earnings",
-            icon: DollarSign,
+            description: "Track your referral performance",
+            icon: Users,
             onClick: handleReferralsClick,
             variant: "default" as const
           },

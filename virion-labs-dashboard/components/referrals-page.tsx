@@ -75,8 +75,8 @@ export function ReferralsPage() {
         return a.name.localeCompare(b.name)
       } else if (sortBy === "name-desc") {
         return b.name.localeCompare(a.name)
-      } else if (sortBy === "earnings") {
-        return b.conversion_value - a.conversion_value
+      } else if (sortBy === "status") {
+        return a.status.localeCompare(b.status)
       }
       return 0
     })
@@ -104,7 +104,7 @@ export function ReferralsPage() {
 
   const exportData = () => {
     const csvContent = [
-      ['Name', 'Email', 'Discord ID', 'Age', 'Status', 'Source', 'Link Title', 'Earnings', 'Date'].join(','),
+      ['Name', 'Email', 'Discord ID', 'Age', 'Status', 'Source', 'Link Title', 'Referral Code', 'Date'].join(','),
       ...filteredReferrals.map(referral => [
         referral.name,
         referral.email,
@@ -113,7 +113,7 @@ export function ReferralsPage() {
         referral.status,
         referral.source_platform,
         referral.referral_link?.title || '',
-        referral.conversion_value.toFixed(2),
+        referral.referral_link?.referral_code || '',
         formatDate(referral.created_at)
       ].join(','))
     ].join('\n')
@@ -233,11 +233,11 @@ export function ReferralsPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium">Pending Referrals</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${summary.totalEarnings.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">From {summary.completedReferrals} conversions</p>
+            <div className="text-2xl font-bold">{summary.pendingReferrals}</div>
+            <p className="text-xs text-muted-foreground">Awaiting completion</p>
           </CardContent>
         </Card>
       </div>
@@ -290,7 +290,7 @@ export function ReferralsPage() {
               <SelectItem value="oldest">Oldest</SelectItem>
               <SelectItem value="name-asc">Name (A-Z)</SelectItem>
               <SelectItem value="name-desc">Name (Z-A)</SelectItem>
-              <SelectItem value="earnings">Earnings</SelectItem>
+              <SelectItem value="status">Status</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -323,7 +323,7 @@ export function ReferralsPage() {
                   <TableHead>Source</TableHead>
                   <TableHead>Link</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Earnings</TableHead>
+                  <TableHead>Referral Code</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -354,8 +354,8 @@ export function ReferralsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">
-                        ${referral.conversion_value.toFixed(2)}
+                      <div className="font-mono text-sm">
+                        {referral.referral_link?.referral_code || 'N/A'}
                       </div>
                     </TableCell>
                     <TableCell>{formatDate(referral.created_at)}</TableCell>

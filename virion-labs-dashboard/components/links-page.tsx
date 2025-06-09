@@ -266,11 +266,11 @@ export function LinksPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium">Avg Conversion Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${analytics.totalEarnings.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">From conversions</p>
+            <div className="text-2xl font-bold">{analytics.averageConversionRate.toFixed(1)}%</div>
+            <p className="text-xs text-muted-foreground">Click to conversion</p>
           </CardContent>
         </Card>
       </div>
@@ -567,7 +567,7 @@ function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }
                   <span className="font-medium">{(link.conversion_rate || 0).toFixed(1)}%</span> rate
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">${link.earnings.toFixed(2)}</span> earned
+                  <span className="font-medium">{link.is_active ? 'Active' : 'Inactive'}</span> status
                 </div>
               </div>
               <div className="flex-1 flex justify-end gap-2">

@@ -91,7 +91,6 @@ export function useReferrals() {
     const activeReferrals = referrals.filter(r => r.status === 'active').length
     const completedReferrals = referrals.filter(r => r.status === 'completed').length
     const pendingReferrals = referrals.filter(r => r.status === 'pending').length
-    const totalEarnings = referrals.reduce((sum, r) => sum + r.conversion_value, 0)
     const conversionRate = totalReferrals > 0 ? (completedReferrals / totalReferrals) * 100 : 0
 
     // Platform breakdown
@@ -113,7 +112,6 @@ export function useReferrals() {
       activeReferrals,
       completedReferrals,
       pendingReferrals,
-      totalEarnings,
       conversionRate,
       topPlatform,
       platformCounts,
