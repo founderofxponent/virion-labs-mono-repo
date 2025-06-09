@@ -72,7 +72,7 @@ export function Sidebar() {
       active: pathname === "/clients",
     },
     {
-      title: "Bot Campaigns",
+      title: "Campaigns",
       href: "/bot-campaigns",
       icon: Bot,
       active: pathname === "/bot-campaigns" || pathname.startsWith("/bot-campaigns"),

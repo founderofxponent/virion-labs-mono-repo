@@ -323,12 +323,12 @@ export function UnifiedDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>
-              {profile?.role === 'admin' ? 'Bots' : 
+              {profile?.role === 'admin' ? 'Campaigns' : 
                profile?.role === 'client' ? 'Top Influencers' : 
                'Recent Referrals'}
             </CardTitle>
             <CardDescription>
-              {profile?.role === 'admin' ? 'Bot deployment status' : 
+              {profile?.role === 'admin' ? 'Active Discord campaigns and their performance' : 
                profile?.role === 'client' ? 'Your best performing influencers' : 
                'Latest referral activity'}
             </CardDescription>

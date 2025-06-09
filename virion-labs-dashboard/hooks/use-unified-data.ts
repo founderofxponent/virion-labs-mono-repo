@@ -128,48 +128,53 @@ const transformInfluencerData = (linksData: any[], referralsData: any[], campaig
   }
 }
 
-const transformAdminData = (clientsData: any[], botsData: any[], usersData: any[]): UnifiedData => {
+const transformAdminData = (clientsData: any[], campaignsData: any[], usersData: any[]): UnifiedData => {
   const totalClients = clientsData.length
-  const totalBots = botsData.length
+  const totalCampaigns = campaignsData.length
   const totalUsers = usersData.length
-  const activeBots = botsData.filter(bot => bot.status === 'Online').length
+  const activeCampaigns = campaignsData.filter(campaign => campaign.is_active).length
+
+  // Calculate total interactions across all campaigns
+  const totalInteractions = campaignsData.reduce((sum, campaign) => sum + (campaign.total_interactions || 0), 0)
 
   const stats: UnifiedStats = {
     primary: totalClients,
-    secondary: totalBots,
+    secondary: totalCampaigns,
     tertiary: totalUsers,
-    quaternary: activeBots,
+    quaternary: activeCampaigns,
     primaryLabel: "Total Clients",
-    secondaryLabel: "Total Bots",
+    secondaryLabel: "Total Campaigns",
     tertiaryLabel: "Total Users",
-    quaternaryLabel: "Active Bots"
+    quaternaryLabel: "Active Campaigns"
   }
 
   const primaryList: UnifiedListItem[] = clientsData.slice(0, 10).map(client => ({
     id: client.id,
     title: client.name,
     subtitle: client.contact_email || 'No contact',
-    value: client.bots || 0,
+    value: campaignsData.filter(campaign => campaign.client_id === client.id).length,
     status: client.status || 'active',
     metadata: {
       influencers: client.influencers || 0,
-      createdAt: client.created_at
+      createdAt: client.created_at,
+      campaigns: campaignsData.filter(campaign => campaign.client_id === client.id).length
     },
     created: new Date(client.created_at || new Date()).toLocaleDateString()
   }))
 
-  const secondaryList: UnifiedListItem[] = botsData.slice(0, 10).map(bot => ({
-    id: bot.id,
-    title: bot.name,
-    subtitle: bot.clients?.name || 'Unknown Client',
-    value: bot.servers || 0,
-    status: bot.status === 'Online' ? 'active' : 'inactive',
+  const secondaryList: UnifiedListItem[] = campaignsData.slice(0, 10).map(campaign => ({
+    id: campaign.id,
+    title: campaign.campaign_name,
+    subtitle: campaign.clients?.name || 'Unknown Client',
+    value: campaign.total_interactions || 0,
+    status: campaign.is_active ? 'active' : 'inactive',
     metadata: {
-      users: bot.users || 0,
-      commands: bot.commands_used || 0,
-      uptime: bot.uptime_percentage || 0
+      type: campaign.campaign_type,
+      conversions: campaign.referral_conversions || 0,
+      onboardings: campaign.successful_onboardings || 0,
+      guildId: campaign.guild_id
     },
-    created: new Date(bot.created_at || new Date()).toLocaleDateString()
+    created: new Date(campaign.created_at || new Date()).toLocaleDateString()
   }))
 
   const recentActivity: UnifiedActivity[] = [
@@ -180,12 +185,12 @@ const transformAdminData = (clientsData: any[], botsData: any[], usersData: any[
       time: getTimeAgo(new Date(client.created_at || new Date())),
       type: 'success' as const
     })),
-    ...botsData.slice(0, 2).map(bot => ({
-      id: `bot-${bot.id}`,
+    ...campaignsData.slice(0, 2).map(campaign => ({
+      id: `campaign-${campaign.id}`,
       user: 'System',
-      action: `Bot "${bot.name}" was deployed`,
-      time: getTimeAgo(new Date(bot.created_at || new Date())),
-      type: 'info' as const
+      action: `Campaign "${campaign.campaign_name}" was ${campaign.is_active ? 'activated' : 'created'}`,
+      time: getTimeAgo(new Date(campaign.created_at || new Date())),
+      type: campaign.is_active ? 'success' as const : 'info' as const
     }))
   ].slice(0, 5)
 
@@ -389,7 +394,7 @@ export function useUnifiedData() {
         }
 
         case 'admin': {
-          const [clientsResponse, botsResponse, usersResponse] = await Promise.all([
+          const [clientsResponse, campaignsResponse, usersResponse] = await Promise.all([
             supabase
               .from('clients')
               .select('*')
@@ -397,7 +402,7 @@ export function useUnifiedData() {
               .limit(50),
 
             supabase
-              .from('bots')
+              .from('discord_guild_campaigns')
               .select(`
                 *,
                 clients!inner(name)
@@ -412,12 +417,12 @@ export function useUnifiedData() {
           ])
 
           if (clientsResponse.error) throw clientsResponse.error
-          if (botsResponse.error) throw botsResponse.error
+          if (campaignsResponse.error) throw campaignsResponse.error
           if (usersResponse.error) throw usersResponse.error
 
           transformedData = transformAdminData(
             clientsResponse.data || [],
-            botsResponse.data || [],
+            campaignsResponse.data || [],
             usersResponse.data || []
           )
           break
