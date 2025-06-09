@@ -133,23 +133,10 @@ export async function DELETE(request: NextRequest) {
       throw new Error(`Step 3 - Delete campaign access failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
 
-    try {
-      // 4. Update campaign templates to remove reference to deleted user
-      const { error: templatesError } = await supabase
-        .from('campaign_templates')
-        .update({ created_by: null })
-        .eq('created_by', userId)
-
-      if (templatesError) {
-        throw new Error(`Failed to update campaign templates: ${templatesError.message}`)
-      }
-    } catch (err) {
-      console.error('Step 4 failed:', err)
-      throw new Error(`Step 4 - Update campaign templates failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
-    }
+    // Note: Campaign templates are now TypeScript-based, no database cleanup needed
 
     try {
-      // 5. Delete referrals (where user is influencer or referred user)
+      // 4. Delete referrals (where user is influencer or referred user)
       const { error: referralsAsInfluencerError } = await supabase
         .from('referrals')
         .delete()
