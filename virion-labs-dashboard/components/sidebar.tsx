@@ -11,6 +11,7 @@ import {
   Bot,
   Target,
   UserCheck,
+  BarChart3,
 } from "lucide-react"
 import { cn, generateInitials } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -78,6 +79,12 @@ export function Sidebar() {
       active: pathname === "/bot-campaigns" || pathname.startsWith("/bot-campaigns"),
     },
     {
+      title: "Analytics",
+      href: "/analytics",
+      icon: BarChart3,
+      active: pathname === "/analytics",
+    },
+    {
       title: "Access Requests",
       href: "/admin/access-requests",
       icon: UserCheck,
@@ -97,6 +104,12 @@ export function Sidebar() {
       href: "/",
       icon: LayoutDashboard,
       active: pathname === "/",
+    },
+    {
+      title: "Analytics",
+      href: "/analytics",
+      icon: BarChart3,
+      active: pathname === "/analytics",
     },
     {
       title: "Settings",
