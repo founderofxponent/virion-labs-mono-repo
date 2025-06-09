@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const includeArchived = searchParams.get('include_archived') === 'true'
     const onlyArchived = searchParams.get('only_archived') === 'true'
 
-    // Use the new unified view
+    // Get campaigns from the unified view
     let query = supabase
       .from('bot_campaign_configs')
       .select('*')
@@ -47,16 +47,87 @@ export async function GET(request: NextRequest) {
       query = query.eq('template', template)
     }
 
-    const { data, error } = await query
+    const { data: campaigns, error } = await query
 
     if (error) {
       console.error('Error fetching bot campaigns:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Calculate real-time metrics for each campaign
+    const campaignsWithMetrics = await Promise.all(
+      (campaigns || []).map(async (campaign) => {
+        console.log(`🔍 Calculating metrics for campaign: ${campaign.id} (${campaign.name})`)
+
+        try {
+          // Calculate metrics using direct SQL queries instead of RPC
+          const { data: metricsData, error: metricsError } = await supabase
+            .from('campaign_onboarding_responses')
+            .select('discord_user_id, referral_link_id')
+            .eq('campaign_id', campaign.id)
+
+          if (metricsError) {
+            console.warn(`❌ Error fetching onboarding data for campaign ${campaign.id}:`, metricsError)
+            return campaign
+          }
+
+          // Calculate metrics from the data
+          const totalResponses = metricsData?.length || 0
+          const uniqueUsers = new Set(metricsData?.map(r => r.discord_user_id) || []).size
+          const referralConversions = new Set(
+            metricsData?.filter(r => r.referral_link_id).map(r => r.discord_user_id) || []
+          ).size
+
+          // Use the higher of database total_interactions or actual response count
+          const totalInteractions = Math.max(
+            campaign.total_interactions || 0,
+            totalResponses
+          )
+
+          const stats = {
+            total_interactions: totalInteractions,
+            successful_onboardings: uniqueUsers,
+            referral_conversions: referralConversions,
+            users_served: uniqueUsers
+          }
+
+          console.log(`📈 Calculated stats for ${campaign.name}:`, stats)
+
+          // Update campaign with real-time metrics
+          const updatedCampaign = {
+            ...campaign,
+            total_interactions: stats.total_interactions,
+            successful_onboardings: stats.successful_onboardings,
+            referral_conversions: stats.referral_conversions,
+            users_served: stats.users_served
+          }
+
+          console.log(`✅ Updated metrics for ${campaign.name}:`, {
+            name: campaign.name,
+            original: {
+              total_interactions: campaign.total_interactions,
+              successful_onboardings: campaign.successful_onboardings,
+              referral_conversions: campaign.referral_conversions
+            },
+            updated: {
+              total_interactions: updatedCampaign.total_interactions,
+              successful_onboardings: updatedCampaign.successful_onboardings,
+              referral_conversions: updatedCampaign.referral_conversions
+            }
+          })
+
+          return updatedCampaign
+
+        } catch (error) {
+          console.error(`❌ Exception calculating metrics for campaign ${campaign.id}:`, error)
+          return campaign
+        }
+      })
+    )
+
     return NextResponse.json({ 
-      campaigns: data || [],
-      total: data?.length || 0
+      campaigns: campaignsWithMetrics,
+      total: campaignsWithMetrics?.length || 0
     })
   } catch (error) {
     console.error('Unexpected error:', error)

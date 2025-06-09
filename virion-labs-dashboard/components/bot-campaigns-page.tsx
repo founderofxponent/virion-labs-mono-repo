@@ -55,7 +55,9 @@ import {
   Archive,
   Eye,
   Filter,
-  Search
+  Search,
+  Download,
+  RotateCcw
 } from "lucide-react"
 
 export default function BotCampaignsPage() {
@@ -285,6 +287,119 @@ export default function BotCampaignsPage() {
         variant: "destructive"
       })
     }
+  }
+
+  const handlePauseCampaign = async (campaignId: string) => {
+    try {
+      await archiveCampaign(campaignId)
+      toast({
+        title: "Success",
+        description: "Campaign paused successfully"
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to pause campaign",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleResumeCampaign = async (campaignId: string) => {
+    try {
+      await activateCampaign(campaignId)
+      toast({
+        title: "Success",
+        description: "Campaign resumed successfully"
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to resume campaign",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleRestoreCampaign = async (campaignId: string) => {
+    try {
+      await activateCampaign(campaignId)
+      toast({
+        title: "Success",
+        description: "Campaign restored successfully"
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to restore campaign",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handlePreviewLandingPage = (campaign: any) => {
+    // Open landing page preview in a new window
+    const previewUrl = `/api/referral/preview/${campaign.id}`
+    window.open(previewUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes')
+  }
+
+  const handleExportCampaignCSV = async (campaignId: string, campaignName: string) => {
+    try {
+      // Only admin users can export data
+      if (profile?.role !== "admin") {
+        throw new Error("Access denied. Admin privileges required.")
+      }
+
+      const response = await fetch(`/api/bot-campaigns/${campaignId}/export-csv`)
+      
+      if (!response.ok) {
+        // Try to get the error message from the response
+        try {
+          const errorData = await response.json()
+          if (errorData.message) {
+            throw new Error(errorData.message)
+          } else if (errorData.error) {
+            throw new Error(errorData.error)
+          }
+        } catch (jsonError) {
+          // If we can't parse JSON, use a generic error
+        }
+        throw new Error("Failed to export CSV")
+      }
+
+      // Get the CSV content
+      const csvContent = await response.text()
+      
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: "text/csv" })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${campaignName.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_onboarding_data.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Success",
+        description: "Onboarding data exported successfully!",
+      })
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: error instanceof Error ? error.message : "Failed to export CSV data",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const openOnboardingDialog = (campaign: any) => {
+    // TODO: Implement onboarding fields dialog
+    toast({
+      title: "Coming Soon",
+      description: "Onboarding fields management will be available soon"
+    })
   }
 
   const openEditDialog = (campaign: any) => {
@@ -548,18 +663,9 @@ export default function BotCampaignsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{campaigns.length}</div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {campaigns.filter(c => c.is_active).length}
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {campaigns.filter(c => c.is_active).length} active
+            </p>
           </CardContent>
         </Card>
         
@@ -572,18 +678,47 @@ export default function BotCampaignsPage() {
             <div className="text-2xl font-bold">
               {campaigns.reduce((sum, c) => sum + (c.total_interactions || 0), 0)}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Avg {campaigns.length > 0 ? (campaigns.reduce((sum, c) => sum + (c.total_interactions || 0), 0) / campaigns.length).toFixed(1) : '0'} per campaign
+            </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Successful Onboardings</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {campaigns.reduce((sum, c) => sum + (c.successful_onboardings || 0), 0)}
+              {(() => {
+                const totalInteractions = campaigns.reduce((sum, c) => sum + (c.total_interactions || 0), 0)
+                const totalConversions = campaigns.reduce((sum, c) => sum + (c.referral_conversions || 0), 0)
+                return totalInteractions > 0 ? ((totalConversions / totalInteractions) * 100).toFixed(1) : '0'
+              })()}%
             </div>
+            <p className="text-xs text-muted-foreground">
+              {campaigns.reduce((sum, c) => sum + (c.referral_conversions || 0), 0)} total conversions
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Onboarding Rate</CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {(() => {
+                const totalInteractions = campaigns.reduce((sum, c) => sum + (c.total_interactions || 0), 0)
+                const totalOnboardings = campaigns.reduce((sum, c) => sum + (c.successful_onboardings || 0), 0)
+                return totalInteractions > 0 ? ((totalOnboardings / totalInteractions) * 100).toFixed(1) : '0'
+              })()}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {campaigns.reduce((sum, c) => sum + (c.successful_onboardings || 0), 0)} successful onboardings
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -807,29 +942,69 @@ export default function BotCampaignsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditDialog(campaign)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit Campaign
+                            <DropdownMenuItem onClick={() => handlePreviewLandingPage(campaign)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Preview Landing Page
                             </DropdownMenuItem>
                             
-                            <DropdownMenuSeparator />
-                            
-                            {campaign.is_active ? (
-                              <DropdownMenuItem 
-                                onClick={() => handleArchiveCampaign(campaign.id)}
-                                className="text-orange-600"
-                              >
-                                <Archive className="h-4 w-4 mr-2" />
-                                Archive
-                              </DropdownMenuItem>
+                            {!filterStatus || filterStatus !== "archived" ? (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openEditDialog(campaign)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit Campaign
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openOnboardingDialog(campaign)}>
+                                  <MessageSquare className="h-4 w-4 mr-2" />
+                                  Onboarding Fields
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Export CSV
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => campaign.is_active 
+                                    ? handlePauseCampaign(campaign.id) 
+                                    : handleResumeCampaign(campaign.id)
+                                  }
+                                >
+                                  {campaign.is_active ? (
+                                    <>
+                                      <Pause className="h-4 w-4 mr-2" />
+                                      Pause
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="h-4 w-4 mr-2" />
+                                      Resume
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => handleArchiveCampaign(campaign.id)}
+                                  className="text-orange-600"
+                                >
+                                  <Archive className="h-4 w-4 mr-2" />
+                                  Archive
+                                </DropdownMenuItem>
+                              </>
                             ) : (
-                              <DropdownMenuItem 
-                                onClick={() => handleActivateCampaign(campaign.id)}
-                                className="text-green-600"
-                              >
-                                <Play className="h-4 w-4 mr-2" />
-                                Activate
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Export CSV
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => handleRestoreCampaign(campaign.id)}
+                                  className="text-green-600"
+                                >
+                                  <RotateCcw className="h-4 w-4 mr-2" />
+                                  Restore
+                                </DropdownMenuItem>
+                              </>
                             )}
                             
                             <DropdownMenuSeparator />
