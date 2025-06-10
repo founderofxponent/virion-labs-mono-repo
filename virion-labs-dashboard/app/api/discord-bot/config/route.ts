@@ -20,7 +20,10 @@ export async function GET(request: NextRequest) {
 
     // Get campaign configuration with channel and access control support
     const { data: config, error } = await supabase
-      .rpc('get_bot_config_for_guild', { guild_id_param: guildId })
+      .rpc('get_enriched_bot_config_for_guild', { 
+        p_guild_id: guildId,
+        p_channel_id: channelId 
+      })
 
     if (error || !config || config.length === 0) {
       return NextResponse.json({ 
@@ -30,40 +33,17 @@ export async function GET(request: NextRequest) {
     }
 
     const campaignConfig = config[0]
-
-    // Check if this is a private channel campaign
-    if (campaignConfig.channel_id && channelId) {
-      // Verify the bot can only be used in the specified private channel
-      if (campaignConfig.channel_id !== channelId) {
-        return NextResponse.json({
-          configured: false,
-          access_denied: true,
-          message: 'This bot is only available in specific private channels',
-          private_channel_id: campaignConfig.channel_id
-        })
-      }
-
-      // For private channels, require referral access by default
-      if (userId) {
-        const { data: accessCheck } = await supabase
-          .from('discord_referral_channel_access')
-          .select('id, onboarding_completed')
-          .eq('campaign_id', campaignConfig.campaign_id)
-          .eq('discord_user_id', userId)
-          .eq('is_active', true)
-          .single()
-
-        if (!accessCheck) {
-          return NextResponse.json({
-            configured: false,
-            access_denied: true,
-            referral_required: true,
-            message: 'Access to this private bot requires a valid referral link',
-            campaign_name: campaignConfig.campaign_name
-          })
-        }
-      }
+    
+    // If not configured, return early
+    if (!campaignConfig.configured) {
+      return NextResponse.json({ 
+        configured: false, 
+        message: 'No bot configuration found for this guild' 
+      })
     }
+
+    // For private channel access control (if needed in the future)
+    // Currently the new function handles channel matching automatically
 
     // Get onboarding fields for this campaign
     const { data: onboardingFields } = await supabase
@@ -74,8 +54,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       configured: true,
-      is_private_channel: !!campaignConfig.channel_id,
-      private_channel_id: campaignConfig.channel_id,
       campaign: {
         id: campaignConfig.campaign_id,
         name: campaignConfig.campaign_name,
@@ -84,21 +62,10 @@ export async function GET(request: NextRequest) {
           id: campaignConfig.client_id,
           name: campaignConfig.client_name
         },
-        webhook_url: campaignConfig.webhook_url,
-        referral: campaignConfig.referral_link_id ? {
-          link_id: campaignConfig.referral_link_id,
-          code: campaignConfig.referral_code,
-          influencer: {
-            id: campaignConfig.influencer_id,
-            name: campaignConfig.influencer_name
-          }
-        } : null,
-        bot_config: {
-          ...campaignConfig.bot_config,
-          private_channel_id: campaignConfig.channel_id
-        },
-        onboarding_flow: campaignConfig.onboarding_flow,
-        onboarding_fields: onboardingFields || []
+        bot_config: campaignConfig.bot_config || {},
+        onboarding_flow: campaignConfig.template_config,
+        onboarding_fields: onboardingFields || [],
+        template_config: campaignConfig.template_config
       }
     })
   } catch (error) {

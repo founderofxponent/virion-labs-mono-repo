@@ -24,14 +24,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if this user has already completed onboarding for this campaign to prevent duplicates
-    const { data: existingCompletion, error: checkError } = await supabase
+    const { data: existingCompletions, error: checkError } = await supabase
       .from('campaign_onboarding_completions')
       .select('id')
       .eq('campaign_id', campaign_id)
       .eq('discord_user_id', discord_user_id)
-      .single()
 
-    if (existingCompletion) {
+    if (checkError) {
+      console.error('Error checking existing completion:', checkError)
+      return NextResponse.json(
+        { error: 'Failed to check existing completion' },
+        { status: 500 }
+      )
+    }
+
+    if (existingCompletions && existingCompletions.length > 0) {
       return NextResponse.json({
         success: true,
         message: 'Onboarding already completed for this user',
