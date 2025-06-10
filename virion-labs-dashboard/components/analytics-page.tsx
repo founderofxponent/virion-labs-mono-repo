@@ -10,6 +10,7 @@ import { useAuth } from "@/components/auth-provider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { format } from "date-fns"
 import {
   BarChart,
@@ -27,16 +28,20 @@ import {
   Cell,
 } from "recharts"
 import { AnalyticsService, AnalyticsData } from "@/lib/analytics-service"
+import { ExportDialog } from "@/components/export-dialog"
+import { useToast } from "@/hooks/use-toast"
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 
 export function AnalyticsPage() {
   const { profile, user } = useAuth()
+  const { toast } = useToast()
   const [dateRange, setDateRange] = useState("last-30-days")
   const [date, setDate] = useState(new Date())
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isQuickExporting, setIsQuickExporting] = useState(false)
 
   const isAdmin = profile?.role === "admin"
 
@@ -105,8 +110,36 @@ export function AnalyticsPage() {
     return `${value.toFixed(1)}%`
   }
 
+  const handleQuickExport = async () => {
+    if (!analyticsData) return
+    
+    setIsQuickExporting(true)
+    try {
+      await AnalyticsService.exportAnalytics(analyticsData, {
+        format: 'csv',
+        dateRange,
+        sections: ['overview', 'clients', 'campaigns', 'performance', 'activity']
+      })
+      
+      toast({
+        title: "Export successful!",
+        description: "Analytics report exported as CSV",
+      })
+    } catch (error) {
+      console.error('Quick export failed:', error)
+      toast({
+        title: "Export failed",
+        description: "There was an error exporting your analytics report. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsQuickExporting(false)
+    }
+  }
+
   return (
-    <div className="space-y-6">
+    <TooltipProvider>
+      <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Business Analytics</h1>
@@ -148,11 +181,51 @@ export function AnalyticsPage() {
               <SelectItem value="all-time">All time</SelectItem>
             </SelectContent>
           </Select>
-          {isAdmin && (
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
+          {analyticsData && (
+            <div className="flex gap-2">
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleQuickExport}
+                    disabled={isQuickExporting}
+                  >
+                    {isQuickExporting ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="mr-2 h-4 w-4" />
+                        Quick CSV
+                      </>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Export all analytics data as CSV file</p>
+                </TooltipContent>
+              </UITooltip>
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <ExportDialog 
+                    analyticsData={analyticsData} 
+                    dateRange={dateRange}
+                    trigger={
+                      <Button variant="outline" size="sm">
+                        <Download className="mr-2 h-4 w-4" />
+                        Export Options
+                      </Button>
+                    }
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Choose export format and customize sections</p>
+                </TooltipContent>
+              </UITooltip>
+            </div>
           )}
         </div>
       </div>
@@ -418,5 +491,6 @@ export function AnalyticsPage() {
         )}
       </Tabs>
     </div>
+    </TooltipProvider>
   )
 }

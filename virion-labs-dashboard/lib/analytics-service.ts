@@ -46,6 +46,13 @@ export interface AnalyticsData {
   }>
 }
 
+export interface ExportOptions {
+  format: 'csv' | 'json' | 'pdf'
+  includeCharts?: boolean
+  dateRange?: string
+  sections?: Array<'overview' | 'clients' | 'campaigns' | 'performance' | 'activity'>
+}
+
 export class AnalyticsService {
   static async getAnalytics(
     userId: string,
@@ -58,6 +65,29 @@ export class AnalyticsService {
       return this.getAdminAnalytics(startDate, endDate)
     } else {
       return this.getClientAnalytics(userId, startDate, endDate)
+    }
+  }
+
+  static async exportAnalytics(
+    analyticsData: AnalyticsData,
+    options: ExportOptions
+  ): Promise<void> {
+    const { format, dateRange = 'last-30-days' } = options
+    const timestamp = new Date().toISOString().split('T')[0]
+    const filename = `analytics-report-${dateRange}-${timestamp}`
+
+    switch (format) {
+      case 'csv':
+        await this.exportToCSV(analyticsData, filename)
+        break
+      case 'json':
+        await this.exportToJSON(analyticsData, filename)
+        break
+      case 'pdf':
+        await this.exportToPDF(analyticsData, filename, options)
+        break
+      default:
+        throw new Error('Unsupported export format')
     }
   }
 
@@ -330,5 +360,280 @@ export class AnalyticsService {
       industryData: [],
       recentActivity: []
     }
+  }
+
+  private static async exportToCSV(data: AnalyticsData, filename: string): Promise<void> {
+    const csvSections: string[] = []
+
+    // Overview metrics
+    csvSections.push('OVERVIEW METRICS')
+    csvSections.push('Metric,Value')
+    csvSections.push(`Total Clients,${data.totalClients}`)
+    csvSections.push(`Total Campaigns,${data.totalCampaigns}`)
+    csvSections.push(`Total Responses,${data.totalOnboardingResponses}`)
+    csvSections.push(`Average Completion Rate,${data.averageCompletionRate}%`)
+    csvSections.push('')
+
+    // Performance over time
+    if (data.performanceData.length > 0) {
+      csvSections.push('PERFORMANCE OVER TIME')
+      csvSections.push('Date,Campaigns,Responses,Completions')
+      data.performanceData.forEach(item => {
+        csvSections.push(`${item.date},${item.campaigns},${item.responses},${item.completions}`)
+      })
+      csvSections.push('')
+    }
+
+    // Campaign performance
+    if (data.campaignData.length > 0) {
+      csvSections.push('CAMPAIGN PERFORMANCE')
+      csvSections.push('Campaign Name,Responses,Completions,Completion Rate')
+      data.campaignData.forEach(item => {
+        csvSections.push(`"${item.name}",${item.responses},${item.completions},${item.completion_rate}%`)
+      })
+      csvSections.push('')
+    }
+
+    // Client distribution
+    if (data.clientData.length > 0) {
+      csvSections.push('CLIENT DISTRIBUTION')
+      csvSections.push('Status,Count,Type')
+      data.clientData.forEach(item => {
+        csvSections.push(`${item.name},${item.value},${item.type}`)
+      })
+      csvSections.push('')
+    }
+
+    // Industry distribution
+    if (data.industryData.length > 0) {
+      csvSections.push('INDUSTRY DISTRIBUTION')
+      csvSections.push('Industry,Count,Percentage')
+      data.industryData.forEach(item => {
+        csvSections.push(`${item.industry},${item.count},${item.percentage}%`)
+      })
+      csvSections.push('')
+    }
+
+    // Recent activity
+    if (data.recentActivity.length > 0) {
+      csvSections.push('RECENT ACTIVITY')
+      csvSections.push('Type,Description,Timestamp')
+      data.recentActivity.forEach(item => {
+        csvSections.push(`${item.type},"${item.description}",${item.timestamp}`)
+      })
+    }
+
+    const csvContent = csvSections.join('\n')
+    this.downloadFile(csvContent, `${filename}.csv`, 'text/csv')
+  }
+
+  private static async exportToJSON(data: AnalyticsData, filename: string): Promise<void> {
+    const exportData = {
+      exportInfo: {
+        timestamp: new Date().toISOString(),
+        format: 'json',
+        version: '1.0'
+      },
+      analytics: data
+    }
+
+    const jsonContent = JSON.stringify(exportData, null, 2)
+    this.downloadFile(jsonContent, `${filename}.json`, 'application/json')
+  }
+
+  private static async exportToPDF(data: AnalyticsData, filename: string, options: ExportOptions): Promise<void> {
+    // For PDF export, we'll create an HTML template and convert it
+    const htmlContent = this.generatePDFTemplate(data, options)
+    
+    // Create a temporary element to trigger print
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(htmlContent)
+      printWindow.document.close()
+      printWindow.focus()
+      
+      // Wait for content to load then trigger print
+      setTimeout(() => {
+        printWindow.print()
+      }, 500)
+    } else {
+      // Fallback: create downloadable HTML file
+      this.downloadFile(htmlContent, `${filename}.html`, 'text/html')
+    }
+  }
+
+  private static generatePDFTemplate(data: AnalyticsData, options: ExportOptions): string {
+    const timestamp = new Date().toLocaleDateString()
+    
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Analytics Report - ${timestamp}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+        .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 30px; }
+        .metric-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+        .metric-title { font-size: 14px; color: #666; margin-bottom: 5px; }
+        .metric-value { font-size: 24px; font-weight: bold; color: #2563eb; }
+        .metric-description { font-size: 12px; color: #888; margin-top: 5px; }
+        .section { margin-bottom: 30px; }
+        .section-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #1f2937; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f8f9fa; font-weight: bold; }
+        .no-data { text-align: center; color: #888; font-style: italic; padding: 20px; }
+        @media print { body { margin: 0; } .no-print { display: none; } }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Analytics Report</h1>
+        <p>Generated on ${timestamp} | Date Range: ${options.dateRange || 'last-30-days'}</p>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">Overview Metrics</h2>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="metric-title">Total Clients</div>
+            <div class="metric-value">${data.totalClients.toLocaleString()}</div>
+            <div class="metric-description">Active clients on platform</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Total Campaigns</div>
+            <div class="metric-value">${data.totalCampaigns.toLocaleString()}</div>
+            <div class="metric-description">Bot campaigns deployed</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">User Responses</div>
+            <div class="metric-value">${data.totalOnboardingResponses.toLocaleString()}</div>
+            <div class="metric-description">Onboarding interactions</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Completion Rate</div>
+            <div class="metric-value">${data.averageCompletionRate.toFixed(1)}%</div>
+            <div class="metric-description">Average onboarding completion</div>
+          </div>
+        </div>
+      </div>
+
+      ${data.performanceData.length > 0 ? `
+      <div class="section">
+        <h2 class="section-title">Performance Over Time</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Campaigns</th>
+              <th>Responses</th>
+              <th>Completions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.performanceData.map(item => `
+              <tr>
+                <td>${item.date}</td>
+                <td>${item.campaigns}</td>
+                <td>${item.responses}</td>
+                <td>${item.completions}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+
+      ${data.campaignData.length > 0 ? `
+      <div class="section">
+        <h2 class="section-title">Campaign Performance</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Campaign Name</th>
+              <th>Responses</th>
+              <th>Completions</th>
+              <th>Completion Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.campaignData.map(item => `
+              <tr>
+                <td>${item.name}</td>
+                <td>${item.responses}</td>
+                <td>${item.completions}</td>
+                <td>${item.completion_rate.toFixed(1)}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+
+      ${data.industryData.length > 0 ? `
+      <div class="section">
+        <h2 class="section-title">Industry Distribution</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Industry</th>
+              <th>Count</th>
+              <th>Percentage</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.industryData.map(item => `
+              <tr>
+                <td>${item.industry}</td>
+                <td>${item.count}</td>
+                <td>${item.percentage}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+
+      ${data.recentActivity.length > 0 ? `
+      <div class="section">
+        <h2 class="section-title">Recent Activity</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Description</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.recentActivity.map(item => `
+              <tr>
+                <td style="text-transform: capitalize;">${item.type}</td>
+                <td>${item.description}</td>
+                <td>${new Date(item.timestamp).toLocaleString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      ` : ''}
+    </body>
+    </html>
+    `
+  }
+
+  private static downloadFile(content: string, filename: string, mimeType: string): void {
+    const blob = new Blob([content], { type: mimeType })
+    const url = URL.createObjectURL(blob)
+    
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    URL.revokeObjectURL(url)
   }
 } 
