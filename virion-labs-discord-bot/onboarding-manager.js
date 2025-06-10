@@ -16,7 +16,7 @@ class OnboardingManager {
   }
 
   async startOnboarding(message, config, options = {}) {
-    const { referralCode, referralValidation, forceRestart = false } = options;
+    const { referralCode, referralValidation, forceRestart = false, autoStart = false } = options;
     const userId = message.author.id;
     const campaignId = config.campaignId;
     
@@ -24,8 +24,8 @@ class OnboardingManager {
       // Check if user wants to restart or if this is a new session
       const shouldRestart = forceRestart || message.content.toLowerCase().includes('restart') || message.content.toLowerCase().includes('reset');
       
-      // If not forcing restart, check for existing incomplete session
-      if (!shouldRestart) {
+      // If not forcing restart and not auto-starting, check for existing incomplete session
+      if (!shouldRestart && !autoStart) {
         const existingSession = await this.checkDatabaseSession(campaignId, userId, message.author.tag);
         if (existingSession && !existingSession.is_completed && existingSession.next_field) {
           console.log(`🔄 Found incomplete session for ${message.author.tag}, resuming...`);
@@ -34,7 +34,7 @@ class OnboardingManager {
         }
       }
 
-      console.log(`🚀 Starting ${shouldRestart ? 'new' : 'fresh'} onboarding session for ${message.author.tag}`);
+      console.log(`🚀 Starting ${shouldRestart ? 'new' : autoStart ? 'auto' : 'fresh'} onboarding session for ${message.author.tag}`);
 
       const session = await this.getOrCreateSession(campaignId, userId, message.author.tag, {
         referralId: referralValidation?.referral_id,
@@ -52,11 +52,47 @@ class OnboardingManager {
       }
 
       if (session.is_completed) {
-        await this.showCompletionMessage(message, config);
+        if (autoStart) {
+          // For auto-start, send a welcome message indicating they already completed onboarding
+          const welcomeEmbed = new EmbedBuilder()
+            .setTitle('🎉 Welcome Back!')
+            .setDescription(`Welcome to **${config.clientName}**!\n\nYou've already completed the onboarding process for **${config.campaignName}**. You're all set to enjoy all the community features!`)
+            .setColor(config.config?.brand_color || '#00aa00')
+            .setTimestamp();
+
+          await message.reply({ embeds: [welcomeEmbed] });
+        } else {
+          await this.showCompletionMessage(message, config);
+        }
         return true;
       }
 
-      await this.askNextQuestion(message, config, session);
+      // If auto-starting, send an intro message before the first question
+      if (autoStart) {
+        const introEmbed = new EmbedBuilder()
+          .setTitle('🚀 Welcome! Let\'s Get You Started')
+          .setDescription(`Hi ${message.author.username}! Welcome to **${config.clientName}**.\n\nI'm going to ask you a few quick questions to get you set up with all the best features our community has to offer.\n\n✨ This will only take a minute!`)
+          .setColor(config.config?.brand_color || '#6366f1')
+          .setTimestamp();
+
+        if (referralValidation && referralValidation.influencer) {
+          introEmbed.addFields([{
+            name: '🤝 Referral Benefits',
+            value: `You joined through **${referralValidation.influencer.name}'s** referral link, so you'll get some exclusive perks once we're done!`,
+            inline: false
+          }]);
+        }
+
+        await message.reply({ embeds: [introEmbed] });
+        
+        // Small delay before asking the first question
+        setTimeout(async () => {
+          await this.askNextQuestion(message, config, session);
+        }, 1500);
+      } else {
+        await this.askNextQuestion(message, config, session);
+      }
+      
       return true;
 
     } catch (error) {

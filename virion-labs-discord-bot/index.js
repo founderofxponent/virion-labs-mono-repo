@@ -533,53 +533,88 @@ async function handleReferralInviteContext(member) {
                   }
                 };
                 
-                // Process the referral automatically
-                console.log(`🤖 Processing auto-referral for ${member.user.tag} with code ${context.referral_code}`);
-                await handleReferralOnboarding(syntheticMessage, config);
-                
-                // Record the successful referral in the dashboard
-                try {
-                  const completionResponse = await fetch(`${DASHBOARD_API_URL}/referral/complete`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'User-Agent': 'Virion-Discord-Bot/2.0'
-                    },
-                    body: JSON.stringify({
-                      referral_code: context.referral_code,
-                      discord_user_id: member.user.id,
-                      discord_username: member.user.tag,
-                      guild_id: member.guild.id,
-                      conversion_source: 'discord_auto_detection'
-                    })
-                  });
-                  
-                  if (completionResponse.ok) {
-                    const completionResult = await completionResponse.json();
-                    console.log(`✅ Referral completion recorded: ${completionResult.referral_id} (duplicate: ${completionResult.duplicate})`);
-                  } else {
-                    console.error('❌ Failed to record referral completion:', completionResponse.status);
-                  }
-                } catch (error) {
-                  console.error('❌ Error recording referral completion:', error);
-                }
-                
-                // Also notify about successful auto-processing
-                const welcomeEmbed = createCampaignEmbed(
-                  config,
-                  '🎉 Welcome via Referral!',
-                  `Great news! We automatically detected that you joined through **${context.influencer.name}'s** referral link for the **${context.campaign.name}** campaign.\n\n✨ Your referral benefits have been automatically applied!`,
-                  config.bot_config?.brand_color || '#00ff00'
+                // Validate the referral code first
+                const validation = await validateReferralCode(
+                  context.referral_code, 
+                  member.guild.id, 
+                  member.user.id
                 );
                 
-                try {
-                  await member.send({ embeds: [welcomeEmbed] });
-                } catch {
-                  if (member.guild.systemChannel) {
-                    await member.guild.systemChannel.send({
-                      content: `${member.user} Welcome! 👋`,
-                      embeds: [welcomeEmbed]
+                if (validation && validation.valid) {
+                  console.log(`🤖 Auto-starting onboarding for ${member.user.tag} with referral code ${context.referral_code}`);
+                  
+                  // Start onboarding immediately with referral context
+                  await onboardingManager.startOnboarding(syntheticMessage, config, {
+                    referralCode: context.referral_code,
+                    referralValidation: validation,
+                    autoStart: true
+                  });
+                  
+                  // Record the successful referral in the dashboard
+                  try {
+                    const completionResponse = await fetch(`${DASHBOARD_API_URL}/referral/complete`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'Virion-Discord-Bot/2.0'
+                      },
+                      body: JSON.stringify({
+                        referral_code: context.referral_code,
+                        discord_user_id: member.user.id,
+                        discord_username: member.user.tag,
+                        guild_id: member.guild.id,
+                        conversion_source: 'discord_auto_detection'
+                      })
                     });
+                    
+                    if (completionResponse.ok) {
+                      const completionResult = await completionResponse.json();
+                      console.log(`✅ Referral completion recorded: ${completionResult.referral_id} (duplicate: ${completionResult.duplicate})`);
+                    } else {
+                      console.error('❌ Failed to record referral completion:', completionResponse.status);
+                    }
+                  } catch (error) {
+                    console.error('❌ Error recording referral completion:', error);
+                  }
+                  
+                  // Send welcome message with onboarding auto-start notification
+                  const welcomeEmbed = createCampaignEmbed(
+                    config,
+                    '🎉 Welcome via Referral!',
+                    `Great news! We automatically detected that you joined through **${context.influencer.name}'s** referral link for the **${context.campaign.name}** campaign.\n\n🚀 I'm starting your onboarding process right now to get you set up with all your exclusive benefits!`,
+                    config.bot_config?.brand_color || '#00ff00'
+                  );
+                  
+                  try {
+                    await member.send({ embeds: [welcomeEmbed] });
+                  } catch {
+                    if (member.guild.systemChannel) {
+                      await member.guild.systemChannel.send({
+                        content: `${member.user} Welcome! 👋`,
+                        embeds: [welcomeEmbed]
+                      });
+                    }
+                  }
+                } else {
+                  console.log(`❌ Invalid referral code detected: ${context.referral_code} for ${member.user.tag}`);
+                  
+                  // Send a message about invalid referral but still welcome them
+                  const welcomeEmbed = createCampaignEmbed(
+                    config,
+                    '🎉 Welcome!',
+                    `Welcome to **${config.clientName}**! We detected a referral link, but it appears to be invalid or expired.\n\n✨ No worries though - you can still get started with our community!`,
+                    config.bot_config?.brand_color || '#ff9900'
+                  );
+                  
+                  try {
+                    await member.send({ embeds: [welcomeEmbed] });
+                  } catch {
+                    if (member.guild.systemChannel) {
+                      await member.guild.systemChannel.send({
+                        content: `${member.user} Welcome! 👋`,
+                        embeds: [welcomeEmbed]
+                      });
+                    }
                   }
                 }
                 
@@ -616,31 +651,76 @@ async function handleNewMemberOnboarding(member) {
     // Wait a bit to let Discord settle the member join
     setTimeout(async () => {
       try {
-        // Send welcome DM with onboarding start option
-        const welcomeEmbed = new EmbedBuilder()
-          .setTitle(`🎉 Welcome to ${member.guild.name}!`)
-          .setDescription(`Hi ${member.user.username}! Welcome to **${config.clientName}**.\n\nI'm here to help you get started. Would you like to complete a quick onboarding to unlock all community features?\n\n💡 You can also share a referral code if you have one!`)
-          .setColor(config.bot_config?.brand_color || '#6366f1')
-          .addFields([
-            {
-              name: '🚀 Get Started',
-              value: 'Reply with "start" to begin onboarding\nOr share your referral code if you have one',
-              inline: false
+        // Create a synthetic message for starting onboarding
+        const syntheticMessage = {
+          author: member.user,
+          member: member,
+          guild: member.guild,
+          channel: member.guild.systemChannel || { id: 'auto-onboarding' },
+          content: 'auto_start_onboarding',
+          id: `auto-onboarding-${member.user.id}-${Date.now()}`,
+          reply: async (options) => {
+            // Send to user's DM
+            try {
+              await member.send(options);
+            } catch {
+              if (member.guild.systemChannel) {
+                await member.guild.systemChannel.send({
+                  content: `${member.user}`,
+                  ...options
+                });
+              }
             }
-          ])
-          .setTimestamp();
-
-        await member.send({ embeds: [welcomeEmbed] });
-        console.log(`📨 Sent welcome DM to ${member.user.tag}`);
+          },
+          followUp: async (options) => {
+            try {
+              await member.send(options);
+            } catch {
+              if (member.guild.systemChannel) {
+                await member.guild.systemChannel.send({
+                  content: `${member.user}`,
+                  ...options
+                });
+              }
+            }
+          }
+        };
+        
+        console.log(`🚀 Auto-starting onboarding for ${member.user.tag} in ${config.campaignName}`);
+        
+        // Start onboarding immediately
+        await onboardingManager.startOnboarding(syntheticMessage, config, {
+          autoStart: true
+        });
+        
+        console.log(`✅ Auto-started onboarding for ${member.user.tag}`);
         
       } catch (error) {
         if (error.code === 50007) {
           console.log(`❌ Cannot send DM to ${member.user.tag} (DMs disabled)`);
+          
+          // Fallback: try to send to system channel with instructions
+          try {
+            if (member.guild.systemChannel) {
+              const fallbackEmbed = new EmbedBuilder()
+                .setTitle(`🎉 Welcome ${member.user.username}!`)
+                .setDescription(`Welcome to **${config.clientName}**!\n\n📝 I tried to start your onboarding process in DMs, but it seems you have DMs disabled.\n\n💡 Please enable DMs from server members and type "start" to begin your onboarding journey!`)
+                .setColor(config.bot_config?.brand_color || '#6366f1')
+                .setTimestamp();
+              
+              await member.guild.systemChannel.send({
+                content: `${member.user}`,
+                embeds: [fallbackEmbed]
+              });
+            }
+          } catch (channelError) {
+            console.error('Error sending fallback message to system channel:', channelError);
+          }
         } else {
-          console.error('Error sending welcome DM:', error);
+          console.error('Error in auto-onboarding:', error);
         }
       }
-    }, 2000); // 2 second delay
+    }, 3000); // 3 second delay to ensure Discord has settled
     
   } catch (error) {
     console.error('Error handling new member onboarding:', error);
