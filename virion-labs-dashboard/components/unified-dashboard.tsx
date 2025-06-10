@@ -511,37 +511,6 @@ export function UnifiedDashboard() {
         </div>
       </div>
 
-      {/* Key Metrics Section */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatsCard
-          title={data.stats.primaryLabel}
-          value={data.stats.primary}
-          icon={icons[0]}
-          trend={data.stats.conversionRate ? Math.round(data.stats.conversionRate) : undefined}
-          description={data.stats.conversionRate ? `${data.stats.conversionRate.toFixed(1)}% conversion rate` : undefined}
-          isMain={true}
-          onClick={getStatClickHandler(0)}
-        />
-        <StatsCard
-          title={data.stats.secondaryLabel}
-          value={data.stats.secondary}
-          icon={icons[1]}
-          onClick={getStatClickHandler(1)}
-        />
-        <StatsCard
-          title={data.stats.tertiaryLabel}
-          value={data.stats.tertiary}
-          icon={icons[2]}
-          onClick={getStatClickHandler(2)}
-        />
-        <StatsCard
-          title={data.stats.quaternaryLabel}
-          value={data.stats.quaternary}
-          icon={icons[3]}
-          onClick={getStatClickHandler(3)}
-        />
-      </div>
-
       {/* Quick Actions Section */}
       {getQuickActions().length > 0 && (
         <div>
