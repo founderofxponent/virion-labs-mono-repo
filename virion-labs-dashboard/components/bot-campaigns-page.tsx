@@ -477,6 +477,43 @@ export default function BotCampaignsPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Campaigns</CardTitle>
+            <Target className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {campaigns.filter(c => c.is_active).length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {campaigns.length - campaigns.filter(c => c.is_active).length} inactive
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Daily Interactions</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {(() => {
+                const activeCampaigns = campaigns.filter(c => c.is_active)
+                if (activeCampaigns.length === 0) return '0'
+                const totalInteractions = activeCampaigns.reduce((sum, c) => sum + (c.total_interactions || 0), 0)
+                // Assuming campaigns have been running for at least a few days, calculate daily average
+                const avgDailyPerCampaign = activeCampaigns.length > 0 ? (totalInteractions / activeCampaigns.length / 7).toFixed(1) : '0'
+                return avgDailyPerCampaign
+              })()}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Per active campaign (7-day avg)
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Interactions</CardTitle>
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -486,44 +523,6 @@ export default function BotCampaignsPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               Avg {campaigns.length > 0 ? (campaigns.reduce((sum, c) => sum + (c.total_interactions || 0), 0) / campaigns.length).toFixed(1) : '0'} per campaign
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(() => {
-                const totalInteractions = campaigns.reduce((sum, c) => sum + (c.total_interactions || 0), 0)
-                const totalConversions = campaigns.reduce((sum, c) => sum + (c.referral_conversions || 0), 0)
-                return totalInteractions > 0 ? ((totalConversions / totalInteractions) * 100).toFixed(1) : '0'
-              })()}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {campaigns.reduce((sum, c) => sum + (c.referral_conversions || 0), 0)} total conversions
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Onboarding Rate</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(() => {
-                const totalInteractions = campaigns.reduce((sum, c) => sum + (c.total_interactions || 0), 0)
-                const totalOnboardings = campaigns.reduce((sum, c) => sum + (c.successful_onboardings || 0), 0)
-                return totalInteractions > 0 ? ((totalOnboardings / totalInteractions) * 100).toFixed(1) : '0'
-              })()}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {campaigns.reduce((sum, c) => sum + (c.successful_onboardings || 0), 0)} successful onboardings
             </p>
           </CardContent>
         </Card>

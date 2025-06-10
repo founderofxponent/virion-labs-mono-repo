@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Calendar, Download } from "lucide-react"
+import { Calendar, Download, Users, Target, Activity, TrendingUp } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,6 +27,8 @@ import {
   Cell,
 } from "recharts"
 import { AnalyticsService, AnalyticsData } from "@/lib/analytics-service"
+
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 
 export function AnalyticsPage() {
   const { profile, user } = useAuth()
@@ -61,7 +63,7 @@ export function AnalyticsPage() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Business Analytics</h1>
             <p className="text-muted-foreground">Loading analytics data...</p>
           </div>
         </div>
@@ -87,7 +89,7 @@ export function AnalyticsPage() {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Business Analytics</h1>
             <p className="text-muted-foreground">Failed to load analytics data.</p>
           </div>
         </div>
@@ -95,26 +97,23 @@ export function AnalyticsPage() {
     )
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(value)
-  }
-
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('en-US').format(value)
+  }
+
+  const formatPercentage = (value: number) => {
+    return `${value.toFixed(1)}%`
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Business Analytics</h1>
           <p className="text-muted-foreground">
             {isAdmin
-              ? "Detailed analytics across all clients and influencers"
-              : "Track your referral performance over time"}
+              ? "Comprehensive business metrics across all clients and campaigns"
+              : "Track your campaign performance and user engagement"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -161,52 +160,57 @@ export function AnalyticsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(analyticsData.totalClicks)}</div>
-            <p className="text-xs text-muted-foreground">
-              {analyticsData.totalClicks > 0 ? "Tracking clicks across all links" : "No clicks recorded yet"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Signups</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(analyticsData.totalSignups)}</div>
-            <p className="text-xs text-muted-foreground">
-              {analyticsData.totalSignups > 0 ? "Successful referral conversions" : "No signups recorded yet"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Conversion Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analyticsData.conversionRate.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">
-              {analyticsData.conversionRate > 0 ? "Signups per click ratio" : "No conversions yet"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
-              {isAdmin ? "Active Influencers" : "Total Earnings"}
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Total Clients
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {isAdmin ? formatNumber(analyticsData.totalEarnings) : formatCurrency(analyticsData.totalEarnings)}
-            </div>
+            <div className="text-2xl font-bold">{formatNumber(analyticsData.totalClients)}</div>
             <p className="text-xs text-muted-foreground">
-              {isAdmin 
-                ? (analyticsData.totalEarnings > 0 ? "Currently active in system" : "No active influencers")
-                : (analyticsData.totalEarnings > 0 ? "Total commission earned" : "No earnings yet")
-              }
+              {analyticsData.totalClients > 0 ? "Active clients on platform" : "No clients registered yet"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Total Campaigns
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatNumber(analyticsData.totalCampaigns)}</div>
+            <p className="text-xs text-muted-foreground">
+              {analyticsData.totalCampaigns > 0 ? "Bot campaigns deployed" : "No campaigns created yet"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              User Responses
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatNumber(analyticsData.totalOnboardingResponses)}</div>
+            <p className="text-xs text-muted-foreground">
+              {analyticsData.totalOnboardingResponses > 0 ? "Onboarding interactions" : "No responses yet"}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Completion Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatPercentage(analyticsData.averageCompletionRate)}</div>
+            <p className="text-xs text-muted-foreground">
+              {analyticsData.averageCompletionRate > 0 ? "Average onboarding completion" : "No completions yet"}
             </p>
           </CardContent>
         </Card>
@@ -215,16 +219,16 @@ export function AnalyticsPage() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="traffic">Traffic Sources</TabsTrigger>
-          <TabsTrigger value="demographics">Demographics</TabsTrigger>
-          {isAdmin && <TabsTrigger value="influencers">Influencer Performance</TabsTrigger>}
+          <TabsTrigger value="clients">Clients</TabsTrigger>
+          <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+          {isAdmin && <TabsTrigger value="activity">Recent Activity</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Performance Over Time</CardTitle>
-              <CardDescription>Clicks and conversions over the selected period</CardDescription>
+              <CardDescription>Campaigns, responses, and completions over the selected period</CardDescription>
             </CardHeader>
             <CardContent className="h-[400px]">
               {analyticsData.performanceData.length > 0 ? (
@@ -244,15 +248,16 @@ export function AnalyticsPage() {
                     <YAxis yAxisId="right" orientation="right" />
                     <Tooltip />
                     <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="clicks" stroke="#8884d8" activeDot={{ r: 8 }} />
-                    <Line yAxisId="right" type="monotone" dataKey="conversions" stroke="#82ca9d" />
+                    <Line yAxisId="left" type="monotone" dataKey="responses" stroke="#8884d8" activeDot={{ r: 8 }} name="Responses" />
+                    <Line yAxisId="right" type="monotone" dataKey="completions" stroke="#82ca9d" name="Completions" />
+                    <Line yAxisId="left" type="monotone" dataKey="campaigns" stroke="#ffc658" name="New Campaigns" />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
                     <p className="text-muted-foreground">No performance data available for this period</p>
-                    <p className="text-sm text-muted-foreground mt-2">Performance data will appear once you have clicks and conversions</p>
+                    <p className="text-sm text-muted-foreground mt-2">Performance data will appear once you have active campaigns</p>
                   </div>
                 </div>
               )}
@@ -260,19 +265,19 @@ export function AnalyticsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="traffic" className="space-y-4">
+        <TabsContent value="clients" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Traffic by Platform</CardTitle>
-                <CardDescription>Distribution of clicks by platform</CardDescription>
+                <CardTitle>Client Status Distribution</CardTitle>
+                <CardDescription>Breakdown of clients by status</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
-                {analyticsData.platformData.length > 0 ? (
+                {analyticsData.clientData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={analyticsData.platformData}
+                        data={analyticsData.clientData}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -281,7 +286,7 @@ export function AnalyticsPage() {
                         dataKey="value"
                         label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                       >
-                        {analyticsData.platformData.map((entry, index) => (
+                        {analyticsData.clientData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
@@ -291,7 +296,7 @@ export function AnalyticsPage() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-muted-foreground">No platform data available</p>
+                    <p className="text-muted-foreground">No client data available</p>
                   </div>
                 )}
               </CardContent>
@@ -299,14 +304,14 @@ export function AnalyticsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Conversion by Platform</CardTitle>
-                <CardDescription>Conversion rates by platform</CardDescription>
+                <CardTitle>Industry Distribution</CardTitle>
+                <CardDescription>Clients by industry</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
-                {analyticsData.conversionRateData.length > 0 ? (
+                {analyticsData.industryData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={analyticsData.conversionRateData}
+                      data={analyticsData.industryData}
                       margin={{
                         top: 5,
                         right: 30,
@@ -315,16 +320,16 @@ export function AnalyticsPage() {
                       }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
+                      <XAxis dataKey="industry" />
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="rate" fill="#8884d8" name="Conversion Rate (%)" />
+                      <Bar dataKey="count" fill="#8884d8" name="Number of Clients" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-muted-foreground">No conversion data available</p>
+                    <p className="text-muted-foreground">No industry data available</p>
                   </div>
                 )}
               </CardContent>
@@ -332,111 +337,79 @@ export function AnalyticsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="demographics" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Age Distribution</CardTitle>
-                <CardDescription>Age groups of your referrals</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[300px]">
-                {analyticsData.ageData.some(item => item.count > 0) ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={analyticsData.ageData}
-                      margin={{
-                        top: 5,
-                        right: 30,
-                        left: 20,
-                        bottom: 5,
-                      }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="age" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="count" fill="#82ca9d" name="Number of Users" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-muted-foreground">No age data available</p>
+        <TabsContent value="campaigns" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Campaign Performance</CardTitle>
+              <CardDescription>Response and completion rates by campaign</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[400px]">
+              {analyticsData.campaignData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={analyticsData.campaignData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="responses" fill="#8884d8" name="Responses" />
+                    <Bar yAxisId="left" dataKey="completions" fill="#82ca9d" name="Completions" />
+                    <Line yAxisId="right" dataKey="completion_rate" stroke="#ffc658" name="Completion Rate (%)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <p className="text-muted-foreground">No campaign performance data available</p>
+                    <p className="text-sm text-muted-foreground mt-2">Data will appear once campaigns start receiving responses</p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Geographic Distribution</CardTitle>
-                <CardDescription>Location of your referrals</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[300px]">
-                {analyticsData.locationData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      layout="vertical"
-                      data={analyticsData.locationData}
-                      margin={{
-                        top: 5,
-                        right: 30,
-                        left: 100,
-                        bottom: 5,
-                      }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" />
-                      <YAxis dataKey="country" type="category" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="count" fill="#8884d8" name="Number of Users" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-muted-foreground">No location data available</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {isAdmin && (
-          <TabsContent value="influencers" className="space-y-4">
+          <TabsContent value="activity" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Top Performing Influencers</CardTitle>
-                <CardDescription>Ranked by conversion rate</CardDescription>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Latest actions across the platform</CardDescription>
               </CardHeader>
-              <CardContent className="h-[400px]">
-                {analyticsData.influencerData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={analyticsData.influencerData}
-                      margin={{
-                        top: 5,
-                        right: 30,
-                        left: 20,
-                        bottom: 5,
-                      }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="conversions" fill="#8884d8" name="Conversions" />
-                      <Bar dataKey="rate" fill="#82ca9d" name="Conversion Rate (%)" />
-                    </BarChart>
-                  </ResponsiveContainer>
+              <CardContent>
+                {analyticsData.recentActivity.length > 0 ? (
+                  <div className="space-y-4">
+                    {analyticsData.recentActivity.map((activity, index) => (
+                      <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-2 rounded-full ${
+                            activity.type === 'campaign' ? 'bg-blue-500' : 'bg-green-500'
+                          }`} />
+                          <div>
+                            <p className="font-medium">{activity.description}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(activity.timestamp).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground capitalize">
+                          {activity.type}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <p className="text-muted-foreground">No influencer performance data available</p>
-                      <p className="text-sm text-muted-foreground mt-2">Data will appear once influencers start generating referrals</p>
-                    </div>
+                  <div className="flex items-center justify-center h-32">
+                    <p className="text-muted-foreground">No recent activity to display</p>
                   </div>
                 )}
               </CardContent>
@@ -447,5 +420,3 @@ export function AnalyticsPage() {
     </div>
   )
 }
-
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]

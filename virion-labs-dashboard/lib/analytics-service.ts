@@ -1,35 +1,48 @@
 import { supabase } from './supabase'
 
 export interface AnalyticsData {
-  totalClicks: number
-  totalSignups: number
-  conversionRate: number
-  totalEarnings: number
+  // Core business metrics
+  totalClients: number
+  totalCampaigns: number
+  totalOnboardingResponses: number
+  averageCompletionRate: number
+  
+  // Performance over time
   performanceData: Array<{
     date: string
-    clicks: number
-    conversions: number
+    campaigns: number
+    responses: number
+    completions: number
   }>
-  platformData: Array<{
+  
+  // Client distribution
+  clientData: Array<{
     name: string
     value: number
+    type: string
   }>
-  conversionRateData: Array<{
+  
+  // Campaign performance
+  campaignData: Array<{
     name: string
-    rate: number
+    responses: number
+    completions: number
+    completion_rate: number
   }>
-  ageData: Array<{
-    age: string
+  
+  // Industry distribution
+  industryData: Array<{
+    industry: string
     count: number
+    percentage: number
   }>
-  locationData: Array<{
-    country: string
-    count: number
-  }>
-  influencerData: Array<{
-    name: string
-    conversions: number
-    rate: number
+  
+  // Recent activity
+  recentActivity: Array<{
+    type: string
+    description: string
+    timestamp: string
+    details: any
   }>
 }
 
@@ -44,7 +57,7 @@ export class AnalyticsService {
     if (userRole === 'admin') {
       return this.getAdminAnalytics(startDate, endDate)
     } else {
-      return this.getInfluencerAnalytics(userId, startDate, endDate)
+      return this.getClientAnalytics(userId, startDate, endDate)
     }
   }
 
@@ -75,158 +88,85 @@ export class AnalyticsService {
     return { startDate, endDate }
   }
 
-  private static async getInfluencerAnalytics(
-    userId: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<AnalyticsData> {
-    try {
-      // Get referral links for this influencer
-      const { data: links, error: linksError } = await supabase
-        .from('referral_links')
-        .select('*')
-        .eq('influencer_id', userId)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-
-      if (linksError) throw linksError
-
-      // Get referral analytics events
-      const linkIds = links?.map(link => link.id) || []
-      const { data: analytics, error: analyticsError } = await supabase
-        .from('referral_analytics')
-        .select('*')
-        .in('link_id', linkIds)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-
-      if (analyticsError) throw analyticsError
-
-      // Get referrals data
-      const { data: referrals, error: referralsError } = await supabase
-        .from('referrals')
-        .select('*')
-        .eq('influencer_id', userId)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-
-      if (referralsError) throw referralsError
-
-      // Calculate totals
-      const totalClicks = links?.reduce((sum, link) => sum + link.clicks, 0) || 0
-      const totalSignups = referrals?.length || 0
-      const totalEarnings = links?.reduce((sum, link) => sum + link.earnings, 0) || 0
-      const conversionRate = totalClicks > 0 ? (totalSignups / totalClicks) * 100 : 0
-
-      // Generate performance over time data
-      const performanceData = this.generatePerformanceData(analytics || [], referrals || [], startDate, endDate)
-
-      // Generate platform data
-      const platformData = this.generatePlatformData(links || [])
-
-      // Generate conversion rate by platform
-      const conversionRateData = this.generateConversionRateData(links || [], referrals || [])
-
-      // Generate age data
-      const ageData = this.generateAgeData(referrals || [])
-
-      // Generate location data
-      const locationData = this.generateLocationData(analytics || [])
-
-      return {
-        totalClicks,
-        totalSignups,
-        conversionRate: Math.round(conversionRate * 100) / 100,
-        totalEarnings,
-        performanceData,
-        platformData,
-        conversionRateData,
-        ageData,
-        locationData,
-        influencerData: [] // Not applicable for individual influencers
-      }
-    } catch (error) {
-      console.error('Error fetching influencer analytics:', error)
-      return this.getFallbackData()
-    }
-  }
-
   private static async getAdminAnalytics(
     startDate: Date,
     endDate: Date
   ): Promise<AnalyticsData> {
     try {
-      // Get all referral links
-      const { data: links, error: linksError } = await supabase
-        .from('referral_links')
-        .select(`
-          *,
-          user_profiles!referral_links_influencer_id_fkey(full_name)
-        `)
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
-
-      if (linksError) throw linksError
-
-      // Get all referral analytics
-      const { data: analytics, error: analyticsError } = await supabase
-        .from('referral_analytics')
+      // Get total clients
+      const { data: clients, error: clientsError } = await supabase
+        .from('clients')
         .select('*')
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString())
 
-      if (analyticsError) throw analyticsError
+      if (clientsError) throw clientsError
 
-      // Get all referrals
-      const { data: referrals, error: referralsError } = await supabase
-        .from('referrals')
-        .select(`
-          *,
-          user_profiles!referrals_influencer_id_fkey(full_name)
-        `)
+      // Get all clients for industry analysis
+      const { data: allClients, error: allClientsError } = await supabase
+        .from('clients')
+        .select('*')
+
+      if (allClientsError) throw allClientsError
+
+      // Get campaigns
+      const { data: campaigns, error: campaignsError } = await supabase
+        .from('discord_guild_campaigns')
+        .select('*')
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString())
 
-      if (referralsError) throw referralsError
+      if (campaignsError) throw campaignsError
 
-      // Count active influencers
-      const activeInfluencers = new Set(links?.map(link => link.influencer_id)).size
+      // Get onboarding responses
+      const { data: responses, error: responsesError } = await supabase
+        .from('campaign_onboarding_responses')
+        .select('*, discord_guild_campaigns!inner(*)')
+        .gte('created_at', startDate.toISOString())
+        .lte('created_at', endDate.toISOString())
 
-      // Calculate totals
-      const totalClicks = links?.reduce((sum, link) => sum + link.clicks, 0) || 0
-      const totalSignups = referrals?.length || 0
-      const totalEarnings = links?.reduce((sum, link) => sum + link.earnings, 0) || 0
-      const conversionRate = totalClicks > 0 ? (totalSignups / totalClicks) * 100 : 0
+      if (responsesError) throw responsesError
+
+      // Get campaign analytics summary
+      const { data: campaignAnalytics, error: analyticsError } = await supabase
+        .rpc('get_campaign_analytics_summary')
+
+      if (analyticsError) throw analyticsError
+
+      // Calculate metrics
+      const totalClients = allClients?.length || 0
+      const totalCampaigns = campaigns?.length || 0
+      const totalOnboardingResponses = responses?.length || 0
+      const completedResponses = responses?.filter(r => r.is_completed).length || 0
+      const averageCompletionRate = totalOnboardingResponses > 0 
+        ? (completedResponses / totalOnboardingResponses) * 100 
+        : 0
 
       // Generate performance over time data
-      const performanceData = this.generatePerformanceData(analytics || [], referrals || [], startDate, endDate)
+      const performanceData = this.generatePerformanceOverTime(responses || [], campaigns || [], startDate, endDate)
 
-      // Generate platform data
-      const platformData = this.generatePlatformData(links || [])
+      // Generate client distribution data
+      const clientData = this.generateClientData(allClients || [])
 
-      // Generate conversion rate by platform
-      const conversionRateData = this.generateConversionRateData(links || [], referrals || [])
+      // Generate campaign performance data
+      const campaignData = this.generateCampaignData(campaignAnalytics?.campaigns || [])
 
-      // Generate age data
-      const ageData = this.generateAgeData(referrals || [])
+      // Generate industry distribution
+      const industryData = this.generateIndustryData(allClients || [])
 
-      // Generate location data
-      const locationData = this.generateLocationData(analytics || [])
-
-      // Generate influencer performance data
-      const influencerData = this.generateInfluencerData(links || [], referrals || [])
+      // Generate recent activity
+      const recentActivity = this.generateRecentActivity(responses || [], campaigns || [])
 
       return {
-        totalClicks,
-        totalSignups,
-        conversionRate: Math.round(conversionRate * 100) / 100,
-        totalEarnings: activeInfluencers, // For admin, show active influencers instead of earnings
+        totalClients,
+        totalCampaigns,
+        totalOnboardingResponses,
+        averageCompletionRate: Math.round(averageCompletionRate * 100) / 100,
         performanceData,
-        platformData,
-        conversionRateData,
-        ageData,
-        locationData,
-        influencerData
+        clientData,
+        campaignData,
+        industryData,
+        recentActivity
       }
     } catch (error) {
       console.error('Error fetching admin analytics:', error)
@@ -234,37 +174,62 @@ export class AnalyticsService {
     }
   }
 
-  private static generatePerformanceData(
-    analytics: any[],
-    referrals: any[],
+  private static async getClientAnalytics(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<AnalyticsData> {
+    try {
+      // Get client's campaigns
+      const { data: userProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (profileError) throw profileError
+
+      // For now, return basic fallback data for clients
+      // This can be expanded based on client-specific needs
+      return this.getFallbackData()
+    } catch (error) {
+      console.error('Error fetching client analytics:', error)
+      return this.getFallbackData()
+    }
+  }
+
+  private static generatePerformanceOverTime(
+    responses: any[],
+    campaigns: any[],
     startDate: Date,
     endDate: Date
   ) {
-    const days: { [key: string]: { clicks: number; conversions: number } } = {}
+    const days: { [key: string]: { campaigns: number; responses: number; completions: number } } = {}
     
     // Initialize days
     const currentDate = new Date(startDate)
     while (currentDate <= endDate) {
       const dateStr = currentDate.toISOString().split('T')[0]
-      days[dateStr] = { clicks: 0, conversions: 0 }
+      days[dateStr] = { campaigns: 0, responses: 0, completions: 0 }
       currentDate.setDate(currentDate.getDate() + 1)
     }
 
-    // Count clicks from analytics
-    analytics.forEach(event => {
-      if (event.event_type === 'click') {
-        const dateStr = event.created_at.split('T')[0]
-        if (days[dateStr]) {
-          days[dateStr].clicks++
-        }
+    // Count campaigns by date
+    campaigns.forEach(campaign => {
+      const dateStr = campaign.created_at.split('T')[0]
+      if (days[dateStr]) {
+        days[dateStr].campaigns++
       }
     })
 
-    // Count conversions from referrals
-    referrals.forEach(referral => {
-      const dateStr = referral.created_at.split('T')[0]
+    // Count responses and completions by date
+    responses.forEach(response => {
+      const dateStr = response.created_at.split('T')[0]
       if (days[dateStr]) {
-        days[dateStr].conversions++
+        days[dateStr].responses++
+        if (response.is_completed) {
+          days[dateStr].completions++
+        }
       }
     })
 
@@ -273,130 +238,97 @@ export class AnalyticsService {
       .slice(-30) // Show last 30 days maximum
       .map(([date, data]) => ({
         date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        clicks: data.clicks,
-        conversions: data.conversions
+        campaigns: data.campaigns,
+        responses: data.responses,
+        completions: data.completions
       }))
   }
 
-  private static generatePlatformData(links: any[]) {
-    const platforms: { [key: string]: number } = {}
-    
-    links.forEach(link => {
-      platforms[link.platform] = (platforms[link.platform] || 0) + link.clicks
+  private static generateClientData(clients: any[]) {
+    // Group clients by status and other metrics
+    const statusCounts = {
+      Active: 0,
+      Inactive: 0,
+      Pending: 0
+    }
+
+    clients.forEach(client => {
+      statusCounts[client.status as keyof typeof statusCounts]++
     })
 
-    return Object.entries(platforms).map(([name, value]) => ({ name, value }))
+    return Object.entries(statusCounts)
+      .filter(([, count]) => count > 0)
+      .map(([name, value]) => ({ name, value, type: 'status' }))
   }
 
-  private static generateConversionRateData(links: any[], referrals: any[]) {
-    const platformStats: { [key: string]: { clicks: number; conversions: number } } = {}
-    
-    // Count clicks by platform
-    links.forEach(link => {
-      if (!platformStats[link.platform]) {
-        platformStats[link.platform] = { clicks: 0, conversions: 0 }
-      }
-      platformStats[link.platform].clicks += link.clicks
-    })
-
-    // Count conversions by platform
-    referrals.forEach(referral => {
-      if (!platformStats[referral.source_platform]) {
-        platformStats[referral.source_platform] = { clicks: 0, conversions: 0 }
-      }
-      platformStats[referral.source_platform].conversions++
-    })
-
-    return Object.entries(platformStats).map(([name, stats]) => ({
-      name,
-      rate: stats.clicks > 0 ? Math.round((stats.conversions / stats.clicks) * 10000) / 100 : 0
+  private static generateCampaignData(campaigns: any[]) {
+    return campaigns.slice(0, 10).map((campaign: any) => ({
+      name: campaign.campaign_name || 'Unnamed Campaign',
+      responses: campaign.total_users_started || 0,
+      completions: campaign.total_users_completed || 0,
+      completion_rate: campaign.completion_rate || 0
     }))
   }
 
-  private static generateAgeData(referrals: any[]) {
-    const ageGroups: { [key: string]: number } = {
-      '18-24': 0,
-      '25-34': 0,
-      '35-44': 0,
-      '45-54': 0,
-      '55+': 0
-    }
-
-    referrals.forEach(referral => {
-      const age = referral.age
-      if (age >= 18 && age <= 24) ageGroups['18-24']++
-      else if (age >= 25 && age <= 34) ageGroups['25-34']++
-      else if (age >= 35 && age <= 44) ageGroups['35-44']++
-      else if (age >= 45 && age <= 54) ageGroups['45-54']++
-      else if (age >= 55) ageGroups['55+']++
+  private static generateIndustryData(clients: any[]) {
+    const industryCounts: { [key: string]: number } = {}
+    
+    clients.forEach(client => {
+      const industry = client.industry || 'Other'
+      industryCounts[industry] = (industryCounts[industry] || 0) + 1
     })
 
-    return Object.entries(ageGroups).map(([age, count]) => ({ age, count }))
+    const total = clients.length
+    return Object.entries(industryCounts).map(([industry, count]) => ({
+      industry,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 100) : 0
+    }))
   }
 
-  private static generateLocationData(analytics: any[]) {
-    const countries: { [key: string]: number } = {}
-    
-    analytics.forEach(event => {
-      if (event.country) {
-        countries[event.country] = (countries[event.country] || 0) + 1
-      }
+  private static generateRecentActivity(responses: any[], campaigns: any[]) {
+    const activities: any[] = []
+
+    // Add recent campaign activities
+    campaigns.slice(0, 5).forEach(campaign => {
+      activities.push({
+        type: 'campaign',
+        description: `New campaign: ${campaign.campaign_name}`,
+        timestamp: campaign.created_at,
+        details: { campaign_id: campaign.id, campaign_type: campaign.campaign_type }
+      })
     })
 
-    return Object.entries(countries)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 10) // Top 10 countries
-      .map(([country, count]) => ({ country, count }))
-  }
-
-  private static generateInfluencerData(links: any[], referrals: any[]) {
-    const influencerStats: { [key: string]: { name: string; clicks: number; conversions: number } } = {}
-    
-    // Aggregate clicks by influencer
-    links.forEach(link => {
-      const influencerId = link.influencer_id
-      const name = link.user_profiles?.full_name || 'Unknown Influencer'
-      
-      if (!influencerStats[influencerId]) {
-        influencerStats[influencerId] = { name, clicks: 0, conversions: 0 }
-      }
-      influencerStats[influencerId].clicks += link.clicks
+    // Add recent response activities
+    responses.slice(0, 5).forEach(response => {
+      activities.push({
+        type: 'response',
+        description: `User ${response.discord_username || response.discord_user_id} responded to ${response.field_key}`,
+        timestamp: response.created_at,
+        details: { 
+          campaign_id: response.campaign_id, 
+          field_key: response.field_key,
+          is_completed: response.is_completed 
+        }
+      })
     })
 
-    // Aggregate conversions by influencer
-    referrals.forEach(referral => {
-      const influencerId = referral.influencer_id
-      const name = referral.user_profiles?.full_name || 'Unknown Influencer'
-      
-      if (!influencerStats[influencerId]) {
-        influencerStats[influencerId] = { name, clicks: 0, conversions: 0 }
-      }
-      influencerStats[influencerId].conversions++
-    })
-
-    return Object.values(influencerStats)
-      .map(stats => ({
-        name: stats.name,
-        conversions: stats.conversions,
-        rate: stats.clicks > 0 ? Math.round((stats.conversions / stats.clicks) * 10000) / 100 : 0
-      }))
-      .sort((a, b) => b.rate - a.rate)
-      .slice(0, 10) // Top 10 influencers
+    return activities
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10)
   }
 
   private static getFallbackData(): AnalyticsData {
-    // Return some basic fallback data if database queries fail
     return {
-      totalClicks: 0,
-      totalSignups: 0,
-      conversionRate: 0,
-      totalEarnings: 0,
+      totalClients: 0,
+      totalCampaigns: 0,
+      totalOnboardingResponses: 0,
+      averageCompletionRate: 0,
       performanceData: [],
-      platformData: [],
-      conversionRateData: [],
-      ageData: [],
-      locationData: [],
-      influencerData: []
+      clientData: [],
+      campaignData: [],
+      industryData: [],
+      recentActivity: []
     }
   }
 } 
