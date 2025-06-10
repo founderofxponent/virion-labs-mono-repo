@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCampaignTemplate } from '@/lib/campaign-templates'
+// Database-driven template fetching
 
 // Initialize Supabase client for server-side operations
 const supabase = createClient(
@@ -41,13 +41,30 @@ export async function POST(request: NextRequest) {
       templateToUse = campaign.campaign_type
     }
 
-    // Get the campaign template from TypeScript definitions
-    const template = getCampaignTemplate(templateToUse)
-    if (!template) {
+    // Get the campaign template from database
+    const { data: templateData, error: templateError } = await supabase
+      .from('campaign_templates')
+      .select('*')
+      .eq('campaign_type', templateToUse)
+      .eq('is_default', true)
+      .single()
+
+    if (templateError || !templateData) {
       return NextResponse.json(
         { error: `Template not found for type: ${templateToUse}. Available templates: referral_onboarding, product_promotion, community_engagement, vip_support, custom` },
         { status: 404 }
       )
+    }
+
+    const template = {
+      id: templateData.campaign_type,
+      name: templateData.name,
+      description: templateData.description,
+      category: templateData.category,
+      bot_config: templateData.template_config.bot_config,
+      onboarding_fields: templateData.template_config.onboarding_fields || [],
+      analytics_config: templateData.template_config.analytics_config,
+      landing_page_config: templateData.template_config.landing_page_config
     }
 
     // Extract onboarding fields from template

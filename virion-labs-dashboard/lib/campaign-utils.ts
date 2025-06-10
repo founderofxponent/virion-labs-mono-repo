@@ -1,9 +1,11 @@
-import { getCampaignTemplate, type CampaignTemplate } from './campaign-templates'
+import { type CampaignTemplate } from './campaign-templates'
 
 export interface CampaignWithTemplate {
   id: string
   campaign_name: string
   campaign_type: string
+  bot_name?: string
+  guild_id?: string
   template?: CampaignTemplate
   bot_config?: any
   onboarding_completion_requirements?: any
@@ -12,10 +14,10 @@ export interface CampaignWithTemplate {
 
 /**
  * Merges campaign template configuration with existing campaign data
+ * Note: This function now requires the template to be passed in explicitly
+ * since we've moved to database-driven templates
  */
-export function mergeCampaignWithTemplate(campaign: any): CampaignWithTemplate {
-  const template = getCampaignTemplate(campaign.campaign_type)
-  
+export function mergeCampaignWithTemplate(campaign: any, template?: CampaignTemplate): CampaignWithTemplate {
   if (!template) {
     return {
       ...campaign,
@@ -89,7 +91,7 @@ export function checkOnboardingCompletion(
   }
 
   const requiredFields = requirements.required_fields
-  const missingFields = requiredFields.filter(fieldId => !completedFieldIds.includes(fieldId))
+  const missingFields = requiredFields.filter((fieldId: string) => !completedFieldIds.includes(fieldId))
   const isComplete = missingFields.length === 0
 
   return {

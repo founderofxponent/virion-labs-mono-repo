@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCampaignTemplate } from '@/lib/campaign-templates'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,13 +31,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get campaign template to check completion requirements
-    const template = getCampaignTemplate(campaign.campaign_type)
-    if (!template) {
+    // Get campaign template from database to check completion requirements
+    const { data: templateData, error: templateError } = await supabase
+      .from('campaign_templates')
+      .select('*')
+      .eq('campaign_type', campaign.campaign_type)
+      .eq('is_default', true)
+      .single()
+
+    if (templateError || !templateData) {
       return NextResponse.json(
         { error: 'Invalid campaign template' },
         { status: 400 }
       )
+    }
+
+    const template = {
+      id: templateData.campaign_type,
+      name: templateData.name,
+      description: templateData.description,
+      category: templateData.category,
+      bot_config: templateData.template_config.bot_config,
+      onboarding_fields: templateData.template_config.onboarding_fields || [],
+      analytics_config: templateData.template_config.analytics_config,
+      landing_page_config: templateData.template_config.landing_page_config
     }
 
     // Get user's onboarding responses

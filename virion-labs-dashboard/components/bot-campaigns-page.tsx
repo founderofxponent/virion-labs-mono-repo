@@ -6,7 +6,7 @@ import { useAuth } from "@/components/auth-provider"
 import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
 import { useClients } from "@/hooks/use-clients"
 import { CampaignCreationWizard } from "@/components/campaign-creation-wizard"
-import { getCampaignTemplate } from "@/lib/campaign-templates"
+import { type CampaignTemplate } from "@/lib/campaign-templates"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -75,6 +75,28 @@ export default function BotCampaignsPage() {
   const [filterTemplate, setFilterTemplate] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [templates, setTemplates] = useState<CampaignTemplate[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(true)
+
+  // Load templates from API
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        setTemplatesLoading(true)
+        const response = await fetch('/api/campaign-templates')
+        if (response.ok) {
+          const data = await response.json()
+          setTemplates(data.templates || [])
+        }
+      } catch (error) {
+        console.error('Error loading templates:', error)
+      } finally {
+        setTemplatesLoading(false)
+      }
+    }
+    
+    loadTemplates()
+  }, [])
 
   const filters = {
     ...(filterClient !== "all" && { client_id: filterClient }),
@@ -552,12 +574,17 @@ export default function BotCampaignsPage() {
                   <SelectValue placeholder="All templates" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Templates</SelectItem>
-                  <SelectItem value="referral_campaign">Referral Campaign</SelectItem>
-                  <SelectItem value="support_campaign">Support Campaign</SelectItem>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
+                  {templatesLoading ? (
+                    <SelectItem value="" disabled>Loading templates...</SelectItem>
+                  ) : (
+                    <>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -837,10 +864,10 @@ export default function BotCampaignsPage() {
                   </div>
                   <div>
                     <CardTitle className="text-lg">
-                      {getCampaignTemplate(editForm.campaign_template)?.name || editForm.campaign_template}
+                      {templates.find(t => t.id === editForm.campaign_template)?.name || editForm.campaign_template}
                     </CardTitle>
                     <CardDescription>
-                      {getCampaignTemplate(editForm.campaign_template)?.description}
+                      {templates.find(t => t.id === editForm.campaign_template)?.description}
                     </CardDescription>
                   </div>
                 </div>
@@ -855,7 +882,7 @@ export default function BotCampaignsPage() {
               <Select
                 value={editForm.campaign_template}
                 onValueChange={(value) => {
-                  const template = getCampaignTemplate(value)
+                  const template = templates.find(t => t.id === value)
                   if (template) {
                     setEditForm(prev => ({
                       ...prev,
@@ -881,11 +908,17 @@ export default function BotCampaignsPage() {
                   <SelectValue placeholder="Select template" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="referral_onboarding">Referral Onboarding</SelectItem>
-                  <SelectItem value="product_promotion">Product Promotion</SelectItem>
-                  <SelectItem value="community_engagement">Community Engagement</SelectItem>
-                  <SelectItem value="vip_support">VIP Support</SelectItem>
-                  <SelectItem value="custom">Custom Configuration</SelectItem>
+                  {templatesLoading ? (
+                    <SelectItem value="" disabled>Loading templates...</SelectItem>
+                  ) : (
+                    <>
+                      {templates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

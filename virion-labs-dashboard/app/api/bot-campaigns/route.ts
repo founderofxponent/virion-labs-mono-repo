@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCampaignTemplate } from '@/lib/campaign-templates'
+// Database-driven template fetching
 
 // Initialize Supabase client for server-side operations
 const supabase = createClient(
@@ -199,13 +199,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get template configuration
-    const template = getCampaignTemplate(campaign_template)
-    if (!template) {
+    // Get template configuration from database
+    const { data: templateData, error: templateError } = await supabase
+      .from('campaign_templates')
+      .select('*')
+      .eq('campaign_type', campaign_template)
+      .eq('is_default', true)
+      .single()
+
+    if (templateError || !templateData) {
       return NextResponse.json(
         { error: 'Invalid campaign template' },
         { status: 400 }
       )
+    }
+
+    const template = {
+      id: templateData.campaign_type,
+      name: templateData.name,
+      description: templateData.description,
+      category: templateData.category,
+      bot_config: templateData.template_config.bot_config,
+      onboarding_fields: templateData.template_config.onboarding_fields || [],
+      analytics_config: templateData.template_config.analytics_config,
+      landing_page_config: templateData.template_config.landing_page_config
     }
 
     // Merge template bot configuration with provided overrides

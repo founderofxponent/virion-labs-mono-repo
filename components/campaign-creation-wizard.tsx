@@ -205,111 +205,116 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
     onOpenChange(false)
   }
 
-  const getTemplateIcon = (category: string) => {
-    switch (category) {
-      case 'referral': return <Users className="h-6 w-6" />
-      case 'promotion': return <Zap className="h-6 w-6" />
-      case 'community': return <Bot className="h-6 w-6" />
-      case 'support': return <HeadphonesIcon className="h-6 w-6" />
-      case 'custom': return <Settings className="h-6 w-6" />
-      default: return <Bot className="h-6 w-6" />
-    }
-  }
-
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'referral': return 'bg-blue-500'
       case 'promotion': return 'bg-green-500'
       case 'community': return 'bg-purple-500'
       case 'support': return 'bg-orange-500'
-      case 'custom': return 'bg-gray-500'
       default: return 'bg-gray-500'
     }
   }
 
+  const getTemplateIcon = (category: string) => {
+    switch (category) {
+      case 'referral': return <Users className="h-5 w-5" />
+      case 'promotion': return <Zap className="h-5 w-5" />
+      case 'community': return <MessageSquare className="h-5 w-5" />
+      case 'support': return <HeadphonesIcon className="h-5 w-5" />
+      default: return <Bot className="h-5 w-5" />
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            Create Bot Campaign - Step {currentStep} of 3
-          </DialogTitle>
+          <DialogTitle>Create Bot Campaign</DialogTitle>
           <DialogDescription>
-            {currentStep === 1 
-              ? "Choose a campaign template that matches your goals"
-              : currentStep === 2
-                ? "Configure your campaign details and bot behavior"
-                : "Onboarding Preview"
-            }
+            Set up a new Discord bot campaign with automated onboarding and engagement features
           </DialogDescription>
         </DialogHeader>
 
         {/* Step 1: Template Selection */}
         {currentStep === 1 && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {templates.map((template) => (
-                <Card 
-                  key={template.id} 
-                  className={`cursor-pointer transition-all hover:shadow-md ${
-                    formData.campaign_template === template.id 
-                      ? 'ring-2 ring-primary border-primary' 
-                      : 'border-border'
-                  }`}
-                  onClick={() => handleTemplateSelect(template.id)}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className={`p-2 rounded-lg text-white ${getCategoryColor(template.category)}`}>
-                          {getTemplateIcon(template.category)}
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">{template.name}</CardTitle>
-                          <Badge variant="outline" className="mt-1">
-                            {template.category}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {template.description}
-                    </p>
-                    
-                    {/* Show template features */}
-                    <div className="space-y-2">
-                      <h5 className="text-sm font-medium">Key Features:</h5>
-                      <div className="flex flex-wrap gap-2">
-                        {Object.entries(template.bot_config.features)
-                          .filter(([_, enabled]) => enabled)
-                          .map(([feature, _]) => (
-                            <Badge key={feature} variant="secondary" className="text-xs">
-                              {feature.replace('_', ' ')}
-                            </Badge>
-                          ))
-                        }
-                      </div>
-                    </div>
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-2">Choose a Campaign Template</h3>
+              <p className="text-sm text-muted-foreground">
+                Select a pre-configured template to get started quickly, or choose custom for full control
+              </p>
+            </div>
 
-                    {/* Show sample auto-responses */}
-                    {Object.keys(template.bot_config.auto_responses).length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        <h5 className="text-sm font-medium">Sample Response:</h5>
-                        <div className="bg-muted p-2 rounded text-xs">
-                          "{Object.values(template.bot_config.auto_responses)[0]}"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {templatesLoading ? (
+                <div className="col-span-2 text-center py-8">
+                  <div className="text-muted-foreground">Loading templates...</div>
+                </div>
+              ) : (
+                templates.map((template) => (
+                  <Card 
+                    key={template.id} 
+                    className={`cursor-pointer transition-all hover:shadow-md ${
+                      formData.campaign_template === template.id 
+                        ? 'ring-2 ring-primary border-primary' 
+                        : 'border-border'
+                    }`}
+                    onClick={() => handleTemplateSelect(template.id)}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className={`p-2 rounded-lg text-white ${getCategoryColor(template.category)}`}>
+                            {getTemplateIcon(template.category)}
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg">{template.name}</CardTitle>
+                            <Badge variant="outline" className="mt-1">
+                              {template.category}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {template.description}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {template.bot_config.features.onboarding && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Settings className="h-3 w-3 mr-1" />
+                            Onboarding
+                          </Badge>
+                        )}
+                        {template.bot_config.features.referral_tracking && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Users className="h-3 w-3 mr-1" />
+                            Referral Tracking
+                          </Badge>
+                        )}
+                        {template.bot_config.features.auto_role && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Hash className="h-3 w-3 mr-1" />
+                            Auto Roles
+                          </Badge>
+                        )}
+                        {template.bot_config.features.moderation && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Eye className="h-3 w-3 mr-1" />
+                            Moderation
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           </div>
         )}
 
-        {/* Step 2: Campaign Configuration */}
+        {/* Step 2: Configuration */}
         {currentStep === 2 && selectedTemplate && (
           <div className="space-y-6">
             {/* Template Preview */}
@@ -449,7 +454,7 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
                 </div>
 
                 <div>
-                  <Label htmlFor="bot_response_style">Bot Response Style</Label>
+                  <Label htmlFor="bot_response_style">Response Style</Label>
                   <Select
                     value={formData.bot_response_style}
                     onValueChange={(value) => handleFieldChange('bot_response_style', value)}
@@ -573,221 +578,55 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
         {/* Step 3: Onboarding Preview */}
         {currentStep === 3 && selectedTemplate && (
           <div className="space-y-6">
-            {/* Campaign Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="h-5 w-5" />
-                  Campaign Preview
-                </CardTitle>
-                <CardDescription>
-                  Review your campaign settings and onboarding flow before creating
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Campaign Name</Label>
-                    <p className="text-sm text-muted-foreground">{formData.campaign_name}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Template</Label>
-                    <p className="text-sm text-muted-foreground">{selectedTemplate.name}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Bot Name</Label>
-                    <p className="text-sm text-muted-foreground">{formData.bot_name || selectedTemplate.bot_config.bot_name}</p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Discord Server ID</Label>
-                    <p className="text-sm text-muted-foreground">{formData.guild_id}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-2">Onboarding Preview</h3>
+              <p className="text-sm text-muted-foreground">
+                Review the onboarding questions that will be asked to new members
+              </p>
+            </div>
 
-            {/* Onboarding Preview */}
-            {selectedTemplate.onboarding_fields && selectedTemplate.onboarding_fields.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    Onboarding Flow Preview
-                  </CardTitle>
-                  <CardDescription>
-                    This is how users will experience the onboarding process
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Bot Commands Preview */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold">Available Commands</h4>
-                    <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Hash className="h-4 w-4" />
-                        <code className="bg-background px-2 py-1 rounded text-xs">{formData.prefix || selectedTemplate.bot_config.prefix}start</code>
-                        <span className="text-muted-foreground">- Begin onboarding process</span>
+            {selectedTemplate.onboarding_fields.length > 0 ? (
+              <div className="space-y-4">
+                {selectedTemplate.onboarding_fields.map((field, index) => (
+                  <Card key={field.id}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <Badge variant="outline">Question {index + 1}</Badge>
+                        {field.required && <Badge variant="destructive">Required</Badge>}
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Hash className="h-4 w-4" />
-                        <code className="bg-background px-2 py-1 rounded text-xs">{formData.prefix || selectedTemplate.bot_config.prefix}onboard</code>
-                        <span className="text-muted-foreground">- Start onboarding (alternative)</span>
+                      <CardTitle className="text-base">{field.question}</CardTitle>
+                      {field.description && (
+                        <CardDescription>{field.description}</CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Badge variant="secondary">{field.type}</Badge>
+                        {field.options && field.options.length > 0 && (
+                          <span>• {field.options.length} options</span>
+                        )}
+                        {field.validation?.min_length && (
+                          <span>• Min: {field.validation.min_length} chars</span>
+                        )}
+                        {field.validation?.max_length && (
+                          <span>• Max: {field.validation.max_length} chars</span>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Hash className="h-4 w-4" />
-                        <code className="bg-background px-2 py-1 rounded text-xs">{formData.prefix || selectedTemplate.bot_config.prefix}help</code>
-                        <span className="text-muted-foreground">- Get help and commands list</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Onboarding Questions Preview */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold">Onboarding Questions ({selectedTemplate.onboarding_fields.length} questions)</h4>
-                    <div className="space-y-4 max-h-96 overflow-y-auto">
-                      {selectedTemplate.onboarding_fields.map((field, index) => (
-                        <div key={field.id} className="border-l-2 border-primary/20 pl-4 space-y-2">
-                          <div className="flex items-start gap-3">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              <Bot className="h-4 w-4 text-primary" />
-                            </div>
-                            <div className="flex-1 bg-background p-3 rounded-lg border">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium">Question {index + 1}</span>
-                                {field.required && (
-                                  <Badge variant="destructive" className="text-xs">Required</Badge>
-                                )}
-                                <Badge variant="outline" className="text-xs">{field.type}</Badge>
-                              </div>
-                              <p className="text-sm">{field.question}</p>
-                              {field.description && (
-                                <p className="text-xs text-muted-foreground mt-1">{field.description}</p>
-                              )}
-                              {field.placeholder && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  <span className="font-medium">Example:</span> {field.placeholder}
-                                </p>
-                              )}
-                              {field.options && field.options.length > 0 && (
-                                <div className="mt-2">
-                                  <p className="text-xs font-medium text-muted-foreground mb-1">Options:</p>
-                                  <div className="flex flex-wrap gap-1">
-                                    {field.options.map((option, idx) => (
-                                      <Badge key={idx} variant="secondary" className="text-xs">
-                                        {option}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Data Collection Summary */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold">Data Collection Summary</h4>
-                    <div className="bg-muted/50 p-4 rounded-lg">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium">Total Questions:</span>
-                          <span className="ml-2">{selectedTemplate.onboarding_fields.length}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Required Questions:</span>
-                          <span className="ml-2">{selectedTemplate.onboarding_fields.filter(f => f.required).length}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">DM Collection:</span>
-                          <span className="ml-2">{selectedTemplate.onboarding_fields.filter(f => f.discord_integration.collect_in_dm).length}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Public Display:</span>
-                          <span className="ml-2">{selectedTemplate.onboarding_fields.filter(f => f.discord_integration.show_in_embed).length}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Welcome Message Preview */}
-                  {(formData.welcome_message || selectedTemplate.bot_config.welcome_message) && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold">Welcome Message</h4>
-                      <div className="flex items-start gap-3">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Bot className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="flex-1 bg-background p-3 rounded-lg border">
-                          <p className="text-sm">
-                            {formData.welcome_message || selectedTemplate.bot_config.welcome_message}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             ) : (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    No Onboarding Configured
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                <CardContent className="text-center py-8">
+                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Onboarding Questions</h3>
                   <p className="text-sm text-muted-foreground">
-                    This template doesn't include onboarding questions. Users can still interact with the bot using available commands.
+                    This template doesn't include onboarding questions. You can add them later if needed.
                   </p>
-                  <div className="mt-3 space-y-2">
-                    <h4 className="text-sm font-semibold">Available Commands</h4>
-                    <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Hash className="h-4 w-4" />
-                        <code className="bg-background px-2 py-1 rounded text-xs">{formData.prefix || selectedTemplate.bot_config.prefix}help</code>
-                        <span className="text-muted-foreground">- Get help and commands list</span>
-                      </div>
-                      {Object.entries(selectedTemplate.bot_config.auto_responses).map(([trigger, response], idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-sm">
-                          <Hash className="h-4 w-4" />
-                          <code className="bg-background px-2 py-1 rounded text-xs">{trigger}</code>
-                          <span className="text-muted-foreground">- {response.substring(0, 50)}...</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             )}
-
-            {/* Final Confirmation */}
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Play className="h-5 w-5" />
-                  Ready to Create Campaign
-                </CardTitle>
-                <CardDescription>
-                  Review the information above and click "Create Campaign" to deploy your bot
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>✓ Template selected and configured</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>✓ Bot settings configured</span>
-                </div>
-                {selectedTemplate.onboarding_fields && selectedTemplate.onboarding_fields.length > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span>✓ Onboarding flow ready with {selectedTemplate.onboarding_fields.length} questions</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
         )}
 

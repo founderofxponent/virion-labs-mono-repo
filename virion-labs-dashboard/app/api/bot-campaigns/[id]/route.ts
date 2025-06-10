@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getCampaignTemplate } from '@/lib/campaign-templates'
+// Database-driven template fetching
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -69,8 +69,24 @@ export async function PUT(
     // Handle campaign template changes
     let finalUpdateData = updateData
     if (campaign_template) {
-      const template = getCampaignTemplate(campaign_template)
-      if (template) {
+      const { data: templateData, error: templateError } = await supabase
+        .from('campaign_templates')
+        .select('*')
+        .eq('campaign_type', campaign_template)
+        .eq('is_default', true)
+        .single()
+
+      if (!templateError && templateData) {
+        const template = {
+          id: templateData.campaign_type,
+          name: templateData.name,
+          description: templateData.description,
+          category: templateData.category,
+          bot_config: templateData.template_config.bot_config,
+          onboarding_fields: templateData.template_config.onboarding_fields || [],
+          analytics_config: templateData.template_config.analytics_config,
+          landing_page_config: templateData.template_config.landing_page_config
+        }
         // Map new template IDs to database-compatible template values
         const templateMapping: Record<string, string> = {
           'referral_onboarding': 'referral_campaign',
