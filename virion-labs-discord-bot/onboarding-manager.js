@@ -602,47 +602,47 @@ class OnboardingManager {
     // Ask the next question
     await this.askNextQuestion(message, config, session);
   }
-}
 
-// Check if onboarding is complete based on campaign template requirements
-async function checkOnboardingCompletion(userId, campaignId, config) {
-  try {
-    const completionRequirements = config.config.onboarding_completion_requirements || {};
-    
-    if (!completionRequirements.required_fields || completionRequirements.required_fields.length === 0) {
-      // No specific requirements, consider complete if any responses exist
-      return { isComplete: true, message: 'Onboarding completed!' };
+  // Check if onboarding is complete based on campaign template requirements
+  async checkOnboardingCompletion(userId, campaignId, config) {
+    try {
+      const completionRequirements = config.config.onboarding_completion_requirements || {};
+
+      if (!completionRequirements.required_fields || completionRequirements.required_fields.length === 0) {
+        // No specific requirements, consider complete if any responses exist
+        return { isComplete: true, message: 'Onboarding completed!' };
+      }
+
+      // Check completion via dashboard API
+      const response = await fetch(`${process.env.DASHBOARD_API_URL}/campaign-onboarding-responses/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0'
+        },
+        body: JSON.stringify({
+          campaign_id: campaignId,
+          discord_user_id: userId
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return {
+          isComplete: result.completed,
+          message: result.completed
+            ? (result.completion_message || 'Congratulations! Your onboarding is complete.')
+            : `Please complete the remaining fields: ${result.missing_fields?.join(', ') || 'unknown'}`,
+          autoRole: result.auto_role_on_completion,
+          completionPercentage: result.completion_percentage || 0
+        };
+      }
+
+      return { isComplete: false, message: 'Unable to check completion status.' };
+    } catch (error) {
+      console.error('Error checking onboarding completion:', error);
+      return { isComplete: false, message: 'Error checking completion status.' };
     }
-
-    // Check completion via dashboard API
-    const response = await fetch(`${process.env.DASHBOARD_API_URL}/campaign-onboarding-responses/complete`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Virion-Discord-Bot/2.0'
-      },
-      body: JSON.stringify({
-        campaign_id: campaignId,
-        discord_user_id: userId
-      })
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      return {
-        isComplete: result.completed,
-        message: result.completed 
-          ? (result.completion_message || 'Congratulations! Your onboarding is complete.')
-          : `Please complete the remaining fields: ${result.missing_fields?.join(', ') || 'unknown'}`,
-        autoRole: result.auto_role_on_completion,
-        completionPercentage: result.completion_percentage || 0
-      };
-    }
-
-    return { isComplete: false, message: 'Unable to check completion status.' };
-  } catch (error) {
-    console.error('Error checking onboarding completion:', error);
-    return { isComplete: false, message: 'Error checking completion status.' };
   }
 }
 
