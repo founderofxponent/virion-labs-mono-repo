@@ -33,16 +33,28 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
   const { signUp, user, loading } = useAuth()
   const router = useRouter()
 
   // Redirect authenticated users to dashboard
   useEffect(() => {
+    console.log('🔐 SignupPage: Auth state check', { loading, user: !!user })
     if (!loading && user) {
-      console.log('🔐 SignupPage: User already authenticated, redirecting to dashboard')
+      console.log('🔐 SignupPage: User authenticated, redirecting to dashboard')
       router.replace("/")
     }
   }, [user, loading, router])
+
+  // Debug auth states
+  useEffect(() => {
+    console.log('🔐 SignupPage: Auth state changed', { 
+      authLoading: loading, 
+      hasUser: !!user, 
+      formLoading: isLoading,
+      userEmail: user?.email 
+    })
+  }, [loading, user, isLoading])
 
   const {
     register,
@@ -53,19 +65,82 @@ export default function SignupPage() {
   })
 
   const onSubmit = async (data: SignupForm) => {
+    console.log('🔐 SignupPage: Starting signup process...')
     setIsLoading(true)
+    setFormError(null) // Clear any previous errors
+    
     try {
       // All signups are for influencers only
       const { error } = await signUp(data.email, data.password, data.fullName, "influencer")
       
       if (error) {
-        toast.error(error.message || "Failed to create account")
+        console.error('🔐 SignupPage: Signup error:', error)
+        
+        // Handle specific error cases with user-friendly messages
+        let errorMessage = "Failed to create account"
+        
+        if (error.message) {
+          const message = error.message.toLowerCase()
+          
+          if (message.includes("user already registered") || message.includes("already exists") || message.includes("already registered")) {
+            errorMessage = "An account with this email already exists. Please sign in instead."
+          } else if (message.includes("invalid email")) {
+            errorMessage = "Please enter a valid email address."
+          } else if (message.includes("password")) {
+            if (message.includes("too short") || message.includes("minimum")) {
+              errorMessage = "Password must be at least 6 characters long."
+            } else if (message.includes("too weak")) {
+              errorMessage = "Password is too weak. Please choose a stronger password."
+            } else {
+              errorMessage = "Password does not meet requirements. Please try a different password."
+            }
+          } else if (message.includes("rate limit") || message.includes("too many")) {
+            errorMessage = "Too many signup attempts. Please wait a moment and try again."
+          } else if (message.includes("network") || message.includes("connection")) {
+            errorMessage = "Network error. Please check your connection and try again."
+          } else {
+            // Use the original error message if it's user-friendly
+            errorMessage = error.message.length < 100 ? error.message : "Failed to create account"
+          }
+        }
+        
+        // Set form error for display in the form
+        setFormError(errorMessage)
+        
+        // Show toast notification
+        toast.error(errorMessage)
+        
       } else {
-        toast.success("Account created successfully! Please check your email to verify your account.")
-        router.push("/login")
+        console.log('🔐 SignupPage: Signup successful!')
+        // Clear form error on success
+        setFormError(null)
+        
+        // Show success toast
+        toast.success("Account created successfully!", {
+          description: "Welcome to Virion Labs! You're now logged in.",
+        })
+        
+        // The AuthProvider will handle setting the user state and triggering redirect
+        console.log('🔐 SignupPage: Waiting for AuthProvider to handle user state...')
+        
+        // Fallback redirect if AuthProvider doesn't handle it within 2 seconds
+        setTimeout(() => {
+          console.log('🔐 SignupPage: Fallback redirect check...')
+          if (!user) {
+            console.log('🔐 SignupPage: AuthProvider didnt set user, manually redirecting to dashboard')
+            router.replace("/")
+          } else {
+            console.log('🔐 SignupPage: User is set, no manual redirect needed')
+          }
+        }, 2000)
       }
-    } catch (error) {
-      toast.error("An unexpected error occurred")
+    } catch (error: any) {
+      console.error('🔐 SignupPage: Unexpected error caught:', error)
+      
+      const errorMessage = "An unexpected error occurred. Please try again."
+      setFormError(errorMessage)
+      
+      toast.error(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -203,6 +278,13 @@ export default function SignupPage() {
                   <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
                 )}
               </div>
+
+              {/* Form Error Display */}
+              {formError && (
+                <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                  <p className="text-sm text-destructive font-medium">{formError}</p>
+                </div>
+              )}
 
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Creating account..." : "Create account"}

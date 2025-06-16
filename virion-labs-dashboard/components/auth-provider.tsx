@@ -14,6 +14,7 @@ type AuthContextType = {
   signUp: (email: string, password: string, fullName: string, role: UserRole) => Promise<{ error: any }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
+  resendConfirmation: (email: string) => Promise<{ error: any }>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -23,9 +24,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true) // Start with true, but with aggressive timeouts
+  const [initialized, setInitialized] = useState(false)
 
-  console.log('🔐 AuthProvider: Current state', { hasUser: !!user, hasProfile: !!profile, loading })
+  console.log('🔐 AuthProvider: Current state', { hasUser: !!user, hasProfile: !!profile, loading, initialized })
+
+  // EMERGENCY: Force loading to false after very short time
+  useEffect(() => {
+    console.log('🔐 AuthProvider: EMERGENCY TIMEOUT - Setting up 1.5 second force stop')
+    const emergencyTimeout = setTimeout(() => {
+      console.log('🔐 AuthProvider: ⚠️ EMERGENCY TIMEOUT FIRED - Force setting loading to false')
+      setLoading(false)
+      setInitialized(true)
+    }, 1500) // 1.5 second emergency timeout
+
+    return () => clearTimeout(emergencyTimeout)
+  }, [])
 
   // Helper function to create profile from user data (fallback when no database profile exists)
   const createProfileFromUser = (user: User): UserProfile => {
@@ -83,90 +97,168 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    console.log('🔐 AuthProvider: useEffect STARTING...')
+    if (initialized) return // Don't run if already initialized
+
+    console.log('🔐 AuthProvider: useEffect STARTING auth check...')
+    let authCheckCompleted = false
+
+    const completeAuthCheck = () => {
+      if (authCheckCompleted) return
+      authCheckCompleted = true
+      console.log('🔐 AuthProvider: ✅ Auth check completed - setting loading false')
+      setLoading(false)
+      setInitialized(true)
+    }
+
+    // Backup timeout to ensure auth check completes
+    const backupTimeout = setTimeout(() => {
+      console.log('🔐 AuthProvider: ⏰ Backup timeout - completing auth check')
+      completeAuthCheck()
+    }, 1000)
 
     // Get session from localStorage (fast, no network call)
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log('🔐 AuthProvider: Session check', { hasSession: !!session, error })
-      
-      if (error) {
-        console.error('🔐 AuthProvider: Session error:', error)
-        setUser(null)
-        setProfile(null)
-        setLoading(false)
-        return
-      }
-      
-      if (session?.user) {
-        console.log('🔐 AuthProvider: Session found, fetching profile from database')
-        setUser(session.user)
-        
-        // Fetch actual profile from database
-        fetchProfile(session.user.id).then(profileData => {
-          if (profileData) {
-            setProfile(profileData)
-          } else {
-            // Fallback to creating profile from user metadata
-            console.log('🔐 AuthProvider: No database profile found, using user metadata')
-            setProfile(createProfileFromUser(session.user))
-          }
-          setLoading(false)
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        console.log('🔐 AuthProvider: Session check result', { 
+          hasSession: !!session, 
+          error: !!error
         })
-      } else {
-        console.log('🔐 AuthProvider: No session found')
+        
+        if (error) {
+          console.error('🔐 AuthProvider: Session error:', error)
+          setUser(null)
+          setProfile(null)
+          completeAuthCheck()
+          return
+        }
+        
+        if (session?.user) {
+          console.log('🔐 AuthProvider: ✅ User session found')
+          setUser(session.user)
+          
+          // Always create profile from user metadata first
+          const userProfile = createProfileFromUser(session.user)
+          setProfile(userProfile)
+          
+          // Complete auth check immediately for any user
+          completeAuthCheck()
+          
+          // Always try to fetch database profile (non-blocking)
+          console.log('🔐 AuthProvider: 📊 Fetching database profile (background)')
+          fetchProfile(session.user.id).then(profileData => {
+            if (profileData) {
+              console.log('🔐 AuthProvider: 📊 Database profile loaded')
+              setProfile(profileData)
+            }
+          }).catch(err => {
+            console.error('🔐 AuthProvider: Database profile fetch failed (non-critical):', err)
+          })
+        } else {
+          console.log('🔐 AuthProvider: ❌ No user session')
+          setUser(null)
+          setProfile(null)
+          completeAuthCheck()
+        }
+      })
+      .catch(err => {
+        console.error('🔐 AuthProvider: Failed to get session:', err)
         setUser(null)
         setProfile(null)
-        setLoading(false)
-      }
-    }).catch(err => {
-      console.error('🔐 AuthProvider: Failed to get session:', err)
-      setUser(null)
-      setProfile(null)
-      setLoading(false)
-    })
+        completeAuthCheck()
+      })
 
     // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔐 AuthProvider: Auth state changed', { event, hasSession: !!session })
+      console.log('🔐 AuthProvider: 🔄 Auth state changed', { 
+        event, 
+        hasSession: !!session,
+        userEmail: session?.user?.email
+      })
       
       if (session?.user) {
+        console.log('🔐 AuthProvider: ✅ User authenticated via auth state change')
         setUser(session.user)
+        setLoading(false) // Ensure loading is false when user is authenticated
+        setInitialized(true) // Mark as initialized when we have a user
         
-        // Fetch actual profile from database
+        // Always create profile from user metadata
+        const userProfile = createProfileFromUser(session.user)
+        setProfile(userProfile)
+        
+        // Always try to fetch database profile (non-blocking)
+        console.log('🔐 AuthProvider: 📊 Fetching database profile (background)')
         fetchProfile(session.user.id).then(profileData => {
           if (profileData) {
+            console.log('🔐 AuthProvider: 📊 Database profile loaded')
             setProfile(profileData)
-          } else {
-            // Fallback to creating profile from user metadata
-            setProfile(createProfileFromUser(session.user))
           }
+        }).catch(err => {
+          console.error('🔐 AuthProvider: Database profile fetch failed (non-critical):', err)
         })
       } else {
+        console.log('🔐 AuthProvider: ❌ User logged out via auth state change')
         setUser(null)
         setProfile(null)
+        setLoading(false) // Ensure loading is false when no user
+        // Don't set initialized to true here on logout, let the initial check handle it
       }
-      setLoading(false)
     })
 
     return () => {
+      clearTimeout(backupTimeout)
       subscription.unsubscribe()
     }
-  }, [])
+  }, [initialized])
 
   const signIn = async (email: string, password: string) => {
+    console.log('🔐 AuthProvider: Starting login...')
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
-    // Auth state change listener will handle setting user, profile and loading state
-    if (error) setLoading(false)
+    
+    console.log('🔐 AuthProvider: Login result', { 
+      hasUser: !!data?.user, 
+      hasSession: !!data?.session,
+      error: !!error,
+      userEmail: data?.user?.email
+    })
+    
+    // If login was successful and we have a session
+    if (!error && data?.session?.user) {
+      console.log('🔐 AuthProvider: ✅ Login successful with session - updating state immediately')
+      setUser(data.session.user)
+      setLoading(false)
+      setInitialized(true)
+      
+      // Create profile from user metadata
+      const userProfile = createProfileFromUser(data.session.user)
+      setProfile(userProfile)
+      
+      // Try to fetch database profile (non-blocking)
+      fetchProfile(data.session.user.id).then(profileData => {
+        if (profileData) {
+          console.log('🔐 AuthProvider: 📊 Database profile loaded after login')
+          setProfile(profileData)
+        }
+      }).catch(err => {
+        console.error('🔐 AuthProvider: Database profile fetch failed after login (non-critical):', err)
+      })
+    } else if (error) {
+      console.error('🔐 AuthProvider: ❌ Login failed:', error)
+      setLoading(false)
+    }
+    
     return { error }
   }
 
   const signUp = async (email: string, password: string, fullName: string, role: UserRole) => {
+    console.log('🔐 AuthProvider: Starting signup...')
     setLoading(true)
-    const { error } = await supabase.auth.signUp({
+    
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -176,8 +268,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     })
-    // Auth state change listener will handle setting user, profile and loading state
-    if (error) setLoading(false)
+    
+    console.log('🔐 AuthProvider: Signup result', { 
+      hasUser: !!data?.user, 
+      hasSession: !!data?.session,
+      error: !!error,
+      userEmail: data?.user?.email
+    })
+    
+    // If signup was successful and we have a session (email confirmation disabled)
+    if (!error && data?.session?.user) {
+      console.log('🔐 AuthProvider: ✅ Signup successful with immediate session - updating state immediately')
+      setUser(data.session.user)
+      setLoading(false)
+      setInitialized(true)
+      
+      // Create profile from user metadata
+      const userProfile = createProfileFromUser(data.session.user)
+      setProfile(userProfile)
+      
+      // Try to fetch database profile (non-blocking)
+      fetchProfile(data.session.user.id).then(profileData => {
+        if (profileData) {
+          console.log('🔐 AuthProvider: 📊 Database profile loaded after signup')
+          setProfile(profileData)
+        }
+      }).catch(err => {
+        console.error('🔐 AuthProvider: Database profile fetch failed after signup (non-critical):', err)
+      })
+    } else if (!error && data?.user && !data?.session) {
+      console.log('🔐 AuthProvider: ⚠️ User created but no session - this should not happen with email confirmation disabled')
+      // Wait a bit for auth state change listener to catch up
+      setTimeout(() => {
+        console.log('🔐 AuthProvider: Timeout after signup with no session - setting loading false')
+        setLoading(false)
+      }, 2000)
+    } else if (error) {
+      console.error('🔐 AuthProvider: ❌ Signup failed:', error)
+      setLoading(false)
+    }
+    
     return { error }
   }
 
@@ -190,8 +320,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔐 AuthProvider: Signed out successfully.')
   }
 
+  const resendConfirmation = async (email: string) => {
+    setLoading(true)
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email
+    })
+    setLoading(false)
+    return { error }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, refreshProfile, resendConfirmation }}>
       {children}
     </AuthContext.Provider>
   )

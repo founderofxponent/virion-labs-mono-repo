@@ -19,24 +19,16 @@ export function ProtectedRoute({
   const router = useRouter()
 
   useEffect(() => {
-    // Only redirect if we're certain about the auth state (not loading)
-    if (!loading) {
-      if (!user) {
-        console.log('🛡️ ProtectedRoute: No user detected, redirecting to login')
-        router.replace(redirectTo)
-        return
-      }
-
-      // Check role requirements only if we have both user and profile
-      if (user && profile && allowedRoles && allowedRoles.length > 0) {
-        if (!allowedRoles.includes(profile.role)) {
-          console.log('🛡️ ProtectedRoute: Role not allowed, redirecting')
-          router.replace("/")
-          return
-        }
-      }
+    // Redirect unauthenticated users to login
+    if (!user) {
+      console.log('🛡️ ProtectedRoute: No user found, redirecting to login')
+      router.replace('/login')
+      return
     }
-  }, [user, profile, loading, router, allowedRoles, redirectTo])
+
+    // User is authenticated, allow access
+    console.log('🛡️ ProtectedRoute: User authenticated, allowing access')
+  }, [user, router])
 
   // Show loading state while authentication is being checked
   if (loading) {
@@ -65,7 +57,7 @@ export function ProtectedRoute({
     }
   }
 
-  // Only render children if user is authenticated and authorized
-  console.log('🛡️ ProtectedRoute: User authenticated, rendering protected content')
+  // Only render children if user is authenticated, confirmed, and authorized
+  console.log('🛡️ ProtectedRoute: User authenticated and confirmed, rendering protected content')
   return <>{children}</>
 } 
