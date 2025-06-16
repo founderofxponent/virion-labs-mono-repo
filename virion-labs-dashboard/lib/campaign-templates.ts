@@ -61,7 +61,7 @@ export interface CampaignTemplate {
     // Campaign-specific settings
     referral_tracking_enabled?: boolean
     auto_role_assignment?: boolean
-    target_role_id?: string
+    target_role_ids?: string[]
     onboarding_completion_requirements?: {
       required_fields: string[] // Field IDs that must be completed
       auto_role_on_completion?: string

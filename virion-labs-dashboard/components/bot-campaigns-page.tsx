@@ -142,6 +142,7 @@ export default function BotCampaignsPage() {
     referral_tracking_enabled: true,
     auto_role_assignment: false,
     target_role_id: "",
+    target_role_ids: [],
     moderation_enabled: true,
     rate_limit_per_user: 5,
     campaign_start_date: "",
@@ -391,6 +392,7 @@ export default function BotCampaignsPage() {
       referral_tracking_enabled: campaign.referral_tracking_enabled || false,
       auto_role_assignment: campaign.auto_role_assignment || false,
       target_role_id: campaign.target_role_id || "",
+      target_role_ids: campaign.target_role_ids || [],
       moderation_enabled: campaign.moderation_enabled || true,
       rate_limit_per_user: campaign.rate_limit_per_user || 5,
       campaign_start_date: campaign.campaign_start_date || "",
@@ -1052,12 +1054,24 @@ export default function BotCampaignsPage() {
                         Automatically assign roles to verified members
                       </p>
                     </div>
-                    <Switch
+                  <Switch
                       id="edit_auto_role"
                       checked={editForm.auto_role_assignment}
                       onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, auto_role_assignment: checked }))}
                     />
                   </div>
+
+                  {editForm.auto_role_assignment && (
+                    <div className="space-y-0.5">
+                      <Label htmlFor="edit_role_ids">Role IDs (comma separated)</Label>
+                      <Input
+                        id="edit_role_ids"
+                        value={(editForm.target_role_ids || []).join(',')}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, target_role_ids: e.target.value.split(',').map(id => id.trim()).filter(Boolean) }))}
+                        placeholder="12345,67890"
+                      />
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">

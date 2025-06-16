@@ -17,7 +17,8 @@ class OnboardingManager {
 
   async startOnboarding(message, config, options = {}) {
     const { referralCode, referralValidation, forceRestart = false, autoStart = false } = options;
-    const userId = message.author.id;
+    const author = message.author || message.user;
+    const userId = author.id;
     const campaignId = config.campaignId;
     
     try {
@@ -26,17 +27,17 @@ class OnboardingManager {
       
       // If not forcing restart and not auto-starting, check for existing incomplete session
       if (!shouldRestart && !autoStart) {
-        const existingSession = await this.checkDatabaseSession(campaignId, userId, message.author.tag);
+        const existingSession = await this.checkDatabaseSession(campaignId, userId, author.tag);
         if (existingSession && !existingSession.is_completed && existingSession.next_field) {
-          console.log(`🔄 Found incomplete session for ${message.author.tag}, resuming...`);
+          console.log(`🔄 Found incomplete session for ${author.tag}, resuming...`);
           await this.resumeOnboarding(message, config, existingSession);
           return true;
         }
       }
 
-      console.log(`🚀 Starting ${shouldRestart ? 'new' : autoStart ? 'auto' : 'fresh'} onboarding session for ${message.author.tag}`);
+      console.log(`🚀 Starting ${shouldRestart ? 'new' : autoStart ? 'auto' : 'fresh'} onboarding session for ${author.tag}`);
 
-      const session = await this.getOrCreateSession(campaignId, userId, message.author.tag, {
+      const session = await this.getOrCreateSession(campaignId, userId, author.tag || author.username, {
         referralId: referralValidation?.referral_id,
         referralLinkId: referralValidation?.referral_link_id,
         referralCode
@@ -71,7 +72,7 @@ class OnboardingManager {
       if (autoStart) {
         const introEmbed = new EmbedBuilder()
           .setTitle('🚀 Welcome! Let\'s Get You Started')
-          .setDescription(`Hi ${message.author.username}! Welcome to **${config.clientName}**.\n\nI'm going to ask you a few quick questions to get you set up with all the best features our community has to offer.\n\n✨ This will only take a minute!`)
+          .setDescription(`Hi ${(message.author || message.user).username}! Welcome to **${config.clientName}**.\n\nI'm going to ask you a few quick questions to get you set up with all the best features our community has to offer.\n\n✨ This will only take a minute!`)
           .setColor(config.config?.brand_color || '#6366f1')
           .setTimestamp();
 
@@ -103,7 +104,8 @@ class OnboardingManager {
   }
 
   async handleResponse(message, config) {
-    const userId = message.author.id;
+    const author = message.author || message.user;
+    const userId = author.id;
     const campaignId = config.campaignId;
     const sessionKey = `${campaignId}:${userId}`;
     
@@ -111,11 +113,11 @@ class OnboardingManager {
     
     // If no active session in memory, try to restore from database
     if (!activeSession || Date.now() - activeSession.timestamp > SESSION_TIMEOUT) {
-      console.log(`🔄 No active session found for ${message.author.tag}, checking database...`);
-      const databaseSession = await this.checkDatabaseSession(campaignId, userId, message.author.tag);
+      console.log(`🔄 No active session found for ${author.tag}, checking database...`);
+      const databaseSession = await this.checkDatabaseSession(campaignId, userId, author.tag);
       
       if (databaseSession && !databaseSession.is_completed && databaseSession.next_field) {
-        console.log(`✅ Restored session from database for ${message.author.tag}`);
+        console.log(`✅ Restored session from database for ${author.tag}`);
         // Restore session in memory
         activeSessions.set(sessionKey, {
           currentField: databaseSession.next_field,
@@ -148,7 +150,7 @@ class OnboardingManager {
       const saveResult = await this.saveResponse(
         campaignId,
         userId,
-        message.author.tag,
+        (message.author || message.user).tag,
         currentField.field_key,
         message.content,
         activeSession.referralInfo
@@ -159,7 +161,7 @@ class OnboardingManager {
         return true;
       }
 
-      const updatedSession = await this.getOrCreateSession(campaignId, userId, message.author.tag);
+      const updatedSession = await this.getOrCreateSession(campaignId, userId, (message.author || message.user).tag);
       
       if (updatedSession.is_completed) {
         await this.completeOnboarding(message, config, activeSession.referralValidation);
@@ -265,7 +267,7 @@ class OnboardingManager {
   }
 
   async askNextQuestion(message, config, session) {
-    const userId = message.author.id;
+    const userId = (message.author || message.user).id;
     const campaignId = config.campaignId;
     const sessionKey = `${campaignId}:${userId}`;
 
@@ -349,7 +351,8 @@ class OnboardingManager {
   }
 
   async completeOnboarding(message, config, referralValidation = null) {
-    const userId = message.author.id;
+    const user = message.author || message.user;
+    const userId = user.id;
     const campaignId = config.campaignId;
     const sessionKey = `${campaignId}:${userId}`;
 
@@ -382,8 +385,12 @@ class OnboardingManager {
 
     await message.reply({ embeds: [embed] });
 
-    if (config.config?.auto_role_assignment && config.config?.target_role_id) {
-      await this.assignRole(message, config.config.target_role_id);
+    if (config.config?.auto_role_assignment) {
+      if (Array.isArray(config.config.target_role_ids) && config.config.target_role_ids.length > 0) {
+        await this.assignRoles(message, config.config.target_role_ids);
+      } else if (config.config?.target_role_id) {
+        await this.assignRoles(message, [config.config.target_role_id]);
+      }
     }
 
     await this.trackCompletion(message, config, referralValidation);
@@ -399,23 +406,25 @@ class OnboardingManager {
     await message.reply({ embeds: [embed] });
   }
 
-  async assignRole(message, roleId) {
+  async assignRoles(message, roleIds) {
     try {
-      const role = message.guild.roles.cache.get(roleId);
-      if (role && message.member) {
-        await message.member.roles.add(role);
-        
-        const roleEmbed = new EmbedBuilder()
-          .setTitle('🎖️ Role Assigned!')
-          .setDescription(`You've been assigned the **${role.name}** role!`)
-          .setColor('#00aa00')
-          .setTimestamp();
-        
-        await message.followUp({ embeds: [roleEmbed] });
-        console.log(`✅ Assigned role ${role.name} to ${message.author.tag} after onboarding completion`);
+      for (const roleId of roleIds) {
+        const role = message.guild.roles.cache.get(roleId);
+        if (role && message.member) {
+          await message.member.roles.add(role);
+
+          const roleEmbed = new EmbedBuilder()
+            .setTitle('🎖️ Role Assigned!')
+            .setDescription(`You've been assigned the **${role.name}** role!`)
+            .setColor('#00aa00')
+            .setTimestamp();
+
+          await message.followUp({ embeds: [roleEmbed] });
+          console.log(`✅ Assigned role ${role.name} to ${(message.author || message.user).tag} after onboarding completion`);
+        }
       }
     } catch (error) {
-      console.error('Error assigning role:', error);
+      console.error('Error assigning roles:', error);
     }
   }
 
@@ -431,8 +440,8 @@ class OnboardingManager {
         body: JSON.stringify({
           guild_id: message.guild?.id,
           channel_id: message.channel.id,
-          discord_user_id: message.author.id,
-          discord_username: message.author.tag,
+          discord_user_id: (message.author || message.user).id,
+          discord_username: (message.author || message.user).tag,
           message_id: message.id,
           interaction_type: 'onboarding_completed',
           message_content: 'Onboarding process completed',
@@ -444,7 +453,7 @@ class OnboardingManager {
       if (!trackingResponse.ok) {
         console.error('Failed to track onboarding completion:', trackingResponse.status);
       } else {
-        console.log(`✅ Successfully tracked onboarding completion for ${message.author.tag}`);
+        console.log(`✅ Successfully tracked onboarding completion for ${(message.author || message.user).tag}`);
       }
 
       // Increment successful_onboardings count in campaign
@@ -457,8 +466,8 @@ class OnboardingManager {
           },
           body: JSON.stringify({
             campaign_id: config.campaignId,
-            discord_user_id: message.author.id,
-            discord_username: message.author.tag,
+            discord_user_id: (message.author || message.user).id,
+            discord_username: (message.author || message.user).tag,
             guild_id: message.guild?.id
           })
         });
@@ -483,8 +492,8 @@ class OnboardingManager {
           },
           body: JSON.stringify({
             referral_code: referralValidation.referral_code,
-            discord_user_id: message.author.id,
-            discord_username: message.author.tag,
+            discord_user_id: (message.author || message.user).id,
+            discord_username: (message.author || message.user).tag,
             guild_id: message.guild.id,
             conversion_source: 'onboarding_completion'
           })
@@ -574,11 +583,12 @@ class OnboardingManager {
 
   // Resume onboarding from where user left off
   async resumeOnboarding(message, config, session) {
-    const userId = message.author.id;
+    const user = message.author || message.user;
+    const userId = user.id;
     const campaignId = config.campaignId;
     const sessionKey = `${campaignId}:${userId}`;
 
-    console.log(`🔄 Resuming onboarding for ${message.author.tag} from field: ${session.next_field.field_key}`);
+    console.log(`🔄 Resuming onboarding for ${user.tag} from field: ${session.next_field.field_key}`);
 
     // Store session in memory
     activeSessions.set(sessionKey, {

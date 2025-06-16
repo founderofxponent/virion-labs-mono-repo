@@ -171,6 +171,7 @@ export async function POST(request: NextRequest) {
       referral_tracking_enabled,
       auto_role_assignment,
       target_role_id,
+      target_role_ids = [],
       onboarding_flow = {},
       rate_limit_per_user,
       allowed_channels = [],
@@ -274,10 +275,13 @@ export async function POST(request: NextRequest) {
       influencer_id: influencer_id || null,
       referral_tracking_enabled: referral_tracking_enabled !== undefined ? 
         referral_tracking_enabled : (templateBotConfig.referral_tracking_enabled || templateBotConfig.features.referral_tracking),
-      auto_role_assignment: auto_role_assignment !== undefined ? 
+      auto_role_assignment: auto_role_assignment !== undefined ?
         auto_role_assignment : (templateBotConfig.auto_role_assignment || templateBotConfig.features.auto_role),
       target_role_id: target_role_id || templateBotConfig.target_role_id || null,
-      moderation_enabled: moderation_enabled !== undefined ? 
+      target_role_ids: target_role_ids.length > 0
+        ? target_role_ids
+        : (templateBotConfig.target_role_ids || (templateBotConfig.target_role_id ? [templateBotConfig.target_role_id] : [])),
+      moderation_enabled: moderation_enabled !== undefined ?
         moderation_enabled : (templateBotConfig.moderation_enabled || templateBotConfig.features.moderation),
       
       // Access control from template

@@ -193,6 +193,7 @@ export type Database = {
           successful_onboardings: number | null
           support_info: string | null
           target_role_id: string | null
+          target_role_ids: string[] | null
           total_interactions: number | null
           updated_at: string | null
           video_url: string | null
@@ -216,6 +217,7 @@ export type Database = {
           referral_tracking_enabled?: boolean
           auto_role_assignment?: boolean
           target_role_id?: string | null
+          target_role_ids?: string[] | null
           total_interactions?: number
           successful_onboardings?: number
           referral_conversions?: number
@@ -244,6 +246,7 @@ export type Database = {
           referral_tracking_enabled?: boolean
           auto_role_assignment?: boolean
           target_role_id?: string | null
+          target_role_ids?: string[] | null
           total_interactions?: number
           successful_onboardings?: number
           referral_conversions?: number
