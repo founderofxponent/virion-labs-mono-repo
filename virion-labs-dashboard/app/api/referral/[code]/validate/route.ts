@@ -47,7 +47,7 @@ export async function POST(
     // Get campaign details
     const { data: campaignData, error: campaignError } = await supabase
       .from('discord_guild_campaigns')
-      .select('id, campaign_name, campaign_type, guild_id, welcome_message, auto_role_assignment, target_role_id, metadata')
+      .select('id, campaign_name, campaign_type, guild_id, welcome_message, auto_role_assignment, target_role_id, target_role_ids, metadata')
       .eq('id', referralData.campaign_id)
       .single()
 
@@ -92,6 +92,7 @@ export async function POST(
         welcome_message: campaignData.welcome_message,
         auto_role_assignment: campaignData.auto_role_assignment,
         target_role_id: campaignData.target_role_id,
+        target_role_ids: campaignData.target_role_ids,
         description: campaignData.metadata?.description
       },
       influencer: {

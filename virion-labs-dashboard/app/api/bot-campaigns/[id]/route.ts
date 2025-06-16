@@ -109,6 +109,9 @@ export async function PUT(
           welcome_message: updateData.welcome_message || template.bot_config.welcome_message,
           referral_tracking_enabled: updateData.referral_tracking_enabled !== undefined ? updateData.referral_tracking_enabled : template.bot_config.features.referral_tracking,
           auto_role_assignment: updateData.auto_role_assignment !== undefined ? updateData.auto_role_assignment : template.bot_config.features.auto_role,
+          target_role_ids: updateData.target_role_ids && updateData.target_role_ids.length > 0
+            ? updateData.target_role_ids
+            : (template.bot_config.target_role_ids || (template.bot_config.target_role_id ? [template.bot_config.target_role_id] : [])),
           moderation_enabled: updateData.moderation_enabled !== undefined ? updateData.moderation_enabled : template.bot_config.features.moderation,
           features: {
             ...template.bot_config.features,

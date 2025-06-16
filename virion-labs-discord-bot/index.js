@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const OnboardingManager = require('./onboarding-manager');
 require('dotenv').config();
 const { supabase } = require('./supabase');
@@ -240,6 +240,19 @@ async function updateBotStats(guildId, channelId, statsUpdate) {
   } catch (error) {
     console.error('❌ Unexpected error updating bot stats:', error);
   }
+}
+
+async function fetchActiveCampaigns(guildId) {
+  const { data, error } = await supabase
+    .from('discord_guild_campaigns')
+    .select('id, campaign_name')
+    .eq('guild_id', guildId)
+    .eq('is_active', true);
+  if (error) {
+    console.error('Error fetching campaigns:', error);
+    return [];
+  }
+  return data || [];
 }
 
 // Track interaction with dashboard
@@ -829,6 +842,23 @@ client.on('messageCreate', async (message) => {
       console.log(`   Guild ID: ${guildId}, Channel ID: ${channelId}`);
     }
 
+    if (message.guild && (message.channel.name === 'join-campaigns' || message.content.toLowerCase().startsWith('!campaigns'))) {
+      const campaigns = await fetchActiveCampaigns(guildId);
+      if (!campaigns.length) {
+        await message.reply('No active campaigns available.');
+        return;
+      }
+      const row = new ActionRowBuilder();
+      campaigns.slice(0,5).forEach(c => {
+        row.addComponents(new ButtonBuilder()
+          .setCustomId(`join_${c.id}`)
+          .setLabel(c.campaign_name)
+          .setStyle(ButtonStyle.Primary));
+      });
+      await message.reply({ content: 'Select a campaign to join:', components: [row] });
+      return;
+    }
+
     // Handle DM messages (for onboarding responses to welcome messages)
     if (!message.guild) {
       const content = message.content.toLowerCase().trim();
@@ -1279,4 +1309,31 @@ function clearAllCache() {
   const size = configCache.size;
   configCache.clear();
   console.log(`🗑️ Cleared all config cache (${size} entries)`);
-} 
+}
+
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
+  if (interaction.customId.startsWith('join_')) {
+    const campaignId = interaction.customId.replace('join_', '');
+    await interaction.deferReply({ ephemeral: true });
+    const { data, error } = await supabase
+      .from('discord_guild_campaigns')
+      .select('*')
+      .eq('id', campaignId)
+      .single();
+    if (error || !data) {
+      await interaction.editReply('Campaign not found.');
+      return;
+    }
+    const config = {
+      campaignId: data.id,
+      campaignName: data.campaign_name,
+      campaignType: data.campaign_type,
+      clientId: data.client_id,
+      clientName: '',
+      config: data,
+      templateConfig: null
+    };
+    await onboardingManager.startOnboarding(interaction, config, {});
+  }
+});

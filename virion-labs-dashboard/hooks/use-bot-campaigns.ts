@@ -52,6 +52,7 @@ interface BotCampaign {
   referral_tracking_enabled: boolean
   auto_role_assignment: boolean
   target_role_id?: string
+  target_role_ids?: string[]
   onboarding_flow: Record<string, any>
   rate_limit_per_user: number
   allowed_channels: string[]
@@ -125,6 +126,7 @@ interface CreateBotCampaignData {
   referral_tracking_enabled?: boolean
   auto_role_assignment?: boolean
   target_role_id?: string
+  target_role_ids?: string[]
   onboarding_flow?: Record<string, any>
   rate_limit_per_user?: number
   allowed_channels?: string[]

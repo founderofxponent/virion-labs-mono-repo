@@ -47,6 +47,7 @@ CREATE TABLE discord_guild_campaigns (
     referral_tracking_enabled BOOLEAN DEFAULT true,
     auto_role_assignment BOOLEAN DEFAULT false,
     target_role_id TEXT,
+    target_role_ids TEXT[],
     
     -- Analytics
     total_interactions INTEGER DEFAULT 0,
@@ -169,7 +170,8 @@ Create a new Discord campaign.
   "onboarding_flow": {},
   "referral_tracking_enabled": true,
   "auto_role_assignment": true,
-  "target_role_id": "discord_role_id"
+  "target_role_id": "discord_role_id",
+  "target_role_ids": ["discord_role_id"]
 }
 ```
 
@@ -454,7 +456,8 @@ const campaign = await createCampaign({
   },
   referral_tracking_enabled: true,
   auto_role_assignment: true,
-  target_role_id: "special-member-role-id"
+  target_role_id: "special-member-role-id",
+  target_role_ids: ["special-member-role-id"]
 });
 ```
 

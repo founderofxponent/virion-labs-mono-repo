@@ -57,6 +57,7 @@ interface CreateCampaignData {
   referral_tracking_enabled?: boolean
   auto_role_assignment?: boolean
   target_role_id?: string
+  target_role_ids?: string[]
   moderation_enabled?: boolean
   rate_limit_per_user?: number
   campaign_start_date?: string
@@ -76,6 +77,7 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
     guild_id: '',
     channel_id: '',
     campaign_name: '',
+    target_role_ids: [],
   })
 
   // Load templates from API
@@ -544,12 +546,24 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
                         Automatically assign roles to verified members
                       </p>
                     </div>
-                    <Switch
+                  <Switch
                       id="auto_role"
                       checked={formData.auto_role_assignment || false}
                       onCheckedChange={(checked) => handleFieldChange('auto_role_assignment', checked)}
                     />
                   </div>
+
+                  {formData.auto_role_assignment && (
+                    <div className="space-y-0.5">
+                      <Label htmlFor="role_ids">Role IDs (comma separated)</Label>
+                      <Input
+                        id="role_ids"
+                        value={(formData.target_role_ids || []).join(',')}
+                        onChange={(e) => handleFieldChange('target_role_ids', e.target.value.split(',').map(id => id.trim()).filter(Boolean))}
+                        placeholder="12345,67890"
+                      />
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
