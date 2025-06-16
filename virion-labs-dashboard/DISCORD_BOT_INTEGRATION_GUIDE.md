@@ -392,6 +392,9 @@ Influencers can:
 # Apply migrations
 npm run migrate
 
+# Apply target role IDs migration
+psql -d your_db -f scripts/add-target-role-ids-migration.sql
+
 # Verify tables created
 psql -d your_db -c "\dt discord_*"
 ```

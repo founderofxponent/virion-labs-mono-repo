@@ -77,6 +77,15 @@ npm run script:add-admin john.doe@company.com MyPassword456 "John Doe"
 - `test-unified-data.js` - Tests unified data systems
 - `validate-tracking-pipeline.js` - Validates tracking pipeline functionality
 
+### Database Migrations
+
+- `add-target-role-ids-migration.sql` - Adds `target_role_ids` to `discord_guild_campaigns`. Run after your standard migrations:
+
+```bash
+npm run migrate
+psql -d your_db -f scripts/add-target-role-ids-migration.sql
+```
+
 ### Database Optimization
 
 - `optimize-database.sql` - SQL script for database optimization
