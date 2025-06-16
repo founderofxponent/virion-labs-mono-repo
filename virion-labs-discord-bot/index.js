@@ -920,11 +920,11 @@ client.on('messageCreate', async (message) => {
       if (!handled && (message.content.toLowerCase().includes('onboarding') || 
                        message.content.toLowerCase().includes('status') || 
                        message.content.toLowerCase().includes('complete'))) {
-        if (config.campaign_id && config.campaign_name) {
+        if (config.campaignId && config.campaignName) {
           try {
             const completionStatus = await onboardingManager.checkOnboardingCompletion(
               message.author.id,
-              config.campaign_id,
+              config.campaignId,
               config
             );
 
@@ -936,7 +936,7 @@ client.on('messageCreate', async (message) => {
               statusMessage += `\n\n📊 Progress: ${completionStatus.completionPercentage}% complete`;
             }
             
-            statusMessage += `\n\n🔗 Continue here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaign_id}`;
+            statusMessage += `\n\n🔗 Continue here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaignId}`;
 
             const embed = createCampaignEmbed(
               config,
@@ -951,7 +951,7 @@ client.on('messageCreate', async (message) => {
             const embed = createCampaignEmbed(
               config,
               '📋 Onboarding Status',
-              `Check your onboarding progress for the ${config.campaign_name} campaign here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaign_id}`,
+              `Check your onboarding progress for the ${config.campaignName} campaign here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaignId}`,
               '#3b82f6'
             );
             await message.reply({ embeds: [embed] });
