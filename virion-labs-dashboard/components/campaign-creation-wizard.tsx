@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import RoleIdsInput from "@/components/role-ids-input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -555,11 +556,11 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
 
                   {formData.auto_role_assignment && (
                     <div className="space-y-0.5">
-                      <Label htmlFor="role_ids">Role IDs (comma separated)</Label>
-                      <Input
+                      <Label htmlFor="role_ids">Role IDs</Label>
+                      <RoleIdsInput
                         id="role_ids"
-                        value={(formData.target_role_ids || []).join(',')}
-                        onChange={(e) => handleFieldChange('target_role_ids', e.target.value.split(',').map(id => id.trim()).filter(Boolean))}
+                        value={formData.target_role_ids || []}
+                        onChange={(ids) => handleFieldChange('target_role_ids', ids)}
                         placeholder="12345,67890"
                       />
                     </div>
