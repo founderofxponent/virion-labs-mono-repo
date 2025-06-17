@@ -12,16 +12,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
     const templateId = searchParams.get('id')
-    const includeBasicOnly = searchParams.get('basic') === 'true'
 
-    // Build the select string based on whether we want basic or complete data
-    const selectString = includeBasicOnly 
-      ? '*' 
-      : '*, default_landing_page:landing_page_templates(*)'
-
+    // Always include landing page data for optimal performance
     let query = supabase
       .from('campaign_templates')
-      .select(selectString)
+      .select('*, default_landing_page:landing_page_templates(*)')
       .eq('is_default', true)
 
     if (category) {
@@ -54,8 +49,8 @@ export async function GET(request: NextRequest) {
         landing_page_config: template.template_config.landing_page_config
       }
 
-      // Include landing page data if not in basic mode
-      if (!includeBasicOnly && template.default_landing_page) {
+      // Always include landing page data
+      if (template.default_landing_page) {
         const lp = template.default_landing_page
         transformedTemplate.default_landing_page = {
           id: lp.template_id,
@@ -92,9 +87,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ 
       templates,
       meta: {
-        total: templates.length,
-        includes_landing_pages: !includeBasicOnly,
-        api_version: '2.0'
+        total: templates.length
       }
     })
   } catch (error) {

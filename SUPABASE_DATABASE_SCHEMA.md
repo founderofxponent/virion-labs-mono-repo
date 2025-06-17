@@ -820,17 +820,16 @@ This database schema supports a comprehensive referral marketing and Discord bot
 
 The schema is designed to be scalable, with proper foreign key relationships and constraints to maintain data integrity across the platform. The analytical views provide optimized access patterns for reporting and dashboard functionality.
 
-## API Endpoints Structure (v2.0)
+## API Endpoints Structure
 
-### **Primary Campaign Templates API**
+### **Campaign Templates API**
 
-#### Enhanced List Endpoint (Primary)
+#### List Endpoint
 ```
 GET /api/campaign-templates
 ```
-- **Default behavior**: Includes landing page data via JOIN for optimal performance
+- **Default behavior**: Always includes landing page data via optimized JOIN
 - **Query parameters**:
-  - `?basic=true` - Returns basic template data only (legacy compatibility)
   - `?category=<category>` - Filter by category
   - `?id=<campaign_type>` - Get single template by campaign_type
 - **Response**: 
@@ -838,14 +837,12 @@ GET /api/campaign-templates
   {
     "templates": [...],
     "meta": {
-      "total": 5,
-      "includes_landing_pages": true,
-      "api_version": "2.0"
+      "total": 5
     }
   }
   ```
 
-#### Primary Individual Template Endpoint
+#### Individual Template Endpoint
 ```
 GET /api/campaign-templates/{id}
 ```
@@ -860,13 +857,12 @@ GET /api/campaign-templates/{id}
   }
   ```
 
-#### Legacy Basic List Endpoint
+#### Template Management
 ```
-GET /api/campaign-templates/basic
+POST /api/campaign-templates     - Create new template
+PUT /api/campaign-templates      - Update existing template
+DELETE /api/campaign-templates   - Delete template
 ```
-- **Legacy compatibility** endpoint
-- **Returns**: Basic template data without landing pages
-- **Use case**: When landing page data is not needed
 
 ### **Landing Page Templates API**
 ```
@@ -889,11 +885,10 @@ DELETE /api/landing-page-templates/{id}
 - **Removed**: Redundant `campaign_template_landing_page_defaults` junction table
 - **Simplified**: Template inheritance logic to use direct relationships
 
-### 3. API Restructuring (2024)
-- **Enhanced**: Main endpoints to include landing page data by default
-- **Renamed**: Optimized `/complete` endpoint to become primary `/{id}` endpoint
-- **Added**: Legacy compatibility modes and endpoints
-- **Improved**: Response metadata and versioning
+### 3. API Optimization (2024)
+- **Enhanced**: All endpoints to include landing page data by default
+- **Optimized**: Single-query approach for all template fetching
+- **Simplified**: Removed legacy compatibility code for cleaner codebase
 
 ### 4. Performance Indexes
 - **Added**: `idx_campaign_templates_default_landing_page` for JOIN optimization
@@ -917,11 +912,11 @@ The following direct relationships are established:
 2. **Junction Table**: `campaign_template_landing_page_defaults` (deprecated)
 3. **Direct Relationship**: `campaign_templates.default_landing_page_id` (current)
 4. **Cleanup**: Removed redundant junction table
-5. **API v2.0**: Restructured endpoints for optimal performance
+5. **API Optimization**: Single optimized approach for all endpoints
 
 ## Performance Metrics
 
 - **Template Loading**: 34% faster with direct relationships
 - **API Response Time**: Improved with single-query approach
 - **Database Queries**: Reduced from 2 sequential to 1 optimized JOIN
-- **Caching**: Maintained compatibility with existing caching strategies
+- **Codebase**: Simplified by removing legacy compatibility code
