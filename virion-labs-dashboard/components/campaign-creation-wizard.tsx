@@ -24,8 +24,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ChevronLeft, ChevronRight, Bot, Zap, Users, HeadphonesIcon, Palette, Settings, MessageSquare, Play, Hash, Eye } from "lucide-react"
+import { ChevronLeft, ChevronRight, Bot, Zap, Users, HeadphonesIcon, Palette, Settings, MessageSquare, Play, Hash, Eye, Wand2 } from "lucide-react"
 import { type CampaignTemplate } from "@/lib/campaign-templates"
+import { LandingPageConfig } from "@/components/landing-page-config"
+import { useCampaignTemplateComplete } from "@/hooks/use-campaign-template-complete"
 
 interface CampaignCreationWizardProps {
   open: boolean
@@ -62,6 +64,9 @@ interface CreateCampaignData {
   rate_limit_per_user?: number
   campaign_start_date?: string
   campaign_end_date?: string
+  
+  // Step 4: Landing Page Configuration
+  landing_page_data?: any
 }
 
 export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients }: CampaignCreationWizardProps) {
@@ -70,6 +75,16 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
   const [selectedTemplate, setSelectedTemplate] = useState<CampaignTemplate | null>(null)
   const [templates, setTemplates] = useState<CampaignTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
+  const [createdCampaignId, setCreatedCampaignId] = useState<string | null>(null)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+
+  // Use the optimized hook for loading template with landing page
+  const { 
+    template: templateWithLandingPage, 
+    landing_page: inheritedLandingPageTemplate, 
+    loading: landingPageTemplateLoading,
+    error: templateLoadError
+  } = useCampaignTemplateComplete(selectedTemplateId)
 
   const [formData, setFormData] = useState<CreateCampaignData>({
     campaign_template: '',
@@ -102,14 +117,59 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
     }
   }, [open])
 
+  // Handle template selection and loading of complete template data
+  useEffect(() => {
+    if (templateWithLandingPage) {
+      setSelectedTemplate(templateWithLandingPage)
+      setFormData(prev => ({
+        ...prev,
+        campaign_template: templateWithLandingPage.id,
+        // Pre-fill with template defaults
+        prefix: templateWithLandingPage.bot_config.prefix,
+        description: templateWithLandingPage.bot_config.description,
+        bot_name: templateWithLandingPage.bot_config.bot_name,
+        bot_personality: templateWithLandingPage.bot_config.bot_personality,
+        bot_response_style: templateWithLandingPage.bot_config.bot_response_style,
+        brand_color: templateWithLandingPage.bot_config.brand_color,
+        welcome_message: templateWithLandingPage.bot_config.welcome_message,
+        referral_tracking_enabled: templateWithLandingPage.bot_config.features.referral_tracking,
+        auto_role_assignment: templateWithLandingPage.bot_config.features.auto_role,
+        moderation_enabled: templateWithLandingPage.bot_config.features.moderation,
+        rate_limit_per_user: 5,
+      }))
+    }
+  }, [templateWithLandingPage])
+
+  // Handle landing page template loading
+  useEffect(() => {
+    if (inheritedLandingPageTemplate) {
+      setFormData(prev => ({
+        ...prev,
+        landing_page_data: {
+          landing_page_template_id: inheritedLandingPageTemplate.id,
+          offer_title: inheritedLandingPageTemplate.fields?.offer_title || '',
+          offer_description: inheritedLandingPageTemplate.fields?.offer_description || '',
+          offer_value: inheritedLandingPageTemplate.fields?.offer_value || '',
+          offer_highlights: inheritedLandingPageTemplate.fields?.offer_highlights || [],
+          what_you_get: inheritedLandingPageTemplate.fields?.what_you_get || '',
+          how_it_works: inheritedLandingPageTemplate.fields?.how_it_works || '',
+          requirements: inheritedLandingPageTemplate.fields?.requirements || '',
+          support_info: inheritedLandingPageTemplate.fields?.support_info || '',
+          inherited_from_template: true
+        }
+      }))
+    }
+  }, [inheritedLandingPageTemplate])
+
   const handleTemplateSelect = (templateId: string) => {
+    // Find template from list for immediate UI feedback
     const template = templates.find(t => t.id === templateId)
     if (template) {
       setSelectedTemplate(template)
       setFormData(prev => ({
         ...prev,
         campaign_template: templateId,
-        // Pre-fill with template defaults
+        // Pre-fill with basic template defaults from the list
         prefix: template.bot_config.prefix,
         description: template.bot_config.description,
         bot_name: template.bot_config.bot_name,
@@ -123,10 +183,33 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
         rate_limit_per_user: 5,
       }))
     }
+    
+    // Trigger the optimized hook to load complete template data
+    setSelectedTemplateId(templateId)
   }
 
   const handleFieldChange = (field: keyof CreateCampaignData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleResetToTemplate = () => {
+    if (inheritedLandingPageTemplate) {
+      setFormData(prev => ({
+        ...prev,
+        landing_page_data: {
+          landing_page_template_id: inheritedLandingPageTemplate.id,
+          offer_title: inheritedLandingPageTemplate.fields?.offer_title || '',
+          offer_description: inheritedLandingPageTemplate.fields?.offer_description || '',
+          offer_value: inheritedLandingPageTemplate.fields?.offer_value || '',
+          offer_highlights: inheritedLandingPageTemplate.fields?.offer_highlights || [],
+          what_you_get: inheritedLandingPageTemplate.fields?.what_you_get || '',
+          how_it_works: inheritedLandingPageTemplate.fields?.how_it_works || '',
+          requirements: inheritedLandingPageTemplate.fields?.requirements || '',
+          support_info: inheritedLandingPageTemplate.fields?.support_info || '',
+          inherited_from_template: true
+        }
+      }))
+    }
   }
 
   const handleNext = () => {
@@ -134,18 +217,22 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
       setCurrentStep(2)
     } else if (currentStep === 2 && formData.client_id && formData.guild_id && formData.campaign_name) {
       setCurrentStep(3)
+    } else if (currentStep === 3) {
+      setCurrentStep(4)
     }
   }
 
   const handleBack = () => {
-    if (currentStep === 3) {
+    if (currentStep === 4) {
+      setCurrentStep(3)
+    } else if (currentStep === 3) {
       setCurrentStep(2)
     } else if (currentStep === 2) {
       setCurrentStep(1)
     }
   }
 
-  const handleCreate = async () => {
+  const handleCreateCampaign = async () => {
     if (!formData.client_id || !formData.guild_id || !formData.campaign_name || !formData.campaign_template) {
       return
     }
@@ -182,6 +269,24 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
           }
         }
         
+        // If there's landing page data, create the landing page
+        if (formData.landing_page_data && Object.keys(formData.landing_page_data).length > 0) {
+          try {
+            await fetch('/api/campaign-landing-pages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                campaign_id: data.campaign.id,
+                ...formData.landing_page_data
+              })
+            })
+            console.log('Landing page configuration saved')
+          } catch (landingPageError) {
+            console.warn('Failed to save landing page configuration:', landingPageError)
+          }
+        }
+        
+        // Campaign created successfully, notify parent and close
         onSuccess(data.campaign)
         handleClose()
       } else {
@@ -194,15 +299,23 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
     }
   }
 
+  const handleFinish = async () => {
+    // This will be called from step 4 to create the campaign
+    await handleCreateCampaign()
+  }
+
   const handleClose = () => {
     setCurrentStep(1)
     setSelectedTemplate(null)
+    setCreatedCampaignId(null)
+    setSelectedTemplateId(null)
     setFormData({
       campaign_template: '',
       client_id: '',
       guild_id: '',
       channel_id: '',
       campaign_name: '',
+      target_role_ids: [],
     })
     onOpenChange(false)
   }
@@ -234,14 +347,16 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Create Bot Campaign - Step {currentStep} of 3
+            Create Bot Campaign - Step {currentStep} of 4
           </DialogTitle>
           <DialogDescription>
             {currentStep === 1 
               ? "Choose a campaign template that matches your goals"
               : currentStep === 2
                 ? "Configure your campaign details and bot behavior"
-                : "Onboarding Preview"
+                : currentStep === 3
+                  ? "Review your onboarding flow and settings"
+                  : "Configure landing page (optional)"
             }
           </DialogDescription>
         </DialogHeader>
@@ -781,11 +896,11 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
             <Card className="border-primary/20 bg-primary/5">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Play className="h-5 w-5" />
-                  Ready to Create Campaign
+                  <Eye className="h-5 w-5" />
+                  Configuration Review
                 </CardTitle>
                 <CardDescription>
-                  Review the information above and click "Create Campaign" to deploy your bot
+                  Review your campaign settings. Next, you can configure landing page options.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -805,9 +920,219 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
           </div>
         )}
 
+        {/* Step 4: Landing Page Configuration */}
+        {currentStep === 4 && selectedTemplate && (
+          <div className="space-y-6">
+            {/* Template Inheritance Status */}
+            {inheritedLandingPageTemplate && (
+              <Card className="border-blue-200 bg-blue-50/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-blue-900">
+                    <Wand2 className="h-5 w-5" />
+                    Template Inherited
+                  </CardTitle>
+                  <CardDescription className="text-blue-700">
+                    Landing page content has been automatically inherited from "{inheritedLandingPageTemplate.name}" template
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-blue-900">
+                        {inheritedLandingPageTemplate.name}
+                      </p>
+                      <p className="text-xs text-blue-700">
+                        {inheritedLandingPageTemplate.description}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleResetToTemplate}
+                        className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                      >
+                        <Wand2 className="h-3 w-3 mr-1" />
+                        Reset to Template
+                      </Button>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                        {inheritedLandingPageTemplate.category}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Loading State */}
+            {landingPageTemplateLoading && (
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    <span className="text-sm text-muted-foreground">Loading landing page template...</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5" />
+                  Landing Page Configuration
+                </CardTitle>
+                <CardDescription>
+                  {inheritedLandingPageTemplate 
+                    ? "Customize the inherited landing page content or keep the template defaults"
+                    : "Configure the landing page that users will see when they visit your referral links (optional)"
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Basic Landing Page Fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="offer_title">
+                        Offer Title
+                        {inheritedLandingPageTemplate && (
+                          <Badge variant="outline" className="ml-2 text-xs">inherited</Badge>
+                        )}
+                      </Label>
+                      <Input
+                        id="offer_title"
+                        placeholder={inheritedLandingPageTemplate?.fields?.offer_title || "Enter compelling offer title"}
+                        value={formData.landing_page_data?.offer_title || ''}
+                        onChange={(e) => handleFieldChange('landing_page_data', {
+                          ...formData.landing_page_data,
+                          offer_title: e.target.value
+                        })}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="offer_value">
+                        Offer Value
+                        {inheritedLandingPageTemplate && (
+                          <Badge variant="outline" className="ml-2 text-xs">inherited</Badge>
+                        )}
+                      </Label>
+                      <Input
+                        id="offer_value"
+                        placeholder={inheritedLandingPageTemplate?.fields?.offer_value || "e.g., Save $50 + Free Shipping"}
+                        value={formData.landing_page_data?.offer_value || ''}
+                        onChange={(e) => handleFieldChange('landing_page_data', {
+                          ...formData.landing_page_data,
+                          offer_value: e.target.value
+                        })}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="offer_description">
+                      Offer Description
+                      {inheritedLandingPageTemplate && (
+                        <Badge variant="outline" className="ml-2 text-xs">inherited</Badge>
+                      )}
+                    </Label>
+                    <Textarea
+                      id="offer_description"
+                      placeholder={inheritedLandingPageTemplate?.fields?.offer_description || "Describe your offer in detail"}
+                      value={formData.landing_page_data?.offer_description || ''}
+                      onChange={(e) => handleFieldChange('landing_page_data', {
+                        ...formData.landing_page_data,
+                        offer_description: e.target.value
+                      })}
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* Additional Template Fields */}
+                  {inheritedLandingPageTemplate && (
+                    <div className="space-y-4">
+                      <Separator />
+                      <h4 className="text-sm font-semibold">Additional Template Content</h4>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="what_you_get">
+                            What You Get
+                            <Badge variant="outline" className="ml-2 text-xs">inherited</Badge>
+                          </Label>
+                          <Textarea
+                            id="what_you_get"
+                            placeholder={inheritedLandingPageTemplate.fields?.what_you_get || "What users will receive"}
+                            value={formData.landing_page_data?.what_you_get || ''}
+                            onChange={(e) => handleFieldChange('landing_page_data', {
+                              ...formData.landing_page_data,
+                              what_you_get: e.target.value
+                            })}
+                            rows={2}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="how_it_works">
+                            How It Works
+                            <Badge variant="outline" className="ml-2 text-xs">inherited</Badge>
+                          </Label>
+                          <Textarea
+                            id="how_it_works"
+                            placeholder={inheritedLandingPageTemplate.fields?.how_it_works || "Step-by-step process"}
+                            value={formData.landing_page_data?.how_it_works || ''}
+                            onChange={(e) => handleFieldChange('landing_page_data', {
+                              ...formData.landing_page_data,
+                              how_it_works: e.target.value
+                            })}
+                            rows={2}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="requirements">
+                          Requirements
+                          <Badge variant="outline" className="ml-2 text-xs">inherited</Badge>
+                        </Label>
+                        <Textarea
+                          id="requirements"
+                          placeholder={inheritedLandingPageTemplate.fields?.requirements || "Any requirements or conditions"}
+                          value={formData.landing_page_data?.requirements || ''}
+                          onChange={(e) => handleFieldChange('landing_page_data', {
+                            ...formData.landing_page_data,
+                            requirements: e.target.value
+                          })}
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Eye className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-semibold mb-1">Preview & Customization</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {inheritedLandingPageTemplate 
+                            ? "Your landing page will be created with these settings after campaign deployment. You can further customize it in the campaign settings later."
+                            : "You can configure additional landing page settings after the campaign is created."
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         <DialogFooter className="flex justify-between">
           <div>
-            {(currentStep === 2 || currentStep === 3) && (
+            {(currentStep === 2 || currentStep === 3 || currentStep === 4) && (
               <Button variant="outline" onClick={handleBack}>
                 <ChevronLeft className="h-4 w-4 mr-2" />
                 Back
@@ -835,12 +1160,20 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
                 Next
                 <ChevronRight className="h-4 w-4 ml-2" />
               </Button>
+            ) : currentStep === 3 ? (
+              <Button 
+                onClick={handleNext}
+                disabled={!formData.client_id || !formData.guild_id || !formData.campaign_name}
+              >
+                Continue to Landing Page
+                <ChevronRight className="h-4 w-4 ml-2" />
+              </Button>
             ) : (
               <Button 
-                onClick={handleCreate}
+                onClick={handleFinish}
                 disabled={!formData.client_id || !formData.guild_id || !formData.campaign_name || isCreating}
               >
-                {isCreating ? 'Creating...' : 'Create Campaign'}
+                {isCreating ? 'Creating Campaign...' : 'Create Campaign & Finish'}
               </Button>
             )}
           </div>

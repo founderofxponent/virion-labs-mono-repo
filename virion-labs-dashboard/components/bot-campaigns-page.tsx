@@ -7,6 +7,7 @@ import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
 import { useClients } from "@/hooks/use-clients"
 import { CampaignCreationWizard } from "@/components/campaign-creation-wizard"
 import { type CampaignTemplate } from "@/lib/campaign-templates"
+import { LandingPageConfig } from "@/components/landing-page-config"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -142,7 +143,7 @@ export default function BotCampaignsPage() {
     referral_tracking_enabled: true,
     auto_role_assignment: false,
     target_role_id: "",
-    target_role_ids: [],
+    target_role_ids: [] as string[],
     moderation_enabled: true,
     rate_limit_per_user: 5,
     campaign_start_date: "",
@@ -1088,6 +1089,31 @@ export default function BotCampaignsPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Landing Page Configuration */}
+            <Separator />
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <Palette className="h-5 w-5" />
+                Landing Page Configuration
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Configure the landing page that users will see when they visit your referral links (optional)
+              </p>
+              
+              <Card>
+                <CardContent className="pt-6">
+                  <LandingPageConfig
+                    campaignId={editForm.id}
+                    campaignType={templates.find(t => t.id === editForm.campaign_template)?.category || 'custom'}
+                    onChange={(data) => {
+                      // Landing page data is handled separately by the LandingPageConfig component
+                      console.log('Landing page configuration updated:', data)
+                    }}
+                  />
+                </CardContent>
+              </Card>
             </div>
           </div>
 

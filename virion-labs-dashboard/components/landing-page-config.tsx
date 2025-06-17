@@ -24,8 +24,9 @@ import {
 import { CalendarIcon, Plus, X, Eye, Wand2, Image } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { LANDING_PAGE_TEMPLATES, getTemplatesByCampaignType, getTemplateById, type LandingPageTemplate } from "@/lib/landing-page-templates"
+import { getTemplateById, type LandingPageTemplate } from "@/lib/landing-page-templates"
 import { useCampaignLandingPage } from "@/hooks/use-campaign-landing-pages"
+import { useLandingPageTemplates } from "@/hooks/use-landing-page-templates"
 import { CampaignLandingPageInsert } from "@/lib/supabase"
 
 interface LandingPageConfigData {
@@ -60,6 +61,7 @@ export function LandingPageConfig({
   onPreview 
 }: LandingPageConfigProps) {
   const { landingPage, loading, createOrUpdateLandingPage, refresh } = useCampaignLandingPage(campaignId)
+  const { templates: availableTemplates, loading: templatesLoading } = useLandingPageTemplates(campaignType)
   
   const [data, setData] = useState<LandingPageConfigData>({
     landing_page_template_id: '',
@@ -77,6 +79,10 @@ export function LandingPageConfig({
     support_info: '',
     ...initialData
   })
+
+  // State for tracking template inheritance
+  const [isInherited, setIsInherited] = useState(false)
+  const [inheritedTemplateName, setInheritedTemplateName] = useState<string>('')
 
   // Update data when landing page loads
   useEffect(() => {
@@ -96,24 +102,68 @@ export function LandingPageConfig({
         requirements: landingPage.requirements || '',
         support_info: landingPage.support_info || '',
       })
+      
+      // Track if this landing page was inherited from a template
+      const landingPageWithInheritance = landingPage as any // Type assertion until types are regenerated
+      setIsInherited(landingPageWithInheritance.inherited_from_template || false)
+      
+      // Get template name if inherited
+      if (landingPageWithInheritance.inherited_from_template && landingPage.landing_page_template_id) {
+        const inheritedTemplate = availableTemplates.find(t => t.id === landingPage.landing_page_template_id)
+        setInheritedTemplateName(inheritedTemplate?.name || 'Unknown Template')
+      }
     }
-  }, [landingPage])
+  }, [landingPage, availableTemplates])
 
   const updateData = (updates: Partial<LandingPageConfigData>) => {
     const newData = { ...data, ...updates }
     setData(newData)
     onChange(newData)
+    
+    // If this was inherited and user is making changes, mark as customized
+    if (isInherited && Object.keys(updates).length > 0) {
+      setIsInherited(false)
+      // Note: We'll update the inherited_from_template flag when saving
+    }
   }
 
-  const availableTemplates = getTemplatesByCampaignType(campaignType)
+  const handleResetToTemplate = async () => {
+    if (!data.landing_page_template_id) return
+    
+    try {
+      const template = await getTemplateById(data.landing_page_template_id)
+      if (template) {
+        const templateData = {
+          landing_page_template_id: template.id,
+          offer_title: template.fields.offer_title,
+          offer_description: template.fields.offer_description,
+          offer_highlights: template.fields.offer_highlights,
+          offer_value: template.fields.offer_value,
+          what_you_get: template.fields.what_you_get,
+          how_it_works: template.fields.how_it_works,
+          requirements: template.fields.requirements,
+          support_info: template.fields.support_info,
+        }
+        setData(prev => ({ ...prev, ...templateData }))
+        setIsInherited(true)
+        setInheritedTemplateName(template.name)
+      }
+    } catch (error) {
+      console.error('Error resetting to template:', error)
+    }
+  }
 
-  const handleTemplateSelect = (templateId: string) => {
-    const template = getTemplateById(templateId)
-    if (template) {
-      updateData({
-        landing_page_template_id: templateId,
-        ...template.fields
-      })
+  const handleTemplateSelect = async (templateId: string) => {
+    try {
+      const template = await getTemplateById(templateId)
+      if (template) {
+        updateData({
+          landing_page_template_id: templateId,
+          ...template.fields
+        })
+      }
+    } catch (error) {
+      console.error('Error loading template:', error)
     }
   }
 
@@ -155,7 +205,7 @@ export function LandingPageConfig({
 
   const handleSave = async () => {
     try {
-      const saveData: Omit<CampaignLandingPageInsert, 'campaign_id'> = {
+      const saveData: any = { // Use any type for now until types are regenerated
         landing_page_template_id: data.landing_page_template_id || null,
         offer_title: data.offer_title || null,
         offer_description: data.offer_description || null,
@@ -169,6 +219,7 @@ export function LandingPageConfig({
         how_it_works: data.how_it_works || null,
         requirements: data.requirements || null,
         support_info: data.support_info || null,
+        inherited_from_template: isInherited, // Track inheritance status
       }
       
       await createOrUpdateLandingPage(saveData)
@@ -178,12 +229,44 @@ export function LandingPageConfig({
     }
   }
 
-  if (loading) {
+  if (loading || templatesLoading) {
     return <div>Loading landing page configuration...</div>
   }
 
   return (
     <div className="space-y-6">
+      {/* Template Inheritance Status */}
+      {isInherited && inheritedTemplateName && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
+                  <Wand2 className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-medium text-blue-900">
+                    Inherited from Template: {inheritedTemplateName}
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    This landing page content was automatically populated from your campaign template. 
+                    You can customize any field below.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetToTemplate}
+                className="border-blue-300 text-blue-700 hover:bg-blue-100"
+              >
+                Reset to Template
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Template Selection */}
       <Card>
         <CardHeader>

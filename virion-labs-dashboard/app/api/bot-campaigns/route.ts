@@ -275,7 +275,6 @@ export async function POST(request: NextRequest) {
       // Access control from template
       access_control_enabled: templateBotConfig.access_control_enabled || false,
       referral_only_access: templateBotConfig.referral_only_access || false,
-      auto_role_on_join: templateBotConfig.auto_role_on_join || null,
       onboarding_channel_type: templateBotConfig.onboarding_channel_type || 'dm',
       
       // Private channel setup from template
@@ -313,6 +312,60 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error creating bot campaign:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Step 4: Implement template inheritance - Auto-create landing page with inherited template
+    try {
+      // Use the new direct relationship to get the default landing page template
+      if (templateData.default_landing_page_id) {
+        const { data: landingPageTemplate, error: templateError } = await supabase
+          .from('landing_page_templates')
+          .select('*')
+          .eq('id', templateData.default_landing_page_id)
+          .single()
+
+        if (!templateError && landingPageTemplate) {
+          // Create landing page with inherited template content
+          const inheritedLandingPageData = {
+            campaign_id: data.id,
+            landing_page_template_id: landingPageTemplate.template_id,
+            
+            // Inherit default content from template
+            offer_title: landingPageTemplate.default_offer_title,
+            offer_description: landingPageTemplate.default_offer_description,
+            offer_highlights: landingPageTemplate.default_offer_highlights,
+            offer_value: landingPageTemplate.default_offer_value,
+            what_you_get: landingPageTemplate.default_what_you_get,
+            how_it_works: landingPageTemplate.default_how_it_works,
+            requirements: landingPageTemplate.default_requirements,
+            support_info: landingPageTemplate.default_support_info,
+            
+            // Mark as inherited from template
+            inherited_from_template: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+
+          const { data: landingPageData, error: landingPageError } = await supabase
+            .from('campaign_landing_pages')
+            .insert(inheritedLandingPageData)
+            .select()
+            .single()
+
+          if (landingPageError) {
+            console.warn('Failed to create inherited landing page:', landingPageError)
+          } else {
+            console.log(`Successfully inherited landing page template: ${landingPageTemplate.name}`)
+          }
+        } else {
+          console.warn('Landing page template not found for campaign template')
+        }
+      } else {
+        console.warn(`No default landing page template assigned to campaign type: ${campaign_template}`)
+      }
+    } catch (inheritanceError) {
+      console.warn('Failed to inherit landing page template:', inheritanceError)
+      // Don't fail the campaign creation if landing page inheritance fails
     }
 
     return NextResponse.json({ 
