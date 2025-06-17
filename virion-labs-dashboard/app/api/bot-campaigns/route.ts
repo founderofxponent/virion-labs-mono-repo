@@ -16,21 +16,11 @@ export async function GET(request: NextRequest) {
     const guildId = searchParams.get('guild_id')
     const isActive = searchParams.get('is_active')
     const template = searchParams.get('template')
-    const includeArchived = searchParams.get('include_archived') === 'true'
-    const onlyArchived = searchParams.get('only_archived') === 'true'
-
     // Get campaigns from the unified view
     let query = supabase
       .from('bot_campaign_configs')
       .select('*')
       .order('created_at', { ascending: false })
-
-    // Filter archived campaigns by default
-    if (onlyArchived) {
-      query = query.eq('is_active', false)
-    } else if (!includeArchived) {
-      query = query.eq('is_active', true)
-    }
 
     if (clientId) {
       query = query.eq('client_id', clientId)
@@ -170,7 +160,6 @@ export async function POST(request: NextRequest) {
       influencer_id,
       referral_tracking_enabled,
       auto_role_assignment,
-      target_role_id,
       target_role_ids = [],
       onboarding_flow = {},
       rate_limit_per_user,
@@ -277,10 +266,9 @@ export async function POST(request: NextRequest) {
         referral_tracking_enabled : (templateBotConfig.referral_tracking_enabled || templateBotConfig.features.referral_tracking),
       auto_role_assignment: auto_role_assignment !== undefined ?
         auto_role_assignment : (templateBotConfig.auto_role_assignment || templateBotConfig.features.auto_role),
-      target_role_id: target_role_id || templateBotConfig.target_role_id || null,
       target_role_ids: target_role_ids.length > 0
         ? target_role_ids
-        : (templateBotConfig.target_role_ids || (templateBotConfig.target_role_id ? [templateBotConfig.target_role_id] : [])),
+        : (templateBotConfig.target_role_ids || []),
       moderation_enabled: moderation_enabled !== undefined ?
         moderation_enabled : (templateBotConfig.moderation_enabled || templateBotConfig.features.moderation),
       

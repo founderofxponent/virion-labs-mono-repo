@@ -1,0 +1,766 @@
+# Supabase Database Schema Documentation
+
+This document provides a comprehensive overview of all 28 tables and views in the Supabase database used by the Virion Labs Dashboard and Discord Bot system.
+
+## Table of Contents
+1. [User Management](#user-management)
+2. [Client Management](#client-management)
+3. [Bot Management](#bot-management)
+4. [Referral System](#referral-system)
+5. [Discord Integration](#discord-integration)
+6. [Campaign Management](#campaign-management)
+7. [Analytics & Tracking](#analytics--tracking)
+8. [Database Views](#database-views)
+
+---
+
+## User Management
+
+### user_profiles
+Stores user profile information and authentication details.
+
+**Columns:**
+- `id` (uuid, primary key) - User ID linked to auth.users
+- `email` (text, unique, not null) - User email address
+- `full_name` (text, not null) - User's full name
+- `avatar_url` (text, nullable) - URL to user's avatar image
+- `role` (text, not null, default: 'influencer') - User role (influencer, admin, client)
+- `created_at` (timestamptz, default: now()) - Account creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Role must be one of: 'influencer', 'admin', 'client'
+- Foreign key to auth.users(id)
+
+### user_settings
+Comprehensive user preferences and configuration settings.
+
+**Columns:**
+- `id` (uuid, primary key) - Settings record ID
+- `user_id` (uuid, not null) - Reference to auth.users
+- `bio` (text, nullable) - User biography
+- `phone_number` (text, nullable) - Contact phone number
+- `twitter_handle` (text, nullable) - Twitter username
+- `instagram_handle` (text, nullable) - Instagram username
+- `youtube_channel` (text, nullable) - YouTube channel URL
+- `discord_username` (text, nullable) - Discord username
+- `website_url` (text, nullable) - Personal website URL
+- `email_notifications_new_referral` (boolean, default: true) - Email on new referrals
+- `email_notifications_link_clicks` (boolean, default: false) - Email on link clicks
+- `email_notifications_weekly_reports` (boolean, default: true) - Weekly email reports
+- `email_notifications_product_updates` (boolean, default: true) - Product update emails
+- `push_notifications_new_referral` (boolean, default: false) - Push notifications for referrals
+- `push_notifications_link_clicks` (boolean, default: false) - Push notifications for clicks
+- `push_notifications_weekly_reports` (boolean, default: false) - Weekly push reports
+- `push_notifications_product_updates` (boolean, default: false) - Product update push notifications
+- `profile_visibility` (text, default: 'public') - Profile visibility setting
+- `show_earnings` (boolean, default: false) - Display earnings publicly
+- `show_referral_count` (boolean, default: true) - Display referral count
+- `webhook_url` (text, nullable) - Custom webhook URL
+- `webhook_events` (text[], default: ['signup', 'click', 'conversion']) - Webhook event types
+- `api_key_regenerated_at` (timestamptz, nullable) - Last API key regeneration
+- `theme` (text, default: 'system') - UI theme preference
+- `language` (text, default: 'en') - Interface language
+- `timezone` (text, default: 'UTC') - User timezone
+- `currency` (text, default: 'USD') - Preferred currency
+- `two_factor_enabled` (boolean, default: false) - 2FA status
+- `login_notifications` (boolean, default: true) - Login notification preference
+- `api_key` (text, nullable) - Production API key
+- `api_key_test` (text, nullable) - Test API key
+- `created_at` (timestamptz, default: now()) - Settings creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Profile visibility must be one of: 'public', 'private', 'contacts_only'
+- Theme must be one of: 'light', 'dark', 'system'
+- Foreign key to auth.users(id)
+
+---
+
+## Client Management
+
+### clients
+Stores information about client organizations using the platform.
+
+**Columns:**
+- `id` (uuid, primary key) - Client ID
+- `name` (text, not null) - Client organization name
+- `industry` (text, not null) - Industry sector
+- `logo` (text, nullable) - Logo image URL
+- `influencers` (integer, default: 0) - Number of associated influencers
+- `bots` (integer, default: 0) - Number of bots deployed
+- `status` (text, not null, default: 'Active') - Client status
+- `join_date` (date, default: CURRENT_DATE) - Client onboarding date
+- `website` (text, nullable) - Client website URL
+- `primary_contact` (text, nullable) - Primary contact person
+- `contact_email` (text, nullable) - Contact email address
+- `created_at` (timestamptz, default: now()) - Record creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Status must be one of: 'Active', 'Inactive', 'Pending'
+
+---
+
+## Bot Management
+
+### bots
+Legacy bot configuration table (being phased out).
+
+**Columns:**
+- `id` (uuid, primary key) - Bot ID
+- `name` (text, not null) - Bot name
+- `client_id` (uuid, not null) - Reference to clients table
+- `discord_bot_id` (text, unique, nullable) - Discord application ID
+- `discord_token` (text, nullable) - Discord bot token
+- `status` (text, not null, default: 'Offline') - Bot operational status
+- `template` (text, not null, default: 'standard') - Bot template type
+- `servers` (integer, default: 0) - Number of Discord servers
+- `users` (integer, default: 0) - Number of users served
+- `commands_used` (integer, default: 0) - Total commands executed
+- `uptime_percentage` (numeric, default: 0.00) - Bot uptime percentage
+- `last_online` (timestamptz, nullable) - Last online timestamp
+- `auto_deploy` (boolean, default: false) - Auto-deployment enabled
+- `webhook_url` (text, nullable) - Webhook endpoint URL
+- `prefix` (text, default: '!') - Command prefix
+- `description` (text, nullable) - Bot description
+- `avatar_url` (text, nullable) - Bot avatar URL
+- `invite_url` (text, nullable) - Discord invite URL
+- `deployment_id` (text, nullable) - Deployment identifier
+- `server_endpoint` (text, nullable) - Server hosting endpoint
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Status must be one of: 'Online', 'Offline', 'Maintenance', 'Error'
+- Template must be one of: 'standard', 'advanced', 'custom'
+- Foreign key to clients(id)
+
+### ~~bot_configurations~~ (REMOVED)
+**Status: REMOVED** - This table has been removed as part of schema cleanup. Bot configuration is now embedded within campaign templates and stored in the `discord_guild_campaigns` table.
+
+### virion_bot_instances
+Centralized bot instance management for the main Virion bot.
+
+**Columns:**
+- `id` (uuid, primary key) - Instance ID
+- `discord_application_id` (text, unique, not null) - Discord application ID
+- `discord_bot_token` (text, not null) - Discord bot token
+- `bot_name` (text, not null, default: 'Virion Labs') - Bot display name
+- `deployment_strategy` (text, default: 'centralized') - Deployment strategy
+- `deployment_id` (text, nullable) - Deployment identifier
+- `server_endpoint` (text, nullable) - Server endpoint URL
+- `status` (text, default: 'Offline') - Instance status
+- `total_guilds` (integer, default: 0) - Total Discord guilds
+- `total_users` (integer, default: 0) - Total users served
+- `total_configurations` (integer, default: 0) - Total active configurations
+- `uptime_percentage` (numeric, default: 0.00) - Uptime percentage
+- `last_online` (timestamptz, nullable) - Last online timestamp
+- `last_health_check` (timestamptz, nullable) - Last health check timestamp
+- `global_settings` (jsonb, default: '{}') - Global bot settings
+- `feature_flags` (jsonb, default: '{}') - Feature flag configuration
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Deployment strategy must be one of: 'centralized', 'distributed'
+- Status must be one of: 'Online', 'Offline', 'Maintenance', 'Error'
+
+---
+
+## Referral System
+
+### referral_links
+Core referral link management with comprehensive tracking.
+
+**Columns:**
+- `id` (uuid, primary key) - Referral link ID
+- `influencer_id` (uuid, not null) - Reference to auth.users
+- `title` (text, not null) - Link title/name
+- `description` (text, nullable) - Link description
+- `platform` (text, not null) - Source platform
+- `original_url` (text, not null) - Original destination URL
+- `referral_code` (text, unique, not null) - Unique referral code
+- `referral_url` (text, not null) - Generated referral URL
+- `thumbnail_url` (text, nullable) - Link thumbnail image
+- `clicks` (integer, default: 0) - Total click count
+- `conversions` (integer, default: 0) - Total conversion count
+- `earnings` (numeric, default: 0.00) - Total earnings
+- `conversion_rate` (numeric, generated) - Calculated conversion rate
+- `is_active` (boolean, default: true) - Link active status
+- `expires_at` (timestamptz, nullable) - Link expiration date
+- `campaign_id` (uuid, nullable) - Associated campaign
+- `discord_invite_url` (text, nullable) - Discord invite URL
+- `discord_guild_id` (text, nullable) - Discord guild ID
+- `redirect_to_discord` (boolean, default: false) - Discord redirect enabled
+- `landing_page_enabled` (boolean, default: true) - Landing page enabled
+- `conversion_count` (integer, default: 0) - Conversion counter
+- `last_conversion_at` (timestamptz, nullable) - Last conversion timestamp
+- `private_channel_id` (text, nullable) - Private Discord channel ID
+- `access_role_id` (text, nullable) - Discord access role ID
+- `custom_invite_code` (text, nullable) - Custom Discord invite code
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Platform must be one of: 'YouTube', 'Instagram', 'TikTok', 'Twitter', 'Facebook', 'LinkedIn', 'Other'
+- Foreign keys to auth.users(id), discord_guild_campaigns(id)
+
+### referrals
+Individual referral records tracking user signups.
+
+**Columns:**
+- `id` (uuid, primary key) - Referral ID
+- `influencer_id` (uuid, not null) - Reference to auth.users
+- `referral_link_id` (uuid, not null) - Reference to referral_links
+- `referred_user_id` (uuid, nullable) - Reference to auth.users (if registered)
+- `name` (text, not null) - Referred user's name
+- `email` (text, nullable) - Referred user's email
+- `discord_id` (text, nullable) - Discord user ID
+- `age` (integer, nullable) - User age
+- `status` (text, not null, default: 'pending') - Referral status
+- `source_platform` (text, not null) - Source platform
+- `conversion_value` (numeric, default: 0.00) - Conversion value
+- `metadata` (jsonb, default: '{}') - Additional metadata
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Status must be one of: 'pending', 'active', 'completed', 'inactive'
+- Foreign keys to auth.users(id), referral_links(id)
+
+### referral_analytics
+Detailed analytics tracking for referral link interactions.
+
+**Columns:**
+- `id` (uuid, primary key) - Analytics record ID
+- `link_id` (uuid, not null) - Reference to referral_links
+- `event_type` (text, not null) - Event type
+- `user_agent` (text, nullable) - Browser user agent
+- `ip_address` (inet, nullable) - User IP address
+- `referrer` (text, nullable) - HTTP referrer
+- `country` (text, nullable) - User country
+- `city` (text, nullable) - User city
+- `device_type` (text, nullable) - Device type
+- `browser` (text, nullable) - Browser type
+- `conversion_value` (numeric, default: 0.00) - Conversion value
+- `metadata` (jsonb, default: '{}') - Additional metadata
+- `created_at` (timestamptz, default: now()) - Event timestamp
+
+**Constraints:**
+- Event type must be one of: 'click', 'conversion'
+- Foreign key to referral_links(id)
+
+### referral_click_tracking
+Simplified click tracking for referral links.
+
+**Columns:**
+- `id` (uuid, primary key) - Tracking record ID
+- `referral_link_id` (uuid, not null) - Reference to referral_links
+- `ip_address` (text, nullable) - User IP address
+- `user_agent` (text, nullable) - Browser user agent
+- `referrer` (text, nullable) - HTTP referrer
+- `action_type` (text, not null) - Action type
+- `conversion_data` (jsonb, default: '{}') - Conversion data
+- `created_at` (timestamptz, default: now()) - Action timestamp
+
+**Constraints:**
+- Foreign key to referral_links(id)
+
+---
+
+## Discord Integration
+
+### discord_guild_campaigns
+Comprehensive Discord campaign management with extensive configuration options.
+
+**Columns:**
+- `id` (uuid, primary key) - Campaign ID
+- `client_id` (uuid, not null) - Reference to clients
+- `guild_id` (text, not null) - Discord guild ID
+- `channel_id` (text, nullable) - Primary Discord channel ID
+- `campaign_name` (text, not null) - Campaign name
+- `campaign_type` (text, not null) - Campaign type
+- `referral_link_id` (uuid, nullable) - Associated referral link
+- `influencer_id` (uuid, nullable) - Associated influencer
+- `webhook_url` (text, nullable) - Webhook endpoint
+- `welcome_message` (text, nullable) - Welcome message template
+- `onboarding_flow` (jsonb, default: '{}') - Onboarding flow configuration
+- `referral_tracking_enabled` (boolean, default: true) - Referral tracking status
+- `auto_role_assignment` (boolean, default: false) - Auto role assignment
+- `total_interactions` (integer, default: 0) - Total interactions count
+- `successful_onboardings` (integer, default: 0) - Successful onboardings
+- `referral_conversions` (integer, default: 0) - Referral conversions
+- `is_active` (boolean, default: true) - Campaign active status
+- `campaign_start_date` (timestamptz, default: now()) - Campaign start date
+- `campaign_end_date` (timestamptz, nullable) - Campaign end date
+- `metadata` (jsonb, default: '{}') - Additional metadata
+- `bot_name` (text, default: 'Virion Bot') - Bot display name
+- `bot_avatar_url` (text, nullable) - Bot avatar URL
+- `bot_personality` (text, default: 'helpful') - Bot personality type
+- `bot_response_style` (text, default: 'friendly') - Response style
+- `brand_color` (text, default: '#6366f1') - Brand color
+- `brand_logo_url` (text, nullable) - Brand logo URL
+- `custom_commands` (jsonb, default: '[]') - Custom commands
+- `auto_responses` (jsonb, default: '{}') - Auto-response configuration
+- `rate_limit_per_user` (integer, default: 5) - Rate limit per user
+- `allowed_channels` (jsonb, default: '[]') - Allowed channel IDs
+- `blocked_users` (jsonb, default: '[]') - Blocked user IDs
+- `moderation_enabled` (boolean, default: true) - Moderation enabled
+- `content_filters` (jsonb, default: '[]') - Content filter rules
+- ~~`archived`~~ (REMOVED) - Archive status (redundant with `is_active`)
+- ~~`archived_at`~~ (REMOVED) - Archive timestamp (redundant with `is_active`)
+- ~~`offer_title`~~ (MOVED to `campaign_landing_pages`) - Campaign offer title
+- ~~`offer_description`~~ (MOVED to `campaign_landing_pages`) - Offer description
+- ~~`offer_highlights`~~ (MOVED to `campaign_landing_pages`) - Offer highlight points
+- ~~`offer_value`~~ (MOVED to `campaign_landing_pages`) - Offer value proposition
+- ~~`offer_expiry_date`~~ (MOVED to `campaign_landing_pages`) - Offer expiry date
+- ~~`hero_image_url`~~ (MOVED to `campaign_landing_pages`) - Hero image URL
+- ~~`product_images`~~ (MOVED to `campaign_landing_pages`) - Product image URLs
+- ~~`video_url`~~ (MOVED to `campaign_landing_pages`) - Campaign video URL
+- ~~`what_you_get`~~ (MOVED to `campaign_landing_pages`) - What users get description
+- ~~`how_it_works`~~ (MOVED to `campaign_landing_pages`) - How it works description
+- ~~`requirements`~~ (MOVED to `campaign_landing_pages`) - Requirements description
+- ~~`support_info`~~ (MOVED to `campaign_landing_pages`) - Support information
+- ~~`landing_page_template_id`~~ (MOVED to `campaign_landing_pages`) - Landing page template ID
+- `template` (text, default: 'standard') - Bot template type
+- `prefix` (text, default: '!') - Command prefix
+- `description` (text, nullable) - Campaign description
+- `avatar_url` (text, nullable) - Avatar URL
+- `features` (jsonb, default: '{}') - Feature configuration
+- `response_templates` (jsonb, default: '{}') - Response templates
+- `embed_footer` (text, nullable) - Embed footer text
+- `webhook_routes` (jsonb, default: '[]') - Webhook routing rules
+- `api_endpoints` (jsonb, default: '{}') - API endpoints
+- `external_integrations` (jsonb, default: '{}') - External integrations
+- `configuration_version` (integer, default: 2) - Configuration version
+- `commands_used` (integer, default: 0) - Commands used count
+- `users_served` (integer, default: 0) - Users served count
+- `last_activity_at` (timestamptz, nullable) - Last activity timestamp
+- `private_channel_id` (text, nullable) - Private channel ID
+- `access_control_enabled` (boolean, default: false) - Access control enabled
+- `referral_only_access` (boolean, default: false) - Referral-only access
+- `auto_role_on_join` (text, nullable) - Auto-assign role on join
+- `onboarding_channel_type` (text, default: 'channel') - Onboarding channel type (updated default)
+- `onboarding_completion_requirements` (jsonb, default: '{}') - Completion requirements
+- `private_channel_setup` (jsonb, default: '{}') - Private channel setup
+- ~~`target_role_id`~~ (REMOVED) - Target role IDs (consolidated into `target_role_ids`)
+- `target_role_ids` (text[], nullable) - Target Discord role IDs (consolidated from multiple role fields)
+- ~~`auto_role_on_join`~~ (REMOVED) - Auto-assign role on join (consolidated into `target_role_ids`)
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Campaign type must be one of: 'referral_onboarding', 'product_promotion', 'community_engagement', 'support'
+- Template must be one of: 'standard', 'advanced', 'custom', 'referral_campaign', 'support_campaign'
+- Foreign keys to clients(id), referral_links(id), auth.users(id)
+
+### discord_referral_interactions
+Tracks all Discord bot interactions with users.
+
+**Columns:**
+- `id` (uuid, primary key) - Interaction ID
+- `guild_campaign_id` (uuid, not null) - Reference to discord_guild_campaigns
+- `discord_user_id` (text, not null) - Discord user ID
+- `discord_username` (text, not null) - Discord username
+- `message_id` (text, not null) - Discord message ID
+- `channel_id` (text, not null) - Discord channel ID
+- `referral_link_id` (uuid, nullable) - Associated referral link
+- `referral_id` (uuid, nullable) - Associated referral record
+- `influencer_id` (uuid, nullable) - Associated influencer
+- `interaction_type` (text, not null) - Type of interaction
+- `message_content` (text, nullable) - User message content
+- `bot_response` (text, nullable) - Bot response content
+- `onboarding_step` (text, nullable) - Current onboarding step
+- `onboarding_completed` (boolean, default: false) - Onboarding completion status
+- `referral_code_provided` (text, nullable) - Provided referral code
+- `response_time_ms` (integer, nullable) - Bot response time in milliseconds
+- `sentiment_score` (numeric, nullable) - Message sentiment score
+- `created_at` (timestamptz, default: now()) - Interaction timestamp
+
+**Constraints:**
+- Interaction type must be one of: 'message', 'command', 'reaction', 'join', 'referral_signup'
+- Foreign keys to discord_guild_campaigns(id), referral_links(id), referrals(id), auth.users(id)
+
+### discord_webhook_routes
+Configuration for Discord webhook routing and processing.
+
+**Columns:**
+- `id` (uuid, primary key) - Route ID
+- `guild_id` (text, not null) - Discord guild ID
+- `channel_id` (text, nullable) - Discord channel ID
+- `client_id` (uuid, not null) - Reference to clients
+- `webhook_url` (text, not null) - Webhook endpoint URL
+- `webhook_type` (text, not null) - Webhook type
+- `message_patterns` (jsonb, default: '[]') - Message pattern matching rules
+- `user_roles` (jsonb, default: '[]') - User role filters
+- `command_prefixes` (jsonb, default: '[]') - Command prefix filters
+- `include_referral_context` (boolean, default: true) - Include referral context
+- `include_user_history` (boolean, default: false) - Include user history
+- `rate_limit_per_minute` (integer, default: 60) - Rate limit per minute
+- `priority` (integer, default: 1) - Route priority
+- `is_active` (boolean, default: true) - Route active status
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Webhook type must be one of: 'n8n', 'custom', 'virion_api'
+- Foreign key to clients(id)
+
+### discord_invite_links
+Manages Discord invite links for campaigns.
+
+**Columns:**
+- `id` (uuid, primary key) - Invite link ID
+- `campaign_id` (uuid, not null) - Reference to discord_guild_campaigns
+- `referral_link_id` (uuid, nullable) - Associated referral link
+- `discord_invite_code` (text, not null) - Discord invite code
+- `discord_invite_url` (text, not null) - Full Discord invite URL
+- `guild_id` (text, not null) - Discord guild ID
+- `channel_id` (text, nullable) - Discord channel ID
+- `max_uses` (integer, default: 0) - Maximum uses (0 = unlimited)
+- `expires_at` (timestamptz, nullable) - Expiration timestamp
+- `uses_count` (integer, default: 0) - Current usage count
+- `is_active` (boolean, default: true) - Invite active status
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Foreign keys to discord_guild_campaigns(id), referral_links(id)
+
+### discord_activities
+Discord activity and embedded app configurations.
+
+**Columns:**
+- `id` (uuid, primary key) - Activity ID
+- `client_id` (uuid, not null) - Reference to clients
+- `activity_name` (text, not null) - Activity name
+- `activity_type` (text, not null, default: 'embedded_app') - Activity type
+- `activity_config` (jsonb, not null, default: '{}') - Activity configuration
+- `guild_id` (text, nullable) - Discord guild ID
+- `channel_id` (text, nullable) - Discord channel ID
+- `activity_url` (text, nullable) - Activity URL
+- `custom_assets` (jsonb, default: '{}') - Custom assets configuration
+- `client_branding` (jsonb, default: '{}') - Client branding settings
+- `persistent_data` (jsonb, default: '{}') - Persistent data storage
+- `user_data` (jsonb, default: '{}') - User-specific data
+- `usage_stats` (jsonb, default: '{}') - Usage statistics
+- `last_used_at` (timestamptz, nullable) - Last usage timestamp
+- `is_active` (boolean, default: true) - Activity active status
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Activity type must be one of: 'embedded_app', 'activity', 'mini_game'
+- Foreign key to clients(id)
+
+### discord_referral_channel_access
+Tracks private channel access for referral users.
+
+**Columns:**
+- `id` (uuid, primary key) - Access record ID
+- `campaign_id` (uuid, not null) - Reference to discord_guild_campaigns
+- `referral_link_id` (uuid, not null) - Reference to referral_links
+- `discord_user_id` (text, not null) - Discord user ID
+- `discord_username` (text, not null) - Discord username
+- `guild_id` (text, not null) - Discord guild ID
+- `private_channel_id` (text, not null) - Private channel ID
+- `invite_code` (text, nullable) - Channel invite code
+- `access_granted_at` (timestamptz, default: now()) - Access grant timestamp
+- `role_assigned` (text, nullable) - Assigned Discord role
+- `onboarding_completed` (boolean, default: false) - Onboarding completion status
+- `is_active` (boolean, default: true) - Access active status
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+
+**Constraints:**
+- Foreign keys to discord_guild_campaigns(id), referral_links(id)
+
+---
+
+## Campaign Management
+
+### campaign_templates
+Reusable campaign templates for quick setup.
+
+**Columns:**
+- `id` (uuid, primary key) - Template ID
+- `name` (text, not null) - Template name
+- `description` (text, nullable) - Template description
+- `campaign_type` (text, not null) - Campaign type
+- `template_config` (jsonb, not null) - Template configuration
+- `is_default` (boolean, default: false) - Default template flag
+- `created_by` (uuid, nullable) - Template creator
+- `category` (text, nullable) - Template category
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Foreign key to auth.users(id)
+
+### campaign_influencer_access
+Manages influencer access to campaigns.
+
+**Columns:**
+- `id` (uuid, primary key) - Access record ID
+- `campaign_id` (uuid, nullable) - Reference to discord_guild_campaigns
+- `influencer_id` (uuid, nullable) - Reference to auth.users
+- `access_granted_at` (timestamptz, default: now()) - Access grant timestamp
+- `access_granted_by` (uuid, nullable) - Admin who granted access
+- `is_active` (boolean, default: true) - Access active status
+- `request_status` (text, default: 'approved') - Request status
+- `requested_at` (timestamptz, default: now()) - Request timestamp
+- `request_message` (text, nullable) - Access request message
+- `admin_response` (text, nullable) - Admin response message
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Request status must be one of: 'pending', 'approved', 'denied'
+- Foreign keys to discord_guild_campaigns(id), auth.users(id)
+
+### campaign_onboarding_fields
+Configurable onboarding fields for campaigns.
+
+**Columns:**
+- `id` (uuid, primary key) - Field ID
+- `campaign_id` (uuid, not null) - Reference to discord_guild_campaigns
+- `field_key` (text, not null) - Field identifier key
+- `field_label` (text, not null) - Field display label
+- `field_type` (text, not null) - Field input type
+- `field_placeholder` (text, nullable) - Placeholder text
+- `field_description` (text, nullable) - Field description
+- `field_options` (jsonb, default: '[]') - Field options for select types
+- `is_required` (boolean, default: false) - Required field flag
+- `is_enabled` (boolean, default: true) - Field enabled status
+- `sort_order` (integer, default: 0) - Display order
+- `validation_rules` (jsonb, default: '{}') - Validation rules
+- `discord_integration` (jsonb, default: '{"collect_in_dm": true, "show_in_embed": true, "trigger_after": null}') - Discord integration settings
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Field type must be one of: 'text', 'email', 'number', 'select', 'multiselect', 'checkbox', 'boolean', 'date', 'url'
+- Foreign key to discord_guild_campaigns(id)
+
+### campaign_onboarding_responses
+Stores user responses to onboarding fields.
+
+**Columns:**
+- `id` (uuid, primary key) - Response ID
+- `campaign_id` (uuid, not null) - Reference to discord_guild_campaigns
+- `discord_user_id` (text, not null) - Discord user ID
+- `discord_username` (text, nullable) - Discord username
+- `field_key` (text, not null) - Field identifier
+- `field_value` (text, nullable) - User response value
+- `referral_id` (uuid, nullable) - Associated referral
+- `referral_link_id` (uuid, nullable) - Associated referral link
+- `interaction_id` (uuid, nullable) - Associated Discord interaction
+- `is_completed` (boolean, default: false) - Response completion status
+- `created_at` (timestamptz, default: now()) - Response timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Foreign keys to discord_guild_campaigns(id), referrals(id), referral_links(id), discord_referral_interactions(id)
+
+### campaign_onboarding_completions
+Tracks unique onboarding completions per user per campaign.
+
+**Columns:**
+- `id` (uuid, primary key) - Completion ID
+- `campaign_id` (uuid, not null) - Reference to discord_guild_campaigns
+- `discord_user_id` (text, not null) - Discord user ID
+- `discord_username` (text, not null) - Discord username
+- `guild_id` (text, nullable) - Discord guild ID
+- `completed_at` (timestamptz, default: now()) - Completion timestamp
+- `created_at` (timestamptz, default: now()) - Record creation timestamp
+
+**Constraints:**
+- Foreign key to discord_guild_campaigns(id)
+
+### campaign_landing_pages
+Landing page content and configuration for Discord campaigns. This table was created to separate landing page data from the main campaign configuration.
+
+**Columns:**
+- `id` (uuid, primary key) - Landing page ID
+- `campaign_id` (uuid, not null) - Reference to discord_guild_campaigns
+- `offer_title` (text, nullable) - Campaign offer title
+- `offer_description` (text, nullable) - Offer description
+- `offer_highlights` (text[], nullable) - Offer highlight points
+- `offer_value` (text, nullable) - Offer value proposition
+- `offer_expiry_date` (timestamptz, nullable) - Offer expiry date
+- `hero_image_url` (text, nullable) - Hero image URL
+- `product_images` (text[], nullable) - Product image URLs
+- `video_url` (text, nullable) - Campaign video URL
+- `what_you_get` (text, nullable) - What users get description
+- `how_it_works` (text, nullable) - How it works description
+- `requirements` (text, nullable) - Requirements description
+- `support_info` (text, nullable) - Support information
+- `landing_page_template_id` (text, nullable) - Landing page template ID
+- `created_at` (timestamptz, default: now()) - Creation timestamp
+- `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Constraints:**
+- Foreign key to discord_guild_campaigns(id) ON DELETE CASCADE
+- Unique constraint on campaign_id (one landing page per campaign)
+
+---
+
+## Database Views
+
+### bot_campaign_configs
+Comprehensive view combining Discord campaign configurations with client and referral data for easier querying. **Updated after schema cleanup**.
+
+**Columns:**
+- `id` (uuid) - Configuration ID
+- `name` (text) - Configuration name
+- `type` (text) - Configuration type
+- `client_id` (uuid) - Client ID
+- `client_name` (text) - Client name
+- `guild_id` (text) - Discord guild ID
+- `channel_id` (text) - Discord channel ID
+- `display_name` (text) - Bot display name
+- `template` (text) - Bot template type
+- `prefix` (text) - Bot command prefix
+- `description` (text) - Bot description
+- `avatar_url` (text) - Bot avatar URL
+- `bot_avatar_url` (text) - Alternative bot avatar URL
+- `bot_personality` (text) - Bot personality setting
+- `bot_response_style` (text) - Bot response style
+- `brand_color` (text) - Brand color
+- `brand_logo_url` (text) - Brand logo URL
+- `features` (jsonb) - Bot features configuration
+- `custom_commands` (jsonb) - Custom commands
+- `auto_responses` (jsonb) - Auto-response rules
+- `response_templates` (jsonb) - Response templates
+- `embed_footer` (text) - Embed footer text
+- `welcome_message` (text) - Welcome message
+- `webhook_url` (text) - Webhook URL
+- `onboarding_flow` (jsonb) - Onboarding flow configuration
+- `referral_tracking_enabled` (boolean) - Referral tracking status
+- `auto_role_assignment` (boolean) - Auto role assignment status
+- `target_role_ids` (text[]) - Target role IDs (consolidated field)
+- `rate_limit_per_user` (integer) - Rate limit per user
+- `allowed_channels` (jsonb) - Allowed channels
+- `blocked_users` (jsonb) - Blocked users
+- `moderation_enabled` (boolean) - Moderation status
+- `content_filters` (jsonb) - Content filters
+- `referral_link_id` (uuid) - Associated referral link ID
+- `referral_code` (text) - Referral code
+- `influencer_id` (uuid) - Influencer ID
+- `influencer_name` (text) - Influencer name
+- `is_active` (boolean) - Active status
+- `campaign_start_date` (timestamptz) - Campaign start date
+- `campaign_end_date` (timestamptz) - Campaign end date
+- `created_at` (timestamptz) - Creation timestamp
+- `updated_at` (timestamptz) - Last update timestamp
+
+### campaign_onboarding_overview
+Analytics view providing overview statistics for campaign onboarding processes.
+
+**Columns:**
+- `campaign_id` (uuid) - Campaign ID
+- `campaign_name` (text) - Campaign name
+- `campaign_type` (text) - Campaign type
+- `client_name` (text) - Client name
+- `total_users_started` (bigint) - Total users who started onboarding
+- `total_users_completed` (bigint) - Total users who completed onboarding
+- `completion_rate_percentage` (numeric) - Completion rate percentage
+- `total_fields` (bigint) - Total number of fields
+- `required_fields` (bigint) - Number of required fields
+- `first_response_date` (timestamptz) - First response date
+- `latest_response_date` (timestamptz) - Latest response date
+
+### daily_onboarding_metrics
+Daily aggregated metrics for onboarding activities per campaign.
+
+**Columns:**
+- `date` (date) - Metric date
+- `campaign_id` (uuid) - Campaign ID
+- `unique_users_started` (bigint) - Unique users who started onboarding
+- `unique_users_completed` (bigint) - Unique users who completed onboarding
+- `total_responses` (bigint) - Total responses submitted
+- `avg_completion_time_minutes` (numeric) - Average completion time in minutes
+
+### field_response_analytics
+Analytics view for individual field response statistics.
+
+**Columns:**
+- `campaign_id` (uuid) - Campaign ID
+- `field_key` (text) - Field identifier
+- `field_label` (text) - Field label
+- `field_type` (text) - Field type
+- `is_required` (boolean) - Required field flag
+- `sort_order` (integer) - Field display order
+- `total_responses` (bigint) - Total responses for this field
+- `completed_responses` (bigint) - Completed responses
+- `skipped_responses` (bigint) - Skipped responses
+- `completion_rate_percentage` (numeric) - Field completion rate
+
+### user_journey_analytics
+User journey analytics tracking individual user progress through onboarding.
+
+**Columns:**
+- `campaign_id` (uuid) - Campaign ID
+- `discord_user_id` (text) - Discord user ID
+- `discord_username` (text) - Discord username
+- `journey_start` (timestamptz) - Journey start timestamp
+- `journey_latest_update` (timestamptz) - Latest journey update
+- `journey_duration_minutes` (numeric) - Journey duration in minutes
+- `fields_completed` (bigint) - Number of fields completed
+- `journey_completed` (boolean) - Journey completion status
+- `referral_id` (uuid) - Associated referral ID
+- `referral_link_id` (uuid) - Associated referral link ID
+
+### v_bot_configurations
+Simplified view of bot configurations for easier querying.
+
+**Columns:**
+- Simplified subset of bot_configurations table data
+- Optimized for common query patterns
+
+### v_discord_activities
+Simplified view of Discord activities for reporting and analytics.
+
+**Columns:**
+- Simplified subset of discord_activities table data
+- Optimized for common query patterns
+
+---
+
+## Summary
+
+This database schema supports a comprehensive referral marketing and Discord bot management platform with the following key capabilities:
+
+- **User Management**: Complete user profiles and settings management (2 tables)
+- **Client Management**: Multi-tenant client organization support (1 table)
+- **Bot Management**: Both legacy and modern bot configuration systems (3 tables)
+- **Referral System**: Full-featured referral link creation and tracking (4 tables)
+- **Discord Integration**: Deep Discord bot integration with campaigns (6 tables)
+- **Campaign Management**: Flexible campaign creation with onboarding flows (5 tables)
+- **Analytics & Tracking**: Comprehensive analytics and user interaction tracking (1 table)
+- **Database Views**: 7 analytical views for reporting and optimized querying
+
+**Total Database Objects**: 22 tables + 7 views = 29 database objects
+
+## Recent Schema Changes (Campaign Cleanup Migration)
+
+**Migration Applied**: `cleanup_campaign_schema_inconsistencies`
+
+### Changes Made:
+1. **Removed obsolete `bot_configurations` table** - Bot configuration is now embedded in campaign templates
+2. **Created new `campaign_landing_pages` table** - Separated landing page content from main campaign table
+3. **Consolidated role ID fields** - Merged `target_role_id` and `auto_role_on_join` into single `target_role_ids` array
+4. **Removed redundant archive fields** - `archived` and `archived_at` (use `is_active` instead)
+5. **Updated default values** - `onboarding_channel_type` default changed from 'any' to 'channel'
+6. **Recreated `bot_campaign_configs` view** - Updated to reflect schema changes
+7. **Added performance indexes** - Improved query performance for common access patterns
+8. **Incremented configuration versions** - All campaigns updated to reflect schema changes
+
+### Benefits:
+- **Reduced complexity**: `discord_guild_campaigns` table reduced from 80+ to ~55 columns
+- **Better data organization**: Landing page content separated into dedicated table
+- **Eliminated redundancy**: Consolidated multiple role ID fields into single source of truth
+- **Improved performance**: Added strategic indexes for common queries
+- **Cleaner schema**: Removed unused and duplicate fields
+
+The schema is designed to be scalable, with proper foreign key relationships and constraints to maintain data integrity across the platform. The analytical views provide optimized access patterns for reporting and dashboard functionality.

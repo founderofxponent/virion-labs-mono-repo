@@ -146,11 +146,77 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_landing_pages: {
+        Row: {
+          id: string
+          campaign_id: string
+          offer_title: string | null
+          offer_description: string | null
+          offer_highlights: string[] | null
+          offer_value: string | null
+          offer_expiry_date: string | null
+          hero_image_url: string | null
+          product_images: string[] | null
+          video_url: string | null
+          what_you_get: string | null
+          how_it_works: string | null
+          requirements: string | null
+          support_info: string | null
+          landing_page_template_id: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          offer_title?: string | null
+          offer_description?: string | null
+          offer_highlights?: string[] | null
+          offer_value?: string | null
+          offer_expiry_date?: string | null
+          hero_image_url?: string | null
+          product_images?: string[] | null
+          video_url?: string | null
+          what_you_get?: string | null
+          how_it_works?: string | null
+          requirements?: string | null
+          support_info?: string | null
+          landing_page_template_id?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          offer_title?: string | null
+          offer_description?: string | null
+          offer_highlights?: string[] | null
+          offer_value?: string | null
+          offer_expiry_date?: string | null
+          hero_image_url?: string | null
+          product_images?: string[] | null
+          video_url?: string | null
+          what_you_get?: string | null
+          how_it_works?: string | null
+          requirements?: string | null
+          support_info?: string | null
+          landing_page_template_id?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_landing_pages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
+            referencedRelation: "discord_guild_campaigns"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       discord_guild_campaigns: {
         Row: {
           allowed_channels: Json | null
-          archived: boolean | null
-          archived_at: string | null
           auto_responses: Json | null
           auto_role_assignment: boolean | null
           blocked_users: Json | null
@@ -170,36 +236,44 @@ export type Database = {
           created_at: string | null
           custom_commands: Json | null
           guild_id: string
-          hero_image_url: string | null
-          how_it_works: string | null
           id: string
           influencer_id: string | null
           is_active: boolean | null
-          landing_page_template_id: string | null
           metadata: Json | null
           moderation_enabled: boolean | null
-          offer_description: string | null
-          offer_expiry_date: string | null
-          offer_highlights: string[] | null
-          offer_title: string | null
-          offer_value: string | null
           onboarding_flow: Json | null
-          product_images: string[] | null
           rate_limit_per_user: number | null
           referral_conversions: number | null
           referral_link_id: string | null
           referral_tracking_enabled: boolean | null
-          requirements: string | null
           successful_onboardings: number | null
-          support_info: string | null
-          target_role_id: string | null
           target_role_ids: string[] | null
           total_interactions: number | null
           updated_at: string | null
-          video_url: string | null
           webhook_url: string | null
           welcome_message: string | null
-          what_you_get: string | null
+          // Additional fields from schema
+          template: string | null
+          prefix: string | null
+          description: string | null
+          avatar_url: string | null
+          features: Json | null
+          response_templates: Json | null
+          embed_footer: string | null
+          webhook_routes: Json | null
+          api_endpoints: Json | null
+          external_integrations: Json | null
+          commands_used: number | null
+          users_served: number | null
+          last_activity_at: string | null
+          private_channel_id: string | null
+          access_control_enabled: boolean | null
+          referral_only_access: boolean | null
+          auto_role_on_join: string | null
+          onboarding_channel_type: string | null
+          onboarding_completion_requirements: Json | null
+          private_channel_setup: Json | null
+          configuration_version: number | null
         }
         Insert: {
           id?: string
@@ -208,27 +282,57 @@ export type Database = {
           channel_id?: string | null
           campaign_name: string
           campaign_type: string
+          template?: string | null
+          prefix?: string | null
+          description?: string | null
+          avatar_url?: string | null
+          bot_name?: string | null
+          bot_avatar_url?: string | null
+          bot_personality?: string | null
+          bot_response_style?: string | null
+          brand_color?: string | null
+          brand_logo_url?: string | null
+          features?: Json | null
+          custom_commands?: Json | null
+          auto_responses?: Json | null
+          response_templates?: Json | null
+          embed_footer?: string | null
+          welcome_message?: string | null
+          webhook_url?: string | null
+          webhook_routes?: Json | null
+          api_endpoints?: Json | null
+          external_integrations?: Json | null
+          onboarding_flow?: Json | null
           referral_link_id?: string | null
           influencer_id?: string | null
-          webhook_url?: string | null
-          bot_configuration_id?: string | null
-          welcome_message?: string | null
-          onboarding_flow?: Json
-          referral_tracking_enabled?: boolean
-          auto_role_assignment?: boolean
-          target_role_id?: string | null
+          referral_tracking_enabled?: boolean | null
+          auto_role_assignment?: boolean | null
           target_role_ids?: string[] | null
-          total_interactions?: number
-          successful_onboardings?: number
-          referral_conversions?: number
-          is_active?: boolean
+          rate_limit_per_user?: number | null
+          allowed_channels?: Json | null
+          blocked_users?: Json | null
+          moderation_enabled?: boolean | null
+          content_filters?: Json | null
+          total_interactions?: number | null
+          successful_onboardings?: number | null
+          referral_conversions?: number | null
+          commands_used?: number | null
+          users_served?: number | null
+          last_activity_at?: string | null
+          private_channel_id?: string | null
+          access_control_enabled?: boolean | null
+          referral_only_access?: boolean | null
+          auto_role_on_join?: string | null
+          onboarding_channel_type?: string | null
+          onboarding_completion_requirements?: Json | null
+          private_channel_setup?: Json | null
+          configuration_version?: number | null
+          is_active?: boolean | null
           campaign_start_date?: string | null
           campaign_end_date?: string | null
-          archived?: boolean
-          archived_at?: string | null
-          metadata?: Json
-          created_at?: string
-          updated_at?: string
+          metadata?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
           id?: string
@@ -237,27 +341,57 @@ export type Database = {
           channel_id?: string | null
           campaign_name?: string
           campaign_type?: string
+          template?: string | null
+          prefix?: string | null
+          description?: string | null
+          avatar_url?: string | null
+          bot_name?: string | null
+          bot_avatar_url?: string | null
+          bot_personality?: string | null
+          bot_response_style?: string | null
+          brand_color?: string | null
+          brand_logo_url?: string | null
+          features?: Json | null
+          custom_commands?: Json | null
+          auto_responses?: Json | null
+          response_templates?: Json | null
+          embed_footer?: string | null
+          welcome_message?: string | null
+          webhook_url?: string | null
+          webhook_routes?: Json | null
+          api_endpoints?: Json | null
+          external_integrations?: Json | null
+          onboarding_flow?: Json | null
           referral_link_id?: string | null
           influencer_id?: string | null
-          webhook_url?: string | null
-          bot_configuration_id?: string | null
-          welcome_message?: string | null
-          onboarding_flow?: Json
-          referral_tracking_enabled?: boolean
-          auto_role_assignment?: boolean
-          target_role_id?: string | null
+          referral_tracking_enabled?: boolean | null
+          auto_role_assignment?: boolean | null
           target_role_ids?: string[] | null
-          total_interactions?: number
-          successful_onboardings?: number
-          referral_conversions?: number
-          is_active?: boolean
+          rate_limit_per_user?: number | null
+          allowed_channels?: Json | null
+          blocked_users?: Json | null
+          moderation_enabled?: boolean | null
+          content_filters?: Json | null
+          total_interactions?: number | null
+          successful_onboardings?: number | null
+          referral_conversions?: number | null
+          commands_used?: number | null
+          users_served?: number | null
+          last_activity_at?: string | null
+          private_channel_id?: string | null
+          access_control_enabled?: boolean | null
+          referral_only_access?: boolean | null
+          auto_role_on_join?: string | null
+          onboarding_channel_type?: string | null
+          onboarding_completion_requirements?: Json | null
+          private_channel_setup?: Json | null
+          configuration_version?: number | null
+          is_active?: boolean | null
           campaign_start_date?: string | null
           campaign_end_date?: string | null
-          archived?: boolean
-          archived_at?: string | null
-          metadata?: Json
-          created_at?: string
-          updated_at?: string
+          metadata?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -712,6 +846,14 @@ export type ReferralUpdate = Database['public']['Tables']['referrals']['Update']
 export type UserSettings = Database['public']['Tables']['user_settings']['Row']
 export type UserSettingsInsert = Database['public']['Tables']['user_settings']['Insert']
 export type UserSettingsUpdate = Database['public']['Tables']['user_settings']['Update']
+
+export type CampaignLandingPage = Database['public']['Tables']['campaign_landing_pages']['Row']
+export type CampaignLandingPageInsert = Database['public']['Tables']['campaign_landing_pages']['Insert']
+export type CampaignLandingPageUpdate = Database['public']['Tables']['campaign_landing_pages']['Update']
+
+export type DiscordGuildCampaign = Database['public']['Tables']['discord_guild_campaigns']['Row']
+export type DiscordGuildCampaignInsert = Database['public']['Tables']['discord_guild_campaigns']['Insert']
+export type DiscordGuildCampaignUpdate = Database['public']['Tables']['discord_guild_campaigns']['Update']
 
 // Extended Bot type with client information
 export interface BotWithClient extends Bot {

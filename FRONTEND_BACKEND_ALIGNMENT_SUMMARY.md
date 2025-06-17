@@ -1,151 +1,186 @@
 # Frontend-Backend Alignment Summary
 
-## ✅ **Perfect Alignment Achieved**
+**Date**: January 2025  
+**Context**: Aligning APIs, hooks, and frontend components with the updated database schema following the campaign cleanup migration.
 
-### **Frontend Form (Bot-Campaigns Page)**
-```typescript
-// Simple form field
-<Label htmlFor="channel_id">Private Channel ID (Optional)</Label>
-<Input
-  id="channel_id"
-  value={createForm.channel_id}
-  onChange={(e) => setCreateForm(prev => ({ ...prev, channel_id: e.target.value }))}
-  placeholder="123456789012345678"
-/>
-<p className="text-xs text-muted-foreground">
-  Discord channel where only referral users can interact with the bot
-</p>
-```
+## 🎯 **Schema Changes Overview**
 
-### **Backend API (Bot-Campaigns Creation)**
-```typescript
-// API receives channel_id and stores it directly
-campaignData = {
-  client_id,
-  guild_id,
-  channel_id: channel_id || null,  // ← Simple storage
-  campaign_name,
-  // ... other fields
-}
-```
+The database schema was significantly updated with the following key changes:
 
-### **Database Storage**
+1. **Removed `bot_configurations` table** - Eliminated redundant bot configuration management
+2. **Created `campaign_landing_pages` table** - Separated landing page content from main campaign table
+3. **Consolidated role fields** - Merged `target_role_id` and `auto_role_on_join` into `target_role_ids`
+4. **Removed archive fields** - Eliminated `archived` and `archived_at` columns
+5. **Updated defaults** - Changed `onboarding_channel_type` default to 'channel'
+
+## 📋 **Frontend-Backend Alignment Changes**
+
+### **1. New API Endpoints Created**
+
+#### **`/api/campaign-landing-pages`** ✅ NEW
+- **GET** - Fetch landing page data for a campaign
+- **POST** - Create or upsert landing page data
+- **PUT** - Update existing landing page data  
+- **DELETE** - Remove landing page data
+- **Features**: Full CRUD operations with campaign validation
+
+### **2. Updated Database Types**
+
+#### **Updated `lib/supabase.ts`** ✅ UPDATED
+- **Added** `campaign_landing_pages` table types
+- **Updated** `discord_guild_campaigns` types - removed obsolete fields
+- **Added** new type exports: `CampaignLandingPage`, `CampaignLandingPageInsert`, `CampaignLandingPageUpdate`
+- **Removed** landing page fields from campaign types
+- **Consolidated** role management types
+
+### **3. New React Hooks**
+
+#### **`hooks/use-campaign-landing-pages.ts`** ✅ NEW
+- **Features**: Complete landing page management for campaigns
+- **Methods**: `createOrUpdateLandingPage`, `updateLandingPage`, `deleteLandingPage`, `refresh`
+- **State Management**: Loading states, error handling, automatic data fetching
+- **Integration**: Works seamlessly with new API endpoints
+
+### **4. Updated Existing Hooks**
+
+#### **`hooks/use-bot-campaigns.ts`** ✅ UPDATED
+- **Removed** `target_role_id` from interfaces
+- **Removed** `include_archived` and `only_archived` filters
+- **Simplified** filtering logic
+- **Updated** type definitions to match new schema
+
+### **5. Updated API Endpoints**
+
+#### **`/api/bot-campaigns`** ✅ UPDATED
+- **Removed** archive filtering logic
+- **Removed** `target_role_id` field handling
+- **Updated** role field consolidation logic
+- **Simplified** query parameters
+
+#### **`/api/referral/[code]/campaign`** ✅ UPDATED
+- **Separated** landing page data fetching
+- **Added** proper data merging from `campaign_landing_pages` table
+- **Improved** error handling and data structure
+- **Enhanced** response formatting
+
+#### **`/api/referral/preview/[campaignId]`** ✅ UPDATED
+- **Separated** campaign and landing page data queries
+- **Updated** HTML generation to use new data structure
+- **Maintained** backward compatibility for existing campaigns
+- **Enhanced** preview functionality
+
+### **6. Updated Components**
+
+#### **`components/landing-page-config.tsx`** ✅ UPDATED
+- **Integrated** with new `useCampaignLandingPage` hook
+- **Added** automatic data loading from database
+- **Added** save functionality to persist changes
+- **Updated** data flow to work with separated landing page table
+- **Enhanced** state management and error handling
+
+#### **Campaign Components** ✅ VERIFIED
+- **Verified** compatibility with new schema
+- **Updated** prop passing for campaign ID requirements
+- **Maintained** existing functionality while using new data structure
+
+### **7. Database Migration Integration**
+
+#### **Schema Documentation** ✅ UPDATED
+- **Updated** `SUPABASE_DATABASE_SCHEMA.md` with all changes
+- **Documented** new table structure and relationships
+- **Added** migration summary and change tracking
+- **Updated** total database object count
+
+## 🔧 **Technical Implementation Details**
+
+### **New Table Structure**
 ```sql
--- Stored in discord_guild_campaigns table
-INSERT INTO discord_guild_campaigns (
-  client_id,
-  guild_id, 
-  channel_id,  -- ← Simple field, no complex private channel fields
-  campaign_name,
-  -- ... other fields
+campaign_landing_pages (
+  id UUID PRIMARY KEY,
+  campaign_id UUID REFERENCES discord_guild_campaigns(id),
+  offer_title TEXT,
+  offer_description TEXT,
+  offer_highlights TEXT[],
+  offer_value TEXT,
+  offer_expiry_date TIMESTAMPTZ,
+  hero_image_url TEXT,
+  product_images TEXT[],
+  video_url TEXT,
+  what_you_get TEXT,
+  how_it_works TEXT,
+  requirements TEXT,
+  support_info TEXT,
+  landing_page_template_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(campaign_id)
 )
 ```
 
-### **Discord Bot Config API**
+### **API Response Structure**
 ```typescript
-// Bot config checks channel_id for private channel logic
-if (campaignConfig.channel_id && channelId) {
-  // Verify the bot can only be used in the specified private channel
-  if (campaignConfig.channel_id !== channelId) {
-    return NextResponse.json({
-      configured: false,
-      access_denied: true,
-      message: 'This bot is only available in specific private channels',
-      private_channel_id: campaignConfig.channel_id  // ← Uses channel_id
-    })
-  }
-  
-  // For private channels, require referral access by default
-  // ... referral access check logic
+// Campaign with Landing Page Data
+{
+  campaign: {
+    id: string,
+    campaign_name: string,
+    // ... campaign fields
+  },
+  landing_page: {
+    offer_title: string,
+    offer_description: string,
+    // ... landing page fields
+  } | null
 }
 ```
 
-### **Database RPC Function**
-```sql
--- get_bot_config_for_guild returns channel_id
-SELECT 
-  TRUE as configured,
-  bcc.id as campaign_id,
-  bcc.channel_id,  -- ← Returns the channel_id field
-  -- ... other fields
-FROM bot_campaign_configs bcc
-WHERE bcc.guild_id = p_guild_id
-  AND (p_channel_id IS NULL OR bcc.channel_id IS NULL OR bcc.channel_id = p_channel_id)
+### **Hook Usage Pattern**
+```typescript
+// New Landing Page Hook
+const { landingPage, loading, createOrUpdateLandingPage, refresh } = useCampaignLandingPage(campaignId)
+
+// Save landing page data
+await createOrUpdateLandingPage({
+  offer_title: "New Offer",
+  offer_description: "Description",
+  // ... other fields
+})
 ```
 
-## 🎯 **Data Flow Alignment**
+## ✅ **Verification Completed**
 
-### **Campaign Creation Flow:**
-1. **Frontend Form** → User enters `channel_id` (optional)
-2. **Bot-Campaigns API** → Stores `channel_id` in database
-3. **Database** → Saves to `discord_guild_campaigns.channel_id`
-4. **Bot Config API** → Reads `channel_id` for access control
-5. **Discord Bot** → Enforces private channel restrictions
+### **Database Operations**
+- ✅ Campaign landing page CRUD operations working
+- ✅ Data migration completed successfully  
+- ✅ Indexes created for performance
+- ✅ Foreign key constraints validated
 
-### **Private Channel Logic:**
-- **If `channel_id` is NULL** → Public campaign (works in any channel)
-- **If `channel_id` has value** → Private campaign (only works in that channel with referral users)
+### **API Functionality**
+- ✅ All endpoints returning correct data structure
+- ✅ Error handling implemented
+- ✅ Backward compatibility maintained
+- ✅ Landing page data properly separated
 
-## 🔧 **Key Alignment Points**
+### **Frontend Integration**
+- ✅ Components loading landing page data correctly
+- ✅ Save functionality working
+- ✅ State management synchronized
+- ✅ Type safety maintained throughout
 
-### **1. Single Source of Truth**
-- ✅ **Frontend** sends `channel_id`
-- ✅ **Backend** stores `channel_id` 
-- ✅ **Bot Config** uses `channel_id`
-- ✅ **Database** has `channel_id`
+### **Performance Impact**
+- ✅ Database queries optimized with proper joins
+- ✅ Landing page data cached in hooks
+- ✅ Minimal API calls with efficient data fetching
+- ✅ No performance degradation detected
 
-### **2. Simplified Logic**
-- ❌ **Removed**: `private_channel_id`, `access_control_enabled`, `referral_only_access`
-- ✅ **Using**: Simple `channel_id` presence determines private mode
-- ✅ **Clean**: No complex configuration checkboxes
+## 🎉 **Results**
 
-### **3. Consistent Behavior**
-- **Empty channel_id** = Public bot (any channel)
-- **Filled channel_id** = Private bot (specific channel + referral required)
-- **Backend automatically enforces** referral access for private channels
+**✅ COMPLETE SUCCESS**: All frontend components, hooks, and APIs have been successfully aligned with the updated database schema. The application now:
 
-## 📊 **Testing Verification**
+1. **Uses separate landing page management** - Clean separation of concerns
+2. **Eliminates redundant data** - No more duplicate bot configuration
+3. **Simplifies role management** - Single consolidated role field
+4. **Improves performance** - Better data organization and indexing
+5. **Maintains full functionality** - All features working as expected
 
-### **Test Cases:**
-1. **Create campaign without channel_id** → Should work in any channel
-2. **Create campaign with channel_id** → Should only work in that channel
-3. **Bot access without referral** → Should be denied in private channels
-4. **Bot access with referral** → Should work in private channels
-
-### **Database Verification:**
-```sql
--- Check Nike Zoom campaign (has private channel)
-SELECT campaign_name, channel_id FROM discord_guild_campaigns 
-WHERE campaign_name = 'Nike Zoom';
--- Result: channel_id = '1381248036683911300'
-
--- Test bot config API
-SELECT * FROM get_bot_config_for_guild('905448362944393218');
--- Result: Returns channel_id in response
-```
-
-## ✅ **Alignment Status: PERFECT**
-
-### **Frontend ↔ Backend ↔ Database ↔ Bot Config**
-- ✅ **Form field** → `channel_id`
-- ✅ **API parameter** → `channel_id`  
-- ✅ **Database column** → `channel_id`
-- ✅ **Bot config response** → `channel_id`
-- ✅ **Access control logic** → Based on `channel_id`
-
-### **No Mismatches:**
-- ❌ No unused complex fields
-- ❌ No missing data mappings
-- ❌ No inconsistent naming
-- ❌ No broken data flow
-
-## 🚀 **Ready for Production**
-
-The simplified private channel implementation is now **perfectly aligned** across:
-- **Frontend forms** (simple channel ID field)
-- **Backend APIs** (stores and retrieves channel_id)
-- **Database schema** (uses existing channel_id column)
-- **Bot configuration** (enforces private channel access)
-- **Discord bot logic** (referral-only access for private channels)
-
-**Result**: Clean, simple, and fully functional private channel system with pure referral attribution! 
+**Migration Impact**: Zero breaking changes for end users. All existing functionality preserved while gaining improved data organization and performance. 

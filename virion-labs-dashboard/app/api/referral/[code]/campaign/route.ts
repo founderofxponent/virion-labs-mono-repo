@@ -44,7 +44,7 @@ export async function GET(
       )
     }
 
-    // Get campaign details
+    // Get campaign details (without landing page fields now)
     const { data: campaignData, error: campaignError } = await supabase
       .from('discord_guild_campaigns')
       .select('id, campaign_name, campaign_type, guild_id, welcome_message, brand_color, brand_logo_url, metadata, client_id')
@@ -57,6 +57,13 @@ export async function GET(
         { status: 404 }
       )
     }
+
+    // Get landing page data separately
+    const { data: landingPageData } = await supabase
+      .from('campaign_landing_pages')
+      .select('*')
+      .eq('campaign_id', campaignData.id)
+      .single()
 
     // Get client details
     const { data: clientData } = await supabase
@@ -72,17 +79,38 @@ export async function GET(
       .eq('id', referralData.influencer_id)
       .single()
 
-    return NextResponse.json({
-      referral_link: referralData,
-      campaign: {
-        ...campaignData,
-        clients: clientData
+    // Combine all data
+    const response = {
+      referral_link: {
+        id: referralData.id,
+        title: referralData.title,
+        description: referralData.description,
+        platform: referralData.platform,
+        discord_invite_url: referralData.discord_invite_url,
+        influencer_id: referralData.influencer_id
       },
-      influencer: influencerData
-    })
+      campaign: {
+        id: campaignData.id,
+        campaign_name: campaignData.campaign_name,
+        campaign_type: campaignData.campaign_type,
+        guild_id: campaignData.guild_id,
+        welcome_message: campaignData.welcome_message,
+        brand_color: campaignData.brand_color,
+        brand_logo_url: campaignData.brand_logo_url,
+        metadata: campaignData.metadata,
+        // Include landing page data if it exists
+        ...(landingPageData || {}),
+        clients: clientData || { name: 'Unknown Client', industry: 'Technology', logo: null }
+      },
+      influencer: influencerData || { full_name: 'Unknown Influencer', avatar_url: null }
+    }
 
+    return NextResponse.json(response)
   } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error fetching campaign data:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
 } 

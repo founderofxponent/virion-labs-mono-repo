@@ -25,6 +25,8 @@ import { CalendarIcon, Plus, X, Eye, Wand2, Image } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { LANDING_PAGE_TEMPLATES, getTemplatesByCampaignType, getTemplateById, type LandingPageTemplate } from "@/lib/landing-page-templates"
+import { useCampaignLandingPage } from "@/hooks/use-campaign-landing-pages"
+import { CampaignLandingPageInsert } from "@/lib/supabase"
 
 interface LandingPageConfigData {
   landing_page_template_id?: string
@@ -43,89 +45,141 @@ interface LandingPageConfigData {
 }
 
 interface LandingPageConfigProps {
+  campaignId: string
   campaignType: string
   initialData?: LandingPageConfigData
   onChange: (data: LandingPageConfigData) => void
   onPreview?: () => void
 }
 
-export function LandingPageConfig({ campaignType, initialData, onChange, onPreview }: LandingPageConfigProps) {
-  const [formData, setFormData] = useState<LandingPageConfigData>(initialData || {})
-  const [newHighlight, setNewHighlight] = useState("")
-  const [newProductImage, setNewProductImage] = useState("")
-  const [selectedTemplate, setSelectedTemplate] = useState<LandingPageTemplate | null>(null)
+export function LandingPageConfig({ 
+  campaignId,
+  campaignType, 
+  initialData, 
+  onChange, 
+  onPreview 
+}: LandingPageConfigProps) {
+  const { landingPage, loading, createOrUpdateLandingPage, refresh } = useCampaignLandingPage(campaignId)
+  
+  const [data, setData] = useState<LandingPageConfigData>({
+    landing_page_template_id: '',
+    offer_title: '',
+    offer_description: '',
+    offer_highlights: [],
+    offer_value: '',
+    offer_expiry_date: null,
+    hero_image_url: '',
+    product_images: [],
+    video_url: '',
+    what_you_get: '',
+    how_it_works: '',
+    requirements: '',
+    support_info: '',
+    ...initialData
+  })
+
+  // Update data when landing page loads
+  useEffect(() => {
+    if (landingPage) {
+      setData({
+        landing_page_template_id: landingPage.landing_page_template_id || '',
+        offer_title: landingPage.offer_title || '',
+        offer_description: landingPage.offer_description || '',
+        offer_highlights: landingPage.offer_highlights || [],
+        offer_value: landingPage.offer_value || '',
+        offer_expiry_date: landingPage.offer_expiry_date ? new Date(landingPage.offer_expiry_date) : null,
+        hero_image_url: landingPage.hero_image_url || '',
+        product_images: landingPage.product_images || [],
+        video_url: landingPage.video_url || '',
+        what_you_get: landingPage.what_you_get || '',
+        how_it_works: landingPage.how_it_works || '',
+        requirements: landingPage.requirements || '',
+        support_info: landingPage.support_info || '',
+      })
+    }
+  }, [landingPage])
+
+  const updateData = (updates: Partial<LandingPageConfigData>) => {
+    const newData = { ...data, ...updates }
+    setData(newData)
+    onChange(newData)
+  }
 
   const availableTemplates = getTemplatesByCampaignType(campaignType)
 
-  useEffect(() => {
-    if (formData.landing_page_template_id) {
-      const template = getTemplateById(formData.landing_page_template_id)
-      setSelectedTemplate(template || null)
-    }
-  }, [formData.landing_page_template_id])
-
-  const handleFieldChange = (field: keyof LandingPageConfigData, value: any) => {
-    const updatedData = { ...formData, [field]: value }
-    setFormData(updatedData)
-    onChange(updatedData)
-  }
-
   const handleTemplateSelect = (templateId: string) => {
-    if (templateId === "none") {
-      setSelectedTemplate(null)
-      handleFieldChange("landing_page_template_id", undefined)
-      return
-    }
-
     const template = getTemplateById(templateId)
     if (template) {
-      setSelectedTemplate(template)
-      // Auto-fill fields with template data
-      const templateData = {
+      updateData({
         landing_page_template_id: templateId,
-        offer_title: template.fields.offer_title,
-        offer_description: template.fields.offer_description,
-        offer_highlights: [...template.fields.offer_highlights],
-        offer_value: template.fields.offer_value,
-        what_you_get: template.fields.what_you_get,
-        how_it_works: template.fields.how_it_works,
-        requirements: template.fields.requirements,
-        support_info: template.fields.support_info,
-        // Keep existing media fields
-        hero_image_url: formData.hero_image_url,
-        product_images: formData.product_images,
-        video_url: formData.video_url,
-        offer_expiry_date: formData.offer_expiry_date,
-      }
-      setFormData(templateData)
-      onChange(templateData)
+        ...template.fields
+      })
     }
   }
 
   const addHighlight = () => {
-    if (newHighlight.trim()) {
-      const highlights = [...(formData.offer_highlights || []), newHighlight.trim()]
-      handleFieldChange("offer_highlights", highlights)
-      setNewHighlight("")
-    }
+    updateData({
+      offer_highlights: [...(data.offer_highlights || []), '']
+    })
+  }
+
+  const updateHighlight = (index: number, value: string) => {
+    const highlights = [...(data.offer_highlights || [])]
+    highlights[index] = value
+    updateData({ offer_highlights: highlights })
   }
 
   const removeHighlight = (index: number) => {
-    const highlights = formData.offer_highlights?.filter((_, i) => i !== index) || []
-    handleFieldChange("offer_highlights", highlights)
+    const highlights = [...(data.offer_highlights || [])]
+    highlights.splice(index, 1)
+    updateData({ offer_highlights: highlights })
   }
 
   const addProductImage = () => {
-    if (newProductImage.trim()) {
-      const images = [...(formData.product_images || []), newProductImage.trim()]
-      handleFieldChange("product_images", images)
-      setNewProductImage("")
-    }
+    updateData({
+      product_images: [...(data.product_images || []), '']
+    })
+  }
+
+  const updateProductImage = (index: number, value: string) => {
+    const images = [...(data.product_images || [])]
+    images[index] = value
+    updateData({ product_images: images })
   }
 
   const removeProductImage = (index: number) => {
-    const images = formData.product_images?.filter((_, i) => i !== index) || []
-    handleFieldChange("product_images", images)
+    const images = [...(data.product_images || [])]
+    images.splice(index, 1)
+    updateData({ product_images: images })
+  }
+
+  const handleSave = async () => {
+    try {
+      const saveData: Omit<CampaignLandingPageInsert, 'campaign_id'> = {
+        landing_page_template_id: data.landing_page_template_id || null,
+        offer_title: data.offer_title || null,
+        offer_description: data.offer_description || null,
+        offer_highlights: data.offer_highlights || null,
+        offer_value: data.offer_value || null,
+        offer_expiry_date: data.offer_expiry_date?.toISOString() || null,
+        hero_image_url: data.hero_image_url || null,
+        product_images: data.product_images || null,
+        video_url: data.video_url || null,
+        what_you_get: data.what_you_get || null,
+        how_it_works: data.how_it_works || null,
+        requirements: data.requirements || null,
+        support_info: data.support_info || null,
+      }
+      
+      await createOrUpdateLandingPage(saveData)
+      refresh()
+    } catch (error) {
+      console.error('Failed to save landing page:', error)
+    }
+  }
+
+  if (loading) {
+    return <div>Loading landing page configuration...</div>
   }
 
   return (
@@ -138,45 +192,38 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
             Landing Page Template
           </CardTitle>
           <CardDescription>
-            Choose a pre-built template to get started quickly, then customize as needed
+            Choose a pre-designed template or start with a blank canvas
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Template</Label>
-            <Select
-              value={formData.landing_page_template_id || "none"}
-              onValueChange={handleTemplateSelect}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a template or start from scratch" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Custom (No Template)</SelectItem>
-                {availableTemplates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{template.name}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {template.description}
-                      </Badge>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {availableTemplates.map((template) => (
+              <div
+                key={template.id}
+                className={cn(
+                  "border rounded-lg p-4 cursor-pointer transition-colors",
+                  data.landing_page_template_id === template.id
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300"
+                )}
+                onClick={() => handleTemplateSelect(template.id)}
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-medium">{template.name}</h4>
+                    <p className="text-sm text-gray-600 mt-1">{template.description}</p>
+                    <div className="flex gap-1 mt-2">
+                      {template.campaign_types.map((type) => (
+                        <Badge key={type} variant="secondary" className="text-xs">
+                          {type.replace('_', ' ')}
+                        </Badge>
+                      ))}
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-
-          {selectedTemplate && (
-            <div className="p-3 bg-muted/50 rounded-lg">
-              <p className="text-sm text-muted-foreground mb-2">
-                <strong>Template:</strong> {selectedTemplate.name}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {selectedTemplate.description}
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -194,8 +241,8 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
             <Input
               id="offer-title"
               placeholder="e.g., Get 30 Days Free Access"
-              value={formData.offer_title || ""}
-              onChange={(e) => handleFieldChange("offer_title", e.target.value)}
+              value={data.offer_title || ""}
+              onChange={(e) => updateData({ offer_title: e.target.value })}
             />
           </div>
 
@@ -205,8 +252,8 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
               id="offer-description"
               placeholder="Detailed description of what you're offering..."
               rows={3}
-              value={formData.offer_description || ""}
-              onChange={(e) => handleFieldChange("offer_description", e.target.value)}
+              value={data.offer_description || ""}
+              onChange={(e) => updateData({ offer_description: e.target.value })}
             />
           </div>
 
@@ -215,8 +262,8 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
             <Input
               id="offer-value"
               placeholder="e.g., Worth $99/month - Yours FREE"
-              value={formData.offer_value || ""}
-              onChange={(e) => handleFieldChange("offer_value", e.target.value)}
+              value={data.offer_value || ""}
+              onChange={(e) => updateData({ offer_value: e.target.value })}
             />
           </div>
 
@@ -225,17 +272,17 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
             <div className="flex gap-2">
               <Input
                 placeholder="Add a key selling point..."
-                value={newHighlight}
-                onChange={(e) => setNewHighlight(e.target.value)}
+                value={data.offer_highlights?.find((_, i) => i === 0) || ""}
+                onChange={(e) => updateHighlight(0, e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && addHighlight()}
               />
               <Button type="button" onClick={addHighlight} size="sm">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            {formData.offer_highlights && formData.offer_highlights.length > 0 && (
+            {data.offer_highlights && data.offer_highlights.length > 0 && (
               <div className="space-y-2">
-                {formData.offer_highlights.map((highlight, index) => (
+                {data.offer_highlights.map((highlight, index) => (
                   <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
                     <span className="flex-1 text-sm">{highlight}</span>
                     <Button
@@ -260,12 +307,12 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
                   variant="outline"
                   className={cn(
                     "w-full justify-start text-left font-normal",
-                    !formData.offer_expiry_date && "text-muted-foreground"
+                    !data.offer_expiry_date && "text-muted-foreground"
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.offer_expiry_date ? (
-                    format(formData.offer_expiry_date, "PPP")
+                  {data.offer_expiry_date ? (
+                    format(data.offer_expiry_date, "PPP")
                   ) : (
                     <span>No expiry date</span>
                   )}
@@ -274,8 +321,8 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
                   mode="single"
-                  selected={formData.offer_expiry_date || undefined}
-                  onSelect={(date) => handleFieldChange("offer_expiry_date", date)}
+                  selected={data.offer_expiry_date || undefined}
+                  onSelect={(date) => updateData({ offer_expiry_date: date })}
                   disabled={(date) => date < new Date()}
                   initialFocus
                 />
@@ -283,7 +330,7 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => handleFieldChange("offer_expiry_date", null)}
+                    onClick={() => updateData({ offer_expiry_date: null })}
                   >
                     Clear Expiry
                   </Button>
@@ -312,8 +359,8 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
               id="hero-image"
               type="url"
               placeholder="https://example.com/hero-image.jpg"
-              value={formData.hero_image_url || ""}
-              onChange={(e) => handleFieldChange("hero_image_url", e.target.value)}
+              value={data.hero_image_url || ""}
+              onChange={(e) => updateData({ hero_image_url: e.target.value })}
             />
           </div>
 
@@ -323,8 +370,8 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
               id="video-url"
               type="url"
               placeholder="https://youtube.com/watch?v=..."
-              value={formData.video_url || ""}
-              onChange={(e) => handleFieldChange("video_url", e.target.value)}
+              value={data.video_url || ""}
+              onChange={(e) => updateData({ video_url: e.target.value })}
             />
           </div>
 
@@ -333,17 +380,17 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
             <div className="flex gap-2">
               <Input
                 placeholder="https://example.com/product-image.jpg"
-                value={newProductImage}
-                onChange={(e) => setNewProductImage(e.target.value)}
+                value={data.product_images?.find((_, i) => i === 0) || ""}
+                onChange={(e) => updateProductImage(0, e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && addProductImage()}
               />
               <Button type="button" onClick={addProductImage} size="sm">
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
-            {formData.product_images && formData.product_images.length > 0 && (
+            {data.product_images && data.product_images.length > 0 && (
               <div className="space-y-2">
-                {formData.product_images.map((image, index) => (
+                {data.product_images.map((image, index) => (
                   <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
                     <span className="flex-1 text-sm font-mono">{image}</span>
                     <Button
@@ -377,8 +424,8 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
               id="what-you-get"
               placeholder="Detailed explanation of what's included in the offer..."
               rows={3}
-              value={formData.what_you_get || ""}
-              onChange={(e) => handleFieldChange("what_you_get", e.target.value)}
+              value={data.what_you_get || ""}
+              onChange={(e) => updateData({ what_you_get: e.target.value })}
             />
           </div>
 
@@ -388,8 +435,8 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
               id="how-it-works"
               placeholder="Step-by-step process (use numbered list)..."
               rows={4}
-              value={formData.how_it_works || ""}
-              onChange={(e) => handleFieldChange("how_it_works", e.target.value)}
+              value={data.how_it_works || ""}
+              onChange={(e) => updateData({ how_it_works: e.target.value })}
             />
           </div>
 
@@ -399,8 +446,8 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
               id="requirements"
               placeholder="Any requirements or conditions for the offer..."
               rows={2}
-              value={formData.requirements || ""}
-              onChange={(e) => handleFieldChange("requirements", e.target.value)}
+              value={data.requirements || ""}
+              onChange={(e) => updateData({ requirements: e.target.value })}
             />
           </div>
 
@@ -410,22 +457,27 @@ export function LandingPageConfig({ campaignType, initialData, onChange, onPrevi
               id="support-info"
               placeholder="How users can get help or contact support..."
               rows={2}
-              value={formData.support_info || ""}
-              onChange={(e) => handleFieldChange("support_info", e.target.value)}
+              value={data.support_info || ""}
+              onChange={(e) => updateData({ support_info: e.target.value })}
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Preview Button */}
-      {onPreview && (
-        <div className="flex justify-center">
-          <Button onClick={onPreview} variant="outline" size="lg">
-            <Eye className="mr-2 h-4 w-4" />
-            Preview Landing Page
-          </Button>
+      {/* Save Button */}
+      <div className="flex justify-between">
+        <div>
+          {onPreview && (
+            <Button type="button" variant="outline" onClick={onPreview} className="gap-2">
+              <Eye className="h-4 w-4" />
+              Preview Landing Page
+            </Button>
+          )}
         </div>
-      )}
+        <Button onClick={handleSave} className="gap-2">
+          Save Landing Page Configuration
+        </Button>
+      </div>
     </div>
   )
 } 

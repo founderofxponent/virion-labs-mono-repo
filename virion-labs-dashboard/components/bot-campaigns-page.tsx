@@ -17,7 +17,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import RoleIdsInput from "@/components/role-ids-input"
 import {
   Table,
   TableBody,
@@ -1064,11 +1063,11 @@ export default function BotCampaignsPage() {
 
                   {editForm.auto_role_assignment && (
                     <div className="space-y-0.5">
-                      <Label htmlFor="edit_role_ids">Role IDs</Label>
-                      <RoleIdsInput
+                      <Label htmlFor="edit_role_ids">Role IDs (comma separated)</Label>
+                      <Input
                         id="edit_role_ids"
-                        value={editForm.target_role_ids || []}
-                        onChange={(ids) => setEditForm(prev => ({ ...prev, target_role_ids: ids }))}
+                        value={(editForm.target_role_ids || []).join(',')}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, target_role_ids: e.target.value.split(',').map(id => id.trim()).filter(Boolean) }))}
                         placeholder="12345,67890"
                       />
                     </div>

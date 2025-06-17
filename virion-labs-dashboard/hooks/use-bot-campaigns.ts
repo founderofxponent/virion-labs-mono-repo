@@ -51,7 +51,6 @@ interface BotCampaign {
   influencer_id?: string
   referral_tracking_enabled: boolean
   auto_role_assignment: boolean
-  target_role_id?: string
   target_role_ids?: string[]
   onboarding_flow: Record<string, any>
   rate_limit_per_user: number
@@ -93,8 +92,6 @@ interface BotCampaignsFilters {
   guild_id?: string
   is_active?: boolean
   template?: string
-  include_archived?: boolean
-  only_archived?: boolean
 }
 
 interface CreateBotCampaignData {
@@ -125,7 +122,6 @@ interface CreateBotCampaignData {
   influencer_id?: string
   referral_tracking_enabled?: boolean
   auto_role_assignment?: boolean
-  target_role_id?: string
   target_role_ids?: string[]
   onboarding_flow?: Record<string, any>
   rate_limit_per_user?: number
@@ -157,8 +153,6 @@ export function useBotCampaigns(filters?: BotCampaignsFilters) {
       if (filters?.guild_id) searchParams.append('guild_id', filters.guild_id)
       if (filters?.is_active !== undefined) searchParams.append('is_active', filters.is_active.toString())
       if (filters?.template) searchParams.append('template', filters.template)
-      if (filters?.include_archived) searchParams.append('include_archived', 'true')
-      if (filters?.only_archived) searchParams.append('only_archived', 'true')
 
       const response = await fetch(`/api/bot-campaigns?${searchParams}`)
       if (!response.ok) {
@@ -177,7 +171,7 @@ export function useBotCampaigns(filters?: BotCampaignsFilters) {
 
   useEffect(() => {
     fetchCampaigns()
-  }, [filters?.client_id, filters?.guild_id, filters?.is_active, filters?.template, filters?.include_archived, filters?.only_archived])
+  }, [filters?.client_id, filters?.guild_id, filters?.is_active, filters?.template])
 
   const createCampaign = async (data: CreateBotCampaignData): Promise<BotCampaign> => {
     const response = await fetch('/api/bot-campaigns', {

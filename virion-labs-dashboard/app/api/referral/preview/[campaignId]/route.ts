@@ -8,7 +8,7 @@ export async function GET(
   try {
     const { campaignId } = await params
 
-    // Fetch campaign data with all the landing page fields  
+    // Fetch campaign data and landing page data separately
     const { data: campaignData, error: campaignError } = await supabase
       .from('discord_guild_campaigns')
       .select('*')
@@ -40,6 +40,13 @@ export async function GET(
       )
     }
 
+    // Fetch landing page data
+    const { data: landingPageData } = await supabase
+      .from('campaign_landing_pages')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .single()
+
     // Fetch client data separately
     const { data: clientData } = await supabase
       .from('clients')
@@ -50,10 +57,9 @@ export async function GET(
     // Combine the data
     const campaign = {
       ...campaignData,
+      ...landingPageData, // Merge landing page data
       clients: clientData || { name: 'Unknown Client', industry: 'Technology', logo: null }
     }
-
-
 
     // Generate the HTML for the landing page preview
     const html = `
