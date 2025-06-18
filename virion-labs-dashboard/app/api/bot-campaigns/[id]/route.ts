@@ -231,30 +231,97 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const { data, error } = await supabase
-      .from('discord_guild_campaigns')
-      .delete()
-      .eq('id', id)
-      .select()
-      .single()
+    const { searchParams } = new URL(request.url)
+    const forceHard = searchParams.get('force') === 'true'
 
-    if (error) {
-      console.error('Error deleting bot campaign:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (forceHard) {
+      // Hard delete: Handle foreign key constraints first
+      console.log('Performing hard delete with cascade handling...')
+      
+      // Check for related records
+      const { data: relatedRecords, error: checkError } = await supabase
+        .from('referral_links')
+        .select('id, title')
+        .eq('campaign_id', id)
+        .eq('is_active', true)
+
+      if (checkError) {
+        console.error('Error checking related records:', checkError)
+        return NextResponse.json({ error: checkError.message }, { status: 500 })
+      }
+
+      if (relatedRecords && relatedRecords.length > 0) {
+        return NextResponse.json({ 
+          error: `Cannot delete campaign. ${relatedRecords.length} active referral links are still connected to this campaign.`,
+          relatedRecords: relatedRecords.map(r => ({ id: r.id, title: r.title }))
+        }, { status: 409 })
+      }
+
+      // Set referral_links.campaign_id to null for any remaining links
+      const { error: unlinkError } = await supabase
+        .from('referral_links')
+        .update({ campaign_id: null })
+        .eq('campaign_id', id)
+
+      if (unlinkError) {
+        console.error('Error unlinking referral links:', unlinkError)
+        return NextResponse.json({ error: 'Failed to unlink related records' }, { status: 500 })
+      }
+
+      // Now perform hard delete
+      const { data, error } = await supabase
+        .from('discord_guild_campaigns')
+        .delete()
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error deleting bot campaign:', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      if (!data) {
+        return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+      }
+
+      return NextResponse.json({ message: 'Campaign permanently deleted successfully' })
+    } else {
+      // Soft delete (default behavior)
+      const { data, error } = await supabase
+        .from('discord_guild_campaigns')
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .eq('is_deleted', false) // Only soft delete if not already deleted
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error soft deleting bot campaign:', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+
+      if (!data) {
+        return NextResponse.json({ error: 'Campaign not found or already deleted' }, { status: 404 })
+      }
+
+      return NextResponse.json({ 
+        campaign: transformCampaignFields(data),
+        message: 'Campaign deleted successfully' 
+      })
     }
-
-    if (!data) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
-    }
-
-    return NextResponse.json({ message: 'Campaign deleted successfully' })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-// Archive/activate a campaign
+// Handle campaign status actions: pause, resume, archive, restore
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -264,22 +331,67 @@ export async function PATCH(
     const body = await request.json()
     const { action } = body
 
-    if (!action || !['archive', 'activate'].includes(action)) {
+    const validActions = ['pause', 'resume', 'archive', 'restore', 'activate']
+    if (!action || !validActions.includes(action)) {
       return NextResponse.json(
-        { error: 'Invalid action. Must be "archive" or "activate"' },
+        { error: `Invalid action. Must be one of: ${validActions.join(', ')}` },
         { status: 400 }
       )
     }
 
-    const updateData = {
-      is_active: action === 'activate',
-      ...(action === 'archive' && { campaign_end_date: new Date().toISOString() })
+    let updateData: any = {}
+
+    switch (action) {
+      case 'pause':
+        updateData = {
+          is_active: false,
+          paused_at: new Date().toISOString(),
+          campaign_end_date: null // Clear end date if set
+        }
+        break
+
+      case 'resume':
+        updateData = {
+          is_active: true,
+          paused_at: null,
+          campaign_end_date: null
+        }
+        break
+
+      case 'archive':
+        updateData = {
+          is_active: false,
+          campaign_end_date: new Date().toISOString(),
+          paused_at: null // Clear pause date if set
+        }
+        break
+
+      case 'restore':
+      case 'activate': // Keep backward compatibility
+        updateData = {
+          is_active: true,
+          campaign_end_date: null,
+          paused_at: null,
+          is_deleted: false,
+          deleted_at: null
+        }
+        break
+
+      default:
+        return NextResponse.json(
+          { error: 'Unknown action' },
+          { status: 400 }
+        )
     }
+
+    // Add updated timestamp
+    updateData.updated_at = new Date().toISOString()
 
     const { data, error } = await supabase
       .from('discord_guild_campaigns')
       .update(updateData)
       .eq('id', id)
+      .eq('is_deleted', false) // Only update non-deleted campaigns
       .select()
       .single()
 
@@ -289,7 +401,7 @@ export async function PATCH(
     }
 
     if (!data) {
-      return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Campaign not found or has been deleted' }, { status: 404 })
     }
 
     return NextResponse.json({ 

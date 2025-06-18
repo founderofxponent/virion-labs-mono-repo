@@ -48,6 +48,11 @@ export async function GET(request: NextRequest) {
     const guildId = searchParams.get('guild_id')
     const isActive = searchParams.get('is_active')
     const template = searchParams.get('template')
+    const includeDeleted = searchParams.get('include_deleted') === 'true'
+    const onlyDeleted = searchParams.get('only_deleted') === 'true'
+    const includeArchived = searchParams.get('include_archived') === 'true'
+    const onlyArchived = searchParams.get('only_archived') === 'true'
+    
     // Get campaigns from the actual table instead of view to avoid schema cache issues
     let query = supabase
       .from('discord_guild_campaigns')
@@ -66,8 +71,24 @@ export async function GET(request: NextRequest) {
       query = query.eq('guild_id', guildId)
     }
     
-    if (isActive !== null) {
+    // Handle deleted campaigns filtering
+    if (onlyDeleted) {
+      query = query.eq('is_deleted', true)
+    } else if (!includeDeleted) {
+      query = query.eq('is_deleted', false) // Default: exclude deleted campaigns
+    }
+    
+    // Handle active status filtering (only for non-deleted campaigns)
+    if (isActive !== null && !onlyDeleted) {
       query = query.eq('is_active', isActive === 'true')
+    }
+    
+    // Handle archived campaigns filtering
+    if (onlyArchived) {
+      query = query.eq('is_active', false).not('campaign_end_date', 'is', null)
+    } else if (!includeArchived && !onlyDeleted) {
+      // Exclude archived campaigns unless specifically requested
+      query = query.or('is_active.eq.true,campaign_end_date.is.null')
     }
 
     if (template) {

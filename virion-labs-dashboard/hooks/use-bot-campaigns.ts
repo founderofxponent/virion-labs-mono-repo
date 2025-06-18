@@ -16,75 +16,37 @@ interface UserProfile {
   email: string
 }
 
-interface BotCampaign {
+export type CampaignStatus = 'active' | 'paused' | 'archived' | 'deleted' | 'inactive'
+
+export interface BotCampaign {
   id: string
-  client_id: string
-  guild_id: string
-  channel_id?: string
   name: string
   type: string
-  template: string
-  prefix: string
-  description?: string
-  avatar_url?: string
+  guild_id: string
+  channel_id?: string
+  client_id: string
+  client_name: string
+  client_industry: string
   display_name: string
-  bot_avatar_url?: string
-  bot_personality: string
-  bot_response_style: string
-  brand_color: string
-  brand_logo_url?: string
-  
-  // Features and configuration
-  features: Record<string, any>
-  custom_commands: any[]
-  auto_responses: Record<string, any>
-  response_templates: Record<string, any>
-  embed_footer?: string
-  welcome_message?: string
-  webhook_url?: string
-  webhook_routes: any[]
-  api_endpoints: Record<string, any>
-  external_integrations: Record<string, any>
-  
-  // Campaign-specific fields
-  referral_link_id?: string
-  influencer_id?: string
-  referral_tracking_enabled: boolean
-  auto_role_assignment: boolean
-  target_role_ids?: string[]
-  onboarding_flow: Record<string, any>
-  rate_limit_per_user: number
-  allowed_channels: string[]
-  blocked_users: string[]
-  moderation_enabled: boolean
-  content_filters: string[]
-  
-  // Metrics
+  template: string
+  description?: string
+  is_active: boolean
+  paused_at?: string | null
+  campaign_end_date?: string | null
+  is_deleted: boolean
+  deleted_at?: string | null
+  campaign_start_date: string
+  created_at: string
+  updated_at: string
   total_interactions: number
   successful_onboardings: number
   referral_conversions: number
-  commands_used: number
-  users_served: number
-  last_activity_at?: string
-  
-  // Metadata
-  is_active: boolean
-  campaign_start_date?: string
-  campaign_end_date?: string
-  configuration_version: number
-  metadata: Record<string, any>
-  created_at: string
-  updated_at: string
-  
-  // Related data
-  client_name: string
-  client_industry?: string
-  client_logo?: string
+  last_activity_at?: string | null
+  configuration_version?: number
+  referral_link_id?: string | null
   referral_link_title?: string
   referral_code?: string
   referral_platform?: string
-  influencer_name?: string
-  influencer_email?: string
 }
 
 interface BotCampaignsFilters {
@@ -92,6 +54,10 @@ interface BotCampaignsFilters {
   guild_id?: string
   is_active?: boolean
   template?: string
+  include_archived?: boolean
+  only_archived?: boolean
+  include_deleted?: boolean
+  only_deleted?: boolean
 }
 
 interface CreateBotCampaignData {
@@ -224,6 +190,44 @@ export function useBotCampaigns(filters?: BotCampaignsFilters) {
     await fetchCampaigns() // Refresh the list
   }
 
+  const pauseCampaign = async (id: string): Promise<BotCampaign> => {
+    const response = await fetch(`/api/bot-campaigns/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action: 'pause' }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to pause campaign')
+    }
+
+    const result = await response.json()
+    await fetchCampaigns() // Refresh the list
+    return result.campaign
+  }
+
+  const resumeCampaign = async (id: string): Promise<BotCampaign> => {
+    const response = await fetch(`/api/bot-campaigns/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action: 'resume' }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to resume campaign')
+    }
+
+    const result = await response.json()
+    await fetchCampaigns() // Refresh the list
+    return result.campaign
+  }
+
   const archiveCampaign = async (id: string): Promise<BotCampaign> => {
     const response = await fetch(`/api/bot-campaigns/${id}`, {
       method: 'PATCH',
@@ -236,6 +240,25 @@ export function useBotCampaigns(filters?: BotCampaignsFilters) {
     if (!response.ok) {
       const errorData = await response.json()
       throw new Error(errorData.error || 'Failed to archive campaign')
+    }
+
+    const result = await response.json()
+    await fetchCampaigns() // Refresh the list
+    return result.campaign
+  }
+
+  const restoreCampaign = async (id: string): Promise<BotCampaign> => {
+    const response = await fetch(`/api/bot-campaigns/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action: 'restore' }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to restore campaign')
     }
 
     const result = await response.json()
@@ -262,6 +285,34 @@ export function useBotCampaigns(filters?: BotCampaignsFilters) {
     return result.campaign
   }
 
+  const softDeleteCampaign = async (id: string): Promise<BotCampaign> => {
+    const response = await fetch(`/api/bot-campaigns/${id}`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to delete campaign')
+    }
+
+    const result = await response.json()
+    await fetchCampaigns() // Refresh the list
+    return result.campaign
+  }
+
+  const hardDeleteCampaign = async (id: string): Promise<void> => {
+    const response = await fetch(`/api/bot-campaigns/${id}?force=true`, {
+      method: 'DELETE',
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to permanently delete campaign')
+    }
+
+    await fetchCampaigns() // Refresh the list
+  }
+
   const refresh = () => {
     fetchCampaigns()
   }
@@ -272,8 +323,13 @@ export function useBotCampaigns(filters?: BotCampaignsFilters) {
     error,
     createCampaign,
     updateCampaign,
-    deleteCampaign,
+    deleteCampaign: softDeleteCampaign, // Keep backward compatibility
+    softDeleteCampaign,
+    hardDeleteCampaign,
+    pauseCampaign,
+    resumeCampaign,
     archiveCampaign,
+    restoreCampaign,
     activateCampaign,
     refresh,
   }
@@ -342,4 +398,14 @@ export function useBotCampaign(id: string) {
     updateCampaign,
     refresh,
   }
+}
+
+// Helper function to determine campaign status
+export function getCampaignStatus(campaign: BotCampaign): CampaignStatus {
+  // Priority order: deleted > archived > paused > active
+  if (campaign.is_deleted) return 'deleted'
+  if (!campaign.is_active && campaign.campaign_end_date) return 'archived'
+  if (!campaign.is_active && campaign.paused_at) return 'paused'
+  if (campaign.is_active) return 'active'
+  return 'inactive' // fallback for edge cases
 } 

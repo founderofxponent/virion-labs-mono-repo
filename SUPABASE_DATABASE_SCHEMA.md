@@ -292,6 +292,9 @@ Comprehensive Discord campaign management with extensive configuration options.
 - `successful_onboardings` (integer, default: 0) - Successful onboardings
 - `referral_conversions` (integer, default: 0) - Referral conversions
 - `is_active` (boolean, default: true) - Campaign active status
+- `paused_at` (timestamptz, nullable) - **NEW** Timestamp when campaign was paused (null if not paused)
+- `is_deleted` (boolean, default: false) - **NEW** Soft delete flag to prevent foreign key constraint issues
+- `deleted_at` (timestamptz, nullable) - **NEW** Timestamp when campaign was soft deleted
 - `campaign_start_date` (timestamptz, default: now()) - Campaign start date
 - `campaign_end_date` (timestamptz, nullable) - Campaign end date
 - `metadata` (jsonb, default: '{}') - Additional metadata
@@ -353,6 +356,19 @@ Comprehensive Discord campaign management with extensive configuration options.
 - Campaign type must be one of: 'referral_onboarding', 'product_promotion', 'community_engagement', 'support'
 - Template must be one of: 'standard', 'advanced', 'custom', 'referral_campaign', 'support_campaign'
 - Foreign keys to clients(id), referral_links(id), auth.users(id)
+
+**Campaign Status Logic:**
+The campaign status is determined by multiple fields:
+- **Active**: `is_active = true AND is_deleted = false`
+- **Paused**: `is_active = false AND paused_at IS NOT NULL AND is_deleted = false`
+- **Archived**: `is_active = false AND campaign_end_date IS NOT NULL AND is_deleted = false`
+- **Deleted**: `is_deleted = true`
+- **Inactive**: Fallback for edge cases
+
+**New Indexes:**
+- `idx_campaigns_paused` - For filtering paused campaigns
+- `idx_campaigns_deleted` - For filtering deleted campaigns  
+- `idx_campaigns_active_status` - For filtering by active status and delete status
 
 ### discord_referral_interactions
 Tracks all Discord bot interactions with users.

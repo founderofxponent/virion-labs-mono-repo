@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { useAuth } from "@/components/auth-provider"
-import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
+import { useBotCampaigns, getCampaignStatus, type CampaignStatus } from "@/hooks/use-bot-campaigns"
 import { useClients } from "@/hooks/use-clients"
 import { type CampaignTemplate } from "@/lib/campaign-templates"
 import { LandingPageConfig } from "@/components/landing-page-config"
@@ -102,8 +102,10 @@ export default function BotCampaignsPage() {
     ...(filterStatus === "active" && { is_active: true }),
     ...(filterStatus === "inactive" && { is_active: false }),
     ...(filterTemplate !== "all" && { template: filterTemplate }),
-    include_archived: filterStatus === "all",
-    only_archived: filterStatus === "archived"
+    include_archived: filterStatus === "all" || filterStatus === "archived",
+    only_archived: filterStatus === "archived",
+    include_deleted: filterStatus === "all" || filterStatus === "deleted",
+    only_deleted: filterStatus === "deleted"
   }
 
   const {
@@ -113,13 +115,25 @@ export default function BotCampaignsPage() {
     createCampaign,
     updateCampaign,
     deleteCampaign,
+    softDeleteCampaign,
+    hardDeleteCampaign,
+    pauseCampaign,
+    resumeCampaign,
     archiveCampaign,
+    restoreCampaign,
     activateCampaign,
     refresh
   } = useBotCampaigns(filters)
 
-  // Filter campaigns based on search query
+  // Filter campaigns based on search query and status
   const filteredCampaigns = campaigns.filter(campaign => {
+    // First check status-based filtering
+    if (filterStatus === "paused") {
+      const status = getCampaignStatus(campaign)
+      if (status !== "paused") return false
+    }
+    
+    // Then check search query
     if (!searchQuery) return true
     const query = searchQuery.toLowerCase()
     return (
@@ -139,27 +153,40 @@ export default function BotCampaignsPage() {
     refresh() // Refresh the campaigns list
   }
 
-  const handleDeleteCampaign = async (campaignId: string) => {
-    if (!confirm("Are you sure you want to delete this campaign? This action cannot be undone.")) {
+  const handleDeleteCampaign = async (campaignId: string, forceHard = false) => {
+    const action = forceHard ? "permanently delete" : "delete"
+    if (!confirm(`Are you sure you want to ${action} this campaign? ${forceHard ? "This action cannot be undone." : "This will move it to the deleted items."}`)) {
       return
     }
 
     try {
-      await deleteCampaign(campaignId)
-      toast({
-        title: "Success",
-        description: "Campaign deleted successfully"
-      })
+      if (forceHard) {
+        await hardDeleteCampaign(campaignId)
+        toast({
+          title: "Success",
+          description: "Campaign permanently deleted successfully"
+        })
+      } else {
+        await softDeleteCampaign(campaignId)
+        toast({
+          title: "Success",
+          description: "Campaign deleted successfully"
+        })
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete campaign",
+        description: error instanceof Error ? error.message : `Failed to ${action} campaign`,
         variant: "destructive"
       })
     }
   }
 
   const handleArchiveCampaign = async (campaignId: string) => {
+    if (!confirm("Are you sure you want to archive this campaign? This will mark it as completed and set an end date.")) {
+      return
+    }
+
     try {
       await archiveCampaign(campaignId)
       toast({
@@ -193,7 +220,7 @@ export default function BotCampaignsPage() {
 
   const handlePauseCampaign = async (campaignId: string) => {
     try {
-      await archiveCampaign(campaignId)
+      await pauseCampaign(campaignId)
       toast({
         title: "Success",
         description: "Campaign paused successfully"
@@ -209,7 +236,7 @@ export default function BotCampaignsPage() {
 
   const handleResumeCampaign = async (campaignId: string) => {
     try {
-      await activateCampaign(campaignId)
+      await resumeCampaign(campaignId)
       toast({
         title: "Success",
         description: "Campaign resumed successfully"
@@ -225,7 +252,7 @@ export default function BotCampaignsPage() {
 
   const handleRestoreCampaign = async (campaignId: string) => {
     try {
-      await activateCampaign(campaignId)
+      await restoreCampaign(campaignId)
       toast({
         title: "Success",
         description: "Campaign restored successfully"
@@ -296,13 +323,7 @@ export default function BotCampaignsPage() {
     }
   }
 
-  const openOnboardingDialog = (campaign: any) => {
-    // TODO: Implement onboarding fields dialog
-    toast({
-      title: "Coming Soon",
-      description: "Onboarding fields management will be available soon"
-    })
-  }
+
 
   const getTemplateColor = (template: string) => {
     switch (template) {
@@ -425,7 +446,9 @@ export default function BotCampaignsPage() {
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
                   <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="deleted">Deleted</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -482,7 +505,7 @@ export default function BotCampaignsPage() {
                           <div className="flex-shrink-0">
                             <div 
                               className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
-                              style={{ backgroundColor: campaign.brand_color }}
+                              style={{ backgroundColor: '#6366f1' }}
                             >
                               <Bot className="h-5 w-5" />
                             </div>
@@ -534,9 +557,22 @@ export default function BotCampaignsPage() {
                       
                       <TableCell>
                         <div className="flex items-center space-x-2">
-                          <Badge variant={campaign.is_active ? "default" : "secondary"}>
-                            {campaign.is_active ? "Active" : "Inactive"}
-                          </Badge>
+                          {(() => {
+                            const status = getCampaignStatus(campaign)
+                            const statusConfig = {
+                              active: { variant: "default" as const, label: "Active", color: "text-green-600" },
+                              paused: { variant: "secondary" as const, label: "Paused", color: "text-yellow-600" },
+                              archived: { variant: "outline" as const, label: "Archived", color: "text-orange-600" },
+                              deleted: { variant: "destructive" as const, label: "Deleted", color: "text-red-600" },
+                              inactive: { variant: "secondary" as const, label: "Inactive", color: "text-gray-600" }
+                            }
+                            const config = statusConfig[status]
+                            return (
+                              <Badge variant={config.variant} className={config.color}>
+                                {config.label}
+                              </Badge>
+                            )
+                          })()}
                           {campaign.last_activity_at && (
                             <div className="text-xs text-muted-foreground">
                               Last seen: {formatDate(campaign.last_activity_at)}
@@ -584,75 +620,118 @@ export default function BotCampaignsPage() {
                               Preview Landing Page
                             </DropdownMenuItem>
                             
-                            {!filterStatus || filterStatus !== "archived" ? (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.id}/edit`)}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit Campaign
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => openOnboardingDialog(campaign)}>
-                                  <MessageSquare className="h-4 w-4 mr-2" />
-                                  Onboarding Fields
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Export CSV
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  onClick={() => campaign.is_active 
-                                    ? handlePauseCampaign(campaign.id) 
-                                    : handleResumeCampaign(campaign.id)
-                                  }
-                                >
-                                  {campaign.is_active ? (
-                                    <>
+                            {(() => {
+                              const status = getCampaignStatus(campaign)
+                              
+                              if (status === 'deleted') {
+                                return (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Export CSV
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={() => handleRestoreCampaign(campaign.id)}
+                                      className="text-green-600"
+                                    >
+                                      <RotateCcw className="h-4 w-4 mr-2" />
+                                      Restore
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={() => handleDeleteCampaign(campaign.id, true)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Permanently Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )
+                              }
+                              
+                              if (status === 'archived') {
+                                return (
+                                  <>
+                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Export CSV
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={() => handleRestoreCampaign(campaign.id)}
+                                      className="text-green-600"
+                                    >
+                                      <RotateCcw className="h-4 w-4 mr-2" />
+                                      Restore
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={() => handleDeleteCampaign(campaign.id)}
+                                      className="text-red-600"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </>
+                                )
+                              }
+                              
+                              // Active, paused, or inactive campaigns
+                              return (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.id}/edit`)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit Campaign
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export CSV
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  
+                                  {status === 'active' && (
+                                    <DropdownMenuItem onClick={() => handlePauseCampaign(campaign.id)}>
                                       <Pause className="h-4 w-4 mr-2" />
                                       Pause
-                                    </>
-                                  ) : (
-                                    <>
+                                    </DropdownMenuItem>
+                                  )}
+                                  
+                                  {status === 'paused' && (
+                                    <DropdownMenuItem onClick={() => handleResumeCampaign(campaign.id)}>
                                       <Play className="h-4 w-4 mr-2" />
                                       Resume
-                                    </>
+                                    </DropdownMenuItem>
                                   )}
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  onClick={() => handleArchiveCampaign(campaign.id)}
-                                  className="text-orange-600"
-                                >
-                                  <Archive className="h-4 w-4 mr-2" />
-                                  Archive
-                                </DropdownMenuItem>
-                              </>
-                            ) : (
-                              <>
-                                <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Export CSV
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  onClick={() => handleRestoreCampaign(campaign.id)}
-                                  className="text-green-600"
-                                >
-                                  <RotateCcw className="h-4 w-4 mr-2" />
-                                  Restore
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            
-                            <DropdownMenuSeparator />
-                            
-                            <DropdownMenuItem 
-                              onClick={() => handleDeleteCampaign(campaign.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
+                                  
+                                  {status === 'inactive' && (
+                                    <DropdownMenuItem onClick={() => handleActivateCampaign(campaign.id)}>
+                                      <Play className="h-4 w-4 mr-2" />
+                                      Activate
+                                    </DropdownMenuItem>
+                                  )}
+                                  
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    onClick={() => handleArchiveCampaign(campaign.id)}
+                                    className="text-orange-600"
+                                  >
+                                    <Archive className="h-4 w-4 mr-2" />
+                                    Archive
+                                  </DropdownMenuItem>
+                                  
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteCampaign(campaign.id)}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )
+                            })()}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
