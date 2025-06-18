@@ -31,7 +31,6 @@ interface EditFormState {
   primary_contact: string
   contact_email: string
   influencers: number
-  bots: number // Kept for compatibility, but campaigns count is now calculated dynamically
   status: ClientStatus
 }
 
@@ -57,7 +56,6 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
     primary_contact: "",
     contact_email: "",
     influencers: 0,
-    bots: 0,
     status: "Active"
   })
 
@@ -96,7 +94,6 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
           primary_contact: data.primary_contact || "",
           contact_email: data.contact_email || "",
           influencers: data.influencers || 0,
-          bots: data.bots || 0,
           status: data.status as ClientStatus
         })
 
@@ -117,7 +114,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
         .from('discord_guild_campaigns')
         .select('*', { count: 'exact', head: true })
         .eq('client_id', clientId)
-        .neq('archived', true) // Don't count archived campaigns
+        .neq('is_deleted', true) // Don't count deleted campaigns
 
       if (error) {
         console.error('Error fetching campaigns count:', error)
@@ -191,16 +188,15 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
   // Cancel edit
   const handleCancelEdit = () => {
     if (client) {
-              setEditForm({
-          name: client.name,
-          industry: client.industry,
-          website: client.website || "",
-          primary_contact: client.primary_contact || "",
-          contact_email: client.contact_email || "",
-          influencers: client.influencers || 0,
-          bots: client.bots || 0,
-          status: client.status as ClientStatus
-        })
+      setEditForm({
+        name: client.name,
+        industry: client.industry,
+        website: client.website || "",
+        primary_contact: client.primary_contact || "",
+        contact_email: client.contact_email || "",
+        influencers: client.influencers || 0,
+        status: client.status as ClientStatus
+      })
     }
     setIsEditing(false)
   }

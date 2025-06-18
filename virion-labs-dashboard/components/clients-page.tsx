@@ -34,6 +34,7 @@ export function ClientsPage() {
     clients, 
     loading, 
     error, 
+    campaignCounts,
     addClient, 
     updateClient, 
     deleteClient, 
@@ -54,8 +55,7 @@ export function ClientsPage() {
     website: "",
     primary_contact: "",
     contact_email: "",
-    influencers: 0,
-    bots: 0
+    influencers: 0
   })
 
   const stats = getStats()
@@ -104,7 +104,6 @@ export function ClientsPage() {
         primary_contact: newClient.primary_contact || null,
         contact_email: newClient.contact_email || null,
         influencers: newClient.influencers,
-        bots: newClient.bots,
         status: "Active"
       })
 
@@ -119,8 +118,7 @@ export function ClientsPage() {
           website: "",
           primary_contact: "",
           contact_email: "",
-          influencers: 0,
-          bots: 0
+          influencers: 0
         })
       }
     } catch (err) {
@@ -236,27 +234,15 @@ export function ClientsPage() {
                     onChange={(e) => setNewClient(prev => ({ ...prev, contact_email: e.target.value }))}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="client-influencers">Influencers</Label>
-                    <Input 
-                      id="client-influencers" 
-                      type="number" 
-                      min="0"
-                      value={newClient.influencers}
-                      onChange={(e) => setNewClient(prev => ({ ...prev, influencers: parseInt(e.target.value) || 0 }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="client-bots">Bots</Label>
-                    <Input 
-                      id="client-bots" 
-                      type="number" 
-                      min="0"
-                      value={newClient.bots}
-                      onChange={(e) => setNewClient(prev => ({ ...prev, bots: parseInt(e.target.value) || 0 }))}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="client-influencers">Influencers</Label>
+                  <Input 
+                    id="client-influencers" 
+                    type="number" 
+                    min="0"
+                    value={newClient.influencers}
+                    onChange={(e) => setNewClient(prev => ({ ...prev, influencers: parseInt(e.target.value) || 0 }))}
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -352,7 +338,7 @@ export function ClientsPage() {
                       <TableCell onClick={() => handleViewClient(client.id)}>{client.industry}</TableCell>
                       <TableCell onClick={() => handleViewClient(client.id)}>{client.influencers || 0}</TableCell>
                       <TableCell onClick={() => handleViewClient(client.id)}>
-                        <span className="text-muted-foreground">-</span>
+                        {campaignCounts[client.id] || 0}
                       </TableCell>
                       <TableCell onClick={() => handleViewClient(client.id)}>
                         <Badge
@@ -433,7 +419,7 @@ export function ClientsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Zap className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">- Campaigns</span>
+                      <span className="text-sm">{campaignCounts[client.id] || 0} Campaigns</span>
                     </div>
                   </div>
                 </CardContent>

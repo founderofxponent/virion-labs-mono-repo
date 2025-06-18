@@ -7,6 +7,30 @@ export function useClients() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [campaignCounts, setCampaignCounts] = useState<Record<string, number>>({})
+
+  // Fetch campaign counts for all clients
+  const fetchCampaignCounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('discord_guild_campaigns')
+        .select('client_id')
+        .neq('is_deleted', true)
+
+      if (error) throw error
+
+      // Count campaigns per client
+      const counts: Record<string, number> = {}
+      data?.forEach(campaign => {
+        counts[campaign.client_id] = (counts[campaign.client_id] || 0) + 1
+      })
+
+      setCampaignCounts(counts)
+    } catch (err) {
+      console.error('Error fetching campaign counts:', err)
+      setCampaignCounts({})
+    }
+  }
 
   // Fetch all clients
   const fetchClients = async () => {
@@ -22,6 +46,9 @@ export function useClients() {
       if (error) throw error
       
       setClients(data || [])
+      
+      // Fetch campaign counts after getting clients
+      await fetchCampaignCounts()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -118,16 +145,16 @@ export function useClients() {
     const totalClients = clients.length
     const activeClients = clients.filter(client => client.status === 'Active').length
     const totalInfluencers = clients.reduce((sum, client) => sum + (client.influencers || 0), 0)
-    const totalBots = clients.reduce((sum, client) => sum + (client.bots || 0), 0)
+    const totalCampaigns = Object.values(campaignCounts).reduce((sum, count) => sum + count, 0)
     
     return {
       totalClients,
       activeClients,
       totalInfluencers,
-      totalBots,
+      totalCampaigns,
       activePercentage: totalClients > 0 ? (activeClients / totalClients) * 100 : 0,
       avgInfluencersPerClient: totalClients > 0 ? totalInfluencers / totalClients : 0,
-      avgBotsPerClient: totalClients > 0 ? totalBots / totalClients : 0
+      avgCampaignsPerClient: totalClients > 0 ? totalCampaigns / totalClients : 0
     }
   }
 
@@ -157,6 +184,7 @@ export function useClients() {
     clients,
     loading,
     error,
+    campaignCounts,
     addClient,
     updateClient,
     deleteClient,

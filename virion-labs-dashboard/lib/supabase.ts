@@ -100,7 +100,6 @@ export type Database = {
       }
       clients: {
         Row: {
-          bots: number | null
           contact_email: string | null
           created_at: string | null
           id: string
@@ -115,7 +114,6 @@ export type Database = {
           website: string | null
         }
         Insert: {
-          bots?: number | null
           contact_email?: string | null
           created_at?: string | null
           id?: string
@@ -130,7 +128,6 @@ export type Database = {
           website?: string | null
         }
         Update: {
-          bots?: number | null
           contact_email?: string | null
           created_at?: string | null
           id?: string

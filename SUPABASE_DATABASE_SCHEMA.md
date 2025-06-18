@@ -88,7 +88,7 @@ Stores information about client organizations using the platform.
 - `industry` (text, not null) - Industry sector
 - `logo` (text, nullable) - Logo image URL
 - `influencers` (integer, default: 0) - Number of associated influencers
-- `bots` (integer, default: 0) - Number of bots deployed
+
 - `status` (text, not null, default: 'Active') - Client status
 - `join_date` (date, default: CURRENT_DATE) - Client onboarding date
 - `website` (text, nullable) - Client website URL
@@ -808,9 +808,14 @@ This database schema supports a comprehensive referral marketing and Discord bot
 
 **Total Database Objects**: 24 tables + 7 views = 31 database objects
 
-## Recent Schema Changes (Campaign Cleanup Migration)
+## Recent Schema Changes
 
-**Migration Applied**: `cleanup_campaign_schema_inconsistencies`
+**Latest Migration Applied**: `remove_deprecated_bots_field`
+- **Removed**: `bots` field from `clients` table (deprecated legacy field)
+- **Reason**: Campaign counts are now calculated dynamically from `discord_guild_campaigns` table
+- **Impact**: Frontend components updated to remove unused form fields and references
+
+**Previous Migration Applied**: `cleanup_campaign_schema_inconsistencies`
 
 ### Changes Made:
 1. **Removed obsolete `bot_configurations` table** - Bot configuration is now embedded in campaign templates
