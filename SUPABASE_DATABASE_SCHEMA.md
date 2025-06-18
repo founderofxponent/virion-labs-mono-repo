@@ -165,6 +165,10 @@ Centralized bot instance management for the main Virion bot.
 - Deployment strategy must be one of: 'centralized', 'distributed'
 - Status must be one of: 'Online', 'Offline', 'Maintenance', 'Error'
 
+**Recent Fixes:**
+- Fixed bot campaign restoration error (PGRST116) by removing `is_deleted = false` constraint for restore/activate actions
+- Restore operations now properly update deleted campaigns by allowing updates to `is_deleted = true` records
+
 ---
 
 ## Referral System

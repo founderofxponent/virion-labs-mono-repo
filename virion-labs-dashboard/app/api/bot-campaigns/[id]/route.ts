@@ -421,13 +421,18 @@ export async function PATCH(
     // Add updated timestamp
     updateData.updated_at = new Date().toISOString()
 
-    const { data, error } = await supabase
+    // For restore action, we need to allow updating deleted campaigns
+    // For other actions, only update non-deleted campaigns
+    let query = supabase
       .from('discord_guild_campaigns')
       .update(updateData)
       .eq('id', id)
-      .eq('is_deleted', false) // Only update non-deleted campaigns
-      .select()
-      .single()
+
+    if (action !== 'restore' && action !== 'activate') {
+      query = query.eq('is_deleted', false) // Only update non-deleted campaigns for non-restore actions
+    }
+
+    const { data, error } = await query.select().single()
 
     if (error) {
       console.error(`Error ${action}ing bot campaign:`, error)
