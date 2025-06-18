@@ -46,7 +46,7 @@ export async function GET(
     }
 
     // Transform the campaign template to match the expected frontend interface
-    const transformedTemplate = {
+    const transformedTemplate: any = {
       id: data.campaign_type, // Use campaign_type as ID for backward compatibility
       name: data.name,
       description: data.description,
@@ -72,11 +72,10 @@ export async function GET(
       onboarding_fields: data.template_config?.onboarding_fields || []
     }
 
-    // Transform the landing page template if it exists
-    let transformedLandingPage = null
+    // Transform and embed the landing page template if it exists
     if (data.default_landing_page) {
       const lp = data.default_landing_page
-      transformedLandingPage = {
+      transformedTemplate.default_landing_page = {
         id: lp.template_id,
         name: lp.name,
         description: lp.description,
@@ -101,8 +100,7 @@ export async function GET(
     }
 
     return NextResponse.json({
-      template: transformedTemplate,
-      landing_page: transformedLandingPage
+      template: transformedTemplate
     })
   } catch (error) {
     console.error('Unexpected error:', error)

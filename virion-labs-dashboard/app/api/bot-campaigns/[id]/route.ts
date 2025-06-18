@@ -7,6 +7,38 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Helper function to transform database field names to frontend-expected field names
+function transformCampaignFields(campaign: any) {
+  return {
+    ...campaign,
+    // Transform database field names to match frontend interface
+    name: campaign.campaign_name || '',
+    type: campaign.campaign_type || '',
+    display_name: campaign.bot_name || 'Virion Bot',
+    client_name: campaign.clients?.name || '',
+    client_industry: campaign.clients?.industry || '',
+    client_logo: campaign.clients?.logo || '',
+    referral_link_title: campaign.referral_links?.title || '',
+    referral_code: campaign.referral_links?.referral_code || '',
+    referral_platform: campaign.referral_links?.platform || '',
+    // Ensure arrays are never undefined
+    target_role_ids: campaign.target_role_ids || [],
+    allowed_channels: campaign.allowed_channels || [],
+    blocked_users: campaign.blocked_users || [],
+    content_filters: campaign.content_filters || [],
+    custom_commands: campaign.custom_commands || [],
+    webhook_routes: campaign.webhook_routes || [],
+    // Ensure objects are never undefined
+    features: campaign.features || {},
+    auto_responses: campaign.auto_responses || {},
+    response_templates: campaign.response_templates || {},
+    api_endpoints: campaign.api_endpoints || {},
+    external_integrations: campaign.external_integrations || {},
+    onboarding_flow: campaign.onboarding_flow || {},
+    metadata: campaign.metadata || {}
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,8 +46,12 @@ export async function GET(
   try {
     const { id } = await params
     const { data, error } = await supabase
-      .from('bot_campaign_configs')
-      .select('*')
+      .from('discord_guild_campaigns')
+      .select(`
+        *,
+        clients:client_id(name, industry),
+        referral_links:referral_link_id(title, referral_code, platform)
+      `)
       .eq('id', id)
       .single()
 
@@ -28,7 +64,7 @@ export async function GET(
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ campaign: data })
+    return NextResponse.json({ campaign: transformCampaignFields(data) })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -43,7 +79,7 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
 
-    // Remove read-only fields
+    // Remove read-only fields and deprecated fields
     const {
       id: _id,
       created_at,
@@ -63,6 +99,24 @@ export async function PUT(
       successful_onboardings,
       referral_conversions,
       campaign_template,
+      // Deprecated fields that were removed from schema
+      target_role_id,
+      auto_role_on_join,
+      archived,
+      archived_at,
+      offer_title,
+      offer_description,
+      offer_highlights,
+      offer_value,
+      offer_expiry_date,
+      hero_image_url,
+      product_images,
+      video_url,
+      what_you_get,
+      how_it_works,
+      requirements,
+      support_info,
+      landing_page_template_id,
       ...updateData
     } = body
 
@@ -111,7 +165,7 @@ export async function PUT(
           auto_role_assignment: updateData.auto_role_assignment !== undefined ? updateData.auto_role_assignment : template.bot_config.features.auto_role,
           target_role_ids: updateData.target_role_ids && updateData.target_role_ids.length > 0
             ? updateData.target_role_ids
-            : (template.bot_config.target_role_ids || (template.bot_config.target_role_id ? [template.bot_config.target_role_id] : [])),
+            : (template.bot_config.target_role_ids || []),
           moderation_enabled: updateData.moderation_enabled !== undefined ? updateData.moderation_enabled : template.bot_config.features.moderation,
           features: {
             ...template.bot_config.features,
@@ -162,7 +216,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ campaign: data })
+    return NextResponse.json({ campaign: transformCampaignFields(data) })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -237,7 +291,7 @@ export async function PATCH(
     }
 
     return NextResponse.json({ 
-      campaign: data,
+      campaign: transformCampaignFields(data),
       message: `Campaign ${action}d successfully`
     })
   } catch (error) {

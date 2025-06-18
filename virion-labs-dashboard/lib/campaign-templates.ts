@@ -4,6 +4,8 @@ export interface CampaignTemplate {
   name: string
   description: string
   category: 'referral' | 'promotion' | 'community' | 'support' | 'custom'
+  campaign_type: string
+  is_default: boolean
   
   // Comprehensive bot configuration (replaces standalone bot_configurations)
   bot_config: {
@@ -110,16 +112,28 @@ export interface CampaignTemplate {
     tracking_enabled: boolean
   }
   
-  // Landing page configuration
-  landing_page_config?: {
-    offer_title: string
-    offer_description: string
-    offer_highlights: string[]
-    offer_value: string
-    what_you_get: string
-    how_it_works: string
-    requirements: string
-    support_info: string
+  // Optimized landing page association
+  default_landing_page?: {
+    id: string
+    name: string
+    description: string
+    preview_image: string
+    campaign_types: string[]
+    category?: string
+    fields: {
+      offer_title: string
+      offer_description: string
+      offer_highlights: string[]
+      offer_value: string
+      what_you_get: string
+      how_it_works: string
+      requirements: string
+      support_info: string
+    }
+    customizable_fields: string[]
+    color_scheme?: any
+    layout_config?: any
+    is_default?: boolean
   }
 }
 
@@ -165,10 +179,10 @@ async function getTemplatesWithCache(): Promise<CampaignTemplate[]> {
   return templates
 }
 
-// Async versions for new code
+// Get individual template by ID
 export async function getCampaignTemplateAsync(templateId: string): Promise<CampaignTemplate | undefined> {
   try {
-    const response = await fetch(`/api/campaign-templates?id=${encodeURIComponent(templateId)}`)
+    const response = await fetch(`/api/campaign-templates/${encodeURIComponent(templateId)}`)
     
     if (!response.ok) {
       console.error('Failed to fetch campaign template:', response.statusText)
@@ -183,6 +197,7 @@ export async function getCampaignTemplateAsync(templateId: string): Promise<Camp
   }
 }
 
+// Get templates by category
 export async function getCampaignTemplatesByCategoryAsync(category: string): Promise<CampaignTemplate[]> {
   try {
     const response = await fetch(`/api/campaign-templates?category=${encodeURIComponent(category)}`)
@@ -200,34 +215,7 @@ export async function getCampaignTemplatesByCategoryAsync(category: string): Pro
   }
 }
 
+// Get all templates
 export async function getAllCampaignTemplatesAsync(): Promise<CampaignTemplate[]> {
-  return await getTemplatesWithCache()
-}
-
-// Synchronous versions for backward compatibility
-export function getCampaignTemplate(templateId: string): CampaignTemplate | undefined {
-  // Try to populate cache if not already loaded
-  if (!templatesCache) {
-    getTemplatesWithCache().catch(console.error)
-    return undefined
-  }
-  return templatesCache.find(template => template.id === templateId)
-}
-
-export function getCampaignTemplatesByCategory(category: string): CampaignTemplate[] {
-  // Try to populate cache if not already loaded
-  if (!templatesCache) {
-    getTemplatesWithCache().catch(console.error)
-    return []
-  }
-  return templatesCache.filter(template => template.category === category)
-}
-
-export function getAllCampaignTemplates(): CampaignTemplate[] {
-  // Try to populate cache if not already loaded
-  if (!templatesCache) {
-    getTemplatesWithCache().catch(console.error)
-    return []
-  }
-  return templatesCache || []
+  return getTemplatesWithCache()
 } 

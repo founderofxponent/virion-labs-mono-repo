@@ -1,29 +1,5 @@
 import { useState, useEffect } from 'react'
-
-export interface CampaignTemplateComplete {
-  id: string
-  name: string
-  description: string
-  category: string
-  campaign_type: string
-  is_default: boolean
-  bot_config: {
-    prefix: string
-    description: string
-    bot_name: string
-    bot_personality: string
-    bot_response_style: string
-    brand_color: string
-    welcome_message: string
-    campaign_type: string
-    features: {
-      referral_tracking: boolean
-      auto_role: boolean
-      moderation: boolean
-    }
-  }
-  onboarding_fields: any[]
-}
+import { type CampaignTemplate } from '@/lib/campaign-templates'
 
 export interface LandingPageTemplate {
   id: string
@@ -48,19 +24,14 @@ export interface LandingPageTemplate {
   is_default?: boolean
 }
 
-export interface CampaignTemplateCompleteResponse {
-  template: CampaignTemplateComplete
-  landing_page: LandingPageTemplate | null
-}
-
 export function useCampaignTemplateComplete(templateId: string | null) {
-  const [data, setData] = useState<CampaignTemplateCompleteResponse | null>(null)
+  const [template, setTemplate] = useState<CampaignTemplate | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!templateId) {
-      setData(null)
+      setTemplate(null)
       setLoading(false)
       setError(null)
       return
@@ -76,7 +47,7 @@ export function useCampaignTemplateComplete(templateId: string | null) {
         }
         
         const result = await response.json()
-        setData(result)
+        setTemplate(result.template)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load template')
         console.error('Error loading campaign template:', err)
@@ -100,7 +71,7 @@ export function useCampaignTemplateComplete(templateId: string | null) {
           }
           
           const result = await response.json()
-          setData(result)
+          setTemplate(result.template)
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to load template')
           console.error('Error loading campaign template:', err)
@@ -114,9 +85,8 @@ export function useCampaignTemplateComplete(templateId: string | null) {
   }
 
   return {
-    data,
-    template: data?.template || null,
-    landing_page: data?.landing_page || null,
+    template,
+    landingPage: template?.default_landing_page || null,
     loading,
     error,
     refresh

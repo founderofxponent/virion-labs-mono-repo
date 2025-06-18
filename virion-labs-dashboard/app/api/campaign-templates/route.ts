@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
       onboarding_fields,
       analytics_config,
       landing_page_config,
+      default_landing_page_id,
       is_default = true
     } = body
 
@@ -133,6 +134,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate landing page ID if provided
+    if (default_landing_page_id) {
+      const { data: landingPageExists } = await supabase
+        .from('landing_page_templates')
+        .select('id')
+        .eq('id', default_landing_page_id)
+        .single()
+
+      if (!landingPageExists) {
+        return NextResponse.json(
+          { error: 'Invalid default_landing_page_id: landing page template not found' },
+          { status: 400 }
+        )
+      }
+    }
+
     const template_config = {
       bot_config,
       onboarding_fields: onboarding_fields || [],
@@ -140,17 +157,24 @@ export async function POST(request: NextRequest) {
       landing_page_config
     }
 
+    const insertData: any = {
+      name,
+      description,
+      campaign_type,
+      category,
+      template_config,
+      is_default
+    }
+
+    // Add landing page relationship if provided
+    if (default_landing_page_id) {
+      insertData.default_landing_page_id = default_landing_page_id
+    }
+
     const { data, error } = await supabase
       .from('campaign_templates')
-      .insert({
-        name,
-        description,
-        campaign_type,
-        category,
-        template_config,
-        is_default
-      })
-      .select()
+      .insert(insertData)
+      .select('*, default_landing_page:landing_page_templates(*)')
       .single()
 
     if (error) {
@@ -158,19 +182,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Transform response
+    // Transform response to match the optimized format
     const responseTemplate = {
       id: data.campaign_type,
       name: data.name,
       description: data.description,
       category: data.category,
+      campaign_type: data.campaign_type,
+      is_default: data.is_default,
       bot_config: data.template_config.bot_config,
       onboarding_fields: data.template_config.onboarding_fields || [],
       analytics_config: data.template_config.analytics_config,
       landing_page_config: data.template_config.landing_page_config
     }
 
-    return NextResponse.json({ template: responseTemplate }, { status: 201 })
+    // Include landing page data if available
+    let landingPageData = null
+    if (data.default_landing_page) {
+      const lp = data.default_landing_page
+      landingPageData = {
+        id: lp.template_id,
+        name: lp.name,
+        description: lp.description,
+        preview_image: lp.preview_image_url || '/templates/default-preview.png',
+        campaign_types: lp.campaign_types,
+        category: lp.category,
+        fields: {
+          offer_title: lp.default_offer_title || '',
+          offer_description: lp.default_offer_description || '',
+          offer_highlights: lp.default_offer_highlights || [],
+          offer_value: lp.default_offer_value || '',
+          what_you_get: lp.default_what_you_get || '',
+          how_it_works: lp.default_how_it_works || '',
+          requirements: lp.default_requirements || '',
+          support_info: lp.default_support_info || ''
+        },
+        customizable_fields: lp.customizable_fields,
+        color_scheme: lp.color_scheme,
+        layout_config: lp.layout_config,
+        is_default: lp.is_default
+      }
+    }
+
+    return NextResponse.json({ 
+      template: responseTemplate,
+      landing_page: landingPageData
+    }, { status: 201 })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -194,8 +251,25 @@ export async function PUT(request: NextRequest) {
       bot_config,
       onboarding_fields,
       analytics_config,
-      landing_page_config
+      landing_page_config,
+      default_landing_page_id
     } = body
+
+    // Validate landing page ID if provided
+    if (default_landing_page_id) {
+      const { data: landingPageExists } = await supabase
+        .from('landing_page_templates')
+        .select('id')
+        .eq('id', default_landing_page_id)
+        .single()
+
+      if (!landingPageExists) {
+        return NextResponse.json(
+          { error: 'Invalid default_landing_page_id: landing page template not found' },
+          { status: 400 }
+        )
+      }
+    }
 
     const template_config = {
       bot_config,
@@ -212,12 +286,15 @@ export async function PUT(request: NextRequest) {
     if (name) updateData.name = name
     if (description) updateData.description = description
     if (category) updateData.category = category
+    if (default_landing_page_id !== undefined) {
+      updateData.default_landing_page_id = default_landing_page_id
+    }
 
     const { data, error } = await supabase
       .from('campaign_templates')
       .update(updateData)
       .eq('campaign_type', templateId)
-      .select()
+      .select('*, default_landing_page:landing_page_templates(*)')
       .single()
 
     if (error) {
@@ -229,19 +306,52 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
-    // Transform response
+    // Transform response to match the optimized format
     const responseTemplate = {
       id: data.campaign_type,
       name: data.name,
       description: data.description,
       category: data.category,
+      campaign_type: data.campaign_type,
+      is_default: data.is_default,
       bot_config: data.template_config.bot_config,
       onboarding_fields: data.template_config.onboarding_fields || [],
       analytics_config: data.template_config.analytics_config,
       landing_page_config: data.template_config.landing_page_config
     }
 
-    return NextResponse.json({ template: responseTemplate })
+    // Include landing page data if available
+    let landingPageData = null
+    if (data.default_landing_page) {
+      const lp = data.default_landing_page
+      landingPageData = {
+        id: lp.template_id,
+        name: lp.name,
+        description: lp.description,
+        preview_image: lp.preview_image_url || '/templates/default-preview.png',
+        campaign_types: lp.campaign_types,
+        category: lp.category,
+        fields: {
+          offer_title: lp.default_offer_title || '',
+          offer_description: lp.default_offer_description || '',
+          offer_highlights: lp.default_offer_highlights || [],
+          offer_value: lp.default_offer_value || '',
+          what_you_get: lp.default_what_you_get || '',
+          how_it_works: lp.default_how_it_works || '',
+          requirements: lp.default_requirements || '',
+          support_info: lp.default_support_info || ''
+        },
+        customizable_fields: lp.customizable_fields,
+        color_scheme: lp.color_scheme,
+        layout_config: lp.layout_config,
+        is_default: lp.is_default
+      }
+    }
+
+    return NextResponse.json({
+      template: responseTemplate,
+      landing_page: landingPageData
+    })
   } catch (error) {
     console.error('Unexpected error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

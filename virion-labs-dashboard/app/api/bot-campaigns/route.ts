@@ -8,6 +8,38 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Helper function to transform database field names to frontend-expected field names
+function transformCampaignFields(campaign: any) {
+  return {
+    ...campaign,
+    // Transform database field names to match frontend interface
+    name: campaign.campaign_name || '',
+    type: campaign.campaign_type || '',
+    display_name: campaign.bot_name || 'Virion Bot',
+    client_name: campaign.clients?.name || '',
+    client_industry: campaign.clients?.industry || '',
+    client_logo: campaign.clients?.logo || '',
+    referral_link_title: campaign.referral_links?.title || '',
+    referral_code: campaign.referral_links?.referral_code || '',
+    referral_platform: campaign.referral_links?.platform || '',
+    // Ensure arrays are never undefined
+    target_role_ids: campaign.target_role_ids || [],
+    allowed_channels: campaign.allowed_channels || [],
+    blocked_users: campaign.blocked_users || [],
+    content_filters: campaign.content_filters || [],
+    custom_commands: campaign.custom_commands || [],
+    webhook_routes: campaign.webhook_routes || [],
+    // Ensure objects are never undefined
+    features: campaign.features || {},
+    auto_responses: campaign.auto_responses || {},
+    response_templates: campaign.response_templates || {},
+    api_endpoints: campaign.api_endpoints || {},
+    external_integrations: campaign.external_integrations || {},
+    onboarding_flow: campaign.onboarding_flow || {},
+    metadata: campaign.metadata || {}
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -16,10 +48,14 @@ export async function GET(request: NextRequest) {
     const guildId = searchParams.get('guild_id')
     const isActive = searchParams.get('is_active')
     const template = searchParams.get('template')
-    // Get campaigns from the unified view
+    // Get campaigns from the actual table instead of view to avoid schema cache issues
     let query = supabase
-      .from('bot_campaign_configs')
-      .select('*')
+      .from('discord_guild_campaigns')
+      .select(`
+        *,
+        clients:client_id(name, industry),
+        referral_links:referral_link_id(title, referral_code, platform)
+      `)
       .order('created_at', { ascending: false })
 
     if (clientId) {
@@ -35,7 +71,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (template) {
-      query = query.eq('template', template)
+      query = query.eq('campaign_type', template)
     }
 
     const { data: campaigns, error } = await query
@@ -45,10 +81,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Calculate real-time metrics for each campaign
+    // Calculate real-time metrics for each campaign and transform field names
     const campaignsWithMetrics = await Promise.all(
       (campaigns || []).map(async (campaign) => {
-        console.log(`🔍 Calculating metrics for campaign: ${campaign.id} (${campaign.name})`)
+        console.log(`🔍 Calculating metrics for campaign: ${campaign.id} (${campaign.campaign_name})`)
 
         try {
           // Calculate metrics using direct SQL queries instead of RPC
@@ -59,7 +95,7 @@ export async function GET(request: NextRequest) {
 
           if (metricsError) {
             console.warn(`❌ Error fetching onboarding data for campaign ${campaign.id}:`, metricsError)
-            return campaign
+            return transformCampaignFields(campaign)
           }
 
           // Calculate metrics from the data
@@ -82,19 +118,19 @@ export async function GET(request: NextRequest) {
             users_served: uniqueUsers
           }
 
-          console.log(`📈 Calculated stats for ${campaign.name}:`, stats)
+          console.log(`📈 Calculated stats for ${campaign.campaign_name}:`, stats)
 
-          // Update campaign with real-time metrics
-          const updatedCampaign = {
+          // Update campaign with real-time metrics and transform fields
+          const updatedCampaign = transformCampaignFields({
             ...campaign,
             total_interactions: stats.total_interactions,
             successful_onboardings: stats.successful_onboardings,
             referral_conversions: stats.referral_conversions,
             users_served: stats.users_served
-          }
+          })
 
-          console.log(`✅ Updated metrics for ${campaign.name}:`, {
-            name: campaign.name,
+          console.log(`✅ Updated metrics for ${campaign.campaign_name}:`, {
+            name: campaign.campaign_name,
             original: {
               total_interactions: campaign.total_interactions,
               successful_onboardings: campaign.successful_onboardings,
@@ -111,7 +147,7 @@ export async function GET(request: NextRequest) {
 
         } catch (error) {
           console.error(`❌ Exception calculating metrics for campaign ${campaign.id}:`, error)
-          return campaign
+          return transformCampaignFields(campaign)
         }
       })
     )
@@ -369,7 +405,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ 
-      campaign: data,
+      campaign: transformCampaignFields(data),
       template: {
         id: template.id,
         name: template.name,

@@ -58,7 +58,6 @@ interface CreateCampaignData {
   influencer_id?: string
   referral_tracking_enabled?: boolean
   auto_role_assignment?: boolean
-  target_role_id?: string
   target_role_ids?: string[]
   moderation_enabled?: boolean
   rate_limit_per_user?: number
@@ -81,7 +80,7 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
   // Use the optimized hook for loading template with landing page
   const { 
     template: templateWithLandingPage, 
-    landing_page: inheritedLandingPageTemplate, 
+    landingPage: inheritedLandingPageTemplate, 
     loading: landingPageTemplateLoading,
     error: templateLoadError
   } = useCampaignTemplateComplete(selectedTemplateId)
