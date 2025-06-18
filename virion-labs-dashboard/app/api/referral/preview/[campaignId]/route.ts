@@ -1,6 +1,110 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
+/**
+ * Parse video URL and generate proper embed URL for server-side rendering
+ */
+function parseVideoUrlForEmbed(url: string): { embedUrl: string; provider: string; isValid: boolean } {
+  if (!url || typeof url !== 'string') {
+    return { embedUrl: '', provider: 'unknown', isValid: false }
+  }
+
+  const cleanUrl = url.trim()
+
+  // YouTube patterns
+  const youtubePatterns = [
+    /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i,
+    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^"&?\/\s]{11})/i,
+    /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([^"&?\/\s]{11})/i
+  ]
+
+  for (const pattern of youtubePatterns) {
+    const match = cleanUrl.match(pattern)
+    if (match && match[1]) {
+      const params = new URLSearchParams({
+        rel: '0',
+        modestbranding: '1', 
+        showinfo: '0',
+        enablejsapi: '1',
+        playsinline: '1',
+        fs: '1',
+        iv_load_policy: '3',
+        controls: '1',
+        disablekb: '0',
+        color: 'white',
+        cc_load_policy: '0'
+      })
+      return {
+        embedUrl: `https://www.youtube.com/embed/${match[1]}?${params.toString()}`,
+        provider: 'youtube',
+        isValid: true
+      }
+    }
+  }
+
+  // Vimeo patterns
+  const vimeoPatterns = [
+    /(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(?:channels\/(?:\w+\/)?|groups\/(?:[^\/]*)\/videos\/|album\/(?:\d+)\/video\/|)(\d+)(?:$|\/|\?)/i,
+    /(?:https?:\/\/)?player\.vimeo\.com\/video\/(\d+)/i
+  ]
+
+  for (const pattern of vimeoPatterns) {
+    const match = cleanUrl.match(pattern)
+    if (match && match[1]) {
+      return {
+        embedUrl: `https://player.vimeo.com/video/${match[1]}?title=0&byline=0&portrait=0`,
+        provider: 'vimeo',
+        isValid: true
+      }
+    }
+  }
+
+  // Wistia patterns
+  const wistiaPatterns = [
+    /(?:https?:\/\/)?(?:\w+\.)?wistia\.com\/medias\/([a-z0-9]{10})/i,
+    /(?:https?:\/\/)?fast\.wistia\.net\/embed\/iframe\/([a-z0-9]{10})/i
+  ]
+
+  for (const pattern of wistiaPatterns) {
+    const match = cleanUrl.match(pattern)
+    if (match && match[1]) {
+      return {
+        embedUrl: `https://fast.wistia.net/embed/iframe/${match[1]}?playerColor=3B82F6&videoFoam=true`,
+        provider: 'wistia',
+        isValid: true
+      }
+    }
+  }
+
+  // Loom patterns
+  const loomPatterns = [
+    /(?:https?:\/\/)?(?:www\.)?loom\.com\/share\/([a-f0-9]{32})/i
+  ]
+
+  for (const pattern of loomPatterns) {
+    const match = cleanUrl.match(pattern)
+    if (match && match[1]) {
+      return {
+        embedUrl: `https://www.loom.com/embed/${match[1]}`,
+        provider: 'loom',
+        isValid: true
+      }
+    }
+  }
+
+  // If URL already looks like an embed URL, use it directly
+  if (cleanUrl.includes('embed') || cleanUrl.includes('player')) {
+    return {
+      embedUrl: cleanUrl,
+      provider: 'direct',
+      isValid: true
+    }
+  }
+
+  // Fallback for unknown providers
+  return { embedUrl: '', provider: 'unknown', isValid: false }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ campaignId: string }> }
@@ -261,18 +365,69 @@ export async function GET(
                 ` : ''}
 
                 <!-- Video Section -->
-                ${campaign.video_url ? `
-                  <div class="bg-white rounded-lg shadow-lg">
-                    <div class="p-6 border-b">
-                      <h2 class="text-xl font-bold">Watch Demo</h2>
-                    </div>
-                    <div class="p-6">
-                      <div class="relative rounded-lg overflow-hidden shadow-lg">
-                        <iframe src="${campaign.video_url.replace('watch?v=', 'embed/')}" class="w-full h-64 md:h-80" frameborder="0" allowfullscreen title="Demo Video"></iframe>
+                ${campaign.video_url ? (() => {
+                  const videoInfo = parseVideoUrlForEmbed(campaign.video_url)
+                  if (videoInfo.isValid) {
+                    return `
+                      <div class="bg-white rounded-lg shadow-lg">
+                        <div class="p-6 border-b">
+                          <h2 class="text-xl font-bold">Watch Demo</h2>
+                          ${videoInfo.provider !== 'direct' ? `
+                            <p class="text-sm text-gray-500 mt-1">
+                              Video powered by ${videoInfo.provider.charAt(0).toUpperCase() + videoInfo.provider.slice(1)}
+                            </p>
+                          ` : ''}
+                        </div>
+                        <div class="p-6">
+                          <div class="relative rounded-lg overflow-hidden shadow-lg">
+                                                         <iframe 
+                               src="${videoInfo.embedUrl}" 
+                               class="w-full h-64 md:h-80" 
+                               frameborder="0" 
+                               allowfullscreen 
+                               loading="lazy"
+                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                               referrerpolicy="strict-origin-when-cross-origin"
+                               sandbox="allow-scripts allow-same-origin allow-presentation"
+                               title="Demo Video">
+                             </iframe>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ` : ''}
+                    `
+                  } else {
+                    return `
+                      <div class="bg-white rounded-lg shadow-lg">
+                        <div class="p-6 border-b">
+                          <h2 class="text-xl font-bold">Watch Demo</h2>
+                        </div>
+                        <div class="p-6">
+                          <div class="relative rounded-lg overflow-hidden shadow-lg bg-red-50 border-2 border-red-200 h-64 md:h-80 flex items-center justify-center">
+                            <div class="text-center p-6">
+                              <div class="text-red-500 text-4xl mb-4">⚠️</div>
+                              <h3 class="font-semibold text-red-800 mb-2">Video Not Available</h3>
+                              <p class="text-sm text-red-600 mb-4">
+                                This video URL is not supported or the video may have been removed.
+                              </p>
+                              <p class="text-xs text-red-500">
+                                Supported providers: YouTube, Vimeo, Wistia, Loom
+                              </p>
+                              <div class="mt-4">
+                                <a 
+                                  href="${campaign.video_url}" 
+                                  target="_blank" 
+                                  class="inline-flex items-center px-3 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50"
+                                >
+                                  🔗 Open Original URL
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    `
+                  }
+                })() : ''}
               </div>
 
               <!-- Sidebar -->

@@ -631,7 +631,7 @@ Landing page content and configuration for Discord campaigns. This table was cre
 - `offer_expiry_date` (timestamptz, nullable) - Offer expiry date
 - `hero_image_url` (text, nullable) - Hero image URL
 - `product_images` (text[], nullable) - Product image URLs
-- `video_url` (text, nullable) - Campaign video URL
+- `video_url` (text, nullable) - Campaign video URL (supports YouTube, Vimeo, Wistia, Loom, TikTok, Twitch, Dailymotion)
 - `what_you_get` (text, nullable) - What users get description
 - `how_it_works` (text, nullable) - How it works description
 - `requirements` (text, nullable) - Requirements description
@@ -663,7 +663,7 @@ Centralized storage for reusable landing page templates that can be applied to c
 - `default_offer_highlights` (text[], nullable) - Default offer highlights
 - `default_offer_value` (text, nullable) - Default value proposition
 - `default_hero_image_url` (text, nullable) - Default hero image
-- `default_video_url` (text, nullable) - Default video URL
+- `default_video_url` (text, nullable) - Default video URL (supports YouTube, Vimeo, Wistia, Loom, TikTok, Twitch, Dailymotion)
 - `default_what_you_get` (text, nullable) - Default "what you get" content
 - `default_how_it_works` (text, nullable) - Default "how it works" content
 - `default_requirements` (text, nullable) - Default requirements

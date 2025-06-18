@@ -457,10 +457,14 @@ export function LandingPageConfig({
             <Input
               id="video-url"
               type="url"
-              placeholder="https://youtube.com/watch?v=..."
+              placeholder="https://youtube.com/watch?v=... or Vimeo, Wistia, Loom URL"
               value={data.video_url || ""}
               onChange={(e) => updateData({ video_url: e.target.value })}
             />
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p><strong>Supported providers:</strong> YouTube, Vimeo, Wistia, Loom, TikTok, Twitch, Dailymotion</p>
+              <p><strong>💡 Tip:</strong> Some YouTube videos may show "Open in YouTube" overlay due to creator settings. For seamless embedding, consider Vimeo or Wistia.</p>
+            </div>
           </div>
 
           <div className="space-y-2">

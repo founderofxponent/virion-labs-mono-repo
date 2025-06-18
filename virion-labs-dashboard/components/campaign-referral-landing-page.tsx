@@ -15,6 +15,7 @@ import {
   Clock,
   ChevronRight 
 } from "lucide-react"
+import { VideoPlayer } from "@/components/ui/video-player"
 
 interface CampaignData {
   referral_link: {
@@ -416,15 +417,13 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
                   <CardTitle>Watch Demo</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="relative rounded-lg overflow-hidden shadow-lg">
-                    <iframe
-                      src={campaign.video_url.replace('watch?v=', 'embed/')}
-                      className="w-full h-64 md:h-80"
-                      frameBorder="0"
-                      allowFullScreen
-                      title="Demo Video"
-                    />
-                  </div>
+                  <VideoPlayer
+                    url={campaign.video_url}
+                    title={`${campaign.offer_title || campaign.campaign_name} Demo`}
+                    aspectRatio="16/9"
+                    showProvider={true}
+                    onError={(error) => console.error('Video error:', error)}
+                  />
                 </CardContent>
               </Card>
             )}
