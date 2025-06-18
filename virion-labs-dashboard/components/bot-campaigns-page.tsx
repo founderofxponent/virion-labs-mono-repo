@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -99,12 +100,15 @@ export default function BotCampaignsPage() {
 
   const filters = {
     ...(filterClient !== "all" && { client_id: filterClient }),
+    ...(filterTemplate !== "all" && { template: filterTemplate }),
+    // Handle status filtering with better UX logic
     ...(filterStatus === "active" && { is_active: true }),
     ...(filterStatus === "inactive" && { is_active: false }),
-    ...(filterTemplate !== "all" && { template: filterTemplate }),
-    include_archived: filterStatus === "all" || filterStatus === "archived",
+    // Better UX: "All" shows only active/paused/inactive, not archived/deleted
+    include_archived: filterStatus === "archived",
     only_archived: filterStatus === "archived",
-    include_deleted: filterStatus === "all" || filterStatus === "deleted",
+    only_paused: filterStatus === "paused",
+    include_deleted: filterStatus === "deleted",
     only_deleted: filterStatus === "deleted"
   }
 
@@ -125,12 +129,15 @@ export default function BotCampaignsPage() {
     refresh
   } = useBotCampaigns(filters)
 
+  // Remove debug logging
+  // console.log('🔍 Bot Campaigns Filter Debug:', { filterStatus, filters, campaignCount: campaigns.length })
+
   // Filter campaigns based on search query and status
   const filteredCampaigns = campaigns.filter(campaign => {
-    // First check status-based filtering
-    if (filterStatus === "paused") {
+    // Handle inactive status more precisely (not paused, not archived, not deleted, just inactive)
+    if (filterStatus === "inactive") {
       const status = getCampaignStatus(campaign)
-      if (status !== "paused") return false
+      if (status !== "inactive") return false
     }
     
     // Then check search query
@@ -346,18 +353,96 @@ export default function BotCampaignsPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="container mx-auto py-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <Bot className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p>Loading bot campaigns...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const CampaignTableSkeleton = () => (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Campaign</TableHead>
+            <TableHead>Client</TableHead>
+            <TableHead>Discord Server</TableHead>
+            <TableHead>Template</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Metrics</TableHead>
+            <TableHead>Updated</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <TableRow key={index}>
+              {/* Campaign */}
+              <TableCell>
+                <div className="flex items-center space-x-3">
+                  <Skeleton className="w-10 h-10 rounded-lg" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              </TableCell>
+              
+              {/* Client */}
+              <TableCell>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </TableCell>
+              
+              {/* Discord Server */}
+              <TableCell>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </TableCell>
+              
+              {/* Template */}
+              <TableCell>
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </TableCell>
+              
+              {/* Type */}
+              <TableCell>
+                <Skeleton className="h-6 w-24 rounded-full" />
+              </TableCell>
+              
+              {/* Status */}
+              <TableCell>
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </TableCell>
+              
+              {/* Metrics */}
+              <TableCell>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </TableCell>
+              
+              {/* Updated */}
+              <TableCell>
+                <Skeleton className="h-4 w-20" />
+              </TableCell>
+              
+              {/* Actions */}
+              <TableCell className="text-right">
+                <Skeleton className="h-8 w-8 rounded ml-auto" />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+
+  // Remove the loading early return - we'll show skeleton in the table instead
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -459,13 +544,21 @@ export default function BotCampaignsPage() {
       {/* Campaigns Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Bot Campaigns ({filteredCampaigns.length})</CardTitle>
+          <CardTitle>
+            Bot Campaigns ({loading ? (
+              <Skeleton className="inline-block h-4 w-6" />
+            ) : (
+              filteredCampaigns.length
+            )})
+          </CardTitle>
           <CardDescription>
             Manage your Discord bot campaigns and their configurations
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {filteredCampaigns.length === 0 ? (
+          {loading ? (
+            <CampaignTableSkeleton />
+          ) : filteredCampaigns.length === 0 ? (
             <div className="text-center py-8">
               <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No campaigns found</h3>

@@ -56,6 +56,7 @@ interface BotCampaignsFilters {
   template?: string
   include_archived?: boolean
   only_archived?: boolean
+  only_paused?: boolean
   include_deleted?: boolean
   only_deleted?: boolean
 }
@@ -119,6 +120,13 @@ export function useBotCampaigns(filters?: BotCampaignsFilters) {
       if (filters?.guild_id) searchParams.append('guild_id', filters.guild_id)
       if (filters?.is_active !== undefined) searchParams.append('is_active', filters.is_active.toString())
       if (filters?.template) searchParams.append('template', filters.template)
+      
+      // Add all the new filtering parameters
+      if (filters?.include_archived) searchParams.append('include_archived', 'true')
+      if (filters?.only_archived) searchParams.append('only_archived', 'true')
+      if (filters?.only_paused) searchParams.append('only_paused', 'true')
+      if (filters?.include_deleted) searchParams.append('include_deleted', 'true')
+      if (filters?.only_deleted) searchParams.append('only_deleted', 'true')
 
       const response = await fetch(`/api/bot-campaigns?${searchParams}`)
       if (!response.ok) {
@@ -137,7 +145,17 @@ export function useBotCampaigns(filters?: BotCampaignsFilters) {
 
   useEffect(() => {
     fetchCampaigns()
-  }, [filters?.client_id, filters?.guild_id, filters?.is_active, filters?.template])
+  }, [
+    filters?.client_id, 
+    filters?.guild_id, 
+    filters?.is_active, 
+    filters?.template,
+    filters?.include_archived,
+    filters?.only_archived,
+    filters?.only_paused,
+    filters?.include_deleted,
+    filters?.only_deleted
+  ])
 
   const createCampaign = async (data: CreateBotCampaignData): Promise<BotCampaign> => {
     const response = await fetch('/api/bot-campaigns', {

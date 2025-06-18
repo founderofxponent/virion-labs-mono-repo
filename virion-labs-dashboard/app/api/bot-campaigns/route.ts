@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
     const onlyDeleted = searchParams.get('only_deleted') === 'true'
     const includeArchived = searchParams.get('include_archived') === 'true'
     const onlyArchived = searchParams.get('only_archived') === 'true'
+    const onlyPaused = searchParams.get('only_paused') === 'true'
     
     // Get campaigns from the actual table instead of view to avoid schema cache issues
     let query = supabase
@@ -78,17 +79,21 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_deleted', false) // Default: exclude deleted campaigns
     }
     
-    // Handle active status filtering (only for non-deleted campaigns)
-    if (isActive !== null && !onlyDeleted) {
-      query = query.eq('is_active', isActive === 'true')
+    // Handle paused campaigns filtering
+    if (onlyPaused) {
+      query = query.eq('is_active', false).not('paused_at', 'is', null).eq('is_deleted', false)
     }
-    
-    // Handle archived campaigns filtering
-    if (onlyArchived) {
-      query = query.eq('is_active', false).not('campaign_end_date', 'is', null)
-    } else if (!includeArchived && !onlyDeleted) {
+    // Handle archived campaigns filtering - this must come before active status filtering  
+    else if (onlyArchived) {
+      query = query.eq('is_active', false).not('campaign_end_date', 'is', null).eq('is_deleted', false)
+    } else if (!includeArchived && !onlyDeleted && !onlyPaused) {
       // Exclude archived campaigns unless specifically requested
       query = query.or('is_active.eq.true,campaign_end_date.is.null')
+    }
+    
+    // Handle active status filtering (only for non-deleted, non-archived-only, non-paused-only queries)
+    if (isActive !== null && !onlyDeleted && !onlyArchived && !onlyPaused) {
+      query = query.eq('is_active', isActive === 'true')
     }
 
     if (template) {
