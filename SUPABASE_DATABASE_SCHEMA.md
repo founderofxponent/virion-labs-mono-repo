@@ -364,6 +364,40 @@ The campaign status is determined by multiple fields:
 - **Deleted**: `is_deleted = true`
 - **Inactive**: Fallback for edge cases
 
+**Discord Bot Graceful Status Handling:**
+The Discord bot now provides intelligent responses for all campaign statuses instead of silently failing:
+
+- **Active Campaigns**: Full bot functionality with all features enabled
+- **Paused Campaigns**: 
+  - ⏸️ Friendly pause notification with timeline information
+  - Explains that progress is saved and campaign will resume
+  - Provides contact information for support
+- **Archived Campaigns**: 
+  - 📦 Completion acknowledgment thanking users for participation
+  - Clear explanation that campaign has ended successfully
+  - Guidance on finding other active campaigns
+- **Deleted Campaigns**: 
+  - 🚫 Professional unavailability notice
+  - Redirects users to server administrators for alternatives
+
+**Campaign Selection Logic (Fixed):**
+The bot API now properly filters campaigns by both `guild_id` AND `channel_id`:
+
+1. **Primary Filter**: Exact match on guild + channel (`guild_id` AND `channel_id`)
+2. **Secondary Priority** (when multiple campaigns match):
+   - **Active campaigns** (`is_active = true`) - Highest priority
+   - **Paused campaigns** (`paused_at IS NOT NULL`) - Second priority  
+   - **Archived campaigns** (`campaign_end_date IS NOT NULL`) - Third priority
+   - **Most recently created** - Fallback for edge cases
+
+This ensures users always interact with the campaign specific to their channel, eliminating cross-campaign confusion in multi-campaign guilds.
+
+**Enhanced `!campaigns` Command:**
+- Shows all campaigns with visual status indicators
+- Provides interactive buttons for active campaigns only
+- Lists inactive campaigns with status explanations
+- Gives clear context about campaign availability
+
 **New Indexes:**
 - `idx_campaigns_paused` - For filtering paused campaigns
 - `idx_campaigns_deleted` - For filtering deleted campaigns  

@@ -68,149 +68,83 @@ async function getBotConfig(guildId, channelId = null) {
   try {
     console.log('🔍 Fetching bot configuration for guild:', guildId, 'channel:', channelId);
     
-    // First check if there are any campaigns for this guild
+    // Check for ANY campaigns for this guild (not just active ones)
     const { data: guildCheck, error: guildError } = await supabase
       .from('discord_guild_campaigns')
       .select('*')
       .eq('guild_id', guildId)
-      .eq('is_active', true);
-    
+      .eq('is_deleted', false); // Only exclude hard-deleted campaigns
+
     if (guildError) {
       console.error('❌ Error checking guild campaigns:', guildError);
     } else {
-      console.log(`📊 Found ${guildCheck?.length || 0} active campaigns for guild ${guildId}`);
+      console.log(`📊 Found ${guildCheck?.length || 0} campaigns for guild ${guildId}`);
       if (guildCheck && guildCheck.length > 0) {
-        console.log('📋 Guild campaigns:', guildCheck.map(c => ({ id: c.id, name: c.campaign_name, type: c.campaign_type })));
+        console.log('📋 Guild campaigns:', guildCheck.map(c => ({ 
+          id: c.id, 
+          name: c.campaign_name, 
+          type: c.campaign_type,
+          status: getCampaignStatus(c)
+        })));
       }
     }
     
-    // Use the new enriched database function that includes template data
-    console.log('🔧 Calling get_enriched_bot_config_for_guild with params:', { p_guild_id: guildId, p_channel_id: channelId });
-    let { data, error } = await supabase
-      .rpc('get_enriched_bot_config_for_guild', {
-        p_guild_id: guildId,
-        p_channel_id: channelId
+    // Use the dashboard API fallback which handles all campaign statuses
+    console.log('🔄 Using dashboard API for comprehensive campaign data...');
+    try {
+      const response = await fetch(`${DASHBOARD_API_URL}/discord-bot/config?guild_id=${guildId}${channelId ? `&channel_id=${channelId}` : ''}&include_inactive=true`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0'
+        }
       });
-    
-    console.log('📊 RPC result - data:', data, 'error:', error);
 
-    if (error) {
-      console.error('❌ Error fetching bot config from RPC:', error);
-      
-      // Fallback: try using the dashboard API
-      console.log('🔄 Falling back to dashboard API...');
-      try {
-        const response = await fetch(`${DASHBOARD_API_URL}/discord-bot/config?guild_id=${guildId}${channelId ? `&channel_id=${channelId}` : ''}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Virion-Discord-Bot/2.0'
-          }
-        });
-
-        if (response.ok) {
-          const apiData = await response.json();
-          console.log('✅ Successfully fetched config from dashboard API');
-          
-          if (apiData.configured && apiData.campaign) {
-            const campaign = apiData.campaign;
-            return {
-              campaignId: campaign.id,
-              campaignName: campaign.name,
-              campaignType: campaign.type,
-              clientId: campaign.client?.id,
-              clientName: campaign.client?.name,
-              config: campaign.bot_config || {},
-              templateConfig: campaign.template_config || null
-            };
-          }
+      if (response.ok) {
+        const apiData = await response.json();
+        console.log('✅ Dashboard API response:', apiData);
+        
+        if (apiData.configured && apiData.campaign) {
+          const campaign = apiData.campaign;
+          console.log('✅ Successfully got config from dashboard API:', campaign.name);
+          return {
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+            campaignType: campaign.type,
+            clientId: campaign.client?.id,
+            clientName: campaign.client?.name,
+            config: campaign.bot_config || {},
+            templateConfig: campaign.template_config || null,
+            campaignStatus: campaign.status || 'unknown',
+            isActive: campaign.is_active || false
+          };
         } else {
-          console.error('❌ Dashboard API also failed:', response.status);
+          console.log('❌ Dashboard API says not configured:', apiData);
         }
-      } catch (apiError) {
-        console.error('❌ Dashboard API error:', apiError);
+      } else {
+        console.error('❌ Dashboard API failed:', response.status, await response.text());
       }
-      
-      return null;
+    } catch (apiError) {
+      console.error('❌ Dashboard API error:', apiError);
     }
-
-    // Handle case where no rows are returned
-    if (!data || data.length === 0) {
-      console.log('⚠️ RPC returned no data, trying direct campaign query...');
-      
-      // Fallback: use the dashboard API which we know works
-      console.log('🔄 Using dashboard API fallback...');
-      try {
-        const response = await fetch(`${DASHBOARD_API_URL}/discord-bot/config?guild_id=${guildId}${channelId ? `&channel_id=${channelId}` : ''}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Virion-Discord-Bot/2.0'
-          }
-        });
-
-        if (response.ok) {
-          const apiData = await response.json();
-          console.log('✅ Dashboard API response:', apiData);
-          
-          if (apiData.configured && apiData.campaign) {
-            const campaign = apiData.campaign;
-            console.log('✅ Successfully got config from dashboard API:', campaign.name);
-            return {
-              campaignId: campaign.id,
-              campaignName: campaign.name,
-              campaignType: campaign.type,
-              clientId: campaign.client?.id,
-              clientName: campaign.client?.name,
-              config: campaign.bot_config || {},
-              templateConfig: campaign.template_config || null
-            };
-          } else {
-            console.log('❌ Dashboard API says not configured:', apiData);
-          }
-        } else {
-          console.error('❌ Dashboard API failed:', response.status, await response.text());
-        }
-             } catch (apiError) {
-         console.error('❌ Dashboard API error:', apiError);
-       }
-       
-       console.log('❌ All fallback methods failed');
-       return null;
-      }
-
-    // Get the first result if multiple are returned
-    const configData = Array.isArray(data) ? data[0] : data;
     
-    if (!configData || !configData.configured) {
-      console.log('⚠️ No active bot configuration found for guild:', guildId);
-      return null;
-    }
-
-    console.log('✅ Bot configuration loaded:', {
-      campaign_name: configData.campaign_name,
-      campaign_type: configData.campaign_type,
-      client_name: configData.client_name,
-      bot_name: configData.bot_config?.bot_name,
-      template: configData.bot_config?.template,
-      auto_responses_count: Object.keys(configData.bot_config?.auto_responses || {}).length,
-      custom_commands_count: (configData.bot_config?.custom_commands || []).length
-    });
-
-    return {
-      campaignId: configData.campaign_id,
-      campaignName: configData.campaign_name,
-      campaignType: configData.campaign_type,
-      clientId: configData.client_id,
-      clientName: configData.client_name,
-      config: configData.bot_config,
-      templateConfig: configData.template_config
-    };
+    console.log('❌ All methods failed - no campaign configuration found');
+    return null;
     
   } catch (error) {
     console.error('❌ Unexpected error fetching bot config:', error);
     return null;
   }
+}
+
+// Helper function to determine campaign status
+function getCampaignStatus(campaign) {
+  // Priority order: deleted > archived > paused > active
+  if (campaign.is_deleted) return 'deleted'
+  if (!campaign.is_active && campaign.campaign_end_date) return 'archived'
+  if (!campaign.is_active && campaign.paused_at) return 'paused'
+  if (campaign.is_active) return 'active'
+  return 'inactive' // fallback for edge cases
 }
 
 // Update bot stats in the unified campaign table
@@ -245,14 +179,35 @@ async function updateBotStats(guildId, channelId, statsUpdate) {
 async function fetchActiveCampaigns(guildId) {
   const { data, error } = await supabase
     .from('discord_guild_campaigns')
-    .select('id, campaign_name')
+    .select('id, campaign_name, is_active, is_deleted, paused_at, campaign_end_date')
     .eq('guild_id', guildId)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('is_deleted', false);
   if (error) {
     console.error('Error fetching campaigns:', error);
     return [];
   }
   return data || [];
+}
+
+// New function to fetch all campaigns with their status
+async function fetchAllCampaigns(guildId) {
+  const { data, error } = await supabase
+    .from('discord_guild_campaigns')
+    .select('id, campaign_name, is_active, is_deleted, paused_at, campaign_end_date')
+    .eq('guild_id', guildId)
+    .eq('is_deleted', false); // Only exclude hard-deleted campaigns
+  
+  if (error) {
+    console.error('Error fetching all campaigns:', error);
+    return [];
+  }
+  
+  // Add status information to each campaign
+  return (data || []).map(campaign => ({
+    ...campaign,
+    status: getCampaignStatus(campaign)
+  }));
 }
 
 // Track interaction with dashboard
@@ -801,68 +756,74 @@ client.on('messageCreate', async (message) => {
     }
 
     if (message.guild && (message.channel.name === 'join-campaigns' || message.content.toLowerCase().startsWith('!campaigns'))) {
-      const campaigns = await fetchActiveCampaigns(guildId);
-      if (!campaigns.length) {
-        await message.reply('No active campaigns available.');
+      const activeCampaigns = await fetchActiveCampaigns(guildId);
+      const allCampaigns = await fetchAllCampaigns(guildId);
+      
+      if (!allCampaigns.length) {
+        await message.reply('No campaigns found for this server.');
         return;
       }
-      const row = new ActionRowBuilder();
-      campaigns.slice(0,5).forEach(c => {
-        row.addComponents(new ButtonBuilder()
-          .setCustomId(`join_${c.id}`)
-          .setLabel(c.campaign_name)
-          .setStyle(ButtonStyle.Primary));
-      });
-      await message.reply({ content: 'Select a campaign to join:', components: [row] });
+      
+      // Show active campaigns as buttons if available
+      if (activeCampaigns.length > 0) {
+        const row = new ActionRowBuilder();
+        activeCampaigns.slice(0,5).forEach(c => {
+          row.addComponents(new ButtonBuilder()
+            .setCustomId(`join_${c.id}`)
+            .setLabel(c.campaign_name)
+            .setStyle(ButtonStyle.Primary));
+        });
+        
+        let statusMessage = `**Active Campaigns (${activeCampaigns.length}):**\nSelect a campaign to join:`;
+        
+        // Add inactive campaign information if any exist
+        const inactiveCampaigns = allCampaigns.filter(c => !c.is_active);
+        if (inactiveCampaigns.length > 0) {
+          statusMessage += `\n\n**Inactive Campaigns (${inactiveCampaigns.length}):**`;
+          inactiveCampaigns.forEach(c => {
+            const statusEmoji = c.status === 'paused' ? '⏸️' : c.status === 'archived' ? '📦' : '🚫';
+            statusMessage += `\n${statusEmoji} ${c.campaign_name} (${c.status})`;
+          });
+        }
+        
+        await message.reply({ content: statusMessage, components: [row] });
+      } else {
+        // No active campaigns, show status of all campaigns
+        let statusMessage = '**All Campaigns:**\n';
+        allCampaigns.forEach(c => {
+          const statusEmoji = c.status === 'paused' ? '⏸️' : c.status === 'archived' ? '📦' : '🚫';
+          statusMessage += `\n${statusEmoji} ${c.campaign_name} (${c.status})`;
+        });
+        statusMessage += '\n\n*No active campaigns available to join right now.*';
+        
+        await message.reply(statusMessage);
+      }
       return;
     }
 
-    // Handle DM messages (for onboarding responses to welcome messages)
+    // Handle DM messages - check all user's guilds for onboarding sessions
     if (!message.guild) {
-      const content = message.content.toLowerCase().trim();
+      console.log(`💬 DM received from ${message.author.tag}: "${message.content}"`);
       
-      // Check for onboarding start keywords in DMs
-      if (content.includes('start') || content.includes('begin') || 
-          content.includes('onboard') || content.includes('hello') ||
-          content.includes('hi') || content.includes('yes')) {
-        
-        // Find the user's most recent guild to determine campaign context
-        // This works because the welcome DM was sent after they joined a guild
-        const userGuilds = client.guilds.cache.filter(guild => 
-          guild.members.cache.has(message.author.id)
-        );
-        
-        for (const [guildId, guild] of userGuilds) {
-          const config = await getBotConfig(guildId);
-          if (config) {
-            console.log(`🚀 Starting DM onboarding for ${message.author.tag} in ${config.campaignType} campaign`);
-            
-            // Check if user already has an active onboarding session
-            if (onboardingManager.isInOnboardingSession(message.author.id, config.campaignId)) {
-              // Handle response to onboarding question in DM
-              await onboardingManager.handleResponse(message, config);
-            } else {
-              // Start onboarding process in DM
-              await onboardingManager.startOnboarding(message, config, {});
-            }
-            return; // Handle only first valid campaign found
-          }
-        }
-        
-        // If no campaign found, send helpful message
-        await message.reply("👋 Hi! I couldn't find an active campaign for you. Please make sure you're a member of a server with an active Virion Labs campaign and try again from that server.");
-        return;
-      }
-      
-      // Handle other DM content (like onboarding responses)
+      // Get all guilds the user shares with the bot
       const userGuilds = client.guilds.cache.filter(guild => 
         guild.members.cache.has(message.author.id)
       );
       
+      console.log(`👥 User ${message.author.tag} is in ${userGuilds.size} shared guilds: ${userGuilds.map(g => g.name).join(', ')}`);
+      
+      // Check for active onboarding sessions or incomplete sessions across all guilds
       let dmHandled = false;
       for (const [guildId, guild] of userGuilds) {
         const config = await getBotConfig(guildId);
         if (config) {
+          // Handle all campaign statuses in DMs
+          if (!config.isActive) {
+            await handleInactiveCampaignDM(message, config);
+            dmHandled = true;
+            break;
+          }
+          
           // Check for active session first
           if (onboardingManager.isInOnboardingSession(message.author.id, config.campaignId)) {
             console.log(`💬 Handling DM onboarding response for ${message.author.tag} in campaign ${config.campaignId}`);
@@ -890,208 +851,226 @@ client.on('messageCreate', async (message) => {
       return;
     }
 
-    // Get guild configuration
+    // Get guild configuration (now includes inactive campaigns)
     const config = await getBotConfig(guildId, channelId);
     
-    if (config) {
-      console.log(`🎯 Found campaign configuration: ${config.campaignName} (${config.campaignType}) - Campaign ID: ${config.campaignId}`);
+    if (!config) {
+      console.log(`⚠️ No campaign configuration found for guild: ${guildId}`);
+      return;
+    }
 
-      // Handle campaign-specific logic with template-driven responses
-      let handled = false;
-      
-      // First try template-driven auto responses
-      console.log(`🔍 Checking for template response to: "${message.content}"`);
-      const templateResponse = getTemplateResponse(config, message.content);
-      if (templateResponse) {
-        console.log(`✅ Found template response: ${templateResponse.title}`);
-        const embed = createCampaignEmbed(
-          config,
-          templateResponse.title,
-          templateResponse.message,
-          templateResponse.color
-        );
-        await message.reply({ embeds: [embed] });
-        handled = true;
-      } else {
-        console.log(`❌ No template response found for: "${message.content}"`);
-      }
-      
-      // Handle onboarding status check with template requirements
-      if (!handled && (message.content.toLowerCase().includes('onboarding') || 
-                       message.content.toLowerCase().includes('status') || 
-                       message.content.toLowerCase().includes('complete'))) {
-        if (config.campaignId && config.campaignName) {
-          try {
-            const completionStatus = await onboardingManager.checkOnboardingCompletion(
-              message.author.id,
-              config.campaignId,
-              config
-            );
+    console.log(`🎯 Found campaign configuration: ${config.campaignName} (${config.campaignType}) - Status: ${config.campaignStatus}`);
 
-            const statusEmoji = completionStatus.isComplete ? '✅' : '⏳';
-            const statusTitle = `${statusEmoji} Onboarding Status`;
-            
-            let statusMessage = completionStatus.message;
-            if (!completionStatus.isComplete && completionStatus.completionPercentage > 0) {
-              statusMessage += `\n\n📊 Progress: ${completionStatus.completionPercentage}% complete`;
-            }
-            
-            statusMessage += `\n\n🔗 Continue here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaignId}`;
+    // Handle inactive campaigns with appropriate messaging
+    if (!config.isActive) {
+      await handleInactiveCampaignMessage(message, config);
+      return;
+    }
 
-            const embed = createCampaignEmbed(
-              config,
-              statusTitle,
-              statusMessage,
-              completionStatus.isComplete ? '#10b981' : '#f59e0b'
-            );
-            await message.reply({ embeds: [embed] });
-            handled = true;
-          } catch (error) {
-            console.error('Error checking onboarding status:', error);
-            const embed = createCampaignEmbed(
-              config,
-              '📋 Onboarding Status',
-              `Check your onboarding progress for the ${config.campaignName} campaign here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaignId}`,
-              '#3b82f6'
-            );
-            await message.reply({ embeds: [embed] });
-            handled = true;
-          }
-        }
-      }
-      
-      // If no template response found, use campaign-specific logic
-      if (!handled) {
-        console.log(`🔍 No template response found, checking onboarding logic for "${message.content}"`);
-        
-        // First check if user is in an active onboarding session for ANY message
-        if (onboardingManager.isInOnboardingSession(message.author.id, config.campaignId)) {
-          console.log(`🔄 Handling onboarding response for ${message.author.tag} in active session`);
-          // Handle response to onboarding question
-          handled = await onboardingManager.handleResponse(message, config);
-        } else {
-          console.log(`💭 No active session found, checking for trigger patterns...`);
+    // Handle campaign-specific logic with template-driven responses (ACTIVE campaigns only)
+    let handled = false;
+    
+    // First try template-driven auto responses
+    console.log(`🔍 Checking for template response to: "${message.content}"`);
+    const templateResponse = getTemplateResponse(config, message.content);
+    if (templateResponse) {
+      console.log(`✅ Found template response: ${templateResponse.title}`);
+      const embed = createCampaignEmbed(
+        config,
+        templateResponse.title,
+        templateResponse.message,
+        templateResponse.color
+      );
+      await message.reply({ embeds: [embed] });
+      handled = true;
+    } else {
+      console.log(`❌ No template response found for: "${message.content}"`);
+    }
+
+    // Handle onboarding status check with template requirements
+    if (!handled && (message.content.toLowerCase().includes('onboarding') || 
+                     message.content.toLowerCase().includes('status') || 
+                     message.content.toLowerCase().includes('complete'))) {
+      if (config.campaignId && config.campaignName) {
+        try {
+          const completionStatus = await onboardingManager.checkOnboardingCompletion(
+            message.author.id,
+            config.campaignId,
+            config
+          );
+
+          const statusEmoji = completionStatus.isComplete ? '✅' : '⏳';
+          const statusTitle = `${statusEmoji} Onboarding Status`;
           
-          // Check for onboarding trigger patterns first
-          const content = message.content.toLowerCase();
-          console.log(`🔎 Checking content: "${content}" for trigger patterns`);
-          
-          if (content.includes('hello') || content.includes('hi') || 
-              content.includes('help') || content.includes('start') ||
-              content.includes('info') || content.includes('welcome') ||
-              content.includes('onboard') || content.includes('begin') ||
-              content.includes('signup') || content.includes('join')) {
-            
-            console.log(`✅ Trigger pattern detected! Processing onboarding for campaign type: ${config.campaignType}`);
-            
-            // Check if user wants to restart or if there's an existing incomplete session
-            const shouldRestart = content.includes('restart') || content.includes('reset') || content.includes('new');
-            console.log(`🔄 Should restart: ${shouldRestart}`);
-            
-            if (!shouldRestart) {
-              console.log(`📋 Checking database for existing session...`);
-              const existingSession = await onboardingManager.checkDatabaseSession(config.campaignId, message.author.id, message.author.tag);
-              if (existingSession && !existingSession.is_completed && existingSession.next_field) {
-                console.log(`🔄 Restoring onboarding session for ${message.author.tag} in ${config.campaignType} campaign`);
-                await onboardingManager.resumeOnboarding(message, config, existingSession);
-                handled = true;
-              } else {
-                console.log(`📋 No existing incomplete session found`);
-              }
-            }
-            
-            if (!handled) {
-              console.log(`🚀 Starting new onboarding flow...`);
-              
-              switch (config.campaignType) {
-                case 'referral_onboarding':
-                  console.log(`🎯 Handling referral onboarding`);
-                  handled = await handleReferralOnboarding(message, config);
-                  break;
-                
-                case 'product_promotion':
-                case 'community_engagement':
-                case 'vip_support':
-                case 'support':
-                case 'gaming_community':
-                case 'custom':
-                default:
-                  console.log(`🚀 Starting onboarding for ${message.author.tag} in ${config.campaignType} campaign`);
-                  handled = await onboardingManager.startOnboarding(message, config, {});
-                  break;
-              }
-              
-              console.log(`✅ Onboarding handling result: ${handled}`);
-            }
-          } else {
-            console.log(`❌ No trigger patterns found in content: "${content}"`);
+          let statusMessage = completionStatus.message;
+          if (!completionStatus.isComplete && completionStatus.completionPercentage > 0) {
+            statusMessage += `\n\n📊 Progress: ${completionStatus.completionPercentage}% complete`;
           }
-        }
-      } else {
-        console.log(`✅ Message already handled by template response`);
-      }
+          
+          statusMessage += `\n\n🔗 Continue here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaignId}`;
 
-      // If campaign-specific logic handled the message, track and return
-      if (handled) {
-        console.log(`✅ Message handled by campaign logic, returning`);
-        return;
-      } else {
-        console.log(`❌ Message not handled by campaign logic, continuing to basic processing`);
+          const embed = createCampaignEmbed(
+            config,
+            statusTitle,
+            statusMessage,
+            completionStatus.isComplete ? '#10b981' : '#f59e0b'
+          );
+          await message.reply({ embeds: [embed] });
+          handled = true;
+        } catch (error) {
+          console.error('Error checking onboarding status:', error);
+          const embed = createCampaignEmbed(
+            config,
+            '📋 Onboarding Status',
+            `Check your onboarding progress for the ${config.campaignName} campaign here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaignId}`,
+            '#3b82f6'
+          );
+          await message.reply({ embeds: [embed] });
+          handled = true;
+        }
       }
     }
 
-    // Basic message acknowledgment (AI service removed)
-    if (DEBUG) {
-      console.log(`📝 Processing message from ${message.author.tag}: ${message.content}`);
+    // Handle start/begin onboarding requests
+    if (!handled && (message.content.toLowerCase().includes('start') || 
+                     message.content.toLowerCase().includes('begin') || 
+                     message.content.toLowerCase().includes('onboard'))) {
+      console.log(`🚀 Onboarding start request from ${message.author.tag}`);
+      handled = await handleReferralOnboarding(message, config);
     }
 
-    // Track the interaction without AI response
+    // Only handle help and other commands for ACTIVE campaigns
+    if (!handled && (message.content.toLowerCase().includes('help') || 
+                     message.content.toLowerCase().includes('commands') || 
+                     message.content.toLowerCase().includes('info'))) {
+      const embed = createCampaignEmbed(
+        config,
+        '🆘 Help & Commands',
+        `Welcome to **${config.campaignName}**!\n\n**Available Commands:**\n• Type any message to interact with me\n• Use "start" or "begin" to start onboarding\n• Use "status" to check your onboarding progress\n\n**Need more help?**\nContact our support team!`,
+        config.config?.brand_color || '#6366f1'
+      );
+      await message.reply({ embeds: [embed] });
+      handled = true;
+    }
+
+    // Track all interactions for analytics
     await trackInteraction(
       guildId,
       channelId,
       message,
-      'message',
-      null, // No bot response since AI service is removed
-      extractReferralCode(message.content)
+      handled ? 'handled_message' : 'unhandled_message',
+      handled ? 'Bot provided response' : 'No specific response',
+      null
     );
 
-    // Only respond to direct mentions or specific commands
-    if (message.mentions.has(client.user) || message.content.toLowerCase().startsWith('!help')) {
-      const responseMessage = config
-        ? 'Hello! I\'m here to help with server management and campaigns. The AI service has been disabled.'
-        : 'Hello! I\'m a Discord bot for server management. The AI service has been disabled.';
-      
-      if (config) {
-        const embed = createCampaignEmbed(
-          config,
-          '👋 Hello!',
-          responseMessage,
-          '#00ff00'
-        );
-        await message.reply({ embeds: [embed] });
-      } else {
-        await message.reply(responseMessage);
-      }
-      
-      if (DEBUG) {
-        console.log('💬 Basic response sent\n');
-      }
-    }
-
   } catch (error) {
-    console.error('❌ Error processing message:', error);
+    console.error('❌ Error in message handler:', error);
     
-    // Provide basic error message
-    const userMessage = '🚨 Sorry, there was an error processing your message. Please try again later.';
-    
-    // Send error message to Discord
+    // Send a friendly error message
     try {
-      await message.reply(userMessage);
+      const errorEmbed = createGenericEmbed(
+        '⚠️ Oops!',
+        'I encountered an error processing your message. Please try again in a moment!',
+        '#ff6b6b'
+      );
+      await message.reply({ embeds: [errorEmbed] });
     } catch (replyError) {
-      console.error('❌ Failed to send error message to Discord:', replyError);
+      console.error('❌ Failed to send error message:', replyError);
     }
   }
 });
+
+// Handle messages for inactive campaigns
+async function handleInactiveCampaignMessage(message, config) {
+  let statusMessage = '';
+  let color = '#ffa500'; // Orange by default
+  
+  switch (config.campaignStatus) {
+    case 'paused':
+      statusMessage = `⏸️ **Campaign Temporarily Paused**\n\nThe **${config.campaignName}** campaign is currently paused.\n\n💡 **What this means:**\n• The campaign will resume soon\n• Your progress is saved\n• You'll be notified when it's back\n\n📧 Contact support for more information.`;
+      color = '#f59e0b'; // Yellow/amber
+      break;
+      
+    case 'archived':
+      statusMessage = `📦 **Campaign Completed**\n\nThe **${config.campaignName}** campaign has been completed and archived.\n\n✨ **Thank you for participating!**\n\n🔍 **Looking for active campaigns?**\nCheck with the server administrators for current opportunities.`;
+      color = '#6b7280'; // Gray
+      break;
+      
+    case 'deleted':
+      statusMessage = `🚫 **Campaign No Longer Available**\n\nThe **${config.campaignName}** campaign is no longer available.\n\n🔍 **Looking for active campaigns?**\nCheck with the server administrators for current opportunities.`;
+      color = '#ef4444'; // Red
+      break;
+      
+    default:
+      statusMessage = `ℹ️ **Campaign Currently Inactive**\n\nThe **${config.campaignName}** campaign is currently inactive.\n\n📧 Contact the server administrators for more information.`;
+      break;
+  }
+  
+  const embed = createCampaignEmbed(
+    config,
+    '🏷️ Campaign Status',
+    statusMessage,
+    color
+  );
+  
+  await message.reply({ embeds: [embed] });
+  
+  // Track interaction for analytics
+  await trackInteraction(
+    message.guild.id,
+    message.channel.id,
+    message,
+    'inactive_campaign_interaction',
+    `Campaign status: ${config.campaignStatus}`,
+    null
+  );
+}
+
+// Handle DM messages for inactive campaigns
+async function handleInactiveCampaignDM(message, config) {
+  let statusMessage = '';
+  
+  switch (config.campaignStatus) {
+    case 'paused':
+      statusMessage = `⏸️ **Campaign Paused**\n\nHi ${message.author.username}! The **${config.campaignName}** campaign is temporarily paused. I'll be back soon! 🚀`;
+      break;
+      
+    case 'archived':
+      statusMessage = `📦 **Campaign Completed**\n\nHi ${message.author.username}! The **${config.campaignName}** campaign has been completed. Thank you for your participation! ✨`;
+      break;
+      
+    case 'deleted':
+      statusMessage = `🚫 **Campaign Unavailable**\n\nHi ${message.author.username}! The **${config.campaignName}** campaign is no longer available.`;
+      break;
+      
+    default:
+      statusMessage = `ℹ️ **Campaign Inactive**\n\nHi ${message.author.username}! The **${config.campaignName}** campaign is currently inactive.`;
+      break;
+  }
+  
+  const embed = createCampaignEmbed(
+    config,
+    '🏷️ Campaign Status',
+    statusMessage,
+    '#ffa500'
+  );
+  
+  await message.reply({ embeds: [embed] });
+}
+
+// Create a generic embed for error messages
+function createGenericEmbed(title, description, color = null) {
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setDescription(description)
+    .setTimestamp();
+
+  if (color) {
+    embed.setColor(color);
+  }
+
+  return embed;
+}
 
 // Guild member add event for enhanced campaign-specific onboarding
 client.on('guildMemberAdd', async (member) => {
