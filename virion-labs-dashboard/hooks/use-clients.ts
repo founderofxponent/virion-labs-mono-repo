@@ -176,8 +176,31 @@ export function useClients() {
     }
   }
 
+  // Real-time subscription for client updates
   useEffect(() => {
     fetchClients()
+
+    // Set up real-time subscription for client changes (influencer count updates)
+    const clientSubscription = supabase
+      .channel('client_influencer_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clients'
+        },
+        (payload) => {
+          console.log('Client data updated:', payload)
+          // Refresh client data when influencer counts change
+          fetchClients()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(clientSubscription)
+    }
   }, [])
 
   return {

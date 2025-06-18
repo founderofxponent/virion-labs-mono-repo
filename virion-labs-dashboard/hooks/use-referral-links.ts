@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase, type ReferralLink, type ReferralLinkInsert, type ReferralLinkUpdate, type ReferralLinkWithAnalytics } from '@/lib/supabase'
 import { useAuth } from '@/components/auth-provider'
 import { generateReferralCode, generateReferralUrl } from '@/lib/url-utils'
+import { updateClientInfluencerCount } from '@/lib/client-helpers'
 
 export function useReferralLinks() {
   const [links, setLinks] = useState<ReferralLinkWithAnalytics[]>([])
@@ -99,6 +100,7 @@ export function useReferralLinks() {
       const referralCode = generateReferralCode(linkData.title)
       const referralUrl = generateReferralUrl(referralCode)
       
+      // 1. Create the referral link
       const { data, error } = await supabase
         .from('referral_links')
         .insert([{
@@ -113,12 +115,24 @@ export function useReferralLinks() {
             id,
             campaign_name,
             campaign_type,
+            client_id,
             client:clients(name)
           )
         `)
         .single()
 
       if (error) throw error
+      
+      // 2. Update client influencer count
+      if (data?.campaign?.client_id) {
+        try {
+          await updateClientInfluencerCount(data.campaign.client_id)
+          console.log(`Updated influencer count for client after adding referral link`)
+        } catch (updateError) {
+          console.error('Failed to update client influencer count:', updateError)
+          // Don't fail the entire operation if count update fails
+        }
+      }
       
       if (data) {
         const linkWithAnalytics: ReferralLinkWithAnalytics = {
@@ -195,6 +209,19 @@ export function useReferralLinks() {
     try {
       setError(null)
       
+      // 1. Get link details before deletion to know which client to update
+      const { data: linkData } = await supabase
+        .from('referral_links')
+        .select(`
+          id,
+          campaign:discord_guild_campaigns!referral_links_campaign_id_fkey(
+            client_id
+          )
+        `)
+        .eq('id', id)
+        .single()
+
+      // 2. Delete the referral link
       const { error } = await supabase
         .from('referral_links')
         .delete()
@@ -202,6 +229,19 @@ export function useReferralLinks() {
 
       if (error) throw error
       
+      // 3. Update client influencer count
+      const campaign = Array.isArray(linkData?.campaign) ? linkData.campaign[0] : linkData?.campaign
+      if (campaign?.client_id) {
+        try {
+          await updateClientInfluencerCount(campaign.client_id)
+          console.log(`Updated influencer count for client after deleting referral link`)
+        } catch (updateError) {
+          console.error('Failed to update client influencer count:', updateError)
+          // Don't fail the operation if count update fails
+        }
+      }
+      
+      // 4. Update local state
       setLinks(prev => prev.filter(link => link.id !== id))
       
       return { error: null }

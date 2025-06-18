@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { updateClientInfluencerCount } from '@/lib/client-helpers'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -136,6 +137,23 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to update access request' },
         { status: 500 }
       )
+    }
+
+    // Update client influencer count after granting/denying access
+    const { data: campaignData } = await supabase
+      .from('discord_guild_campaigns')
+      .select('client_id')
+      .eq('id', accessRequest.campaign_id)
+      .single()
+      
+    if (campaignData?.client_id) {
+      try {
+        await updateClientInfluencerCount(campaignData.client_id)
+        console.log(`Updated influencer count for client after ${action}ing access request`)
+      } catch (updateError) {
+        console.error('Failed to update client influencer count:', updateError)
+        // Don't fail the operation if count update fails
+      }
     }
 
     return NextResponse.json({

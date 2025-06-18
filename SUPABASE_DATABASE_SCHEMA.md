@@ -87,8 +87,7 @@ Stores information about client organizations using the platform.
 - `name` (text, not null) - Client organization name
 - `industry` (text, not null) - Industry sector
 - `logo` (text, nullable) - Logo image URL
-- `influencers` (integer, default: 0) - Number of associated influencers
-
+- `influencers` (integer, default: 0) - Number of associated influencers (automatically updated via event-driven system)
 - `status` (text, not null, default: 'Active') - Client status
 - `join_date` (date, default: CURRENT_DATE) - Client onboarding date
 - `website` (text, nullable) - Client website URL
