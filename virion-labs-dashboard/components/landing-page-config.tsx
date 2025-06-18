@@ -46,7 +46,7 @@ interface LandingPageConfigData {
 }
 
 interface LandingPageConfigProps {
-  campaignId: string
+  campaignId: string | null
   campaignType: string
   initialData?: LandingPageConfigData
   onChange: (data: LandingPageConfigData) => void
@@ -203,40 +203,17 @@ export function LandingPageConfig({
     updateData({ product_images: images })
   }
 
-  const handleSave = async () => {
-    try {
-      const saveData: any = { // Use any type for now until types are regenerated
-        landing_page_template_id: data.landing_page_template_id || null,
-        offer_title: data.offer_title || null,
-        offer_description: data.offer_description || null,
-        offer_highlights: data.offer_highlights || null,
-        offer_value: data.offer_value || null,
-        offer_expiry_date: data.offer_expiry_date?.toISOString() || null,
-        hero_image_url: data.hero_image_url || null,
-        product_images: data.product_images || null,
-        video_url: data.video_url || null,
-        what_you_get: data.what_you_get || null,
-        how_it_works: data.how_it_works || null,
-        requirements: data.requirements || null,
-        support_info: data.support_info || null,
-        inherited_from_template: isInherited, // Track inheritance status
-      }
-      
-      await createOrUpdateLandingPage(saveData)
-      refresh()
-    } catch (error) {
-      console.error('Failed to save landing page:', error)
-    }
-  }
 
-  if (loading || templatesLoading) {
+
+  // Only show loading if we're waiting for existing campaign data or if templates are loading in a critical way
+  if (loading && campaignId) {
     return <div>Loading landing page configuration...</div>
   }
 
   return (
     <div className="space-y-6">
-      {/* Template Inheritance Status */}
-      {isInherited && inheritedTemplateName && (
+      {/* Template Inheritance Status - Only show in create mode */}
+      {!campaignId && isInherited && inheritedTemplateName && (
         <Card className="border-blue-200 bg-blue-50">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -259,6 +236,7 @@ export function LandingPageConfig({
                 size="sm"
                 onClick={handleResetToTemplate}
                 className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                disabled={!!campaignId} // Disable in edit mode
               >
                 Reset to Template
               </Button>
@@ -279,8 +257,34 @@ export function LandingPageConfig({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {availableTemplates.map((template) => (
+          {templatesLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              Loading templates...
+            </div>
+          ) : availableTemplates.length === 0 && !data.landing_page_template_id ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <div className="text-center">
+                <p>No templates available for this campaign type.</p>
+                <p className="text-sm mt-1">You can still configure your landing page manually below.</p>
+              </div>
+            </div>
+          ) : availableTemplates.length === 0 && data.landing_page_template_id && !campaignId ? (
+            <div className="flex items-center justify-center py-8 text-blue-600">
+              <div className="text-center">
+                <p className="font-medium">Using inherited template from campaign</p>
+                <p className="text-sm mt-1">Your landing page is configured using the template from your selected campaign template.</p>
+              </div>
+            </div>
+          ) : availableTemplates.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <div className="text-center">
+                <p>No additional templates available.</p>
+                <p className="text-sm mt-1">Continue configuring your landing page manually below.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {availableTemplates.map((template) => (
               <div
                 key={template.id}
                 className={cn(
@@ -303,10 +307,11 @@ export function LandingPageConfig({
                       ))}
                     </div>
                   </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -547,20 +552,15 @@ export function LandingPageConfig({
         </CardContent>
       </Card>
 
-      {/* Save Button */}
-      <div className="flex justify-between">
-        <div>
-          {onPreview && (
-            <Button type="button" variant="outline" onClick={onPreview} className="gap-2">
-              <Eye className="h-4 w-4" />
-              Preview Landing Page
-            </Button>
-          )}
+      {/* Preview Button (if provided) */}
+      {onPreview && (
+        <div className="flex justify-start">
+          <Button type="button" variant="outline" onClick={onPreview} className="gap-2">
+            <Eye className="h-4 w-4" />
+            Preview Landing Page
+          </Button>
         </div>
-        <Button onClick={handleSave} className="gap-2">
-          Save Landing Page Configuration
-        </Button>
-      </div>
+      )}
     </div>
   )
 } 

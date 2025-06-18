@@ -99,6 +99,8 @@ export async function PUT(
       successful_onboardings,
       referral_conversions,
       campaign_template,
+      // Landing page data (handled separately)
+      landing_page_data,
       // Deprecated fields that were removed from schema
       target_role_id,
       auto_role_on_join,

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { CampaignLandingPage, CampaignLandingPageInsert, CampaignLandingPageUpdate } from '@/lib/supabase'
 
-export function useCampaignLandingPage(campaignId: string) {
+export function useCampaignLandingPage(campaignId: string | null) {
   const [landingPage, setLandingPage] = useState<CampaignLandingPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchLandingPage = async () => {
+    if (!campaignId) return
+    
     try {
       setLoading(true)
       setError(null)
@@ -29,10 +31,18 @@ export function useCampaignLandingPage(campaignId: string) {
   useEffect(() => {
     if (campaignId) {
       fetchLandingPage()
+    } else {
+      // For create mode (no campaignId), set loading to false immediately
+      setLoading(false)
     }
   }, [campaignId])
 
-  const createOrUpdateLandingPage = async (data: Omit<CampaignLandingPageInsert, 'campaign_id'>): Promise<CampaignLandingPage> => {
+  const createOrUpdateLandingPage = async (data: Omit<CampaignLandingPageInsert, 'campaign_id'> & { campaign_id?: string }): Promise<CampaignLandingPage> => {
+    const actualCampaignId = data.campaign_id || campaignId
+    if (!actualCampaignId) {
+      throw new Error('Campaign ID is required to save landing page')
+    }
+
     const method = landingPage ? 'PUT' : 'POST'
     const response = await fetch('/api/campaign-landing-pages', {
       method,
@@ -40,7 +50,7 @@ export function useCampaignLandingPage(campaignId: string) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        campaign_id: campaignId,
+        campaign_id: actualCampaignId,
         ...data,
       }),
     })
@@ -56,6 +66,10 @@ export function useCampaignLandingPage(campaignId: string) {
   }
 
   const updateLandingPage = async (data: Partial<CampaignLandingPageUpdate>): Promise<CampaignLandingPage> => {
+    if (!campaignId) {
+      throw new Error('Campaign ID is required to update landing page')
+    }
+    
     if (!landingPage) {
       throw new Error('No landing page to update')
     }
@@ -82,6 +96,10 @@ export function useCampaignLandingPage(campaignId: string) {
   }
 
   const deleteLandingPage = async (): Promise<void> => {
+    if (!campaignId) {
+      throw new Error('Campaign ID is required to delete landing page')
+    }
+
     const response = await fetch(`/api/campaign-landing-pages?campaign_id=${campaignId}`, {
       method: 'DELETE',
     })
