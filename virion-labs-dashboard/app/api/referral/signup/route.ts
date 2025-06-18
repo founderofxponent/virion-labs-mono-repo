@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     // Find the referral link
     const { data: linkData, error: linkError } = await supabase
       .from('referral_links')
-      .select('id, influencer_id, platform, is_active, expires_at, conversions')
+      .select('id, influencer_id, platform, is_active, expires_at, conversions, campaign_id, metadata')
       .eq('referral_code', referral_code)
       .single()
 
@@ -38,9 +38,28 @@ export async function POST(request: NextRequest) {
 
     // Check if link is active and not expired
     if (!linkData.is_active) {
+      let errorMessage = 'This referral link is currently inactive'
+      if (linkData.metadata?.last_campaign_status_change) {
+        const lastChange = linkData.metadata.last_campaign_status_change
+        switch (lastChange.action) {
+          case 'pause':
+            errorMessage = 'The campaign for this referral link is temporarily paused. Please try again later.'
+            break
+          case 'archive':
+            errorMessage = 'This campaign has been completed. Thank you for your interest!'
+            break
+          case 'delete':
+            errorMessage = 'This campaign is no longer available.'
+            break
+        }
+      }
+      
       return NextResponse.json(
-        { error: 'Referral link is inactive' },
-        { status: 400 }
+        { 
+          error: errorMessage,
+          campaign_status: linkData.metadata?.last_campaign_status_change?.action || 'inactive'
+        },
+        { status: 423 } // 423 = Locked (resource temporarily unavailable)
       )
     }
 

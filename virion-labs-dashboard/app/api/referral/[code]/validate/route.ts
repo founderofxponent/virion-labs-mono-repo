@@ -21,18 +21,42 @@ export async function POST(
       )
     }
 
-    // Find referral link first
+    // Find referral link first (check existence regardless of active status)
     const { data: referralData, error: referralError } = await supabase
       .from('referral_links')
-      .select('id, title, influencer_id, campaign_id, discord_guild_id, is_active, expires_at')
+      .select('id, title, influencer_id, campaign_id, discord_guild_id, is_active, expires_at, metadata')
       .eq('referral_code', code)
-      .eq('is_active', true)
       .single()
 
     if (referralError || !referralData) {
       return NextResponse.json({ 
         valid: false, 
         error: 'Invalid referral code' 
+      })
+    }
+
+    // Check if link is disabled due to campaign status
+    if (!referralData.is_active) {
+      let reason = 'Referral link is currently inactive'
+      if (referralData.metadata?.last_campaign_status_change) {
+        const lastChange = referralData.metadata.last_campaign_status_change
+        switch (lastChange.action) {
+          case 'pause':
+            reason = 'Campaign is temporarily paused'
+            break
+          case 'archive':
+            reason = 'Campaign has been completed'
+            break
+          case 'delete':
+            reason = 'Campaign is no longer available'
+            break
+        }
+      }
+      
+      return NextResponse.json({ 
+        valid: false, 
+        error: reason,
+        can_reactivate: referralData.metadata?.last_campaign_status_change?.action === 'pause'
       })
     }
 

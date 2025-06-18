@@ -368,6 +368,22 @@ The campaign status is determined by multiple fields:
 - `idx_campaigns_paused` - For filtering paused campaigns
 - `idx_campaigns_deleted` - For filtering deleted campaigns  
 - `idx_campaigns_active_status` - For filtering by active status and delete status
+- `idx_referral_links_campaign_active` - For filtering referral links by campaign and active status
+- `idx_referral_links_campaign_expires` - For filtering referral links by campaign and expiration
+
+**Referral Link Status Synchronization:**
+When campaign status changes, associated referral links are automatically updated via the `sync_referral_links_with_campaign_status()` function:
+- **Pause**: Disables all referral links (preserves expiration dates and counts)
+- **Resume**: Re-enables non-expired referral links only
+- **Archive**: Disables all referral links permanently (preserves all data)
+- **Delete**: Disables all referral links (preserves all data for audit trail)
+- **Restore/Activate**: Re-enables non-expired referral links only
+
+All synchronization actions preserve click counts, conversion counts, and analytics data. Status changes are logged in the referral link's metadata field for audit purposes.
+
+**Database Functions:**
+- `sync_referral_links_with_campaign_status(campaign_id, action, ...)` - Synchronizes referral link statuses when campaign status changes
+- `get_campaign_referral_link_summary(campaign_id)` - Returns comprehensive summary of referral links for a campaign
 
 ### discord_referral_interactions
 Tracks all Discord bot interactions with users.
@@ -813,6 +829,14 @@ This database schema supports a comprehensive referral marketing and Discord bot
 - **Removed**: `bots` field from `clients` table (deprecated legacy field)
 - **Reason**: Campaign counts are now calculated dynamically from `discord_guild_campaigns` table
 - **Impact**: Frontend components updated to remove unused form fields and references
+
+**Referral Link Display Fix Applied**: 2025-01-18
+- **Issue**: Disabled referral links were incorrectly showing as active instead of appropriate disabled state
+- **Fixed**: Added comprehensive debugging and cache-busting to API endpoints
+- **Added**: No-cache headers to prevent stale responses and ensure real-time status updates
+- **Enhanced**: Frontend cache-busting with timestamp parameters
+- **Test Cases**: Links like `adidas-new-xtbvvo` now correctly show "Campaign Completed" state
+- **Impact**: Users now see accurate campaign status messages (paused/archived/deleted) instead of active state
 
 **Previous Migration Applied**: `cleanup_campaign_schema_inconsistencies`
 

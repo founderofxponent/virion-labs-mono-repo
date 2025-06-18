@@ -310,6 +310,40 @@ export async function DELETE(
         return NextResponse.json({ error: 'Campaign not found or already deleted' }, { status: 404 })
       }
 
+      // Sync referral link statuses for campaign deletion
+      try {
+        const { data: syncResult, error: syncError } = await supabase.rpc(
+          'sync_referral_links_with_campaign_status',
+          {
+            p_campaign_id: id,
+            p_campaign_action: 'delete',
+            p_campaign_is_active: false,
+            p_campaign_is_deleted: true,
+            p_campaign_paused_at: null,
+            p_campaign_end_date: null
+          }
+        )
+
+        if (syncError) {
+          console.warn(`Warning: Failed to sync referral links for deleted campaign ${id}:`, syncError)
+        } else if (syncResult && syncResult.length > 0) {
+          const { updated_links_count, affected_link_ids } = syncResult[0]
+          console.log(`Disabled ${updated_links_count} referral links for deleted campaign ${id}`)
+          
+          return NextResponse.json({ 
+            campaign: transformCampaignFields(data),
+            message: 'Campaign deleted successfully',
+            referral_links_updated: {
+              count: updated_links_count,
+              link_ids: affected_link_ids,
+              action: 'delete'
+            }
+          })
+        }
+      } catch (syncErr) {
+        console.warn(`Warning: Exception during referral link sync for deleted campaign ${id}:`, syncErr)
+      }
+
       return NextResponse.json({ 
         campaign: transformCampaignFields(data),
         message: 'Campaign deleted successfully' 
@@ -402,6 +436,43 @@ export async function PATCH(
 
     if (!data) {
       return NextResponse.json({ error: 'Campaign not found or has been deleted' }, { status: 404 })
+    }
+
+    // Sync referral link statuses with campaign status change
+    try {
+      const { data: syncResult, error: syncError } = await supabase.rpc(
+        'sync_referral_links_with_campaign_status',
+        {
+          p_campaign_id: id,
+          p_campaign_action: action,
+          p_campaign_is_active: updateData.is_active,
+          p_campaign_is_deleted: updateData.is_deleted || false,
+          p_campaign_paused_at: updateData.paused_at,
+          p_campaign_end_date: updateData.campaign_end_date
+        }
+      )
+
+      if (syncError) {
+        console.warn(`Warning: Failed to sync referral links for campaign ${id}:`, syncError)
+        // Don't fail the request, just log the warning
+      } else if (syncResult && syncResult.length > 0) {
+        const { updated_links_count, affected_link_ids } = syncResult[0]
+        console.log(`Synced ${updated_links_count} referral links for campaign ${id} (action: ${action})`)
+        
+        // Add referral link sync info to response
+        return NextResponse.json({ 
+          campaign: transformCampaignFields(data),
+          message: `Campaign ${action}d successfully`,
+          referral_links_updated: {
+            count: updated_links_count,
+            link_ids: affected_link_ids,
+            action: action
+          }
+        })
+      }
+    } catch (syncErr) {
+      console.warn(`Warning: Exception during referral link sync for campaign ${id}:`, syncErr)
+      // Continue with successful campaign update response
     }
 
     return NextResponse.json({ 
