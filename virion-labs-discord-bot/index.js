@@ -2,11 +2,17 @@ const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder
 const OnboardingManager = require('./onboarding-manager');
 require('dotenv').config();
 const { supabase } = require('./supabase');
+const express = require('express');
+const cors = require('cors');
 
 // Configuration
 const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const DASHBOARD_API_URL = process.env.DASHBOARD_API_URL || 'http://localhost:3000/api';
 const DEBUG = process.env.DEBUG === 'true';
+
+// Discord server configuration
+const DEFAULT_GUILD_ID = process.env.DISCORD_GUILD_ID;
+const DEFAULT_JOIN_CAMPAIGNS_CHANNEL_ID = process.env.DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID;
 
 // Create Discord client
 const client = new Client({
@@ -23,16 +29,100 @@ const client = new Client({
 const configCache = new Map();
 const CACHE_TTL = 30 * 1000; // 30 seconds (reduced from 5 minutes for faster updates)
 
+// Cache for published campaign messages per guild
+const publishedMessages = new Map();
+
 // Initialize onboarding manager
 const onboardingManager = new OnboardingManager();
+
+// Create Express app for webhook handling
+const app = express();
+app.use(express.json());
+app.use(cors());
+
+// Webhook endpoint for automatic campaign publishing
+app.post('/api/publish-campaigns', async (req, res) => {
+  try {
+    console.log('📡 Received webhook request to publish campaigns');
+    
+    const { guild_id, channel_id, campaigns } = req.body;
+    
+    // Use environment variables if not provided in request
+    const targetGuildId = guild_id || DEFAULT_GUILD_ID;
+    const targetChannelId = channel_id || DEFAULT_JOIN_CAMPAIGNS_CHANNEL_ID || 'join-campaigns';
+    
+    if (!targetGuildId) {
+      console.error('❌ No guild ID provided');
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Guild ID is required' 
+      });
+    }
+    
+    console.log(`🎯 Auto-publishing campaigns to guild: ${targetGuildId}, channel: ${targetChannelId}`);
+    
+    // Automatically trigger publishing to the channel
+    const success = await publishCampaignsToChannel(targetGuildId, targetChannelId, true);
+    
+    if (success) {
+      console.log('✅ Campaigns published successfully via webhook');
+      
+      // Update bot stats
+      await updateBotStats(targetGuildId, targetChannelId, {
+        commands_used: 1,
+        last_activity_at: new Date().toISOString()
+      });
+      
+      res.json({
+        success: true,
+        message: 'Campaigns published to Discord successfully',
+        guild_id: targetGuildId,
+        channel_id: targetChannelId
+      });
+    } else {
+      console.error('❌ Failed to publish campaigns via webhook');
+      res.status(500).json({
+        success: false,
+        error: 'Failed to publish campaigns to Discord'
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error handling publish webhook:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    bot_ready: client.isReady(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Start HTTP server for webhooks
+const HTTP_PORT = process.env.BOT_HTTP_PORT || 3001;
+const server = app.listen(HTTP_PORT, () => {
+  console.log(`🌐 Discord Bot HTTP server listening on port ${HTTP_PORT}`);
+  console.log(`📡 Webhook endpoint: http://localhost:${HTTP_PORT}/api/publish-campaigns`);
+});
 
 // Bot ready event
 client.once('ready', () => {
   console.log('🤖 Virion Labs Discord Bot is ready!');
   console.log(`📡 Logged in as ${client.user.tag}`);
   console.log(`🔗 Dashboard API: ${DASHBOARD_API_URL}`);
+  console.log(`🌐 HTTP Server: http://localhost:${HTTP_PORT}`);
+  console.log(`🎯 Target Guild: ${DEFAULT_GUILD_ID || 'Not configured'}`);
+  console.log(`📺 Target Channel: ${DEFAULT_JOIN_CAMPAIGNS_CHANNEL_ID || 'join-campaigns (by name)'}`);
   console.log(`🐛 Debug mode: ${DEBUG ? 'ON' : 'OFF'}`);
-  console.log('✅ Bot is now listening for messages and modal interactions...\n');
+  console.log('✅ Bot is now listening for messages, interactions, and webhook requests...\n');
   
   // Test dashboard connection on startup
   testDashboardConnection();
@@ -738,6 +828,176 @@ async function handleReferralOnboarding(message, config) {
   return false;
 }
 
+// Function to publish/update campaigns in join-campaigns channel
+async function publishCampaignsToChannel(guildId, channelIdentifier = 'join-campaigns', forceUpdate = false) {
+  try {
+    console.log(`📢 Publishing campaigns to ${channelIdentifier} in guild: ${guildId}`);
+    
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      console.error(`❌ Guild not found: ${guildId}`);
+      return false;
+    }
+
+    // Find the channel by ID first (if it looks like an ID), then by name
+    let channel;
+    if (/^\d+$/.test(channelIdentifier)) {
+      // Channel ID provided
+      channel = guild.channels.cache.get(channelIdentifier);
+      if (!channel) {
+        console.error(`❌ Channel with ID '${channelIdentifier}' not found in guild: ${guild.name}`);
+        return false;
+      }
+    } else {
+      // Channel name provided
+      channel = guild.channels.cache.find(ch => 
+        ch.name === channelIdentifier && ch.type === 0 // Text channel
+      );
+      if (!channel) {
+        console.error(`❌ Channel '${channelIdentifier}' not found in guild: ${guild.name}`);
+        return false;
+      }
+    }
+
+    // Get campaigns data
+    const activeCampaigns = await fetchActiveCampaigns(guildId);
+    const allCampaigns = await fetchAllCampaigns(guildId);
+    const inactiveCampaigns = allCampaigns.filter(c => !c.is_active);
+
+    // Create the campaign embed
+    const embed = new EmbedBuilder()
+      .setTitle('🎯 Join Active Campaigns')
+      .setColor('#6366f1')
+      .setTimestamp()
+      .setFooter({ text: 'Click the buttons below to join a campaign!' });
+
+    let description = '';
+    let components = [];
+
+    if (activeCampaigns.length > 0) {
+      description += `**Active Campaigns (${activeCampaigns.length}):**\nSelect a campaign to join:\n\n`;
+      
+      // Create buttons for active campaigns (max 5 per row)
+      const rows = [];
+      let currentRow = new ActionRowBuilder();
+      let buttonCount = 0;
+
+      activeCampaigns.slice(0, 25).forEach((campaign, index) => { // Discord max 25 components
+        if (buttonCount === 5) {
+          rows.push(currentRow);
+          currentRow = new ActionRowBuilder();
+          buttonCount = 0;
+        }
+
+        const button = new ButtonBuilder()
+          .setCustomId(`join_${campaign.id}`)
+          .setLabel(campaign.campaign_name.length > 80 ? 
+            campaign.campaign_name.substring(0, 77) + '...' : 
+            campaign.campaign_name)
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('🚀');
+
+        currentRow.addComponents(button);
+        buttonCount++;
+      });
+
+      if (buttonCount > 0) {
+        rows.push(currentRow);
+      }
+      components = rows;
+    } else {
+      description += `**No Active Campaigns Available**\n\nThere are currently no active campaigns to join.\n\n`;
+    }
+
+    // Add inactive campaign information
+    if (inactiveCampaigns.length > 0) {
+      description += `**Inactive Campaigns (${inactiveCampaigns.length}):**\n`;
+      inactiveCampaigns.forEach(c => {
+        const statusEmoji = c.status === 'paused' ? '⏸️' : c.status === 'archived' ? '📦' : '🚫';
+        description += `${statusEmoji} ${c.campaign_name} (${c.status})\n`;
+      });
+    }
+
+    embed.setDescription(description);
+
+    // Check if we have an existing published message
+    const messageKey = `${guildId}:${channel.id}`;
+    const existingMessageId = publishedMessages.get(messageKey);
+
+    let publishedMessage = null;
+
+    if (existingMessageId && !forceUpdate) {
+      try {
+        // Try to update existing message
+        const existingMessage = await channel.messages.fetch(existingMessageId);
+        publishedMessage = await existingMessage.edit({
+          embeds: [embed],
+          components: components
+        });
+        console.log(`✅ Updated existing campaign message in ${channel.name}`);
+      } catch (updateError) {
+        console.log(`⚠️ Could not update existing message, creating new one:`, updateError.message);
+        existingMessageId = null;
+      }
+    }
+
+    if (!existingMessageId || forceUpdate) {
+      // Create new message
+      publishedMessage = await channel.send({
+        embeds: [embed],
+        components: components
+      });
+      
+      // Store the message ID for future updates
+      publishedMessages.set(messageKey, publishedMessage.id);
+      console.log(`✅ Published new campaign message in ${channel.name}`);
+      
+      // Delete old message if we're forcing update
+      if (forceUpdate && existingMessageId) {
+        try {
+          const oldMessage = await channel.messages.fetch(existingMessageId);
+          await oldMessage.delete();
+          console.log(`🗑️ Deleted old campaign message`);
+        } catch (deleteError) {
+          console.log(`⚠️ Could not delete old message:`, deleteError.message);
+        }
+      }
+    }
+
+    return true;
+
+  } catch (error) {
+    console.error('❌ Error publishing campaigns to channel:', error);
+    return false;
+  }
+}
+
+// Function to handle publish requests from dashboard
+async function handlePublishRequest(guildId = null, channelIdentifier = null) {
+  // Use environment variables if not provided
+  const targetGuildId = guildId || DEFAULT_GUILD_ID;
+  const targetChannelId = channelIdentifier || DEFAULT_JOIN_CAMPAIGNS_CHANNEL_ID || 'join-campaigns';
+  
+  console.log(`📢 Received publish request for guild: ${targetGuildId}, channel: ${targetChannelId}`);
+  
+  if (!targetGuildId) {
+    console.error('❌ No guild ID provided and DISCORD_GUILD_ID not configured');
+    return false;
+  }
+  
+  const success = await publishCampaignsToChannel(targetGuildId, targetChannelId, true);
+  
+  if (success) {
+    // Update bot stats
+    await updateBotStats(targetGuildId, targetChannelId, {
+      commands_used: 1,
+      last_activity_at: new Date().toISOString()
+    });
+  }
+  
+  return success;
+}
+
 // Message handler
 client.on('messageCreate', async (message) => {
   // Skip bot messages to prevent loops
@@ -755,7 +1015,26 @@ client.on('messageCreate', async (message) => {
       console.log(`   Guild ID: ${guildId}, Channel ID: ${channelId}`);
     }
 
-    if (message.guild && (message.channel.name === 'join-campaigns' || message.content.toLowerCase().startsWith('!campaigns'))) {
+    if (message.guild && (message.channel.name === 'join-campaigns' || message.channel.id === DEFAULT_JOIN_CAMPAIGNS_CHANNEL_ID || message.content.toLowerCase().startsWith('!campaigns'))) {
+      // Check if this is a publish command from admin
+      if (message.content.toLowerCase().startsWith('!publish') || message.content.toLowerCase().startsWith('!update')) {
+        // Only allow admins/mods to publish
+        if (message.member?.permissions?.has('MANAGE_CHANNELS') || message.member?.permissions?.has('ADMINISTRATOR')) {
+          // Use channel ID if configured, otherwise use channel name
+          const channelIdentifier = DEFAULT_JOIN_CAMPAIGNS_CHANNEL_ID || message.channel.name;
+          const success = await publishCampaignsToChannel(guildId, channelIdentifier, true);
+          if (success) {
+            await message.reply('✅ Campaign list updated successfully!');
+          } else {
+            await message.reply('❌ Failed to update campaign list. Please try again.');
+          }
+          return;
+        } else {
+          await message.reply('❌ You need Manage Channels or Administrator permission to publish campaigns.');
+          return;
+        }
+      }
+
       const activeCampaigns = await fetchActiveCampaigns(guildId);
       const allCampaigns = await fetchAllCampaigns(guildId);
       

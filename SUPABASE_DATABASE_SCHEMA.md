@@ -917,6 +917,36 @@ The schema is designed to be scalable, with proper foreign key relationships and
 
 ## API Endpoints Structure
 
+## campaign_publish_logs
+
+Audit trail for Discord campaign publishing events.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| guild_id | TEXT | Discord server ID |
+| channel_id | TEXT | Discord channel ID or name (default: 'join-campaigns' or env DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID) |
+| active_campaigns_count | INTEGER | Number of active campaigns published |
+| inactive_campaigns_count | INTEGER | Number of inactive campaigns shown |
+| published_at | TIMESTAMP | When the publish occurred |
+| published_by | TEXT | Source of publish (dashboard, manual, webhook) |
+| message_id | TEXT | Discord message ID of published message (for updates) |
+| success | BOOLEAN | Whether the publish was successful |
+| error_message | TEXT | Error details if publish failed |
+| created_at | TIMESTAMP | Record creation time |
+
+**Indexes:**
+- `idx_campaign_publish_logs_guild_id` on guild_id
+- `idx_campaign_publish_logs_published_at` on published_at
+
+**Usage:**
+- Tracks all Discord campaign publish events
+- Enables message updates instead of creating new messages
+- Provides audit trail for troubleshooting
+- Supports environment-based channel configuration
+
+---
+
 ### **Campaign Templates API**
 
 #### List Endpoint

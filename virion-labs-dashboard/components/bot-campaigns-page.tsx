@@ -279,6 +279,51 @@ export default function BotCampaignsPage() {
     window.open(previewUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes')
   }
 
+  const handlePublishToDiscord = async () => {
+    try {
+      if (campaigns.length === 0) {
+        toast({
+          title: "No Campaigns",
+          description: "No campaigns found to publish to Discord",
+          variant: "destructive"
+        })
+        return
+      }
+
+      const response = await fetch('/api/discord/publish-campaigns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}) // Use environment variables from server
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        toast({
+          title: "Published to Discord",
+          description: `Successfully published ${result.campaigns_published?.active || 0} active campaigns to Discord`,
+        })
+      } else {
+        const errorText = await response.text()
+        console.error('Failed to publish to Discord:', errorText)
+        toast({
+          title: "Publish Failed",
+          description: "Failed to publish campaigns to Discord. Please try again.",
+          variant: "destructive"
+        })
+      }
+
+    } catch (error) {
+      console.error('Error publishing to Discord:', error)
+      toast({
+        title: "Publish Failed", 
+        description: error instanceof Error ? error.message : "Failed to publish campaigns to Discord",
+        variant: "destructive"
+      })
+    }
+  }
+
   const handleExportCampaignCSV = async (campaignId: string, campaignName: string) => {
     try {
       // Only admin users can export data
@@ -454,11 +499,22 @@ export default function BotCampaignsPage() {
             Manage your Discord bot configurations and campaigns in one place
           </p>
         </div>
-        {/* Create Campaign Button */}
-        <Button onClick={() => router.push('/bot-campaigns/create')}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Campaign
-        </Button>
+        <div className="flex gap-2">
+          {/* Publish to Discord Button */}
+          <Button 
+            variant="outline" 
+            onClick={handlePublishToDiscord}
+            disabled={campaigns.length === 0}
+          >
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Publish to Discord
+          </Button>
+          {/* Create Campaign Button */}
+          <Button onClick={() => router.push('/bot-campaigns/create')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Campaign
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
