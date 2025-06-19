@@ -1553,26 +1553,129 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
   if (interaction.customId.startsWith('join_')) {
     const campaignId = interaction.customId.replace('join_', '');
-    await interaction.deferReply({ flags: 64 }); // 64 = MessageFlags.Ephemeral
-    const { data, error } = await supabase
-      .from('discord_guild_campaigns')
-      .select('*')
-      .eq('id', campaignId)
-      .single();
-    if (error || !data) {
-      await interaction.editReply('Campaign not found.');
-      return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('discord_guild_campaigns')
+        .select(`
+          *,
+          clients:client_id(name, industry)
+        `)
+        .eq('id', campaignId)
+        .single();
+        
+      if (error || !data) {
+        await interaction.reply({ 
+          content: '❌ Campaign not found or no longer available.',
+          flags: 64 
+        });
+        return;
+      }
+
+      const config = {
+        campaignId: data.id,
+        campaignName: data.campaign_name,
+        campaignType: data.campaign_type,
+        clientId: data.client_id,
+        clientName: data.clients?.name || 'Unknown Client',
+        config: data,
+        templateConfig: null
+      };
+
+      // Get or create onboarding session
+      const userId = interaction.user.id;
+      const username = interaction.user.tag;
+      
+      const session = await onboardingManager.getOrCreateSession(campaignId, userId, username, {});
+      
+      if (!session.success) {
+        await interaction.reply({
+          content: '❌ Failed to start onboarding. Please try again later.',
+          flags: 64
+        });
+        return;
+      }
+
+      // Check if already completed
+      if (session.is_completed) {
+        await interaction.reply({
+          content: `✅ **Welcome back!**\n\nYou've already completed the onboarding process for **${config.campaignName}**.\n\nYou're all set to enjoy all the community features!`,
+          flags: 64
+        });
+        return;
+      }
+
+      // Check if there are no fields (immediate completion)
+      if (!session.fields || session.fields.length === 0) {
+        await interaction.reply({
+          content: `🎉 **Welcome to ${config.clientName}!**\n\nNo additional information needed - you're all set!`,
+          flags: 64
+        });
+        
+        // Complete onboarding immediately
+        await onboardingManager.completeOnboarding({
+          author: interaction.user,
+          member: interaction.member,
+          guild: interaction.guild,
+          channel: interaction.channel,
+          reply: async (options) => {
+            await interaction.followUp({ ...options, flags: 64 });
+          },
+          followUp: async (options) => {
+            await interaction.followUp({ ...options, flags: 64 });
+          }
+        }, config, null);
+        return;
+      }
+
+      // Get incomplete fields
+      const incompleteFields = onboardingManager.getIncompleteFields(session);
+      
+      if (incompleteFields.length === 0) {
+        await interaction.reply({
+          content: `🎉 **Welcome back to ${config.clientName}!**\n\nLooks like you've already provided all the required information. You're all set!`,
+          flags: 64
+        });
+        
+        // Complete onboarding 
+        await onboardingManager.completeOnboarding({
+          author: interaction.user,
+          member: interaction.member,
+          guild: interaction.guild,
+          channel: interaction.channel,
+          reply: async (options) => {
+            await interaction.followUp({ ...options, flags: 64 });
+          },
+          followUp: async (options) => {
+            await interaction.followUp({ ...options, flags: 64 });
+          }
+        }, config, null);
+        return;
+      }
+
+      // **SHOW MODAL IMMEDIATELY** - This is the key change!
+      const modal = createOnboardingModal(incompleteFields, 1, config);
+      await interaction.showModal(modal);
+      
+      console.log(`✅ Showed onboarding modal immediately for ${username} in campaign ${config.campaignName}`);
+      
+      // Store session data for when the modal is submitted
+      await onboardingManager.storeSessionForModal(campaignId, userId, {
+        fields: incompleteFields,
+        config,
+        referralValidation: null
+      });
+
+    } catch (error) {
+      console.error('Error handling campaign join button:', error);
+      
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ An error occurred while starting the onboarding process. Please try again.',
+          flags: 64
+        });
+      }
     }
-    const config = {
-      campaignId: data.id,
-      campaignName: data.campaign_name,
-      campaignType: data.campaign_type,
-      clientId: data.client_id,
-      clientName: '',
-      config: data,
-      templateConfig: null
-    };
-    await onboardingManager.startOnboarding(interaction, config, {});
   }
 });
 

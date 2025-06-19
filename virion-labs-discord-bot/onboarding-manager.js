@@ -26,7 +26,7 @@ class OnboardingManager {
       console.log(`📋 Options:`, { referralCode, hasReferralValidation: !!referralValidation, forceRestart, autoStart });
       
       // Check if user wants to restart or if this is a new session
-      const shouldRestart = forceRestart || message.content.toLowerCase().includes('restart') || message.content.toLowerCase().includes('reset');
+      const shouldRestart = forceRestart || (message.content && (message.content.toLowerCase().includes('restart') || message.content.toLowerCase().includes('reset')));
       
       // If not forcing restart and not auto-starting, check for existing incomplete session
       if (!shouldRestart && !autoStart) {
@@ -267,7 +267,21 @@ class OnboardingManager {
       }]);
     }
 
-    await message.reply({ embeds: [embed] });
+    try {
+      if (message.isButton && message.isButton()) {
+        // This is a button interaction
+        if (!message.replied && !message.deferred) {
+          await message.reply({ embeds: [embed], flags: 64 }); // Ephemeral reply
+        } else {
+          await message.followUp({ embeds: [embed], flags: 64 });
+        }
+      } else {
+        // This is a regular message
+        await message.reply({ embeds: [embed] });
+      }
+    } catch (error) {
+      console.error('Error sending completion message:', error);
+    }
 
     if (config.config?.auto_role_assignment) {
       if (Array.isArray(config.config.target_role_ids) && config.config.target_role_ids.length > 0) {
@@ -287,7 +301,21 @@ class OnboardingManager {
       .setColor('#00aa00')
       .setTimestamp();
 
-    await message.reply({ embeds: [embed] });
+    try {
+      if (message.isButton && message.isButton()) {
+        // This is a button interaction
+        if (!message.replied && !message.deferred) {
+          await message.reply({ embeds: [embed], flags: 64 }); // Ephemeral reply
+        } else {
+          await message.followUp({ embeds: [embed], flags: 64 });
+        }
+      } else {
+        // This is a regular message
+        await message.reply({ embeds: [embed] });
+      }
+    } catch (error) {
+      console.error('Error sending completion message:', error);
+    }
   }
 
   async assignRoles(message, roleIds) {
@@ -438,7 +466,33 @@ class OnboardingManager {
       .setColor('#ff0000')
       .setTimestamp();
 
-    await message.reply({ embeds: [embed] });
+    try {
+      // Handle both message objects and interaction objects
+      if (message.isButton && message.isButton()) {
+        // This is a button interaction
+        if (!message.replied && !message.deferred) {
+          await message.reply({ embeds: [embed], flags: 64 }); // Ephemeral reply
+        } else {
+          await message.followUp({ embeds: [embed], flags: 64 });
+        }
+      } else {
+        // This is a regular message
+        await message.reply({ embeds: [embed] });
+      }
+    } catch (error) {
+      console.error('Error sending error message:', error);
+      // Fallback: try to send a message to the channel if reply fails
+      try {
+        if (message.channel) {
+          await message.channel.send({ 
+            content: `⚠️ Error: ${errorText}`,
+            flags: message.isButton && message.isButton() ? 64 : undefined
+          });
+        }
+      } catch (fallbackError) {
+        console.error('Fallback error message also failed:', fallbackError);
+      }
+    }
   }
 
   // Check database for existing incomplete onboarding session
@@ -560,10 +614,34 @@ class OnboardingManager {
 
       const row = new ActionRowBuilder().addComponents(startButton);
 
-      await message.reply({ 
-        embeds: [introEmbed], 
-        components: [row]
-      });
+      try {
+        if (message.isButton && message.isButton()) {
+          // This is a button interaction
+          if (!message.replied && !message.deferred) {
+            await message.reply({ 
+              embeds: [introEmbed], 
+              components: [row],
+              flags: 64 // Ephemeral reply
+            });
+          } else {
+            await message.followUp({ 
+              embeds: [introEmbed], 
+              components: [row],
+              flags: 64
+            });
+          }
+        } else {
+          // This is a regular message
+          await message.reply({ 
+            embeds: [introEmbed], 
+            components: [row]
+          });
+        }
+      } catch (error) {
+        console.error('Error sending onboarding modal introduction:', error);
+        await this.sendErrorMessage(message, 'Sorry, there was an error preparing the onboarding form. Please try again.');
+        return;
+      }
 
       console.log(`📧 Sent introduction message to ${(message.author || message.user).tag}`);
 
