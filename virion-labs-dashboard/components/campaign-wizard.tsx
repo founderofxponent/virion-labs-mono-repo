@@ -30,7 +30,10 @@ import {
   Save,
   ArrowLeft,
   CheckCircle,
-  Info
+  Info,
+  MessageSquare,
+  Plus,
+  ExternalLink
 } from "lucide-react"
 import { toast } from "sonner"
 import { type CampaignTemplate } from "@/lib/campaign-templates"
@@ -38,6 +41,7 @@ import { LandingPageConfig } from "@/components/landing-page-config"
 import { useCampaignTemplateComplete } from "@/hooks/use-campaign-template-complete"
 import { useClients } from "@/hooks/use-clients"
 import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
+import { useOnboardingFields } from "@/hooks/use-onboarding-fields"
 
 interface CampaignWizardProps {
   mode: "create" | "edit"
@@ -86,7 +90,7 @@ const STEP_TITLES = [
 const STEP_DESCRIPTIONS = [
   "Choose your campaign template and enter basic details",
   "Configure your bot's personality and appearance",
-  "Set up advanced features and permissions",
+  "Set up advanced features and onboarding questions",
   "Optional: Configure your referral landing page"
 ]
 
@@ -98,6 +102,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const [templates, setTemplates] = useState<CampaignTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [applyingTemplate, setApplyingTemplate] = useState(false)
   
   // Hooks
   const { clients, loading: clientsLoading } = useClients()
@@ -109,6 +114,14 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     landingPage: inheritedLandingPageTemplate, 
     loading: landingPageTemplateLoading 
   } = useCampaignTemplateComplete(selectedTemplateId)
+
+  // Onboarding fields hook
+  const {
+    fields: onboardingFields,
+    loading: onboardingFieldsLoading,
+    applyTemplate: applyOnboardingTemplate,
+    fetchFields
+  } = useOnboardingFields(campaignId)
 
   const [formData, setFormData] = useState<CampaignFormData>({
     campaign_template: '',
@@ -233,9 +246,41 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleTemplateSelect = (templateId: string) => {
+  const handleTemplateSelect = async (templateId: string) => {
     setFormData(prev => ({ ...prev, campaign_template: templateId }))
     setSelectedTemplateId(templateId)
+    
+    // Apply template onboarding fields in edit mode
+    if (mode === 'edit' && campaignId) {
+      await applyTemplateOnboardingFields(templateId, campaignId)
+    }
+  }
+
+  // Apply template onboarding fields
+  const applyTemplateOnboardingFields = async (templateId: string, targetCampaignId: string) => {
+    if (!templateId || !targetCampaignId) return
+    
+    setApplyingTemplate(true)
+    try {
+      const result = await applyOnboardingTemplate(targetCampaignId, templateId)
+      if (result.success) {
+        toast.success('Template onboarding fields applied successfully')
+        // Refresh onboarding fields
+        await fetchFields(targetCampaignId)
+      } else {
+        // Check if template has no onboarding fields
+        if (result.error?.includes('no onboarding fields')) {
+          toast.success('Template applied - no onboarding fields to update')
+        } else {
+          toast.error(`Failed to apply template: ${result.error}`)
+        }
+      }
+    } catch (error) {
+      console.error('Error applying template onboarding fields:', error)
+      toast.error('Failed to apply template onboarding fields')
+    } finally {
+      setApplyingTemplate(false)
+    }
   }
 
   const validateStep = (step: number): boolean => {
@@ -285,14 +330,15 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       const data = await response.json()
 
       if (response.ok) {
-        // Handle template onboarding fields for new campaigns
-        if (mode === 'create' && templateWithLandingPage?.onboarding_fields && templateWithLandingPage.onboarding_fields.length > 0) {
+        // Handle template onboarding fields for both create and edit modes
+        if (templateWithLandingPage?.onboarding_fields && templateWithLandingPage.onboarding_fields.length > 0) {
           try {
+            const targetCampaignId = mode === 'create' ? data.campaign.id : campaignId
             await fetch('/api/campaign-onboarding-fields/apply-template', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                campaign_id: data.campaign.id,
+                campaign_id: targetCampaignId,
                 template_id: templateWithLandingPage.id
               })
             })
@@ -843,6 +889,81 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
                       value={formData.campaign_end_date}
                       onChange={(e) => handleFieldChange('campaign_end_date', e.target.value)}
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Onboarding Questions */}
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-base font-medium">Onboarding Questions</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Questions that users will answer when joining the Discord server
+                  </p>
+                </div>
+                
+                <div className="border rounded-lg p-4 space-y-3">
+                  {onboardingFieldsLoading ? (
+                    <div className="text-sm text-muted-foreground">Loading onboarding questions...</div>
+                  ) : onboardingFields && onboardingFields.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">
+                          {onboardingFields.length} question{onboardingFields.length !== 1 ? 's' : ''} configured
+                        </span>
+                        <Badge variant="outline">
+                          <MessageSquare className="h-3 w-3 mr-1" />
+                          Active
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        {onboardingFields.slice(0, 3).map((field, index) => (
+                          <div key={field.id} className="text-sm text-muted-foreground">
+                            {index + 1}. {field.field_label}
+                          </div>
+                        ))}
+                        {onboardingFields.length > 3 && (
+                          <div className="text-sm text-muted-foreground">
+                            ...and {onboardingFields.length - 3} more question{onboardingFields.length - 3 !== 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      No onboarding questions configured yet
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-2 pt-2 border-t">
+                    {templateWithLandingPage?.onboarding_fields && templateWithLandingPage.onboarding_fields.length > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => campaignId && applyTemplateOnboardingFields(selectedTemplateId!, campaignId)}
+                        disabled={applyingTemplate || !campaignId}
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        {applyingTemplate ? 'Applying...' : `Apply Template Questions (${templateWithLandingPage.onboarding_fields.length})`}
+                      </Button>
+                    )}
+                    
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        if (campaignId) {
+                          window.open(`/onboarding-fields?campaign=${campaignId}`, '_blank')
+                        }
+                      }}
+                      disabled={!campaignId}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Manage Questions
+                    </Button>
                   </div>
                 </div>
               </div>

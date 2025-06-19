@@ -2,6 +2,27 @@
 
 This document provides a comprehensive overview of all 28 tables and views in the Supabase database used by the Virion Labs Dashboard and Discord Bot system.
 
+## Recent Changes
+
+### Discord Bot Modal Flow Enhancement (Latest)
+**Date:** December 2024
+
+**Enhancement:** Restored immediate modal display for Discord bot onboarding
+
+**Changes Made:**
+- **Removed** intermediate welcome message step when users click "Join Campaign" buttons
+- **Restored** immediate modal display behavior for faster user onboarding
+- **Eliminated** the extra "Start Onboarding" button click requirement
+- **Improved** user experience by reducing friction in the onboarding process
+
+**Technical Details:**
+- Modified the join button handler in `virion-labs-discord-bot/index.js` to show modals immediately
+- Removed the `interaction.deferReply()` that was preventing immediate modal display
+- Kept the `handleOnboardingStartButton` function for edge cases and DM scenarios
+- Maintained session storage for modal submission handling
+
+**Impact:** Users now see the onboarding modal immediately upon clicking campaign join buttons, eliminating the previous two-step process that was accidentally introduced in recent updates.
+
 ## Table of Contents
 1. [User Management](#user-management)
 2. [Client Management](#client-management)
@@ -871,6 +892,13 @@ This database schema supports a comprehensive referral marketing and Discord bot
 - **Campaign Management**: Flexible campaign creation with onboarding flows (5 tables)
 - **Analytics & Tracking**: Comprehensive analytics and user interaction tracking (1 table)
 - **Database Views**: 7 analytical views for reporting and optimized querying
+
+**Enhanced Campaign Onboarding Management**: The dashboard now provides comprehensive onboarding fields management:
+- **Direct Integration**: Campaign edit form includes onboarding questions management in Step 3
+- **Template Synchronization**: Selecting a campaign template automatically applies template onboarding fields in both create and edit modes
+- **Real-time Updates**: Changes to campaign templates immediately update onboarding questions for existing campaigns
+- **Dedicated Management**: Standalone onboarding fields page accessible via campaign edit interface
+- **URL Parameter Support**: `/onboarding-fields?campaign={id}` for direct campaign-specific access
 
 **Total Database Objects**: 24 tables + 7 views = 31 database objects
 
