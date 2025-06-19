@@ -870,6 +870,28 @@ client.on('messageCreate', async (message) => {
     // Handle campaign-specific logic with template-driven responses (ACTIVE campaigns only)
     let handled = false;
     
+    // Check if user has an active onboarding session first
+    if (onboardingManager.isInOnboardingSession(message.author.id, config.campaignId)) {
+      console.log(`💬 Handling onboarding response for ${message.author.tag} in campaign ${config.campaignId}`);
+      handled = await onboardingManager.handleResponse(message, config);
+      if (handled) return; // Exit early if onboarding handled the message
+    } else {
+      // Check database for incomplete onboarding session
+      const existingSession = await onboardingManager.checkDatabaseSession(config.campaignId, message.author.id, message.author.tag);
+      if (existingSession && !existingSession.is_completed && existingSession.next_field) {
+        console.log(`🔄 Restoring onboarding session for ${message.author.tag} in campaign ${config.campaignId}`);
+        await onboardingManager.resumeOnboarding(message, config, existingSession);
+        return; // Exit early - resumeOnboarding handles the response
+      } else if (!existingSession || !existingSession.is_completed) {
+        // For community engagement campaigns, auto-start onboarding for new users
+        if (config.campaignType === 'community_engagement') {
+          console.log(`🚀 Auto-starting onboarding for new user ${message.author.tag} in community engagement campaign`);
+          handled = await onboardingManager.startOnboarding(message, config, { autoStart: true });
+          if (handled) return; // Exit early if onboarding started
+        }
+      }
+    }
+    
     // First try template-driven auto responses
     console.log(`🔍 Checking for template response to: "${message.content}"`);
     const templateResponse = getTemplateResponse(config, message.content);

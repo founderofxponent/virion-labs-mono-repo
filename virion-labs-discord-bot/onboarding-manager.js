@@ -167,6 +167,14 @@ class OnboardingManager {
         await this.completeOnboarding(message, config, activeSession.referralValidation);
         this.clearSession(sessionKey);
       } else {
+        // Update the active session with the new field info before asking next question
+        activeSessions.set(sessionKey, {
+          currentField: updatedSession.next_field,
+          timestamp: Date.now(),
+          progress: updatedSession.progress || { completed: 0, total: 1 },
+          referralInfo: activeSession.referralInfo || {},
+          referralValidation: activeSession.referralValidation
+        });
         await this.askNextQuestion(message, config, updatedSession);
       }
 
@@ -272,7 +280,9 @@ class OnboardingManager {
     const sessionKey = `${campaignId}:${userId}`;
 
     if (!session.next_field) {
-      await this.completeOnboarding(message, config);
+      // If there's no next field but we're in askNextQuestion, 
+      // completion should have already been handled by handleResponse
+      console.log(`⚠️ No next field in askNextQuestion for ${(message.author || message.user).tag} - completion should have been handled already`);
       return;
     }
 

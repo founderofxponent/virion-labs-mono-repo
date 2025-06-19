@@ -447,7 +447,7 @@ Tracks all Discord bot interactions with users.
 - `created_at` (timestamptz, default: now()) - Interaction timestamp
 
 **Constraints:**
-- Interaction type must be one of: 'message', 'command', 'reaction', 'join', 'referral_signup'
+- Interaction type must be one of: 'message', 'command', 'reaction', 'join', 'referral_signup', 'handled_message', 'unhandled_message', 'inactive_campaign_interaction', 'referral_failed', 'guild_join', 'onboarding_completed'
 - Foreign keys to discord_guild_campaigns(id), referral_links(id), referrals(id), auth.users(id)
 
 ### discord_webhook_routes
