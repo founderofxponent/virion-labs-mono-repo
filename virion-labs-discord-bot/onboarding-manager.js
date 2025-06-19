@@ -653,10 +653,15 @@ class OnboardingManager {
         hasReferralValidation: !!referralValidation
       });
       
+      // Clear any existing session first to ensure fresh data
+      await this.clearModalSession(config.campaignId, userId);
+      
       this.storeSessionForModal(config.campaignId, userId, {
         fields: incompleteFields,
         config,
-        referralValidation
+        referralValidation,
+        created_at: new Date().toISOString(),
+        field_keys: incompleteFields.map(f => f.field_key) // Store field keys for validation
       });
 
       console.log(`✅ Session storage completed for ${(message.author || message.user).tag}`);

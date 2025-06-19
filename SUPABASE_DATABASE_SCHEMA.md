@@ -4,7 +4,58 @@ This document provides a comprehensive overview of all 28 tables and views in th
 
 ## Recent Changes
 
-### Discord Bot Modal Flow Enhancement (Latest)
+### Discord Bot Modal Session Error Handling & Field Validation Fix (Latest)
+**Date:** December 2024
+
+**Enhancement:** Fixed Discord bot modal submission errors and improved timeout handling
+
+**Issues Resolved:**
+- **Problem**: Users submitting onboarding forms received "modal session not found" errors
+- **Problem**: Field validation failed with "Invalid field" errors for outdated forms
+- **Problem**: Discord interaction timeouts causing "Unknown interaction" errors
+- **Root Cause**: Modal sessions not properly stored/retrieved and field mismatches due to outdated cached forms
+
+**Changes Made:**
+- **Enhanced** modal session validation with field key matching to detect outdated forms
+- **Improved** interaction timeout handling by sending immediate acknowledgment before processing
+- **Added** automatic session clearing and refresh when field mismatches are detected
+- **Enhanced** error messages with detailed field validation feedback
+- **Modified** Discord response flow to use followUp messages after initial reply to prevent timeouts
+
+**Technical Details:**
+- Modal submission now validates submitted fields against current campaign configuration
+- Immediate acknowledgment sent to Discord to prevent 3-second timeout
+- Session data now includes field keys for validation and creation timestamps
+- Outdated sessions are automatically cleared when field mismatches are detected
+- Comprehensive error handling for Discord API timeouts with fallback to channel messages
+
+**Impact:** Users can now successfully complete onboarding forms without encountering session errors or interaction timeouts, and receive clear feedback when forms are outdated.
+
+### Discord Bot Modal Flow Enhancement & Configuration Fix
+**Date:** December 2024
+
+**Enhancement:** Fixed Discord bot configuration lookup for modal submissions
+
+**Issue Resolved:**
+- **Problem**: Users could click campaign buttons successfully but received "Configuration Error" when submitting onboarding modals
+- **Root Cause**: Modal submission handler was trying to find campaigns by guild_id instead of using the campaign_id from the button interaction
+- **Impact**: Campaign onboarding was broken for campaigns not properly associated with guild_id
+
+**Changes Made:**
+- **Modified** `handleOnboardingModalSubmission()` function in `virion-labs-discord-bot/index.js`
+- **Added** campaign ID lookup from stored modal session data before falling back to guild-based lookup
+- **Improved** error messaging with helpful tips for users
+- **Created** separate `processModalSubmission()` function for better code organization
+
+**Technical Details:**
+- Modal submission now first attempts to retrieve campaign ID from the user's stored session
+- Direct campaign lookup by ID eliminates dependency on proper guild_id association
+- Fallback to original guild-based lookup ensures backward compatibility
+- Enhanced error handling provides clearer guidance to users
+
+**Impact:** Campaign onboarding now works reliably regardless of how campaigns are associated with Discord guilds, fixing the "Configuration Error" issue that occurred after clicking campaign buttons.
+
+### Discord Bot Modal Flow Enhancement (Previous)
 **Date:** December 2024
 
 **Enhancement:** Restored immediate modal display for Discord bot onboarding

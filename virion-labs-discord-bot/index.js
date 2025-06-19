@@ -1701,21 +1701,110 @@ async function handleOnboardingModalSubmission(interaction) {
 
   try {
     // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 1: CONFIGURATION VALIDATION
+    // SCENARIO 1: CONFIGURATION VALIDATION (FIXED)
     // ═══════════════════════════════════════════════════════════════
-    const config = await getBotConfig(guildId, interaction.channel.id);
-    if (!config) {
+    
+    // First, try to get session data to extract campaign ID
+    let sessionLookup;
+    try {
+      // Extract campaign ID from modal custom ID
+      const modalPart = parseInt(interaction.customId.split('_').pop()) || 1;
+      
+      // We need to find the campaign ID from any active session
+      // Let's check all stored modal sessions for this user
+      const { data: sessions, error: sessionError } = await supabase
+        .from('campaign_onboarding_responses')
+        .select('campaign_id')
+        .eq('discord_user_id', userId)
+        .eq('field_key', '__modal_session__')
+        .neq('field_value', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (sessionError) {
+        console.error('Error retrieving session data:', sessionError);
+      }
+
+      if (sessions && sessions.length > 0) {
+        const campaignId = sessions[0].campaign_id;
+        
+        // Get campaign configuration directly by ID
+        const { data: campaignData, error: campaignError } = await supabase
+          .from('discord_guild_campaigns')
+          .select(`
+            *,
+            clients:client_id(name, industry)
+          `)
+          .eq('id', campaignId)
+          .single();
+
+        if (campaignError || !campaignData) {
+          console.error('❌ Campaign not found:', campaignError);
+          await safeReply(interaction, {
+            content: '❌ **Configuration Error**\nCampaign configuration not found. Please restart the onboarding process.',
+            flags: 64
+          });
+          return;
+        }
+
+        // Create config object in the expected format
+        const campaignConfig = {
+          campaignId: campaignData.id,
+          campaignName: campaignData.campaign_name,
+          campaignType: campaignData.campaign_type,
+          clientId: campaignData.client_id,
+          clientName: campaignData.clients?.name || 'Unknown Client',
+          config: campaignData,
+          templateConfig: null,
+          campaignStatus: getCampaignStatus(campaignData),
+          isActive: campaignData.is_active || false
+        };
+
+        console.log(`✅ Found campaign configuration from session: ${campaignConfig.campaignName} (${campaignConfig.campaignType})`);
+        
+        // Continue with the rest of the modal processing...
+        await processModalSubmission(interaction, campaignConfig, modalPart);
+        return;
+      }
+    } catch (sessionRetrievalError) {
+      console.error('Error during session retrieval:', sessionRetrievalError);
+    }
+
+    // Fallback: Try the original guild-based lookup
+    const fallbackConfig = await getBotConfig(guildId, interaction.channel.id);
+    if (!fallbackConfig) {
       await safeReply(interaction, {
-        content: '❌ **Configuration Error**\nNo campaign configuration found for this server. Please contact an administrator.',
+        content: '❌ **Configuration Error**\nNo campaign configuration found for this server. Please contact an administrator.\n\n💡 **Tip**: Try clicking the campaign button again to restart the process.',
         flags: 64
       });
       return;
     }
 
+    // Continue with the rest of the modal processing...
+    await processModalSubmission(interaction, fallbackConfig, parseInt(interaction.customId.split('_').pop()) || 1);
+
+  } catch (error) {
+    console.error('❌ Unexpected error in modal submission:', error);
+    
+    if (!hasReplied) {
+      await safeReply(interaction, {
+        content: '❌ **System Error**\nAn unexpected error occurred. Please try clicking the campaign button again.',
+        flags: 64
+      });
+    }
+  }
+}
+
+// Extract the modal processing logic into a separate function
+async function processModalSubmission(interaction, config, modalPart) {
+  const userId = interaction.user.id;
+  const username = interaction.user.tag;
+  let hasReplied = false;
+
+  try {
     // ═══════════════════════════════════════════════════════════════
     // SCENARIO 2: INPUT VALIDATION & PROCESSING
     // ═══════════════════════════════════════════════════════════════
-    const modalPart = parseInt(interaction.customId.split('_').pop()) || 1;
     const responses = {};
     
     // Validate and sanitize responses
@@ -1737,26 +1826,83 @@ async function handleOnboardingModalSubmission(interaction) {
 
     console.log(`📝 Processing modal ${modalPart} submission for ${username}:`, Object.keys(responses));
 
+      // ═══════════════════════════════════════════════════════════════
+  // SCENARIO 3: SESSION DATA RETRIEVAL AND VALIDATION
+  // ═══════════════════════════════════════════════════════════════
+  let modalSessionData;
+  let referralValidation = null;
+  
+  try {
+    modalSessionData = await onboardingManager.getStoredModalSession(config.campaignId, userId);
+    
+    if (!modalSessionData) {
+      console.log(`❌ No modal session found in database for ${userId} in campaign ${config.campaignId}`);
+      
+      // Instead of failing, try to get fresh session data from the API
+      console.log(`🔄 Attempting to fetch fresh campaign fields for validation...`);
+      try {
+        const freshSession = await onboardingManager.getOrCreateSession(config.campaignId, userId, username);
+        if (freshSession && freshSession.fields) {
+          console.log(`✅ Retrieved fresh session with ${freshSession.fields.length} fields`);
+          
+          // Validate that the submitted fields match the current campaign configuration
+          const validFieldKeys = new Set(freshSession.fields.map(f => f.field_key));
+          const submittedKeys = Object.keys(responses);
+          const invalidKeys = submittedKeys.filter(key => !validFieldKeys.has(key));
+          
+                     if (invalidKeys.length > 0) {
+             console.error(`❌ Field validation failed. Invalid fields: ${invalidKeys.join(', ')}`);
+             console.error(`📋 Valid fields are: ${Array.from(validFieldKeys).join(', ')}`);
+             console.error(`📋 Submitted fields: ${submittedKeys.join(', ')}`);
+             
+             // Clear the outdated session
+             await onboardingManager.clearModalSession(config.campaignId, userId);
+             
+             await safeReply(interaction, {
+               content: `❌ **Outdated Form**\nThe form you submitted contains fields that don't match the current campaign configuration.\n\n**Invalid fields:** ${invalidKeys.join(', ')}\n**Expected fields:** ${Array.from(validFieldKeys).join(', ')}\n\nPlease restart the onboarding process to get the latest questions.`,
+               flags: 64
+             });
+             return;
+           }
+        }
+      } catch (freshSessionError) {
+        console.error('Failed to retrieve fresh session:', freshSessionError);
+        await safeReply(interaction, {
+          content: '❌ **Session Error**\nYour onboarding session could not be retrieved. Please restart the process.',
+          flags: 64
+        });
+        return;
+      }
+    } else {
+      referralValidation = modalSessionData.referralValidation;
+    }
+  } catch (sessionError) {
+    console.error('Error retrieving session data:', sessionError);
+    await safeReply(interaction, {
+      content: '❌ **Session Error**\nYour onboarding session could not be retrieved. Please restart the process.',
+      flags: 64
+    });
+    return;
+  }
+
     // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 3: SESSION DATA RETRIEVAL
+    // SCENARIO 4: IMMEDIATE RESPONSE & ASYNC PROCESSING
     // ═══════════════════════════════════════════════════════════════
-    let sessionData;
-    try {
-      sessionData = await onboardingManager.getStoredModalSession(config.campaignId, userId);
-    } catch (sessionError) {
-      console.error('Error retrieving session data:', sessionError);
-      await safeReply(interaction, {
-        content: '❌ **Session Error**\nYour onboarding session could not be retrieved. Please restart the process.',
-        flags: 64
-      });
+    
+    // Send immediate acknowledgment to prevent Discord timeout
+    const replySuccess = await safeReply(interaction, {
+      content: '⏳ **Processing your responses...**\nPlease wait while we save your information.',
+      flags: 64
+    });
+    
+    if (!replySuccess) {
+      console.error('❌ Failed to send immediate acknowledgment');
       return;
     }
-
-    const referralValidation = sessionData?.referralValidation || null;
-
-    // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 4: API SUBMISSION & ERROR HANDLING
-    // ═══════════════════════════════════════════════════════════════
+    
+    hasReplied = true;
+    
+    // Now process the submission asynchronously
     let saveResult;
     try {
       saveResult = await saveOnboardingModalResponses({
@@ -1770,7 +1916,7 @@ async function handleOnboardingModalSubmission(interaction) {
       });
     } catch (apiError) {
       console.error('API submission error:', apiError);
-      await safeReply(interaction, {
+      await interaction.followUp({
         content: `❌ **Network Error**\nFailed to submit your responses due to a connection issue.\n\n🔄 **Please try again in a moment.** Your progress has been saved.`,
         flags: 64
       });
@@ -1779,7 +1925,7 @@ async function handleOnboardingModalSubmission(interaction) {
 
     // Handle API response errors
     if (!saveResult) {
-      await safeReply(interaction, {
+      await interaction.followUp({
         content: '❌ **Server Error**\nReceived an invalid response from the server. Please try again.',
         flags: 64
       });
@@ -1802,7 +1948,7 @@ async function handleOnboardingModalSubmission(interaction) {
         userMessage = `❌ **Submission Error**\n${errorMessage}\n\nIf this persists, please contact support.`;
       }
       
-      await safeReply(interaction, {
+      await interaction.followUp({
         content: userMessage,
         flags: 64
       });
@@ -1815,11 +1961,10 @@ async function handleOnboardingModalSubmission(interaction) {
     
     if (saveResult.is_completed) {
       // 🎉 ONBOARDING COMPLETE
-      await safeReply(interaction, {
+      await interaction.followUp({
         content: '🎉 **Onboarding Complete!**\nProcessing your responses and setting up your access...',
         flags: 64
       });
-      hasReplied = true;
 
       try {
         await onboardingManager.completeOnboarding({
@@ -1895,27 +2040,31 @@ async function handleOnboardingModalSubmission(interaction) {
       }
       
     } else {
-      // 💾 PARTIAL SAVE SUCCESS
-      const progress = saveResult.progress || { completed: modalPart, total: modalPart };
-      await safeReply(interaction, {
-        content: `✅ **Progress Saved!**\nResponses saved successfully (${progress.completed}/${progress.total} completed)\n\n⏳ Your onboarding will be processed shortly...`,
+      // 📄 PARTIAL SUCCESS
+      await interaction.followUp({
+        content: `✅ **Progress Saved!**\nYour responses have been recorded successfully.\n\n📊 **Status**: ${saveResult.progress?.completed || 0}/${saveResult.progress?.total || 0} fields completed\n\n🔄 **Next**: ${saveResult.next_action || 'Please wait for further instructions or contact support.'}`,
         flags: 64
       });
-      hasReplied = true;
     }
 
   } catch (error) {
-    console.error('Unexpected error in modal submission:', error);
-    console.error('Error stack:', error.stack);
+    console.error('❌ Error in modal processing:', error);
     
-    // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 6: CATASTROPHIC ERROR HANDLING
-    // ═══════════════════════════════════════════════════════════════
     if (!hasReplied) {
       await safeReply(interaction, {
-        content: '❌ **Unexpected Error**\nSomething went wrong while processing your submission.\n\n🔄 Please try again. If the issue persists, contact support.',
+        content: '❌ **Processing Error**\nAn error occurred while processing your submission. Please try again.',
         flags: 64
       });
+    } else {
+      // If we've already replied, use followUp
+      try {
+        await interaction.followUp({
+          content: '❌ **Processing Error**\nAn error occurred while processing your submission. Please try again.',
+          flags: 64
+        });
+      } catch (followUpError) {
+        console.error('Failed to send follow-up error message:', followUpError);
+      }
     }
   }
 }
@@ -1932,6 +2081,38 @@ async function safeReply(interaction, options) {
     return true;
   } catch (error) {
     console.error('Failed to send reply:', error);
+    
+    // Check for specific Discord API errors
+    if (error.code === 10062) {
+      console.error('❌ Discord interaction token expired - cannot respond');
+      
+      // Try to send a follow-up message to the channel if possible
+      if (interaction.channel) {
+        try {
+          await interaction.channel.send({
+            content: `${interaction.user} ⏰ **Interaction Timeout**\n${options.content || 'Your action was processed but the response timed out. Please try again if needed.'}`,
+            embeds: options.embeds
+          });
+          return true;
+        } catch (channelError) {
+          console.error('Failed to send channel message:', channelError);
+        }
+      }
+      return false;
+    }
+    
+    // For other errors, try fallback to channel message
+    if (interaction.channel) {
+      try {
+        await interaction.channel.send({
+          content: `${interaction.user} ${options.content || 'Action completed!'}`,
+          embeds: options.embeds
+        });
+        return true;
+      } catch (fallbackError) {
+        console.error('Fallback reply also failed:', fallbackError);
+      }
+    }
     return false;
   }
 }
