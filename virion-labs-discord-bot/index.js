@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const OnboardingManager = require('./onboarding-manager');
 require('dotenv').config();
 const { supabase } = require('./supabase');
@@ -32,7 +32,7 @@ client.once('ready', () => {
   console.log(`📡 Logged in as ${client.user.tag}`);
   console.log(`🔗 Dashboard API: ${DASHBOARD_API_URL}`);
   console.log(`🐛 Debug mode: ${DEBUG ? 'ON' : 'OFF'}`);
-  console.log('✅ Bot is now listening for messages...\n');
+  console.log('✅ Bot is now listening for messages and modal interactions...\n');
   
   // Test dashboard connection on startup
   testDashboardConnection();
@@ -1274,7 +1274,7 @@ client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
   if (interaction.customId.startsWith('join_')) {
     const campaignId = interaction.customId.replace('join_', '');
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 }); // 64 = MessageFlags.Ephemeral
     const { data, error } = await supabase
       .from('discord_guild_campaigns')
       .select('*')
@@ -1296,3 +1296,566 @@ client.on('interactionCreate', async (interaction) => {
     await onboardingManager.startOnboarding(interaction, config, {});
   }
 });
+
+// Handle modal interactions
+client.on('interactionCreate', async (interaction) => {
+  if (interaction.isModalSubmit()) {
+    if (interaction.customId.startsWith('onboarding_modal_')) {
+      await handleOnboardingModalSubmission(interaction);
+    }
+  } else if (interaction.isButton()) {
+    if (interaction.customId.startsWith('start_onboarding_')) {
+      await handleOnboardingStartButton(interaction);
+    }
+  }
+});
+
+// Handle onboarding modal submissions
+async function handleOnboardingModalSubmission(interaction) {
+  const guildId = interaction.guild.id;
+  const userId = interaction.user.id;
+  const username = interaction.user.tag;
+  let hasReplied = false;
+
+  try {
+    // ═══════════════════════════════════════════════════════════════
+    // SCENARIO 1: CONFIGURATION VALIDATION
+    // ═══════════════════════════════════════════════════════════════
+    const config = await getBotConfig(guildId, interaction.channel.id);
+    if (!config) {
+      await safeReply(interaction, {
+        content: '❌ **Configuration Error**\nNo campaign configuration found for this server. Please contact an administrator.',
+        flags: 64
+      });
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SCENARIO 2: INPUT VALIDATION & PROCESSING
+    // ═══════════════════════════════════════════════════════════════
+    const modalPart = parseInt(interaction.customId.split('_').pop()) || 1;
+    const responses = {};
+    
+    // Validate and sanitize responses
+    try {
+      interaction.fields.fields.forEach((field, fieldId) => {
+        const value = field.value?.trim();
+        if (!value) {
+          throw new Error(`Field '${fieldId}' cannot be empty`);
+        }
+        responses[fieldId] = value;
+      });
+    } catch (validationError) {
+      await safeReply(interaction, {
+        content: `❌ **Validation Error**\n${validationError.message}\n\nPlease fill out all required fields.`,
+        flags: 64
+      });
+      return;
+    }
+
+    console.log(`📝 Processing modal ${modalPart} submission for ${username}:`, Object.keys(responses));
+
+    // ═══════════════════════════════════════════════════════════════
+    // SCENARIO 3: SESSION DATA RETRIEVAL
+    // ═══════════════════════════════════════════════════════════════
+    let sessionData;
+    try {
+      sessionData = await onboardingManager.getStoredModalSession(config.campaignId, userId);
+    } catch (sessionError) {
+      console.error('Error retrieving session data:', sessionError);
+      await safeReply(interaction, {
+        content: '❌ **Session Error**\nYour onboarding session could not be retrieved. Please restart the process.',
+        flags: 64
+      });
+      return;
+    }
+
+    const referralValidation = sessionData?.referralValidation || null;
+
+    // ═══════════════════════════════════════════════════════════════
+    // SCENARIO 4: API SUBMISSION & ERROR HANDLING
+    // ═══════════════════════════════════════════════════════════════
+    let saveResult;
+    try {
+      saveResult = await saveOnboardingModalResponses({
+        campaign_id: config.campaignId,
+        discord_user_id: userId,
+        discord_username: username,
+        responses: responses,
+        modal_part: modalPart,
+        referral_id: referralValidation?.referral_id,
+        referral_link_id: referralValidation?.referral_link_id
+      });
+    } catch (apiError) {
+      console.error('API submission error:', apiError);
+      await safeReply(interaction, {
+        content: `❌ **Network Error**\nFailed to submit your responses due to a connection issue.\n\n🔄 **Please try again in a moment.** Your progress has been saved.`,
+        flags: 64
+      });
+      return;
+    }
+
+    // Handle API response errors
+    if (!saveResult) {
+      await safeReply(interaction, {
+        content: '❌ **Server Error**\nReceived an invalid response from the server. Please try again.',
+        flags: 64
+      });
+      return;
+    }
+
+    if (!saveResult.success) {
+      const errorMessage = saveResult.error || 'Unknown error occurred';
+      console.error('Save failed:', errorMessage);
+      
+      // Categorize error types for better user feedback
+      let userMessage;
+      if (errorMessage.includes('validation')) {
+        userMessage = `❌ **Validation Error**\n${errorMessage}\n\nPlease check your responses and try again.`;
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
+        userMessage = '❌ **Network Error**\nThe request timed out. Please try submitting again.';
+      } else if (errorMessage.includes('database') || errorMessage.includes('connection')) {
+        userMessage = '❌ **Database Error**\nTemporary database issue. Please try again in a few moments.';
+      } else {
+        userMessage = `❌ **Submission Error**\n${errorMessage}\n\nIf this persists, please contact support.`;
+      }
+      
+      await safeReply(interaction, {
+        content: userMessage,
+        flags: 64
+      });
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SCENARIO 5: SUCCESS PATHS
+    // ═══════════════════════════════════════════════════════════════
+    
+    if (saveResult.is_completed) {
+      // 🎉 ONBOARDING COMPLETE
+      await safeReply(interaction, {
+        content: '🎉 **Onboarding Complete!**\nProcessing your responses and setting up your access...',
+        flags: 64
+      });
+      hasReplied = true;
+
+      try {
+        await onboardingManager.completeOnboarding({
+          author: interaction.user,
+          member: interaction.member,
+          guild: interaction.guild,
+          channel: interaction.channel,
+          reply: async (options) => {
+            try {
+              await interaction.followUp({ ...options, flags: 64 });
+            } catch (error) {
+              console.error('Error sending completion message:', error);
+              // Fallback to channel message
+              if (interaction.channel) {
+                await interaction.channel.send({
+                  content: `${interaction.user} ${options.content || 'Onboarding completed!'}`,
+                  embeds: options.embeds
+                });
+              }
+            }
+          },
+          followUp: async (options) => {
+            try {
+              await interaction.followUp({ ...options, flags: 64 });
+            } catch (error) {
+              console.error('Error sending follow-up:', error);
+            }
+          }
+        }, config, referralValidation);
+        
+        // Clear session after successful completion
+        await onboardingManager.clearModalSession(config.campaignId, userId);
+      } catch (completionError) {
+        console.error('Error completing onboarding:', completionError);
+        await interaction.followUp({
+          content: '⚠️ **Completion Warning**\nYour responses were saved, but there was an issue finalizing your setup. An administrator will review this.',
+          flags: 64
+        });
+      }
+      
+    } else if (saveResult.next_modal_fields && saveResult.next_modal_fields.length > 0) {
+      // 📋 MORE FORMS TO SHOW
+      const nextModalPart = modalPart + 1;
+      const totalParts = Math.ceil((saveResult.progress?.total || 1) / 5); // Assuming 5 fields per modal
+      
+      try {
+        const nextModal = createOnboardingModal(saveResult.next_modal_fields, nextModalPart, config);
+        
+        // Add progress indicator to modal title
+        if (totalParts > 1) {
+          nextModal.setTitle(`${config.campaignName} - Part ${nextModalPart}/${totalParts}`);
+        }
+        
+        await interaction.showModal(nextModal);
+        hasReplied = true;
+        console.log(`✅ Showed modal part ${nextModalPart} for ${username} (${saveResult.progress?.completed || 0}/${saveResult.progress?.total || 0} completed)`);
+        
+      } catch (modalError) {
+        console.error('Error showing next modal:', modalError);
+        
+        // Check if it's a Discord API limitation
+        if (modalError.message?.includes('Unknown interaction') || modalError.code === 10062) {
+          await safeReply(interaction, {
+            content: '❌ **Form Display Error**\nThe next form could not be displayed due to timing. Please restart the onboarding process.',
+            flags: 64
+          });
+        } else {
+          await safeReply(interaction, {
+            content: '❌ **Modal Error**\nFailed to show the next form. Please contact support if this continues.',
+            flags: 64
+          });
+        }
+      }
+      
+    } else {
+      // 💾 PARTIAL SAVE SUCCESS
+      const progress = saveResult.progress || { completed: modalPart, total: modalPart };
+      await safeReply(interaction, {
+        content: `✅ **Progress Saved!**\nResponses saved successfully (${progress.completed}/${progress.total} completed)\n\n⏳ Your onboarding will be processed shortly...`,
+        flags: 64
+      });
+      hasReplied = true;
+    }
+
+  } catch (error) {
+    console.error('Unexpected error in modal submission:', error);
+    console.error('Error stack:', error.stack);
+    
+    // ═══════════════════════════════════════════════════════════════
+    // SCENARIO 6: CATASTROPHIC ERROR HANDLING
+    // ═══════════════════════════════════════════════════════════════
+    if (!hasReplied) {
+      await safeReply(interaction, {
+        content: '❌ **Unexpected Error**\nSomething went wrong while processing your submission.\n\n🔄 Please try again. If the issue persists, contact support.',
+        flags: 64
+      });
+    }
+  }
+}
+
+// Helper function to safely reply to interactions
+async function safeReply(interaction, options) {
+  if (interaction.replied || interaction.deferred) {
+    console.log('Interaction already replied to, cannot send response');
+    return false;
+  }
+  
+  try {
+    await interaction.reply(options);
+    return true;
+  } catch (error) {
+    console.error('Failed to send reply:', error);
+    return false;
+  }
+}
+
+// Create onboarding modal from fields
+function createOnboardingModal(fields, modalPart, config) {
+  const modal = new ModalBuilder()
+    .setCustomId(`onboarding_modal_${modalPart}`)
+    .setTitle(`${config.campaignName} - Onboarding ${modalPart > 1 ? `(Part ${modalPart})` : ''}`);
+
+  const components = [];
+
+  // Discord modals support up to 5 text inputs
+  const fieldsToShow = fields.slice(0, 5);
+  
+  fieldsToShow.forEach((field, index) => {
+    let inputStyle = TextInputStyle.Short;
+    let maxLength = 100;
+
+    // Determine input style and length based on field type
+    switch (field.field_type) {
+      case 'text':
+        if (field.field_description && field.field_description.length > 50) {
+          inputStyle = TextInputStyle.Paragraph;
+          maxLength = 1000;
+        }
+        break;
+      case 'email':
+        inputStyle = TextInputStyle.Short;
+        maxLength = 100;
+        break;
+      case 'number':
+        inputStyle = TextInputStyle.Short;
+        maxLength = 20;
+        break;
+      case 'select':
+        inputStyle = TextInputStyle.Short;
+        maxLength = 100;
+        break;
+      case 'url':
+        inputStyle = TextInputStyle.Short;
+        maxLength = 200;
+        break;
+      default:
+        inputStyle = TextInputStyle.Short;
+        maxLength = 100;
+    }
+
+    // Truncate label if too long (Discord limit is 45 characters)
+    let label = field.field_label;
+    let labelTruncated = false;
+    if (label.length > 45) {
+      label = label.substring(0, 42) + '...';
+      labelTruncated = true;
+    }
+
+    const textInput = new TextInputBuilder()
+      .setCustomId(field.field_key)
+      .setLabel(label)
+      .setStyle(inputStyle)
+      .setRequired(true)
+      .setMaxLength(maxLength);
+
+    // Set placeholder with full question if label was truncated
+    let placeholder = field.field_placeholder;
+    if (labelTruncated) {
+      placeholder = field.field_label; // Show full question in placeholder
+    }
+
+    if (placeholder) {
+      // Discord placeholder limit is 100 characters
+      if (placeholder.length > 100) {
+        placeholder = placeholder.substring(0, 97) + '...';
+      }
+      textInput.setPlaceholder(placeholder);
+    }
+
+    if (field.field_options && field.field_options.length > 0) {
+      const optionsText = `Options: ${field.field_options.join(', ')}`;
+      if (optionsText.length <= 100) {
+        textInput.setPlaceholder(optionsText);
+      } else {
+        textInput.setPlaceholder(`Options: ${field.field_options.slice(0, 3).join(', ')}...`);
+      }
+    }
+
+    // Add validation hints for specific field types
+    if (field.field_type === 'email' && !placeholder) {
+      textInput.setPlaceholder('Enter your email address');
+    } else if (field.field_type === 'number' && !placeholder) {
+      textInput.setPlaceholder('Enter a number');
+    }
+
+    const actionRow = new ActionRowBuilder().addComponents(textInput);
+    components.push(actionRow);
+  });
+
+  modal.addComponents(...components);
+  return modal;
+}
+
+// Save responses from modal submission with comprehensive error handling
+async function saveOnboardingModalResponses(data) {
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🌐 API submission attempt ${attempt}/${maxRetries}...`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const response = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding/modal`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(data),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+
+      // Handle different HTTP status codes
+      if (response.status === 429) {
+        // Rate limited
+        const retryAfter = response.headers.get('Retry-After') || retryDelay / 1000;
+        console.log(`⏳ Rate limited, retrying after ${retryAfter} seconds...`);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+          continue;
+        }
+        return { 
+          success: false, 
+          error: 'Service temporarily unavailable due to high traffic. Please try again later.' 
+        };
+      }
+
+      if (response.status >= 500) {
+        // Server error - retry
+        console.log(`🔄 Server error (${response.status}), retrying...`);
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+          continue;
+        }
+        return { 
+          success: false, 
+          error: 'Server is temporarily unavailable. Please try again later.' 
+        };
+      }
+
+      if (!response.ok) {
+        // Client error - don't retry
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          console.error('Failed to parse error response:', jsonError);
+          return { 
+            success: false, 
+            error: `Request failed with status ${response.status}` 
+          };
+        }
+        
+        const errorMessage = errorData.error || errorData.message || `HTTP ${response.status} error`;
+        console.error('API client error:', errorMessage);
+        return { success: false, error: errorMessage };
+      }
+
+      // Success - parse response
+      let result;
+      try {
+        result = await response.json();
+      } catch (jsonError) {
+        console.error('Failed to parse success response:', jsonError);
+        return { 
+          success: false, 
+          error: 'Server returned invalid response format' 
+        };
+      }
+
+      // Validate response structure
+      if (typeof result !== 'object' || result === null) {
+        return { 
+          success: false, 
+          error: 'Server returned unexpected response format' 
+        };
+      }
+
+      console.log(`✅ API submission successful on attempt ${attempt}`);
+      return result;
+
+    } catch (error) {
+      console.error(`❌ API submission attempt ${attempt} failed:`, error.message);
+      
+      // Handle specific error types
+      if (error.name === 'AbortError') {
+        if (attempt === maxRetries) {
+          return { 
+            success: false, 
+            error: 'Request timeout - server took too long to respond' 
+          };
+        }
+      } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        if (attempt === maxRetries) {
+          return { 
+            success: false, 
+            error: 'Cannot connect to server - please check your connection' 
+          };
+        }
+      } else if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+        if (attempt === maxRetries) {
+          return { 
+            success: false, 
+            error: 'Connection lost during submission - please try again' 
+          };
+        }
+      } else {
+        // Unknown error - don't retry
+        return { 
+          success: false, 
+          error: `Network error: ${error.message}` 
+        };
+      }
+      
+      // Wait before retry
+      if (attempt < maxRetries) {
+        const delay = retryDelay * attempt;
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  return { 
+    success: false, 
+    error: 'Failed to submit after multiple attempts' 
+  };
+}
+
+// Handle onboarding start button
+async function handleOnboardingStartButton(interaction) {
+  try {
+    console.log(`🔘 Button clicked: ${interaction.customId} by ${interaction.user.tag}`);
+    
+    const [, , campaignId, userId] = interaction.customId.split('_');
+    console.log(`📝 Extracted campaignId: ${campaignId}, userId: ${userId}`);
+    
+    // Verify this is the correct user
+    if (interaction.user.id !== userId) {
+      console.log(`❌ User mismatch: ${interaction.user.id} !== ${userId}`);
+      await interaction.reply({
+        content: '❌ This onboarding form is not for you.',
+        flags: 64 // MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    // Get stored session data
+    console.log(`🔍 Looking for stored session for campaignId: ${campaignId}, userId: ${userId}`);
+    const sessionData = await onboardingManager.getStoredModalSession(campaignId, userId);
+    if (!sessionData) {
+      console.log(`❌ No session data found for campaignId: ${campaignId}, userId: ${userId}`);
+      await interaction.reply({
+        content: '❌ Onboarding session expired. Please try starting again.',
+        flags: 64 // MessageFlags.Ephemeral
+      });
+      return;
+    }
+
+    console.log(`✅ Found session data with ${sessionData.fields?.length || 0} fields`);
+    const { fields, config } = sessionData;
+    
+    if (!fields || fields.length === 0) {
+      console.log(`❌ No fields found in session data`);
+      await interaction.reply({
+        content: '❌ No onboarding questions found. Please try starting again.',
+        flags: 64 // MessageFlags.Ephemeral
+      });
+      return;
+    }
+    
+    console.log(`🚀 Creating modal with ${fields.length} fields`);
+    // Create and show the first modal
+    const modal = createOnboardingModal(fields, 1, config);
+    await interaction.showModal(modal);
+    console.log(`✅ Modal shown successfully to ${interaction.user.tag}`);
+
+  } catch (error) {
+    console.error('Error handling onboarding start button:', error);
+    console.error('Error stack:', error.stack);
+    // Only try to reply if the interaction hasn't been responded to yet
+    if (!interaction.replied && !interaction.deferred) {
+      try {
+        await interaction.reply({
+          content: '❌ An error occurred. Please try again.',
+          flags: 64 // MessageFlags.Ephemeral
+        });
+      } catch (replyError) {
+        console.error('Failed to send error reply:', replyError);
+      }
+    } else {
+      console.log('Cannot send error reply - interaction already responded to');
+    }
+  }
+}

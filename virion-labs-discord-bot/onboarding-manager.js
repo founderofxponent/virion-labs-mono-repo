@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 // Configuration
 const DASHBOARD_API_URL = process.env.DASHBOARD_API_URL || 'http://localhost:3000/api';
@@ -22,20 +22,24 @@ class OnboardingManager {
     const campaignId = config.campaignId;
     
     try {
+      console.log(`🚀 startOnboarding called for ${author.tag} in campaign ${campaignId}`);
+      console.log(`📋 Options:`, { referralCode, hasReferralValidation: !!referralValidation, forceRestart, autoStart });
+      
       // Check if user wants to restart or if this is a new session
       const shouldRestart = forceRestart || message.content.toLowerCase().includes('restart') || message.content.toLowerCase().includes('reset');
       
       // If not forcing restart and not auto-starting, check for existing incomplete session
       if (!shouldRestart && !autoStart) {
+        console.log(`🔍 Checking for existing incomplete session...`);
         const existingSession = await this.checkDatabaseSession(campaignId, userId, author.tag);
         if (existingSession && !existingSession.is_completed && existingSession.next_field) {
-          console.log(`🔄 Found incomplete session for ${author.tag}, resuming...`);
-          await this.resumeOnboarding(message, config, existingSession);
+          console.log(`🔄 Found incomplete session for ${author.tag}, resuming with modal...`);
+          await this.showOnboardingModal(message, config, existingSession);
           return true;
         }
       }
 
-      console.log(`🚀 Starting ${shouldRestart ? 'new' : autoStart ? 'auto' : 'fresh'} onboarding session for ${author.tag}`);
+      console.log(`🚀 Starting ${shouldRestart ? 'new' : autoStart ? 'auto' : 'fresh'} modal onboarding session for ${author.tag}`);
 
       const session = await this.getOrCreateSession(campaignId, userId, author.tag || author.username, {
         referralId: referralValidation?.referral_id,
@@ -43,11 +47,18 @@ class OnboardingManager {
         referralCode
       });
 
+      console.log(`📋 Session creation result:`, {
+        success: session.success !== false,
+        hasFields: session.fields?.length || 0,
+        isCompleted: session.is_completed
+      });
+
       if (!session.success) {
         throw new Error(session.error || 'Failed to create onboarding session');
       }
 
       if (!session.fields || session.fields.length === 0) {
+        console.log(`✅ No fields configured, completing onboarding immediately`);
         await this.completeOnboarding(message, config, referralValidation);
         return true;
       }
@@ -68,36 +79,15 @@ class OnboardingManager {
         return true;
       }
 
-      // If auto-starting, send an intro message before the first question
-      if (autoStart) {
-        const introEmbed = new EmbedBuilder()
-          .setTitle('🚀 Welcome! Let\'s Get You Started')
-          .setDescription(`Hi ${(message.author || message.user).username}! Welcome to **${config.clientName}**.\n\nI'm going to ask you a few quick questions to get you set up with all the best features our community has to offer.\n\n✨ This will only take a minute!`)
-          .setColor(config.config?.brand_color || '#6366f1')
-          .setTimestamp();
-
-        if (referralValidation && referralValidation.influencer) {
-          introEmbed.addFields([{
-            name: '🤝 Referral Benefits',
-            value: `You joined through **${referralValidation.influencer.name}'s** referral link, so you'll get some exclusive perks once we're done!`,
-            inline: false
-          }]);
-        }
-
-        await message.reply({ embeds: [introEmbed] });
-        
-        // Small delay before asking the first question
-        setTimeout(async () => {
-          await this.askNextQuestion(message, config, session);
-        }, 1500);
-      } else {
-        await this.askNextQuestion(message, config, session);
-      }
+      // Show onboarding modal instead of asking individual questions
+      console.log(`🎯 Proceeding to show onboarding modal...`);
+      await this.showOnboardingModal(message, config, session, { autoStart, referralValidation });
       
       return true;
 
     } catch (error) {
-      console.error('Error starting onboarding:', error);
+      console.error('Error starting modal onboarding:', error);
+      console.error('Error stack:', error.stack);
       await this.sendErrorMessage(message, 'Sorry, there was an error starting the onboarding process. Please try again.');
       return false;
     }
@@ -107,82 +97,46 @@ class OnboardingManager {
     const author = message.author || message.user;
     const userId = author.id;
     const campaignId = config.campaignId;
-    const sessionKey = `${campaignId}:${userId}`;
     
-    let activeSession = activeSessions.get(sessionKey);
+    // Check if user has an existing session and redirect to modal system
+    console.log(`🔄 User ${author.tag} sent a message during onboarding - redirecting to modal system...`);
     
-    // If no active session in memory, try to restore from database
-    if (!activeSession || Date.now() - activeSession.timestamp > SESSION_TIMEOUT) {
-      console.log(`🔄 No active session found for ${author.tag}, checking database...`);
-      const databaseSession = await this.checkDatabaseSession(campaignId, userId, author.tag);
-      
-      if (databaseSession && !databaseSession.is_completed && databaseSession.next_field) {
-        console.log(`✅ Restored session from database for ${author.tag}`);
-        // Restore session in memory
-        activeSessions.set(sessionKey, {
-          currentField: databaseSession.next_field,
-          timestamp: Date.now(),
-          progress: databaseSession.progress || { completed: 0, total: 1 },
-          referralInfo: databaseSession.referralInfo || {},
-          referralValidation: databaseSession.referralValidation
-        });
-        activeSession = activeSessions.get(sessionKey);
-      } else {
-        const embed = new EmbedBuilder()
-          .setTitle('❌ Session Expired')
-          .setDescription('Your onboarding session has expired or is complete. Please start over by typing "start".')
-          .setColor('#ff0000')
-          .setTimestamp();
-        
-        await message.reply({ embeds: [embed] });
-        this.clearSession(sessionKey);
-        return false;
-      }
-    }
-
-    const { currentField } = activeSession;
+    const databaseSession = await this.checkDatabaseSession(campaignId, userId, author.tag);
     
-    if (!currentField) {
-      return false;
-    }
+    if (databaseSession && !databaseSession.is_completed) {
+      const embed = new EmbedBuilder()
+        .setTitle('📝 Continue Your Onboarding')
+        .setDescription(`Hi ${author.username}! I see you started the onboarding process but haven't finished yet.\n\nPlease use the button below to continue with our streamlined form instead of typing individual responses.`)
+        .setColor(config.config?.brand_color || '#6366f1')
+        .setTimestamp();
 
-    try {
-      const saveResult = await this.saveResponse(
-        campaignId,
-        userId,
-        (message.author || message.user).tag,
-        currentField.field_key,
-        message.content,
-        activeSession.referralInfo
-      );
+      const continueButton = new ButtonBuilder()
+        .setCustomId(`start_onboarding_${campaignId}_${userId}`)
+        .setLabel('Continue Onboarding')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📝');
 
-      if (!saveResult.success) {
-        await this.sendErrorMessage(message, saveResult.error || 'Invalid response. Please try again.');
-        return true;
-      }
+      const row = new ActionRowBuilder().addComponents(continueButton);
 
-      const updatedSession = await this.getOrCreateSession(campaignId, userId, (message.author || message.user).tag);
-      
-      if (updatedSession.is_completed) {
-        await this.completeOnboarding(message, config, activeSession.referralValidation);
-        this.clearSession(sessionKey);
-      } else {
-        // Update the active session with the new field info before asking next question
-        activeSessions.set(sessionKey, {
-          currentField: updatedSession.next_field,
-          timestamp: Date.now(),
-          progress: updatedSession.progress || { completed: 0, total: 1 },
-          referralInfo: activeSession.referralInfo || {},
-          referralValidation: activeSession.referralValidation
-        });
-        await this.askNextQuestion(message, config, updatedSession);
-      }
+      await message.reply({ 
+        embeds: [embed], 
+        components: [row]
+      });
+
+      // Store session info for button interaction
+      this.storeSessionForModal(campaignId, userId, {
+        fields: this.getIncompleteFields(databaseSession),
+        config,
+        referralValidation: databaseSession.referralValidation
+      });
 
       return true;
-
-    } catch (error) {
-      console.error('Error handling onboarding response:', error);
-      await this.sendErrorMessage(message, 'Sorry, there was an error processing your response. Please try again.');
+    } else if (databaseSession && databaseSession.is_completed) {
+      await this.showCompletionMessage(message, config);
+      return true;
+    } else {
+      // Start new onboarding with modal system
+      await this.startOnboarding(message, config);
       return true;
     }
   }
@@ -274,90 +228,10 @@ class OnboardingManager {
     }
   }
 
+  // Legacy method - now redirects to modal system
   async askNextQuestion(message, config, session) {
-    const userId = (message.author || message.user).id;
-    const campaignId = config.campaignId;
-    const sessionKey = `${campaignId}:${userId}`;
-
-    if (!session.next_field) {
-      // If there's no next field but we're in askNextQuestion, 
-      // completion should have already been handled by handleResponse
-      console.log(`⚠️ No next field in askNextQuestion for ${(message.author || message.user).tag} - completion should have been handled already`);
-      return;
-    }
-
-    const field = session.next_field;
-    const progress = session.progress || { completed: 0, total: 1 };
-
-    const progressBar = this.createProgressBar(progress.completed, progress.total);
-
-    const embed = new EmbedBuilder()
-      .setTitle(`📝 ${config.campaignName} - Onboarding`)
-      .setDescription(`**Question ${progress.completed + 1} of ${progress.total}**\n\n${field.field_label}`)
-      .setColor(config.config?.brand_color || '#6366f1')
-      .setTimestamp()
-      .addFields([
-        {
-          name: 'Progress',
-          value: progressBar,
-          inline: false
-        }
-      ]);
-
-    if (field.field_description) {
-      embed.addFields([{
-        name: 'ℹ️ Additional Info',
-        value: field.field_description,
-        inline: false
-      }]);
-    }
-
-    if (field.field_placeholder) {
-      embed.addFields([{
-        name: '💡 Example',
-        value: field.field_placeholder,
-        inline: false
-      }]);
-    }
-
-    let guidance = '';
-    switch (field.field_type) {
-      case 'email':
-        guidance = '📧 Please provide a valid email address';
-        break;
-      case 'number':
-        guidance = '🔢 Please provide a number';
-        break;
-      case 'select':
-        if (field.field_options && field.field_options.length > 0) {
-          guidance = `🎯 Please choose one of: ${field.field_options.join(', ')}`;
-        }
-        break;
-      case 'checkbox':
-        guidance = '☑️ Please answer with yes/no or true/false';
-        break;
-      case 'date':
-        guidance = '📅 Please provide a date (YYYY-MM-DD format)';
-        break;
-      default:
-        guidance = '✏️ Please provide your answer';
-    }
-
-    embed.addFields([{
-      name: '📝 How to respond',
-      value: guidance,
-      inline: false
-    }]);
-
-    activeSessions.set(sessionKey, {
-      currentField: field,
-      timestamp: Date.now(),
-      progress: progress,
-      referralInfo: session.referralInfo || {},
-      referralValidation: session.referralValidation
-    });
-
-    await message.reply({ embeds: [embed] });
+    console.log(`⚠️ askNextQuestion called - redirecting to modal system for ${(message.author || message.user).tag}`);
+    await this.showOnboardingModal(message, config, session);
   }
 
   async completeOnboarding(message, config, referralValidation = null) {
@@ -591,26 +465,10 @@ class OnboardingManager {
     }
   }
 
-  // Resume onboarding from where user left off
+  // Legacy method - now uses modal system
   async resumeOnboarding(message, config, session) {
-    const user = message.author || message.user;
-    const userId = user.id;
-    const campaignId = config.campaignId;
-    const sessionKey = `${campaignId}:${userId}`;
-
-    console.log(`🔄 Resuming onboarding for ${user.tag} from field: ${session.next_field.field_key}`);
-
-    // Store session in memory
-    activeSessions.set(sessionKey, {
-      currentField: session.next_field,
-      timestamp: Date.now(),
-      progress: session.progress || { completed: session.completed_fields?.length || 0, total: session.fields?.length || 1 },
-      referralInfo: session.referralInfo || {},
-      referralValidation: session.referralValidation
-    });
-
-    // Ask the next question
-    await this.askNextQuestion(message, config, session);
+    console.log(`🔄 resumeOnboarding called - using modal system for ${(message.author || message.user).tag}`);
+    await this.showOnboardingModal(message, config, session);
   }
 
   // Check if onboarding is complete based on campaign template requirements
@@ -652,6 +510,183 @@ class OnboardingManager {
     } catch (error) {
       console.error('Error checking onboarding completion:', error);
       return { isComplete: false, message: 'Error checking completion status.' };
+    }
+  }
+
+  async showOnboardingModal(message, config, session, options = {}) {
+    const { autoStart = false, referralValidation = null } = options;
+    
+    try {
+      console.log(`🚀 showOnboardingModal called for ${(message.author || message.user).tag}`);
+      console.log(`📋 Session data:`, {
+        campaignId: config.campaignId,
+        hasFields: session?.fields?.length || 0,
+        isCompleted: session?.is_completed
+      });
+      
+      // Get incomplete fields for the modal
+      const incompleteFields = this.getIncompleteFields(session);
+      console.log(`🔍 Found ${incompleteFields.length} incomplete fields`);
+      
+      if (incompleteFields.length === 0) {
+        console.log(`✅ No incomplete fields, completing onboarding`);
+        await this.completeOnboarding(message, config, referralValidation);
+        return;
+      }
+
+      // Send introduction message first
+      const introEmbed = new EmbedBuilder()
+        .setTitle('📝 Let\'s Get You Started!')
+        .setDescription(`Hi ${(message.author || message.user).username}! Welcome to **${config.clientName}**.\n\nI'm going to show you a form with ${incompleteFields.length} question${incompleteFields.length > 1 ? 's' : ''} to get you set up with all the best features our community has to offer.\n\n✨ This will only take a minute!`)
+        .setColor(config.config?.brand_color || '#6366f1')
+        .setTimestamp();
+
+      if (referralValidation && referralValidation.influencer) {
+        introEmbed.addFields([{
+          name: '🤝 Referral Benefits',
+          value: `You joined through **${referralValidation.influencer.name}'s** referral link, so you'll get some exclusive perks once we're done!`,
+          inline: false
+        }]);
+      }
+
+      const userId = (message.author || message.user).id;
+      const startButton = new ButtonBuilder()
+        .setCustomId(`start_onboarding_${config.campaignId}_${userId}`)
+        .setLabel('Start Onboarding')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🚀');
+
+      console.log(`🔘 Created button with customId: start_onboarding_${config.campaignId}_${userId}`);
+
+      const row = new ActionRowBuilder().addComponents(startButton);
+
+      await message.reply({ 
+        embeds: [introEmbed], 
+        components: [row]
+      });
+
+      console.log(`📧 Sent introduction message to ${(message.author || message.user).tag}`);
+
+      // Store session info for button interaction
+      console.log(`📦 About to store session for campaignId: ${config.campaignId}, userId: ${userId}`);
+      console.log(`📊 Session data to store:`, {
+        fieldsCount: incompleteFields.length,
+        hasConfig: !!config,
+        hasReferralValidation: !!referralValidation
+      });
+      
+      this.storeSessionForModal(config.campaignId, userId, {
+        fields: incompleteFields,
+        config,
+        referralValidation
+      });
+
+      console.log(`✅ Session storage completed for ${(message.author || message.user).tag}`);
+
+    } catch (error) {
+      console.error('Error showing onboarding modal:', error);
+      console.error('Error stack:', error.stack);
+      await this.sendErrorMessage(message, 'Sorry, there was an error preparing the onboarding form. Please try again.');
+    }
+  }
+
+  getIncompleteFields(session) {
+    if (!session.fields) return [];
+    
+    const completedFieldKeys = new Set(
+      session.existing_responses?.filter(r => r.field_value && r.field_value.trim() !== '').map(r => r.field_key) || []
+    );
+
+    return session.fields.filter(field => !completedFieldKeys.has(field.field_key));
+  }
+
+  async storeSessionForModal(campaignId, userId, sessionData) {
+    try {
+      console.log(`📦 Storing modal session in database for campaignId: ${campaignId}, userId: ${userId}`);
+      console.log(`📊 Session data to store:`, {
+        fieldsCount: sessionData.fields?.length || 0,
+        hasConfig: !!sessionData.config,
+        hasReferralValidation: !!sessionData.referralValidation
+      });
+
+      const response = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding/modal-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0'
+        },
+        body: JSON.stringify({
+          campaign_id: campaignId,
+          discord_user_id: userId,
+          discord_username: sessionData.config?.clientName || 'Unknown',
+          session_data: sessionData
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`✅ Modal session stored in database successfully: ${result.session_id}`);
+      } else {
+        const errorText = await response.text();
+        console.error(`❌ Failed to store modal session in database: ${response.status} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error('❌ Error storing modal session in database:', error);
+    }
+  }
+
+  async getStoredModalSession(campaignId, userId) {
+    try {
+      console.log(`🔍 Looking for modal session in database: ${campaignId} / ${userId}`);
+      
+      const response = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding/modal-session?campaign_id=${campaignId}&discord_user_id=${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.session) {
+          console.log(`✅ Retrieved modal session from database, fields: ${result.session.fields?.length || 0}`);
+          return result.session;
+        } else {
+          console.log(`❌ No modal session found in database for ${userId} in campaign ${campaignId}`);
+          return null;
+        }
+      } else {
+        const errorText = await response.text();
+        console.error(`❌ Failed to retrieve modal session from database: ${response.status} - ${errorText}`);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error retrieving modal session from database:', error);
+      return null;
+    }
+  }
+
+  async clearModalSession(campaignId, userId) {
+    try {
+      console.log(`🗑️ Clearing modal session from database: ${campaignId} / ${userId}`);
+      
+      const response = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding/modal-session?campaign_id=${campaignId}&discord_user_id=${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0'
+        }
+      });
+
+      if (response.ok) {
+        console.log(`✅ Modal session cleared from database successfully`);
+      } else {
+        const errorText = await response.text();
+        console.error(`❌ Failed to clear modal session from database: ${response.status} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error('❌ Error clearing modal session from database:', error);
     }
   }
 }

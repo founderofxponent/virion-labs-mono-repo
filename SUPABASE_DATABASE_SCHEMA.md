@@ -598,31 +598,31 @@ Manages influencer access to campaigns.
 - Foreign keys to discord_guild_campaigns(id), auth.users(id)
 
 ### campaign_onboarding_fields
-Configurable onboarding fields for campaigns.
+Stores onboarding form field configurations for campaigns.
 
-**Columns:**
-- `id` (uuid, primary key) - Field ID
-- `campaign_id` (uuid, not null) - Reference to discord_guild_campaigns
-- `field_key` (text, not null) - Field identifier key
-- `field_label` (text, not null) - Field display label
-- `field_type` (text, not null) - Field input type
-- `field_placeholder` (text, nullable) - Placeholder text
-- `field_description` (text, nullable) - Field description
-- `field_options` (jsonb, default: '[]') - Field options for select types
-- `is_required` (boolean, default: false) - Required field flag
-- `is_enabled` (boolean, default: true) - Field enabled status
-- `sort_order` (integer, default: 0) - Display order
-- `validation_rules` (jsonb, default: '{}') - Validation rules
-- `discord_integration` (jsonb, default: '{"collect_in_dm": true, "show_in_embed": true, "trigger_after": null}') - Discord integration settings
-- `created_at` (timestamptz, default: now()) - Creation timestamp
-- `updated_at` (timestamptz, default: now()) - Last update timestamp
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Primary key |
+| campaign_id | uuid | Foreign key to discord_guild_campaigns |
+| field_key | varchar | Unique identifier for the field |
+| field_label | varchar | Display label for the field |
+| field_type | varchar | Type of field (text, select, etc.) |
+| field_placeholder | varchar | Placeholder text |
+| sort_order | integer | Order of field display |
+| is_required | boolean | Whether field is mandatory |
+| is_enabled | boolean | Whether field is active |
+| created_at | timestamp | Record creation time |
+| updated_at | timestamp | Last modification time |
 
-**Constraints:**
-- Field type must be one of: 'text', 'email', 'number', 'select', 'multiselect', 'checkbox', 'boolean', 'date', 'url'
-- Foreign key to discord_guild_campaigns(id)
+#### Current Field Configuration for RR Campaign 6 (b02c2fbd-60c5-4d40-be1a-3cfb308c6ee3):
+- **display_name** (sort_order: 0): "What would you like to be called in the community?"
+- **interests** (sort_order: 1): "What topics interest you most?"
+- **community_goals** (sort_order: 2): "What do you hope to get from this community?"
+
+**Note**: Testing fields added for multi-part modal testing have been removed. Configuration reverted to original 3-field setup for single modal display.
 
 ### campaign_onboarding_responses
-Stores user responses to onboarding fields.
+Stores user responses to onboarding fields from modal submissions.
 
 **Columns:**
 - `id` (uuid, primary key) - Response ID
@@ -630,13 +630,26 @@ Stores user responses to onboarding fields.
 - `discord_user_id` (text, not null) - Discord user ID
 - `discord_username` (text, nullable) - Discord username
 - `field_key` (text, not null) - Field identifier
-- `field_value` (text, nullable) - User response value
+- `field_value` (text, nullable) - User response value from modal
 - `referral_id` (uuid, nullable) - Associated referral
 - `referral_link_id` (uuid, nullable) - Associated referral link
 - `interaction_id` (uuid, nullable) - Associated Discord interaction
 - `is_completed` (boolean, default: false) - Response completion status
 - `created_at` (timestamptz, default: now()) - Response timestamp
 - `updated_at` (timestamptz, default: now()) - Last update timestamp
+
+**Modal Response Processing:**
+- **Bulk Processing**: All responses from a single modal submission are processed together as a transaction.
+- **Progressive Completion**: Responses are saved even if onboarding is not complete, allowing users to continue across multiple modals.
+- **Validation**: Each response is validated according to its field type and validation rules before being saved.
+- **Upsert Logic**: Uses campaign_id + discord_user_id + field_key as unique constraint for updating existing responses.
+
+**Modal Session Storage:**
+- **Database-Backed Sessions**: Modal onboarding sessions are stored in this table using field_key `__modal_session__` for reliability
+- **Session Data**: Contains field data, configuration, and referral validation info stored as JSON in `field_value`
+- **Expiration Handling**: Sessions include expiration timestamps and are automatically cleaned up when expired
+- **Persistence**: Database storage ensures session persistence across bot restarts and eliminates memory-based session issues
+- **Auto-Cleanup**: Expired sessions are automatically removed during retrieval operations
 
 **Constraints:**
 - Foreign keys to discord_guild_campaigns(id), referrals(id), referral_links(id), discord_referral_interactions(id)
