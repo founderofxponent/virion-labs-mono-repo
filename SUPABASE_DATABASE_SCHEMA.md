@@ -74,36 +74,65 @@ const communityConfig = await getBotConfig(guildId, channelId, {
 
 **Database Schema Impact:** No schema changes required - utilizes existing campaign and field structures with enhanced API selection logic.
 
-### Discord Bot Campaign ID Consistency Fix (Latest)
+### Discord Bot Campaign Context Management Fix (Latest)
 **Date:** December 2024
 
-**Enhancement:** Fixed campaign ID inconsistency between button click and modal submission
+**Enhancement:** Fixed fundamental campaign context management by embedding campaign ID in Discord modal custom IDs
 
-**Issues Resolved:**
-- **Problem**: Users clicking campaign buttons sometimes received "Field validation failed" errors
-- **Problem**: Modal submissions used wrong campaign ID, causing field schema mismatches
-- **Root Cause**: Modal submission handler queried for any recent session instead of using the specific campaign from the button click
-- **Impact**: When users had multiple campaign sessions, the wrong campaign's field configuration was used for validation
+**Root Cause Analysis:**
+- **Discord Modal Limitation**: Modals are stateless and have no built-in context storage
+- **Previous Flawed Approach**: Stored sessions in database by `(user_id, campaign_id)` but modal had no way to know which campaign it belonged to
+- **Database Storage Issue**: Users could have multiple active sessions for different campaigns
+- **Field Matching Hack**: Previous fix tried to match submitted fields with stored sessions - unreliable and complex
+
+**The Real Problem:**
+```javascript
+// OLD: Modal had no campaign context
+const modal = new ModalBuilder()
+  .setCustomId(`onboarding_modal_1`) // ❌ No campaign ID!
+
+// ISSUE: Multiple sessions possible
+// User clicks Campaign A → stores session A
+// User clicks Campaign B → stores session B  
+// User submits modal → which campaign does it belong to? 🤷‍♂️
+```
+
+**The Proper Solution:**
+```javascript
+// NEW: Campaign ID embedded in modal custom ID
+const modal = new ModalBuilder()
+  .setCustomId(`onboarding_modal_${config.campaignId}_${modalPart}`) // ✅ Context preserved!
+
+// Modal submission handler extracts campaign ID directly
+const customIdParts = interaction.customId.split('_');
+const campaignId = customIdParts[2]; // Direct campaign context!
+```
 
 **Changes Made:**
-- **Fixed** modal submission handler to match submitted fields with stored session fields to identify the correct campaign
-- **Enhanced** session lookup to check multiple recent sessions and find the one matching submitted field keys
-- **Improved** field validation to use the exact session data from the button click
-- **Added** comprehensive logging to track campaign ID consistency throughout the flow
+- **Modified** `createOnboardingModal()` to include campaign ID in modal custom ID
+- **Rewrote** `handleOnboardingModalSubmission()` to extract campaign ID from modal custom ID
+- **Eliminated** complex field matching logic and database queries to guess campaign
+- **Simplified** flow to use direct context instead of inference
 
-**Technical Details:**
-- Modal submission now retrieves up to 5 recent sessions and matches field keys to find the correct campaign
-- Field validation uses the specific session data stored when the button was clicked
-- Eliminated fallback to guild-based campaign lookup which could return wrong campaign
-- Campaign ID consistency maintained from button click → session storage → modal submission → field validation
+**Technical Implementation:**
+- **Modal Custom ID Format**: `onboarding_modal_{campaignId}_{modalPart}`
+- **Direct Context Extraction**: Campaign ID parsed from `interaction.customId`
+- **Guaranteed Consistency**: Modal always knows which campaign it belongs to
+- **Session Storage**: Still used for field configuration and referral data
 
 **Flow Fix:**
-1. **Button Click**: Campaign ID `b02c2fbd-60c5-4d40-be1a-3cfb308c6ee3` with fields: `full_name`, `email`, `referral_source`, `interests`
-2. **Session Storage**: Stores session with correct campaign ID and field configuration
-3. **Modal Submission**: Finds session by matching submitted field keys instead of using random recent session
-4. **Field Validation**: Uses correct campaign's field schema for validation
+1. **Button Click**: Campaign ID `b02c2fbd-60c5-4d40-be1a-3cfb308c6ee3`
+2. **Modal Creation**: Custom ID = `onboarding_modal_b02c2fbd-60c5-4d40-be1a-3cfb308c6ee3_1`
+3. **Modal Submission**: Extract campaign ID = `b02c2fbd-60c5-4d40-be1a-3cfb308c6ee3` from custom ID
+4. **Session Lookup**: Get session for exact campaign ID
+5. **Field Validation**: Always uses correct campaign's field schema
 
-**Impact:** Eliminated "Field validation failed" errors when users have multiple campaign sessions. Users can now successfully complete onboarding regardless of how many campaigns they've interacted with.
+**Impact:** 
+- ✅ **100% Campaign Consistency**: Modal always knows its campaign context
+- ✅ **Eliminated Field Validation Errors**: No more wrong campaign field schemas
+- ✅ **Simplified Architecture**: No complex field matching or database guessing
+- ✅ **Supports Multiple Campaigns**: Users can interact with multiple campaigns simultaneously
+- ✅ **Future-Proof**: Proper context management for any Discord interaction
 
 ### Discord Bot Modal Flow Enhancement & Configuration Fix
 **Date:** December 2024

@@ -1873,106 +1873,26 @@ async function handleOnboardingModalSubmission(interaction) {
     console.log(`📝 Modal submitted by ${username} - interaction deferred`);
     
     // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 1: EXTRACT CAMPAIGN ID FROM MODAL CUSTOM ID
+    // EXTRACT CAMPAIGN ID DIRECTLY FROM MODAL CUSTOM ID
     // ═══════════════════════════════════════════════════════════════
     
-    // Extract campaign ID from modal custom ID
-    // Modal custom ID format: "onboarding_modal_1" or similar
-    const modalPart = parseInt(interaction.customId.split('_').pop()) || 1;
+    // Parse modal custom ID: "onboarding_modal_{campaignId}_{modalPart}"
+    const customIdParts = interaction.customId.split('_');
     
-    // The campaign ID should be stored in the modal session that was created when the button was clicked
-    // We need to get the campaign ID from the specific session, not just any session
-    let campaignId = null;
-    let modalSessionData = null;
-    
-    // First, try to find the most recent modal session for this user
-    // But we need to be more specific about which campaign this modal belongs to
-    try {
-      console.log(`🔍 Looking for modal session for user ${userId}`);
-      
-      // Get the most recent modal session for this user
-      const sessionPromise = supabase
-        .from('campaign_onboarding_responses')
-        .select('campaign_id, field_value')
-        .eq('discord_user_id', userId)
-        .eq('field_key', '__modal_session__')
-        .neq('field_value', null)
-        .order('created_at', { ascending: false })
-        .limit(5); // Get multiple sessions to find the right one
-
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Session lookup timeout')), 5000)
-      );
-
-      const { data: sessions, error: sessionError } = await Promise.race([sessionPromise, timeoutPromise]);
-
-      if (sessionError) {
-        console.error('❌ Error retrieving session data:', sessionError);
-        await interaction.editReply({
-          content: '❌ **Session Error**\nFailed to retrieve session data. Please try clicking the campaign button again.',
-        });
-        return;
-      }
-
-      if (sessions && sessions.length > 0) {
-        console.log(`📋 Found ${sessions.length} modal sessions for user ${userId}`);
-        
-        // Try to find the session that matches the submitted fields
-        const submittedFieldKeys = new Set(Array.from(interaction.fields.fields.keys()));
-        console.log(`📝 Submitted field keys:`, Array.from(submittedFieldKeys));
-        
-        let matchingSession = null;
-        
-        for (const session of sessions) {
-          try {
-            const sessionData = JSON.parse(session.field_value);
-            const sessionFieldKeys = new Set(sessionData.fields?.map(f => f.field_key) || []);
-            
-            console.log(`🔍 Checking session ${session.campaign_id} with fields:`, Array.from(sessionFieldKeys));
-            
-            // Check if the submitted fields match this session's fields
-            const fieldsMatch = Array.from(submittedFieldKeys).every(key => sessionFieldKeys.has(key)) &&
-                               Array.from(sessionFieldKeys).every(key => submittedFieldKeys.has(key));
-            
-            if (fieldsMatch) {
-              console.log(`✅ Found matching session for campaign ${session.campaign_id}`);
-              matchingSession = session;
-              campaignId = session.campaign_id;
-              modalSessionData = sessionData;
-              break;
-            }
-          } catch (parseError) {
-            console.error(`❌ Error parsing session data for campaign ${session.campaign_id}:`, parseError);
-            continue;
-          }
-        }
-        
-        if (!matchingSession) {
-          console.error(`❌ No modal session found that matches submitted fields`);
-          console.error(`📋 Submitted fields: ${Array.from(submittedFieldKeys).join(', ')}`);
-          
-          await interaction.editReply({
-            content: '❌ **Session Mismatch**\nThe form you submitted doesn\'t match any active onboarding session. Please restart the onboarding process by clicking the campaign button again.',
-          });
-          return;
-        }
-        
-      } else {
-        console.log(`❌ No modal sessions found for user ${userId}`);
-        await interaction.editReply({
-          content: '❌ **Session Not Found**\nNo active onboarding session found. Please restart the onboarding process by clicking the campaign button again.',
-        });
-        return;
-      }
-    } catch (sessionRetrievalError) {
-      console.error('❌ Error during session retrieval:', sessionRetrievalError);
+    if (customIdParts.length < 4 || customIdParts[0] !== 'onboarding' || customIdParts[1] !== 'modal') {
+      console.error(`❌ Invalid modal custom ID format: ${interaction.customId}`);
       await interaction.editReply({
-        content: '❌ **Timeout Error**\nSession retrieval timed out. Please try clicking the campaign button again.',
+        content: '❌ **Invalid Modal**\nThis modal format is not recognized. Please restart the onboarding process.',
       });
       return;
     }
-
-    // Now get the campaign configuration using the correct campaign ID
+    
+    const campaignId = customIdParts[2];
+    const modalPart = parseInt(customIdParts[3]) || 1;
+    
+    console.log(`✅ Extracted from modal: campaignId=${campaignId}, modalPart=${modalPart}`);
+    
+    // Get the campaign configuration directly using the extracted campaign ID
     try {
       const campaignPromise = supabase
         .from('discord_guild_campaigns')
@@ -1991,7 +1911,7 @@ async function handleOnboardingModalSubmission(interaction) {
       if (campaignError || !campaignData) {
         console.error('❌ Campaign not found:', campaignError);
         await interaction.editReply({
-          content: '❌ **Configuration Error**\nCampaign configuration not found. Please restart the onboarding process by clicking the campaign button again.',
+          content: '❌ **Campaign Not Found**\nThe campaign for this form no longer exists. Please restart the onboarding process.',
         });
         return;
       }
@@ -2009,7 +1929,20 @@ async function handleOnboardingModalSubmission(interaction) {
         isActive: campaignData.is_active || false
       };
 
-      console.log(`✅ Found campaign configuration: ${campaignConfig.campaignName} (${campaignConfig.campaignType})`);
+      console.log(`✅ Found campaign: ${campaignConfig.campaignName} (${campaignConfig.campaignType})`);
+      
+      // Get the stored modal session data
+      const modalSessionData = await onboardingManager.getStoredModalSession(campaignId, userId);
+      
+      if (!modalSessionData) {
+        console.log(`❌ No modal session found for user ${userId} in campaign ${campaignId}`);
+        await interaction.editReply({
+          content: '❌ **Session Expired**\nYour onboarding session has expired. Please restart the process by clicking the campaign button again.',
+        });
+        return;
+      }
+      
+      console.log(`✅ Retrieved modal session with ${modalSessionData.fields?.length || 0} fields`);
       
       // Continue with the rest of the modal processing...
       await processModalSubmission(interaction, campaignConfig, modalPart, modalSessionData);
@@ -2357,8 +2290,9 @@ async function safeReply(interaction, options) {
 
 // Create onboarding modal from fields
 function createOnboardingModal(fields, modalPart, config) {
+  // Include campaign ID in modal custom ID for proper context management
   const modal = new ModalBuilder()
-    .setCustomId(`onboarding_modal_${modalPart}`)
+    .setCustomId(`onboarding_modal_${config.campaignId}_${modalPart}`)
     .setTitle(`${config.campaignName} - Onboarding ${modalPart > 1 ? `(Part ${modalPart})` : ''}`);
 
   const components = [];
