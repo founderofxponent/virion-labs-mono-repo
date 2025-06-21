@@ -74,32 +74,36 @@ const communityConfig = await getBotConfig(guildId, channelId, {
 
 **Database Schema Impact:** No schema changes required - utilizes existing campaign and field structures with enhanced API selection logic.
 
-### Discord Bot Modal Session Error Handling & Field Validation Fix (Latest)
+### Discord Bot Campaign ID Consistency Fix (Latest)
 **Date:** December 2024
 
-**Enhancement:** Fixed Discord bot modal submission errors and improved timeout handling
+**Enhancement:** Fixed campaign ID inconsistency between button click and modal submission
 
 **Issues Resolved:**
-- **Problem**: Users submitting onboarding forms received "modal session not found" errors
-- **Problem**: Field validation failed with "Invalid field" errors for outdated forms
-- **Problem**: Discord interaction timeouts causing "Unknown interaction" errors
-- **Root Cause**: Modal sessions not properly stored/retrieved and field mismatches due to outdated cached forms
+- **Problem**: Users clicking campaign buttons sometimes received "Field validation failed" errors
+- **Problem**: Modal submissions used wrong campaign ID, causing field schema mismatches
+- **Root Cause**: Modal submission handler queried for any recent session instead of using the specific campaign from the button click
+- **Impact**: When users had multiple campaign sessions, the wrong campaign's field configuration was used for validation
 
 **Changes Made:**
-- **Enhanced** modal session validation with field key matching to detect outdated forms
-- **Improved** interaction timeout handling by sending immediate acknowledgment before processing
-- **Added** automatic session clearing and refresh when field mismatches are detected
-- **Enhanced** error messages with detailed field validation feedback
-- **Modified** Discord response flow to use followUp messages after initial reply to prevent timeouts
+- **Fixed** modal submission handler to match submitted fields with stored session fields to identify the correct campaign
+- **Enhanced** session lookup to check multiple recent sessions and find the one matching submitted field keys
+- **Improved** field validation to use the exact session data from the button click
+- **Added** comprehensive logging to track campaign ID consistency throughout the flow
 
 **Technical Details:**
-- Modal submission now validates submitted fields against current campaign configuration
-- Immediate acknowledgment sent to Discord to prevent 3-second timeout
-- Session data now includes field keys for validation and creation timestamps
-- Outdated sessions are automatically cleared when field mismatches are detected
-- Comprehensive error handling for Discord API timeouts with fallback to channel messages
+- Modal submission now retrieves up to 5 recent sessions and matches field keys to find the correct campaign
+- Field validation uses the specific session data stored when the button was clicked
+- Eliminated fallback to guild-based campaign lookup which could return wrong campaign
+- Campaign ID consistency maintained from button click → session storage → modal submission → field validation
 
-**Impact:** Users can now successfully complete onboarding forms without encountering session errors or interaction timeouts, and receive clear feedback when forms are outdated.
+**Flow Fix:**
+1. **Button Click**: Campaign ID `b02c2fbd-60c5-4d40-be1a-3cfb308c6ee3` with fields: `full_name`, `email`, `referral_source`, `interests`
+2. **Session Storage**: Stores session with correct campaign ID and field configuration
+3. **Modal Submission**: Finds session by matching submitted field keys instead of using random recent session
+4. **Field Validation**: Uses correct campaign's field schema for validation
+
+**Impact:** Eliminated "Field validation failed" errors when users have multiple campaign sessions. Users can now successfully complete onboarding regardless of how many campaigns they've interacted with.
 
 ### Discord Bot Modal Flow Enhancement & Configuration Fix
 **Date:** December 2024

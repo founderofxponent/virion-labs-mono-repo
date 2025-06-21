@@ -1873,25 +1873,32 @@ async function handleOnboardingModalSubmission(interaction) {
     console.log(`📝 Modal submitted by ${username} - interaction deferred`);
     
     // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 1: CONFIGURATION VALIDATION (IMPROVED)
+    // SCENARIO 1: EXTRACT CAMPAIGN ID FROM MODAL CUSTOM ID
     // ═══════════════════════════════════════════════════════════════
     
-    // First, try to get session data to extract campaign ID
-    let sessionLookup;
+    // Extract campaign ID from modal custom ID
+    // Modal custom ID format: "onboarding_modal_1" or similar
+    const modalPart = parseInt(interaction.customId.split('_').pop()) || 1;
+    
+    // The campaign ID should be stored in the modal session that was created when the button was clicked
+    // We need to get the campaign ID from the specific session, not just any session
+    let campaignId = null;
+    let modalSessionData = null;
+    
+    // First, try to find the most recent modal session for this user
+    // But we need to be more specific about which campaign this modal belongs to
     try {
-      // Extract campaign ID from modal custom ID
-      const modalPart = parseInt(interaction.customId.split('_').pop()) || 1;
+      console.log(`🔍 Looking for modal session for user ${userId}`);
       
-      // We need to find the campaign ID from any active session
-      // Let's check all stored modal sessions for this user with timeout
+      // Get the most recent modal session for this user
       const sessionPromise = supabase
         .from('campaign_onboarding_responses')
-        .select('campaign_id')
+        .select('campaign_id, field_value')
         .eq('discord_user_id', userId)
         .eq('field_key', '__modal_session__')
         .neq('field_value', null)
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(5); // Get multiple sessions to find the right one
 
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Session lookup timeout')), 5000)
@@ -1908,48 +1915,53 @@ async function handleOnboardingModalSubmission(interaction) {
       }
 
       if (sessions && sessions.length > 0) {
-        const campaignId = sessions[0].campaign_id;
+        console.log(`📋 Found ${sessions.length} modal sessions for user ${userId}`);
         
-        // Get campaign configuration directly by ID with timeout
-        const campaignPromise = supabase
-          .from('discord_guild_campaigns')
-          .select(`
-            *,
-            clients:client_id(name, industry)
-          `)
-          .eq('id', campaignId)
-          .single();
-
-        const { data: campaignData, error: campaignError } = await Promise.race([
-          campaignPromise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Campaign lookup timeout')), 5000))
-        ]);
-
-        if (campaignError || !campaignData) {
-          console.error('❌ Campaign not found:', campaignError);
+        // Try to find the session that matches the submitted fields
+        const submittedFieldKeys = new Set(Array.from(interaction.fields.fields.keys()));
+        console.log(`📝 Submitted field keys:`, Array.from(submittedFieldKeys));
+        
+        let matchingSession = null;
+        
+        for (const session of sessions) {
+          try {
+            const sessionData = JSON.parse(session.field_value);
+            const sessionFieldKeys = new Set(sessionData.fields?.map(f => f.field_key) || []);
+            
+            console.log(`🔍 Checking session ${session.campaign_id} with fields:`, Array.from(sessionFieldKeys));
+            
+            // Check if the submitted fields match this session's fields
+            const fieldsMatch = Array.from(submittedFieldKeys).every(key => sessionFieldKeys.has(key)) &&
+                               Array.from(sessionFieldKeys).every(key => submittedFieldKeys.has(key));
+            
+            if (fieldsMatch) {
+              console.log(`✅ Found matching session for campaign ${session.campaign_id}`);
+              matchingSession = session;
+              campaignId = session.campaign_id;
+              modalSessionData = sessionData;
+              break;
+            }
+          } catch (parseError) {
+            console.error(`❌ Error parsing session data for campaign ${session.campaign_id}:`, parseError);
+            continue;
+          }
+        }
+        
+        if (!matchingSession) {
+          console.error(`❌ No modal session found that matches submitted fields`);
+          console.error(`📋 Submitted fields: ${Array.from(submittedFieldKeys).join(', ')}`);
+          
           await interaction.editReply({
-            content: '❌ **Configuration Error**\nCampaign configuration not found. Please restart the onboarding process by clicking the campaign button again.',
+            content: '❌ **Session Mismatch**\nThe form you submitted doesn\'t match any active onboarding session. Please restart the onboarding process by clicking the campaign button again.',
           });
           return;
         }
-
-        // Create config object in the expected format
-        const campaignConfig = {
-          campaignId: campaignData.id,
-          campaignName: campaignData.campaign_name,
-          campaignType: campaignData.campaign_type,
-          clientId: campaignData.client_id,
-          clientName: campaignData.clients?.name || 'Unknown Client',
-          config: campaignData,
-          templateConfig: null,
-          campaignStatus: getCampaignStatus(campaignData),
-          isActive: campaignData.is_active || false
-        };
-
-        console.log(`✅ Found campaign configuration from session: ${campaignConfig.campaignName} (${campaignConfig.campaignType})`);
         
-        // Continue with the rest of the modal processing...
-        await processModalSubmission(interaction, campaignConfig, modalPart);
+      } else {
+        console.log(`❌ No modal sessions found for user ${userId}`);
+        await interaction.editReply({
+          content: '❌ **Session Not Found**\nNo active onboarding session found. Please restart the onboarding process by clicking the campaign button again.',
+        });
         return;
       }
     } catch (sessionRetrievalError) {
@@ -1960,17 +1972,56 @@ async function handleOnboardingModalSubmission(interaction) {
       return;
     }
 
-    // Fallback: Try the original guild-based lookup
-    const fallbackConfig = await getBotConfig(guildId, interaction.channel.id);
-    if (!fallbackConfig) {
+    // Now get the campaign configuration using the correct campaign ID
+    try {
+      const campaignPromise = supabase
+        .from('discord_guild_campaigns')
+        .select(`
+          *,
+          clients:client_id(name, industry)
+        `)
+        .eq('id', campaignId)
+        .single();
+
+      const { data: campaignData, error: campaignError } = await Promise.race([
+        campaignPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Campaign lookup timeout')), 5000))
+      ]);
+
+      if (campaignError || !campaignData) {
+        console.error('❌ Campaign not found:', campaignError);
+        await interaction.editReply({
+          content: '❌ **Configuration Error**\nCampaign configuration not found. Please restart the onboarding process by clicking the campaign button again.',
+        });
+        return;
+      }
+
+      // Create config object in the expected format
+      const campaignConfig = {
+        campaignId: campaignData.id,
+        campaignName: campaignData.campaign_name,
+        campaignType: campaignData.campaign_type,
+        clientId: campaignData.client_id,
+        clientName: campaignData.clients?.name || 'Unknown Client',
+        config: campaignData,
+        templateConfig: null,
+        campaignStatus: getCampaignStatus(campaignData),
+        isActive: campaignData.is_active || false
+      };
+
+      console.log(`✅ Found campaign configuration: ${campaignConfig.campaignName} (${campaignConfig.campaignType})`);
+      
+      // Continue with the rest of the modal processing...
+      await processModalSubmission(interaction, campaignConfig, modalPart, modalSessionData);
+      return;
+
+    } catch (campaignLookupError) {
+      console.error('❌ Error during campaign lookup:', campaignLookupError);
       await interaction.editReply({
-        content: '❌ **Configuration Error**\nNo campaign configuration found for this server. Please contact an administrator.\n\n💡 **Tip**: Try clicking the campaign button again to restart the process.',
+        content: '❌ **Configuration Error**\nFailed to load campaign configuration. Please try clicking the campaign button again.',
       });
       return;
     }
-
-    // Continue with the rest of the modal processing...
-    await processModalSubmission(interaction, fallbackConfig, parseInt(interaction.customId.split('_').pop()) || 1);
 
   } catch (error) {
     console.error('❌ Unexpected error in modal submission:', error);
@@ -1993,7 +2044,7 @@ async function handleOnboardingModalSubmission(interaction) {
 }
 
 // Extract the modal processing logic into a separate function
-async function processModalSubmission(interaction, config, modalPart) {
+async function processModalSubmission(interaction, config, modalPart, modalSessionData) {
   const userId = interaction.user.id;
   const username = interaction.user.tag;
   let hasReplied = false;
@@ -2025,57 +2076,48 @@ async function processModalSubmission(interaction, config, modalPart) {
       // ═══════════════════════════════════════════════════════════════
   // SCENARIO 3: SESSION DATA RETRIEVAL AND VALIDATION
   // ═══════════════════════════════════════════════════════════════
-  let modalSessionData;
   let referralValidation = null;
   
   try {
-    modalSessionData = await onboardingManager.getStoredModalSession(config.campaignId, userId);
-    
     if (!modalSessionData) {
-      console.log(`❌ No modal session found in database for ${userId} in campaign ${config.campaignId}`);
+      console.log(`❌ No modal session data found for ${userId} in campaign ${config.campaignId}`);
       
-      // Instead of failing, try to get fresh session data from the API
-      console.log(`🔄 Attempting to fetch fresh campaign fields for validation...`);
-      try {
-        const freshSession = await onboardingManager.getOrCreateSession(config.campaignId, userId, username);
-        if (freshSession && freshSession.fields) {
-          console.log(`✅ Retrieved fresh session with ${freshSession.fields.length} fields`);
-          
-          // Validate that the submitted fields match the current campaign configuration
-          const validFieldKeys = new Set(freshSession.fields.map(f => f.field_key));
-          const submittedKeys = Object.keys(responses);
-          const invalidKeys = submittedKeys.filter(key => !validFieldKeys.has(key));
-          
-                     if (invalidKeys.length > 0) {
-             console.error(`❌ Field validation failed. Invalid fields: ${invalidKeys.join(', ')}`);
-             console.error(`📋 Valid fields are: ${Array.from(validFieldKeys).join(', ')}`);
-             console.error(`📋 Submitted fields: ${submittedKeys.join(', ')}`);
-             
-             // Clear the outdated session
-             await onboardingManager.clearModalSession(config.campaignId, userId);
-             
-             await safeReply(interaction, {
-               content: `❌ **Outdated Form**\nThe form you submitted contains fields that don't match the current campaign configuration.\n\n**Invalid fields:** ${invalidKeys.join(', ')}\n**Expected fields:** ${Array.from(validFieldKeys).join(', ')}\n\nPlease restart the onboarding process to get the latest questions.`,
-               flags: 64
-             });
-             return;
-           }
-        }
-      } catch (freshSessionError) {
-        console.error('Failed to retrieve fresh session:', freshSessionError);
+      // This shouldn't happen with the new logic, but fallback just in case
+      await safeReply(interaction, {
+        content: '❌ **Session Error**\nYour onboarding session could not be retrieved. Please restart the process by clicking the campaign button again.',
+        flags: 64
+      });
+      return;
+    } else {
+      console.log(`✅ Using modal session data with ${modalSessionData.fields?.length || 0} fields`);
+      referralValidation = modalSessionData.referralValidation;
+      
+      // Validate that the submitted fields match the session's field configuration
+      const validFieldKeys = new Set(modalSessionData.fields?.map(f => f.field_key) || []);
+      const submittedKeys = Object.keys(responses);
+      const invalidKeys = submittedKeys.filter(key => !validFieldKeys.has(key));
+      
+      if (invalidKeys.length > 0) {
+        console.error(`❌ Field validation failed. Invalid fields: ${invalidKeys.join(', ')}`);
+        console.error(`📋 Valid fields are: ${Array.from(validFieldKeys).join(', ')}`);
+        console.error(`📋 Submitted fields: ${submittedKeys.join(', ')}`);
+        
+        // Clear the outdated session
+        await onboardingManager.clearModalSession(config.campaignId, userId);
+        
         await safeReply(interaction, {
-          content: '❌ **Session Error**\nYour onboarding session could not be retrieved. Please restart the process.',
+          content: `❌ **Field Mismatch**\nThe form you submitted contains unexpected fields.\n\n**Invalid fields:** ${invalidKeys.join(', ')}\n**Expected fields:** ${Array.from(validFieldKeys).join(', ')}\n\nPlease restart the onboarding process to get the correct form.`,
           flags: 64
         });
         return;
       }
-    } else {
-      referralValidation = modalSessionData.referralValidation;
+      
+      console.log(`✅ All submitted fields are valid for campaign ${config.campaignId}`);
     }
   } catch (sessionError) {
-    console.error('Error retrieving session data:', sessionError);
+    console.error('Error processing session data:', sessionError);
     await safeReply(interaction, {
-      content: '❌ **Session Error**\nYour onboarding session could not be retrieved. Please restart the process.',
+      content: '❌ **Session Error**\nYour onboarding session could not be processed. Please restart the process.',
       flags: 64
     });
     return;
