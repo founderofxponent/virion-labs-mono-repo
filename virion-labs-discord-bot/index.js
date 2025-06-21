@@ -2006,72 +2006,67 @@ async function processModalSubmission(interaction, config, modalPart, modalSessi
 
     console.log(`📝 Processing modal ${modalPart} submission for ${username}:`, Object.keys(responses));
 
-      // ═══════════════════════════════════════════════════════════════
-  // SCENARIO 3: SESSION DATA RETRIEVAL AND VALIDATION
-  // ═══════════════════════════════════════════════════════════════
-  let referralValidation = null;
-  
-  try {
-    if (!modalSessionData) {
-      console.log(`❌ No modal session data found for ${userId} in campaign ${config.campaignId}`);
-      
-      // This shouldn't happen with the new logic, but fallback just in case
-      await safeReply(interaction, {
-        content: '❌ **Session Error**\nYour onboarding session could not be retrieved. Please restart the process by clicking the campaign button again.',
-        flags: 64
-      });
-      return;
-    } else {
-      console.log(`✅ Using modal session data with ${modalSessionData.fields?.length || 0} fields`);
-      referralValidation = modalSessionData.referralValidation;
-      
-      // Validate that the submitted fields match the session's field configuration
-      const validFieldKeys = new Set(modalSessionData.fields?.map(f => f.field_key) || []);
-      const submittedKeys = Object.keys(responses);
-      const invalidKeys = submittedKeys.filter(key => !validFieldKeys.has(key));
-      
-      if (invalidKeys.length > 0) {
-        console.error(`❌ Field validation failed. Invalid fields: ${invalidKeys.join(', ')}`);
-        console.error(`📋 Valid fields are: ${Array.from(validFieldKeys).join(', ')}`);
-        console.error(`📋 Submitted fields: ${submittedKeys.join(', ')}`);
+    // ═══════════════════════════════════════════════════════════════
+    // SCENARIO 3: SESSION DATA RETRIEVAL AND VALIDATION
+    // ═══════════════════════════════════════════════════════════════
+    let referralValidation = null;
+    
+    try {
+      if (!modalSessionData) {
+        console.log(`❌ No modal session data found for ${userId} in campaign ${config.campaignId}`);
         
-        // Clear the outdated session
-        await onboardingManager.clearModalSession(config.campaignId, userId);
-        
-        await safeReply(interaction, {
-          content: `❌ **Field Mismatch**\nThe form you submitted contains unexpected fields.\n\n**Invalid fields:** ${invalidKeys.join(', ')}\n**Expected fields:** ${Array.from(validFieldKeys).join(', ')}\n\nPlease restart the onboarding process to get the correct form.`,
-          flags: 64
+        await interaction.editReply({
+          content: '❌ **Session Error**\nYour onboarding session could not be retrieved. Please restart the process by clicking the campaign button again.',
         });
         return;
+      } else {
+        console.log(`✅ Using modal session data with ${modalSessionData.fields?.length || 0} fields`);
+        referralValidation = modalSessionData.referralValidation;
+        
+        // Validate that the submitted fields match the session's field configuration
+        const validFieldKeys = new Set(modalSessionData.fields?.map(f => f.field_key) || []);
+        const submittedKeys = Object.keys(responses);
+        const invalidKeys = submittedKeys.filter(key => !validFieldKeys.has(key));
+        
+        if (invalidKeys.length > 0) {
+          console.error(`❌ Field validation failed. Invalid fields: ${invalidKeys.join(', ')}`);
+          console.error(`📋 Valid fields are: ${Array.from(validFieldKeys).join(', ')}`);
+          console.error(`📋 Submitted fields: ${submittedKeys.join(', ')}`);
+          
+          // Clear the outdated session
+          await onboardingManager.clearModalSession(config.campaignId, userId);
+          
+          await interaction.editReply({
+            content: `❌ **Field Mismatch**\nThe form you submitted contains unexpected fields.\n\n**Invalid fields:** ${invalidKeys.join(', ')}\n**Expected fields:** ${Array.from(validFieldKeys).join(', ')}\n\nPlease restart the onboarding process to get the correct form.`,
+          });
+          return;
+        }
+        
+        console.log(`✅ All submitted fields are valid for campaign ${config.campaignId}`);
       }
-      
-      console.log(`✅ All submitted fields are valid for campaign ${config.campaignId}`);
+    } catch (sessionError) {
+      console.error('Error processing session data:', sessionError);
+      await interaction.editReply({
+        content: '❌ **Session Error**\nYour onboarding session could not be processed. Please restart the process.',
+      });
+      return;
     }
-  } catch (sessionError) {
-    console.error('Error processing session data:', sessionError);
-    await safeReply(interaction, {
-      content: '❌ **Session Error**\nYour onboarding session could not be processed. Please restart the process.',
-      flags: 64
-    });
-    return;
-  }
 
     // ═══════════════════════════════════════════════════════════════
     // SCENARIO 4: IMMEDIATE RESPONSE & ASYNC PROCESSING
     // ═══════════════════════════════════════════════════════════════
     
-    // Send immediate acknowledgment to prevent Discord timeout
-    const replySuccess = await safeReply(interaction, {
-      content: '⏳ **Processing your responses...**\nPlease wait while we save your information.',
-      flags: 64
-    });
-    
-    if (!replySuccess) {
-      console.error('❌ Failed to send immediate acknowledgment');
+    // Send immediate acknowledgment (interaction was already deferred)
+    try {
+      await interaction.editReply({
+        content: '⏳ **Processing your responses...**\nPlease wait while we save your information.',
+      });
+      hasReplied = true;
+      console.log(`✅ Sent processing acknowledgment to ${username}`);
+    } catch (editError) {
+      console.error('❌ Failed to send immediate acknowledgment:', editError);
       return;
     }
-    
-    hasReplied = true;
     
     // Now process the submission asynchronously
     let saveResult;
@@ -2190,7 +2185,6 @@ async function processModalSubmission(interaction, config, modalPart, modalSessi
         }
         
         await interaction.showModal(nextModal);
-        hasReplied = true;
         console.log(`✅ Showed modal part ${nextModalPart} for ${username} (${saveResult.progress?.completed || 0}/${saveResult.progress?.total || 0} completed)`);
         
       } catch (modalError) {
@@ -2198,12 +2192,12 @@ async function processModalSubmission(interaction, config, modalPart, modalSessi
         
         // Check if it's a Discord API limitation
         if (modalError.message?.includes('Unknown interaction') || modalError.code === 10062) {
-          await safeReply(interaction, {
+          await interaction.followUp({
             content: '❌ **Form Display Error**\nThe next form could not be displayed due to timing. Please restart the onboarding process.',
             flags: 64
           });
         } else {
-          await safeReply(interaction, {
+          await interaction.followUp({
             content: '❌ **Modal Error**\nFailed to show the next form. Please contact support if this continues.',
             flags: 64
           });
@@ -2222,10 +2216,13 @@ async function processModalSubmission(interaction, config, modalPart, modalSessi
     console.error('❌ Error in modal processing:', error);
     
     if (!hasReplied) {
-      await safeReply(interaction, {
-        content: '❌ **Processing Error**\nAn error occurred while processing your submission. Please try again.',
-        flags: 64
-      });
+      try {
+        await interaction.editReply({
+          content: '❌ **Processing Error**\nAn error occurred while processing your submission. Please try again.',
+        });
+      } catch (replyError) {
+        console.error('Failed to send error reply:', replyError);
+      }
     } else {
       // If we've already replied, use followUp
       try {
