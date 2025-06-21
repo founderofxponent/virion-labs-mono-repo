@@ -4,6 +4,76 @@ This document provides a comprehensive overview of all 28 tables and views in th
 
 ## Recent Changes
 
+### Discord Bot Dual-Campaign Onboarding System Enhancement (Latest)
+**Date:** December 2024
+
+**Enhancement:** Implemented intelligent campaign selection to properly handle two distinct use cases for onboarding
+
+**Issue Resolved:**
+- **Problem**: Discord bot was experiencing field validation errors when users submitted onboarding forms with mismatched field types
+- **Root Cause**: Multiple campaigns with different onboarding field configurations existed in the same Discord guild, but the bot wasn't selecting the appropriate campaign type based on user context
+- **Error**: "Validation errors: Invalid field: full_name, Invalid field: email, Invalid field: referral_source" occurred when referral users tried to submit forms configured for community engagement campaigns
+
+**Two Use Cases Identified:**
+1. **Existing Discord Members**: Users already in the server joining campaigns - should use `community_engagement` campaigns with fields like `display_name`, `interests`, `community_goals`
+2. **Referral Link Users**: External users coming via influencer referral links - should use `referral_onboarding` campaigns with fields like `full_name`, `email`, `referral_source`, `interests`
+
+**Changes Made:**
+
+**Discord Bot (virion-labs-discord-bot/index.js):**
+- **Enhanced** `getBotConfig()` function to accept campaign type preferences and context options
+- **Added** intelligent campaign selection logic based on user entry method
+- **Updated** `handleReferralOnboarding()` to use `referral_onboarding` campaigns for users with referral codes
+- **Updated** `handleNewMemberOnboarding()` to use `community_engagement` campaigns for existing Discord members
+- **Enhanced** main message handler to detect referral interactions and route to appropriate campaign type
+- **Added** automatic fallback to default campaign if preferred type isn't available
+
+**Backend API (virion-labs-dashboard/app/api/discord-bot/config/route.ts):**
+- **Added** `prefer_campaign_type` query parameter support for campaign type preference
+- **Implemented** intelligent campaign selection with type-based priority ordering
+- **Enhanced** campaign selection logic to prioritize preferred campaign types while maintaining fallbacks
+- **Added** comprehensive logging for campaign selection decisions
+- **Included** campaign options in API response for debugging and transparency
+
+**Technical Implementation:**
+```javascript
+// Discord Bot Usage Examples:
+
+// For referral users
+const referralConfig = await getBotConfig(guildId, channelId, {
+  preferReferralCampaign: true,
+  hasReferralCode: true,
+  campaignType: 'referral_onboarding'
+});
+
+// For existing Discord members  
+const communityConfig = await getBotConfig(guildId, channelId, {
+  campaignType: 'community_engagement'
+});
+
+// API URL with preference
+/api/discord-bot/config?guild_id=123&prefer_campaign_type=referral_onboarding
+```
+
+**Campaign Type Mapping:**
+- **referral_onboarding**: Fields include `full_name`, `email`, `referral_source`, `interests`
+- **community_engagement**: Fields include `display_name`, `interests`, `community_goals`
+- **product_promotion**: Fields include `customer_name`, `email`, `product_interest`
+
+**Automatic Context Detection:**
+- **Referral context**: Detected by referral codes, "referral" keywords, or "invite" mentions
+- **Community context**: General Discord server interactions, existing member activities
+- **Fallback logic**: Always provides a working campaign even if preferred type unavailable
+
+**Impact:** 
+- ✅ Eliminates "Invalid field" validation errors by ensuring field consistency
+- ✅ Provides contextually appropriate onboarding experiences 
+- ✅ Maintains backward compatibility with existing single-campaign setups
+- ✅ Enables proper multi-campaign guild support
+- ✅ Improves user experience with relevant onboarding questions
+
+**Database Schema Impact:** No schema changes required - utilizes existing campaign and field structures with enhanced API selection logic.
+
 ### Discord Bot Modal Session Error Handling & Field Validation Fix (Latest)
 **Date:** December 2024
 

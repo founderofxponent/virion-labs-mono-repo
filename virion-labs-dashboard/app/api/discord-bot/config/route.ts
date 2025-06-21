@@ -7,122 +7,202 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Get bot configuration for a Discord guild
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const guildId = searchParams.get('guild_id')
     const channelId = searchParams.get('channel_id')
-    const userId = searchParams.get('user_id')
     const includeInactive = searchParams.get('include_inactive') === 'true'
+    const preferCampaignType = searchParams.get('prefer_campaign_type')
 
     if (!guildId) {
-      return NextResponse.json({ error: 'guild_id is required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Missing required parameter: guild_id' },
+        { status: 400 }
+      )
     }
 
-    // Get campaign configuration with channel and access control support
-    // Modify query to include inactive campaigns if requested
+    console.log(`🔍 Bot config request for guild: ${guildId}, channel: ${channelId}, preferType: ${preferCampaignType}`)
+
+    // Build query conditions
     let query = supabase
       .from('discord_guild_campaigns')
       .select(`
         *,
-        clients:client_id(name, industry),
-        referral_links:referral_link_id(title, referral_code, platform)
+        clients (
+          id,
+          name
+        )
       `)
       .eq('guild_id', guildId)
-      .eq('is_deleted', false) // Always exclude hard-deleted campaigns
+      .eq('is_deleted', false)
 
-    // Filter by channel_id if provided (each campaign can have its own channel)
+    // Filter by channel if provided
     if (channelId) {
-      query = query.eq('channel_id', channelId)
+      query = query.or(`channel_id.eq.${channelId},channel_id.is.null`)
     }
 
-    // Only filter by active status if NOT including inactive campaigns
+    // Filter by active status unless including inactive
     if (!includeInactive) {
       query = query.eq('is_active', true)
+    }
+
+    // Order by campaign type preference and other criteria
+    let orderBy = 'created_at.desc'
+    if (preferCampaignType) {
+      // Use a custom ordering that prioritizes the preferred campaign type
+      query = query.order('campaign_type', { ascending: false })
+      // Then order by active status (active first)
+      query = query.order('is_active', { ascending: false })
+      // Then by creation date (newest first)
+      query = query.order('created_at', { ascending: false })
+    } else {
+      query = query.order('is_active', { ascending: false }).order('created_at', { ascending: false })
     }
 
     const { data: campaigns, error } = await query
 
     if (error) {
-      console.error('Error fetching campaign configurations:', error)
-      return NextResponse.json({ 
-        configured: false, 
-        message: 'Error fetching campaign configuration',
-        error: error.message 
-      }, { status: 500 })
+      throw error
     }
 
     if (!campaigns || campaigns.length === 0) {
-      return NextResponse.json({ 
-        configured: false, 
-        message: 'No campaign found for this guild' 
+      console.log(`❌ No campaigns found for guild: ${guildId}`)
+      return NextResponse.json({
+        configured: false,
+        error: 'No campaigns configured for this guild'
       })
     }
 
-    // Smart campaign selection logic
-    let selectedCampaign = campaigns[0]
-    if (campaigns.length > 1) {
-      // Priority order: active > paused > archived > deleted
-      const activeCampaign = campaigns.find(c => c.is_active && !c.is_deleted)
-      const pausedCampaign = campaigns.find(c => !c.is_active && c.paused_at && !c.is_deleted)
-      const archivedCampaign = campaigns.find(c => !c.is_active && c.campaign_end_date && !c.is_deleted)
+    console.log(`📊 Found ${campaigns.length} campaigns for guild ${guildId}`)
+    campaigns.forEach(c => {
+      console.log(`  - ${c.campaign_name} (${c.campaign_type}): ${c.is_active ? 'active' : 'inactive'}`)
+    })
+
+    // Campaign selection logic with type preference
+    let selectedCampaign = null
+
+    if (preferCampaignType) {
+      console.log(`🎯 Looking for preferred campaign type: ${preferCampaignType}`)
       
-      if (activeCampaign) {
-        selectedCampaign = activeCampaign
-      } else if (pausedCampaign) {
-        selectedCampaign = pausedCampaign
-      } else if (archivedCampaign) {
-        selectedCampaign = archivedCampaign
+      // First try to find an active campaign of the preferred type
+      selectedCampaign = campaigns.find(c => 
+        c.campaign_type === preferCampaignType && c.is_active
+      )
+      
+      if (!selectedCampaign && includeInactive) {
+        // If no active campaign of preferred type, try inactive ones
+        selectedCampaign = campaigns.find(c => 
+          c.campaign_type === preferCampaignType
+        )
+      }
+      
+      if (selectedCampaign) {
+        console.log(`✅ Selected preferred campaign: ${selectedCampaign.campaign_name} (${selectedCampaign.campaign_type})`)
       } else {
-        // If no specific status found, select the most recently created campaign
-        selectedCampaign = campaigns.sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        )[0]
+        console.log(`⚠️ No campaign found for preferred type: ${preferCampaignType}`)
       }
     }
 
+    // Fallback to general selection logic if no preferred type match
+    if (!selectedCampaign) {
+      // Priority order: active campaigns first, then by creation date
+      selectedCampaign = campaigns.find(c => c.is_active) || campaigns[0]
+      console.log(`🔄 Fallback to campaign: ${selectedCampaign.campaign_name} (${selectedCampaign.campaign_type})`)
+    }
+
+    // Get onboarding fields for the selected campaign
+    const { data: onboardingFields, error: fieldsError } = await supabase
+      .from('campaign_onboarding_fields')
+      .select('*')
+      .eq('campaign_id', selectedCampaign.id)
+      .eq('is_enabled', true)
+      .order('sort_order', { ascending: true })
+
+    if (fieldsError) {
+      console.error('Error fetching onboarding fields:', fieldsError)
+    }
+
     // Determine campaign status
-    function getCampaignStatus(campaign: any) {
-      if (campaign.is_deleted) return 'deleted'
-      if (!campaign.is_active && campaign.campaign_end_date) return 'archived'
-      if (!campaign.is_active && campaign.paused_at) return 'paused'
+    const getCampaignStatus = (campaign: any) => {
       if (campaign.is_active) return 'active'
+      if (campaign.paused_at) return 'paused'
+      if (campaign.campaign_end_date && new Date(campaign.campaign_end_date) < new Date()) return 'archived'
       return 'inactive'
     }
 
     const campaignStatus = getCampaignStatus(selectedCampaign)
 
-    // Get onboarding fields for this campaign
-    const { data: onboardingFields } = await supabase
-      .from('campaign_onboarding_fields')
-      .select('*')
-      .eq('campaign_id', selectedCampaign.id)
-      .order('sort_order')
+    console.log(`✅ Returning config for: ${selectedCampaign.campaign_name} (${selectedCampaign.campaign_type}) - Status: ${campaignStatus}`)
 
     return NextResponse.json({
       configured: true,
       campaign: {
         id: selectedCampaign.id,
         name: selectedCampaign.campaign_name,
-        type: selectedCampaign.campaign_type,
-        status: campaignStatus,
+        campaign_type: selectedCampaign.campaign_type,
+        client_name: selectedCampaign.clients?.name || 'Unknown Client',
         is_active: selectedCampaign.is_active,
-        client: {
-          id: selectedCampaign.client_id,
-          name: selectedCampaign.clients?.name || 'Unknown Client'
-        },
-        bot_config: selectedCampaign.bot_config || {},
+        status: campaignStatus,
+        
+        // Bot configuration
+        bot_name: selectedCampaign.bot_name || 'Virion Bot',
+        brand_color: selectedCampaign.brand_color || '#6366f1',
+        welcome_message: selectedCampaign.welcome_message,
+        prefix: selectedCampaign.prefix || '!',
+        template: selectedCampaign.template || 'standard',
+        
+        // Onboarding configuration
         onboarding_flow: selectedCampaign.onboarding_flow || {},
+        onboarding_completion_requirements: selectedCampaign.onboarding_completion_requirements || {},
         onboarding_fields: onboardingFields || [],
-        // Include status metadata
-        paused_at: selectedCampaign.paused_at,
-        campaign_end_date: selectedCampaign.campaign_end_date,
-        deleted_at: selectedCampaign.deleted_at
-      }
+        
+        // Features
+        referral_tracking_enabled: selectedCampaign.referral_tracking_enabled || false,
+        auto_role_assignment: selectedCampaign.auto_role_assignment || false,
+        target_role_ids: selectedCampaign.target_role_ids || [],
+        
+        // Response configuration
+        auto_responses: selectedCampaign.auto_responses || {},
+        custom_commands: selectedCampaign.custom_commands || [],
+        response_templates: selectedCampaign.response_templates || {},
+        
+        // Access control
+        private_channel_setup: selectedCampaign.private_channel_setup || {},
+        access_control_enabled: selectedCampaign.access_control_enabled || false,
+        referral_only_access: selectedCampaign.referral_only_access || false,
+        
+        // Moderation
+        moderation_enabled: selectedCampaign.moderation_enabled !== false,
+        rate_limit_per_user: selectedCampaign.rate_limit_per_user || 5,
+        allowed_channels: selectedCampaign.allowed_channels || [],
+        blocked_users: selectedCampaign.blocked_users || [],
+        content_filters: selectedCampaign.content_filters || [],
+        
+        // Referral information
+        referral_link_id: selectedCampaign.referral_link_id,
+        influencer_id: selectedCampaign.influencer_id,
+        referral_code: selectedCampaign.referral_code
+      },
+      campaign_options: campaigns.map(c => ({
+        id: c.id,
+        name: c.campaign_name,
+        type: c.campaign_type,
+        is_active: c.is_active,
+        status: getCampaignStatus(c)
+      }))
     })
+
   } catch (error) {
-    console.error('Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Error fetching bot configuration:', error)
+    return NextResponse.json(
+      { 
+        configured: false, 
+        error: 'Internal server error while fetching configuration' 
+      },
+      { status: 500 }
+    )
   }
 }
 

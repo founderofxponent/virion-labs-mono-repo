@@ -154,9 +154,16 @@ async function testDashboardConnection() {
 }
 
 // Update the getBotConfig function to use the new unified API
-async function getBotConfig(guildId, channelId = null) {
+async function getBotConfig(guildId, channelId = null, options = {}) {
   try {
     console.log('🔍 Fetching bot configuration for guild:', guildId, 'channel:', channelId);
+    
+    // Extract options for campaign selection
+    const { 
+      preferReferralCampaign = false, 
+      hasReferralCode = false, 
+      campaignType = null 
+    } = options;
     
     // Check for ANY campaigns for this guild (not just active ones)
     const { data: guildCheck, error: guildError } = await supabase
@@ -182,7 +189,21 @@ async function getBotConfig(guildId, channelId = null) {
     // Use the dashboard API fallback which handles all campaign statuses
     console.log('🔄 Using dashboard API for comprehensive campaign data...');
     try {
-      const response = await fetch(`${DASHBOARD_API_URL}/discord-bot/config?guild_id=${guildId}${channelId ? `&channel_id=${channelId}` : ''}&include_inactive=true`, {
+      let apiUrl = `${DASHBOARD_API_URL}/discord-bot/config?guild_id=${guildId}${channelId ? `&channel_id=${channelId}` : ''}&include_inactive=true`;
+      
+      // Add campaign type preference based on use case
+      if (preferReferralCampaign || hasReferralCode) {
+        apiUrl += '&prefer_campaign_type=referral_onboarding';
+        console.log('🔗 Preferring referral_onboarding campaign for referral user');
+      } else if (campaignType) {
+        apiUrl += `&prefer_campaign_type=${campaignType}`;
+        console.log(`🎯 Preferring ${campaignType} campaign type`);
+      } else {
+        apiUrl += '&prefer_campaign_type=community_engagement';
+        console.log('👥 Preferring community_engagement campaign for existing member');
+      }
+      
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -196,33 +217,66 @@ async function getBotConfig(guildId, channelId = null) {
         
         if (apiData.configured && apiData.campaign) {
           const campaign = apiData.campaign;
-          console.log('✅ Successfully got config from dashboard API:', campaign.name);
+          console.log(`✅ Successfully got config from dashboard API: ${campaign.name} (${campaign.campaign_type})`);
           return {
+            isActive: campaign.is_active,
+            campaignStatus: getCampaignStatus(campaign),
             campaignId: campaign.id,
             campaignName: campaign.name,
-            campaignType: campaign.type,
-            clientId: campaign.client?.id,
-            clientName: campaign.client?.name,
-            config: campaign.bot_config || {},
-            templateConfig: campaign.template_config || null,
-            campaignStatus: campaign.status || 'unknown',
-            isActive: campaign.is_active || false
+            campaignType: campaign.campaign_type,
+            clientName: campaign.client_name,
+            config: {
+              // Bot configuration
+              bot_name: campaign.bot_name || 'Virion Bot',
+              brand_color: campaign.brand_color || '#6366f1',
+              welcome_message: campaign.welcome_message,
+              prefix: campaign.prefix || '!',
+              
+              // Template and onboarding
+              template: campaign.template || 'standard',
+              onboarding_flow: campaign.onboarding_flow || {},
+              onboarding_completion_requirements: campaign.onboarding_completion_requirements || {},
+              
+              // Features
+              referral_tracking_enabled: campaign.referral_tracking_enabled || false,
+              auto_role_assignment: campaign.auto_role_assignment || false,
+              target_role_ids: campaign.target_role_ids || [],
+              
+              // Response configuration
+              auto_responses: campaign.auto_responses || {},
+              custom_commands: campaign.custom_commands || [],
+              response_templates: campaign.response_templates || {},
+              
+              // Access control
+              private_channel_setup: campaign.private_channel_setup || {},
+              access_control_enabled: campaign.access_control_enabled || false,
+              referral_only_access: campaign.referral_only_access || false,
+              
+              // Moderation
+              moderation_enabled: campaign.moderation_enabled !== false,
+              rate_limit_per_user: campaign.rate_limit_per_user || 5,
+              allowed_channels: campaign.allowed_channels || [],
+              blocked_users: campaign.blocked_users || [],
+              content_filters: campaign.content_filters || []
+            },
+            
+            // Referral information
+            referralLinkId: campaign.referral_link_id,
+            influencerId: campaign.influencer_id,
+            referralCode: campaign.referral_code
           };
-        } else {
-          console.log('❌ Dashboard API says not configured:', apiData);
         }
-      } else {
-        console.error('❌ Dashboard API failed:', response.status, await response.text());
       }
+      
+      console.log('⚠️ Dashboard API returned no configured campaign');
     } catch (apiError) {
       console.error('❌ Dashboard API error:', apiError);
     }
     
-    console.log('❌ All methods failed - no campaign configuration found');
+    console.log('❌ No valid campaign configuration found');
     return null;
-    
   } catch (error) {
-    console.error('❌ Unexpected error fetching bot config:', error);
+    console.error('❌ Error in getBotConfig:', error);
     return null;
   }
 }
@@ -657,12 +711,17 @@ async function handleReferralInviteContext(member) {
 // Auto-start onboarding for new members
 async function handleNewMemberOnboarding(member) {
   try {
-    // Get guild configuration
-    const config = await getBotConfig(member.guild.id);
+    // Get community engagement campaign configuration for new Discord members
+    const config = await getBotConfig(member.guild.id, null, {
+      campaignType: 'community_engagement'
+    });
     
     if (!config) {
+      console.log(`⚠️ No community engagement campaign configured for guild: ${member.guild.id}`);
       return; // No campaign configured for this guild
     }
+
+    console.log(`👥 New member onboarding using: ${config.campaignName} (${config.campaignType})`);
     
     // Wait a bit to let Discord settle the member join
     setTimeout(async () => {
@@ -702,14 +761,14 @@ async function handleNewMemberOnboarding(member) {
           }
         };
         
-        console.log(`🚀 Auto-starting onboarding for ${member.user.tag} in ${config.campaignName}`);
+        console.log(`🚀 Auto-starting community onboarding for ${member.user.tag} in ${config.campaignName}`);
         
-        // Start onboarding immediately
+        // Start onboarding immediately with community engagement campaign
         await onboardingManager.startOnboarding(syntheticMessage, config, {
           autoStart: true
         });
         
-        console.log(`✅ Auto-started onboarding for ${member.user.tag}`);
+        console.log(`✅ Auto-started community onboarding for ${member.user.tag}`);
         
       } catch (error) {
         if (error.code === 50007) {
@@ -721,7 +780,7 @@ async function handleNewMemberOnboarding(member) {
               const fallbackEmbed = new EmbedBuilder()
                 .setTitle(`🎉 Welcome ${member.user.username}!`)
                 .setDescription(`Welcome to **${config.clientName}**!\n\n📝 I tried to start your onboarding process in DMs, but it seems you have DMs disabled.\n\n💡 Please enable DMs from server members and type "start" to begin your onboarding journey!`)
-                .setColor(config.bot_config?.brand_color || '#6366f1')
+                .setColor(config.config?.brand_color || '#6366f1')
                 .setTimestamp();
               
               await member.guild.systemChannel.send({
@@ -785,11 +844,28 @@ async function handleReferralOnboarding(message, config) {
     );
     
     if (validation && validation.valid) {
-      // Start dynamic onboarding process with referral context
-      return await onboardingManager.startOnboarding(message, config, {
-        referralCode,
-        referralValidation: validation
+      // Get referral-specific campaign configuration
+      const referralConfig = await getBotConfig(message.guild.id, message.channel.id, {
+        preferReferralCampaign: true,
+        hasReferralCode: true,
+        campaignType: 'referral_onboarding'
       });
+      
+      if (referralConfig && referralConfig.campaignType === 'referral_onboarding') {
+        console.log(`🔗 Using referral onboarding campaign: ${referralConfig.campaignName}`);
+        // Start dynamic onboarding process with referral context using referral campaign
+        return await onboardingManager.startOnboarding(message, referralConfig, {
+          referralCode,
+          referralValidation: validation
+        });
+      } else {
+        console.log(`⚠️ No referral onboarding campaign found, using default config`);
+        // Fallback to regular config if no referral campaign available
+        return await onboardingManager.startOnboarding(message, config, {
+          referralCode,
+          referralValidation: validation
+        });
+      }
     } else {
       // Invalid referral code - provide helpful feedback
       const embed = createCampaignEmbed(
@@ -821,8 +897,18 @@ async function handleReferralOnboarding(message, config) {
       message.content.toLowerCase().includes('welcome') ||
       message.content.toLowerCase().includes('start')) {
     
-    // Start onboarding without referral context
-    return await onboardingManager.startOnboarding(message, config);
+    // For users without referral codes, prefer community engagement campaigns
+    const communityConfig = await getBotConfig(message.guild.id, message.channel.id, {
+      campaignType: 'community_engagement'
+    });
+    
+    if (communityConfig && communityConfig.campaignType === 'community_engagement') {
+      console.log(`👥 Using community engagement campaign: ${communityConfig.campaignName}`);
+      return await onboardingManager.startOnboarding(message, communityConfig);
+    } else {
+      // Fallback to existing config
+      return await onboardingManager.startOnboarding(message, config);
+    }
   }
   
   return false;
@@ -1146,26 +1232,58 @@ client.on('messageCreate', async (message) => {
       return;
     }
 
+    // Detect if this might be a referral interaction
+    const hasReferralCode = extractReferralCode(message.content);
+    const shouldUseReferralCampaign = hasReferralCode || 
+      message.content.toLowerCase().includes('referral') ||
+      message.content.toLowerCase().includes('invite');
+
+    // Get appropriate config based on context
+    let contextConfig = config;
+    if (shouldUseReferralCampaign) {
+      // Try to get referral onboarding campaign for referral interactions
+      const referralConfig = await getBotConfig(guildId, channelId, {
+        preferReferralCampaign: true,
+        hasReferralCode: !!hasReferralCode,
+        campaignType: 'referral_onboarding'
+      });
+      
+      if (referralConfig && referralConfig.campaignType === 'referral_onboarding') {
+        console.log(`🔗 Switching to referral campaign: ${referralConfig.campaignName}`);
+        contextConfig = referralConfig;
+      }
+    } else {
+      // For general interactions, prefer community engagement campaigns
+      const communityConfig = await getBotConfig(guildId, channelId, {
+        campaignType: 'community_engagement'
+      });
+      
+      if (communityConfig && communityConfig.campaignType === 'community_engagement') {
+        console.log(`👥 Using community campaign: ${communityConfig.campaignName}`);
+        contextConfig = communityConfig;
+      }
+    }
+
     // Handle campaign-specific logic with template-driven responses (ACTIVE campaigns only)
     let handled = false;
     
     // Check if user has an active onboarding session first
-    if (onboardingManager.isInOnboardingSession(message.author.id, config.campaignId)) {
-      console.log(`💬 Handling onboarding response for ${message.author.tag} in campaign ${config.campaignId}`);
-      handled = await onboardingManager.handleResponse(message, config);
+    if (onboardingManager.isInOnboardingSession(message.author.id, contextConfig.campaignId)) {
+      console.log(`💬 Handling onboarding response for ${message.author.tag} in campaign ${contextConfig.campaignId}`);
+      handled = await onboardingManager.handleResponse(message, contextConfig);
       if (handled) return; // Exit early if onboarding handled the message
     } else {
       // Check database for incomplete onboarding session
-      const existingSession = await onboardingManager.checkDatabaseSession(config.campaignId, message.author.id, message.author.tag);
+      const existingSession = await onboardingManager.checkDatabaseSession(contextConfig.campaignId, message.author.id, message.author.tag);
       if (existingSession && !existingSession.is_completed && existingSession.next_field) {
-        console.log(`🔄 Restoring onboarding session for ${message.author.tag} in campaign ${config.campaignId}`);
-        await onboardingManager.resumeOnboarding(message, config, existingSession);
+        console.log(`🔄 Restoring onboarding session for ${message.author.tag} in campaign ${contextConfig.campaignId}`);
+        await onboardingManager.resumeOnboarding(message, contextConfig, existingSession);
         return; // Exit early - resumeOnboarding handles the response
       } else if (!existingSession || !existingSession.is_completed) {
         // For community engagement campaigns, auto-start onboarding for new users
-        if (config.campaignType === 'community_engagement') {
-          console.log(`🚀 Auto-starting onboarding for new user ${message.author.tag} in community engagement campaign`);
-          handled = await onboardingManager.startOnboarding(message, config, { autoStart: true });
+        if (contextConfig.campaignType === 'community_engagement') {
+          console.log(`🚀 Auto-starting community onboarding for new user ${message.author.tag}`);
+          handled = await onboardingManager.startOnboarding(message, contextConfig, { autoStart: true });
           if (handled) return; // Exit early if onboarding started
         }
       }
@@ -1173,11 +1291,11 @@ client.on('messageCreate', async (message) => {
     
     // First try template-driven auto responses
     console.log(`🔍 Checking for template response to: "${message.content}"`);
-    const templateResponse = getTemplateResponse(config, message.content);
+    const templateResponse = getTemplateResponse(contextConfig, message.content);
     if (templateResponse) {
       console.log(`✅ Found template response: ${templateResponse.title}`);
       const embed = createCampaignEmbed(
-        config,
+        contextConfig,
         templateResponse.title,
         templateResponse.message,
         templateResponse.color
@@ -1192,12 +1310,12 @@ client.on('messageCreate', async (message) => {
     if (!handled && (message.content.toLowerCase().includes('onboarding') || 
                      message.content.toLowerCase().includes('status') || 
                      message.content.toLowerCase().includes('complete'))) {
-      if (config.campaignId && config.campaignName) {
+      if (contextConfig.campaignId && contextConfig.campaignName) {
         try {
           const completionStatus = await onboardingManager.checkOnboardingCompletion(
             message.author.id,
-            config.campaignId,
-            config
+            contextConfig.campaignId,
+            contextConfig
           );
 
           const statusEmoji = completionStatus.isComplete ? '✅' : '⏳';
@@ -1208,10 +1326,10 @@ client.on('messageCreate', async (message) => {
             statusMessage += `\n\n📊 Progress: ${completionStatus.completionPercentage}% complete`;
           }
           
-          statusMessage += `\n\n🔗 Continue here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaignId}`;
+          statusMessage += `\n\n🔗 Continue here: ${process.env.DASHBOARD_URL}/onboarding/${contextConfig.campaignId}`;
 
           const embed = createCampaignEmbed(
-            config,
+            contextConfig,
             statusTitle,
             statusMessage,
             completionStatus.isComplete ? '#10b981' : '#f59e0b'
@@ -1221,9 +1339,9 @@ client.on('messageCreate', async (message) => {
         } catch (error) {
           console.error('Error checking onboarding status:', error);
           const embed = createCampaignEmbed(
-            config,
+            contextConfig,
             '📋 Onboarding Status',
-            `Check your onboarding progress for the ${config.campaignName} campaign here: ${process.env.DASHBOARD_URL}/onboarding/${config.campaignId}`,
+            `Check your onboarding progress for the ${contextConfig.campaignName} campaign here: ${process.env.DASHBOARD_URL}/onboarding/${contextConfig.campaignId}`,
             '#3b82f6'
           );
           await message.reply({ embeds: [embed] });
@@ -1237,7 +1355,7 @@ client.on('messageCreate', async (message) => {
                      message.content.toLowerCase().includes('begin') || 
                      message.content.toLowerCase().includes('onboard'))) {
       console.log(`🚀 Onboarding start request from ${message.author.tag}`);
-      handled = await handleReferralOnboarding(message, config);
+      handled = await handleReferralOnboarding(message, contextConfig);
     }
 
     // Only handle help and other commands for ACTIVE campaigns
@@ -1245,10 +1363,10 @@ client.on('messageCreate', async (message) => {
                      message.content.toLowerCase().includes('commands') || 
                      message.content.toLowerCase().includes('info'))) {
       const embed = createCampaignEmbed(
-        config,
+        contextConfig,
         '🆘 Help & Commands',
-        `Welcome to **${config.campaignName}**!\n\n**Available Commands:**\n• Type any message to interact with me\n• Use "start" or "begin" to start onboarding\n• Use "status" to check your onboarding progress\n\n**Need more help?**\nContact our support team!`,
-        config.config?.brand_color || '#6366f1'
+        `Welcome to **${contextConfig.campaignName}**!\n\n**Available Commands:**\n• Type any message to interact with me\n• Use "start" or "begin" to start onboarding\n• Use "status" to check your onboarding progress\n\n**Need more help?**\nContact our support team!`,
+        contextConfig.config?.brand_color || '#6366f1'
       );
       await message.reply({ embeds: [embed] });
       handled = true;
@@ -1555,6 +1673,9 @@ client.on('interactionCreate', async (interaction) => {
     const campaignId = interaction.customId.replace('join_', '');
     
     try {
+      console.log(`🔘 Button clicked: join_${campaignId} by ${interaction.user.tag}`);
+      
+      // First, quickly get campaign data to determine if we need to show a modal
       const { data, error } = await supabase
         .from('discord_guild_campaigns')
         .select(`
@@ -1567,7 +1688,18 @@ client.on('interactionCreate', async (interaction) => {
       if (error || !data) {
         await interaction.reply({ 
           content: '❌ Campaign not found or no longer available.',
-          flags: 64 
+          flags: 64 // MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      // Check if campaign is actually active
+      if (!data.is_active) {
+        const statusMessage = data.status === 'paused' ? 'temporarily paused' : 
+                             data.status === 'archived' ? 'completed and archived' : 'currently inactive';
+        await interaction.reply({
+          content: `⏸️ **Campaign ${statusMessage.charAt(0).toUpperCase() + statusMessage.slice(1)}**\n\nThe **${data.campaign_name}** campaign is ${statusMessage}.\n\nPlease check with server administrators for active campaigns.`,
+          flags: 64 // MessageFlags.Ephemeral
         });
         return;
       }
@@ -1582,16 +1714,35 @@ client.on('interactionCreate', async (interaction) => {
         templateConfig: null
       };
 
-      // Get or create onboarding session
+      console.log(`🎯 Processing campaign join for: ${config.campaignName} (${config.campaignType})`);
+
+      // Get or create onboarding session with timeout
       const userId = interaction.user.id;
       const username = interaction.user.tag;
       
-      const session = await onboardingManager.getOrCreateSession(campaignId, userId, username, {});
+      let session;
+      try {
+        // Add timeout to prevent hanging
+        const sessionPromise = onboardingManager.getOrCreateSession(campaignId, userId, username, {});
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session creation timeout')), 5000) // Reduced to 5 seconds
+        );
+        
+        session = await Promise.race([sessionPromise, timeoutPromise]);
+      } catch (sessionError) {
+        console.error('❌ Session creation failed:', sessionError);
+        await interaction.reply({
+          content: '❌ **Connection Issue**\n\nFailed to start onboarding due to a temporary connection issue. Please try again in a moment.\n\n💡 **Tip**: If this persists, contact server administrators.',
+          flags: 64 // MessageFlags.Ephemeral
+        });
+        return;
+      }
       
       if (!session.success) {
+        console.error('❌ Session creation returned error:', session.error);
         await interaction.reply({
-          content: '❌ Failed to start onboarding. Please try again later.',
-          flags: 64
+          content: '❌ **Service Temporarily Unavailable**\n\nFailed to start onboarding. Please try again later.\n\n💡 **Error**: ' + (session.error || 'Unknown error'),
+          flags: 64 // MessageFlags.Ephemeral
         });
         return;
       }
@@ -1600,7 +1751,7 @@ client.on('interactionCreate', async (interaction) => {
       if (session.is_completed) {
         await interaction.reply({
           content: `✅ **Welcome back!**\n\nYou've already completed the onboarding process for **${config.campaignName}**.\n\nYou're all set to enjoy all the community features!`,
-          flags: 64
+          flags: 64 // MessageFlags.Ephemeral
         });
         return;
       }
@@ -1609,7 +1760,7 @@ client.on('interactionCreate', async (interaction) => {
       if (!session.fields || session.fields.length === 0) {
         await interaction.reply({
           content: `🎉 **Welcome to ${config.clientName}!**\n\nNo additional information needed - you're all set!`,
-          flags: 64
+          flags: 64 // MessageFlags.Ephemeral
         });
         
         // Complete onboarding immediately
@@ -1634,7 +1785,7 @@ client.on('interactionCreate', async (interaction) => {
       if (incompleteFields.length === 0) {
         await interaction.reply({
           content: `🎉 **Welcome back to ${config.clientName}!**\n\nLooks like you've already provided all the required information. You're all set!`,
-          flags: 64
+          flags: 64 // MessageFlags.Ephemeral
         });
         
         // Complete onboarding 
@@ -1653,27 +1804,45 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
 
-      // **SHOW MODAL IMMEDIATELY** - This is the key change!
-      const modal = createOnboardingModal(incompleteFields, 1, config);
-      await interaction.showModal(modal);
-      
-      console.log(`✅ Showed onboarding modal immediately for ${username} in campaign ${config.campaignName}`);
-      
-      // Store session data for when the modal is submitted
+      // Store session data for when the modal is submitted BEFORE showing modal
       await onboardingManager.storeSessionForModal(campaignId, userId, {
         fields: incompleteFields,
         config,
         referralValidation: null
       });
 
-    } catch (error) {
-      console.error('Error handling campaign join button:', error);
+      // **SHOW MODAL IMMEDIATELY** - Don't defer first!
+      const modal = createOnboardingModal(incompleteFields, 1, config);
       
-      if (!interaction.replied && !interaction.deferred) {
-        await interaction.reply({
-          content: '❌ An error occurred while starting the onboarding process. Please try again.',
-          flags: 64
-        });
+      // Show the modal directly (this responds to the interaction)
+      await interaction.showModal(modal);
+      
+      console.log(`✅ Showed onboarding modal immediately for ${username} in campaign ${config.campaignName}`);
+
+    } catch (error) {
+      console.error('❌ Error handling campaign join button:', error);
+      
+      try {
+        // Check if we can still respond to the interaction
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: '❌ **System Error**\n\nAn unexpected error occurred while starting the onboarding process.\n\n🔄 **Please try clicking the button again.** If this persists, contact server administrators.\n\n💡 **Error Code**: ' + (error.code || 'UNKNOWN'),
+            flags: 64 // MessageFlags.Ephemeral
+          });
+        }
+      } catch (replyError) {
+        console.error('❌ Failed to send error response:', replyError);
+        
+        // Last resort: try to send a channel message
+        if (interaction.channel) {
+          try {
+            await interaction.channel.send({
+              content: `${interaction.user} ❌ **Onboarding Error**: Failed to start onboarding for the campaign. Please try again or contact administrators.`
+            });
+          } catch (channelError) {
+            console.error('❌ Failed to send channel error message:', channelError);
+          }
+        }
       }
     }
   }
@@ -1697,11 +1866,14 @@ async function handleOnboardingModalSubmission(interaction) {
   const guildId = interaction.guild.id;
   const userId = interaction.user.id;
   const username = interaction.user.tag;
-  let hasReplied = false;
 
   try {
+    // Immediately defer the interaction to prevent timeout
+    await interaction.deferReply({ flags: 64 }); // MessageFlags.Ephemeral
+    console.log(`📝 Modal submitted by ${username} - interaction deferred`);
+    
     // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 1: CONFIGURATION VALIDATION (FIXED)
+    // SCENARIO 1: CONFIGURATION VALIDATION (IMPROVED)
     // ═══════════════════════════════════════════════════════════════
     
     // First, try to get session data to extract campaign ID
@@ -1711,8 +1883,8 @@ async function handleOnboardingModalSubmission(interaction) {
       const modalPart = parseInt(interaction.customId.split('_').pop()) || 1;
       
       // We need to find the campaign ID from any active session
-      // Let's check all stored modal sessions for this user
-      const { data: sessions, error: sessionError } = await supabase
+      // Let's check all stored modal sessions for this user with timeout
+      const sessionPromise = supabase
         .from('campaign_onboarding_responses')
         .select('campaign_id')
         .eq('discord_user_id', userId)
@@ -1721,15 +1893,25 @@ async function handleOnboardingModalSubmission(interaction) {
         .order('created_at', { ascending: false })
         .limit(1);
 
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session lookup timeout')), 5000)
+      );
+
+      const { data: sessions, error: sessionError } = await Promise.race([sessionPromise, timeoutPromise]);
+
       if (sessionError) {
-        console.error('Error retrieving session data:', sessionError);
+        console.error('❌ Error retrieving session data:', sessionError);
+        await interaction.editReply({
+          content: '❌ **Session Error**\nFailed to retrieve session data. Please try clicking the campaign button again.',
+        });
+        return;
       }
 
       if (sessions && sessions.length > 0) {
         const campaignId = sessions[0].campaign_id;
         
-        // Get campaign configuration directly by ID
-        const { data: campaignData, error: campaignError } = await supabase
+        // Get campaign configuration directly by ID with timeout
+        const campaignPromise = supabase
           .from('discord_guild_campaigns')
           .select(`
             *,
@@ -1738,11 +1920,15 @@ async function handleOnboardingModalSubmission(interaction) {
           .eq('id', campaignId)
           .single();
 
+        const { data: campaignData, error: campaignError } = await Promise.race([
+          campaignPromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Campaign lookup timeout')), 5000))
+        ]);
+
         if (campaignError || !campaignData) {
           console.error('❌ Campaign not found:', campaignError);
-          await safeReply(interaction, {
-            content: '❌ **Configuration Error**\nCampaign configuration not found. Please restart the onboarding process.',
-            flags: 64
+          await interaction.editReply({
+            content: '❌ **Configuration Error**\nCampaign configuration not found. Please restart the onboarding process by clicking the campaign button again.',
           });
           return;
         }
@@ -1767,15 +1953,18 @@ async function handleOnboardingModalSubmission(interaction) {
         return;
       }
     } catch (sessionRetrievalError) {
-      console.error('Error during session retrieval:', sessionRetrievalError);
+      console.error('❌ Error during session retrieval:', sessionRetrievalError);
+      await interaction.editReply({
+        content: '❌ **Timeout Error**\nSession retrieval timed out. Please try clicking the campaign button again.',
+      });
+      return;
     }
 
     // Fallback: Try the original guild-based lookup
     const fallbackConfig = await getBotConfig(guildId, interaction.channel.id);
     if (!fallbackConfig) {
-      await safeReply(interaction, {
+      await interaction.editReply({
         content: '❌ **Configuration Error**\nNo campaign configuration found for this server. Please contact an administrator.\n\n💡 **Tip**: Try clicking the campaign button again to restart the process.',
-        flags: 64
       });
       return;
     }
@@ -1786,11 +1975,19 @@ async function handleOnboardingModalSubmission(interaction) {
   } catch (error) {
     console.error('❌ Unexpected error in modal submission:', error);
     
-    if (!hasReplied) {
-      await safeReply(interaction, {
-        content: '❌ **System Error**\nAn unexpected error occurred. Please try clicking the campaign button again.',
-        flags: 64
-      });
+    try {
+      if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({
+          content: '❌ **System Error**\nAn unexpected error occurred while processing your submission.\n\n🔄 **Please try clicking the campaign button again.** If this persists, contact server administrators.',
+        });
+      } else if (!interaction.replied) {
+        await interaction.reply({
+          content: '❌ **System Error**\nAn unexpected error occurred. Please try clicking the campaign button again.',
+          flags: 64 // MessageFlags.Ephemeral
+        });
+      }
+    } catch (replyError) {
+      console.error('❌ Failed to send error response:', replyError);
     }
   }
 }
@@ -1817,9 +2014,8 @@ async function processModalSubmission(interaction, config, modalPart) {
         responses[fieldId] = value;
       });
     } catch (validationError) {
-      await safeReply(interaction, {
+      await interaction.editReply({
         content: `❌ **Validation Error**\n${validationError.message}\n\nPlease fill out all required fields.`,
-        flags: 64
       });
       return;
     }
