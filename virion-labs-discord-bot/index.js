@@ -1833,11 +1833,12 @@ client.on('interactionCreate', async (interaction) => {
       } catch (replyError) {
         console.error('❌ Failed to send error response:', replyError);
         
-        // Last resort: try to send a channel message
+        // Last resort: try to send an ephemeral channel message
         if (interaction.channel) {
           try {
             await interaction.channel.send({
-              content: `${interaction.user} ❌ **Onboarding Error**: Failed to start onboarding for the campaign. Please try again or contact administrators.`
+              content: `${interaction.user} ❌ **Onboarding Error**: Failed to start onboarding for the campaign. Please try again or contact administrators.`,
+              flags: 64 // Make this ephemeral
             });
           } catch (channelError) {
             console.error('❌ Failed to send channel error message:', channelError);
@@ -2143,11 +2144,12 @@ async function processModalSubmission(interaction, config, modalPart, modalSessi
               await interaction.followUp({ ...options, flags: 64 });
             } catch (error) {
               console.error('Error sending completion message:', error);
-              // Fallback to channel message
+              // Fallback to ephemeral channel message
               if (interaction.channel) {
                 await interaction.channel.send({
                   content: `${interaction.user} ${options.content || 'Onboarding completed!'}`,
-                  embeds: options.embeds
+                  embeds: options.embeds,
+                  flags: 64 // Make fallback ephemeral
                 });
               }
             }
@@ -2244,6 +2246,15 @@ async function safeReply(interaction, options) {
     return false;
   }
   
+  // Default to ephemeral messages ONLY for onboarding interactions
+  if (!options.flags && (
+    interaction.customId?.includes('onboarding') || 
+    interaction.customId?.includes('start_onboarding') ||
+    interaction.customId?.includes('join_') // Campaign join buttons
+  )) {
+    options.flags = 64; // Make onboarding messages ephemeral by default
+  }
+  
   try {
     await interaction.reply(options);
     return true;
@@ -2259,7 +2270,8 @@ async function safeReply(interaction, options) {
         try {
           await interaction.channel.send({
             content: `${interaction.user} ⏰ **Interaction Timeout**\n${options.content || 'Your action was processed but the response timed out. Please try again if needed.'}`,
-            embeds: options.embeds
+            embeds: options.embeds,
+            flags: 64 // Make timeout messages ephemeral
           });
           return true;
         } catch (channelError) {
@@ -2269,12 +2281,13 @@ async function safeReply(interaction, options) {
       return false;
     }
     
-    // For other errors, try fallback to channel message
+    // For other errors, try fallback to ephemeral channel message
     if (interaction.channel) {
       try {
         await interaction.channel.send({
           content: `${interaction.user} ${options.content || 'Action completed!'}`,
-          embeds: options.embeds
+          embeds: options.embeds,
+          flags: 64 // Make fallback messages ephemeral
         });
         return true;
       } catch (fallbackError) {

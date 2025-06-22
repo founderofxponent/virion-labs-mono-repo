@@ -72,7 +72,7 @@ class OnboardingManager {
             .setColor(config.config?.brand_color || '#00aa00')
             .setTimestamp();
 
-          await message.reply({ embeds: [welcomeEmbed] });
+          await message.reply({ embeds: [welcomeEmbed], flags: 64 }); // Ephemeral reply
         } else {
           await this.showCompletionMessage(message, config);
         }
@@ -120,7 +120,8 @@ class OnboardingManager {
 
       await message.reply({ 
         embeds: [embed], 
-        components: [row]
+        components: [row],
+        flags: 64 // Ephemeral reply
       });
 
       // Store session info for button interaction
@@ -276,8 +277,8 @@ class OnboardingManager {
           await message.followUp({ embeds: [embed], flags: 64 });
         }
       } else {
-        // This is a regular message
-        await message.reply({ embeds: [embed] });
+        // This is a regular message - make completion messages ephemeral
+        await message.reply({ embeds: [embed], flags: 64 });
       }
     } catch (error) {
       console.error('Error sending completion message:', error);
@@ -310,8 +311,8 @@ class OnboardingManager {
           await message.followUp({ embeds: [embed], flags: 64 });
         }
       } else {
-        // This is a regular message
-        await message.reply({ embeds: [embed] });
+        // This is a regular message - make completion messages ephemeral
+        await message.reply({ embeds: [embed], flags: 64 });
       }
     } catch (error) {
       console.error('Error sending completion message:', error);
@@ -331,7 +332,7 @@ class OnboardingManager {
             .setColor('#00aa00')
             .setTimestamp();
 
-          await message.followUp({ embeds: [roleEmbed] });
+          await message.followUp({ embeds: [roleEmbed], flags: 64 }); // Make role assignment ephemeral
           console.log(`✅ Assigned role ${role.name} to ${(message.author || message.user).tag} after onboarding completion`);
         }
       }
@@ -475,18 +476,24 @@ class OnboardingManager {
         } else {
           await message.followUp({ embeds: [embed], flags: 64 });
         }
+      } else if (message.reply) {
+        // This is a regular message - make error messages ephemeral for onboarding
+        await message.reply({ embeds: [embed], flags: 64 });
       } else {
-        // This is a regular message
-        await message.reply({ embeds: [embed] });
+        // Fallback for other message types
+        await message.channel.send({ 
+          content: `${message.user || message.author} ⚠️ **Onboarding Error:** ${errorText}`,
+          flags: 64
+        });
       }
     } catch (error) {
       console.error('Error sending error message:', error);
-      // Fallback: try to send a message to the channel if reply fails
+      // Fallback: try to send an ephemeral message to the channel
       try {
         if (message.channel) {
           await message.channel.send({ 
-            content: `⚠️ Error: ${errorText}`,
-            flags: message.isButton && message.isButton() ? 64 : undefined
+            content: `${message.user || message.author} ⚠️ **Onboarding Error:** ${errorText}`,
+            flags: 64
           });
         }
       } catch (fallbackError) {
@@ -631,10 +638,11 @@ class OnboardingManager {
             });
           }
         } else {
-          // This is a regular message
+          // This is a regular message - make onboarding messages ephemeral
           await message.reply({ 
             embeds: [introEmbed], 
-            components: [row]
+            components: [row],
+            flags: 64 // Ephemeral reply
           });
         }
       } catch (error) {
