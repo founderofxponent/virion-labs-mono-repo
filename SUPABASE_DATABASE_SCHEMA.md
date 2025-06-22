@@ -4,29 +4,60 @@ This document provides a comprehensive overview of all 28 tables and views in th
 
 ## Recent Changes
 
-### Discord Bot Modal Interaction Handling Fix (Latest)
+### Discord Bot Slash Commands Cleanup (Latest)
 **Date:** December 2024
 
-**Enhancement:** Fixed Discord interaction handling for modal submissions
+**Enhancement:** Cleaned up Discord bot to only use essential `/start` and `/campaigns` slash commands
 
-**Issues Resolved:**
-- **Problem**: Modal submissions failed with "Interaction already replied to, cannot send response" error
-- **Problem**: Users received "Failed to send immediate acknowledgment" after successful field validation
-- **Root Cause**: Code was trying to use `safeReply()` after interaction was already deferred with `deferReply()`
+**Issue Resolved:**
+- **Problem**: Discord bot had too many slash commands cluttering the interface, including custom campaign-specific commands
+- **Root Cause**: Previous implementations registered custom commands as slash commands, creating a confusing user experience
+- **Impact**: Users saw many irrelevant slash commands that weren't consistently available across campaigns
 
 **Changes Made:**
-- **Fixed** `processModalSubmission()` to use `editReply()` instead of `safeReply()` for deferred interactions
-- **Corrected** interaction flow: `deferReply()` → `editReply()` → `followUp()` for multi-step responses
-- **Removed** malformed code structure that attempted both deferring and replying to same interaction
-- **Enhanced** error handling to properly manage interaction state throughout modal processing
+
+**Database Cleanup:**
+```sql
+-- Removed all custom commands from campaigns
+UPDATE discord_guild_campaigns 
+SET custom_commands = '[]'::jsonb 
+WHERE custom_commands IS NOT NULL 
+AND jsonb_array_length(custom_commands) > 0;
+
+-- Removed all custom commands from templates
+UPDATE campaign_templates 
+SET template_config = jsonb_set(
+  template_config, 
+  '{bot_config,custom_commands}', 
+  '[]'::jsonb
+)
+WHERE template_config->'bot_config'->'custom_commands' IS NOT NULL
+AND jsonb_array_length(template_config->'bot_config'->'custom_commands') > 0;
+```
+
+**Discord Bot Code Organization:**
+- **Organized** slash command structure for future extensibility in `virion-labs-discord-bot/index.js`
+- **Created** `SLASH_COMMANDS` configuration object with categories (CORE, future ADMIN/MODERATION/UTILITY)
+- **Implemented** clean command registration system with only essential commands
+- **Added** proper command handler dispatch system
+- **Removed** all custom command references from bot configuration
+
+**Only Two Slash Commands Now:**
+- `/campaigns` - View and join available campaigns for the channel
+- `/start` - Start onboarding for the active campaign
+
+**Impact:** 
+- ✅ **Clean Discord Interface**: Only 2 essential slash commands visible
+- ✅ **No Custom Command Clutter**: Eliminated campaign-specific slash commands
+- ✅ **Organized Code Structure**: Prepared for future command additions
+- ✅ **Consistent User Experience**: Same commands available across all servers
+- ✅ **Future Extensibility**: Easy to add new command categories when needed
 
 **Technical Details:**
-- Discord.js requires specific interaction flow: once deferred, must use `editReply()` or `followUp()`
-- Modal submission handler now properly acknowledges user input before async processing
-- Consistent use of ephemeral flags (64) for private responses
-- Proper error handling for interaction timeouts and API failures
-
-**Impact:** Modal submissions now work reliably with proper Discord interaction handling, completing the full onboarding flow from button click to form submission.
+- All campaign functionality now accessed through `/campaigns` and `/start` commands only
+- Custom commands removed from database but functionality preserved through campaign interface
+- Bot code organized with clear command categories for future expansion
+- No breaking changes to existing campaign functionality
 
 ### Discord Bot Dual-Campaign Onboarding System Enhancement
 **Date:** December 2024
@@ -320,7 +351,7 @@ Legacy bot configuration table (being phased out).
 - `last_online` (timestamptz, nullable) - Last online timestamp
 - `auto_deploy` (boolean, default: false) - Auto-deployment enabled
 - `webhook_url` (text, nullable) - Webhook endpoint URL
-- `prefix` (text, default: '!') - Command prefix
+- `prefix` (text, default: '/') - Command prefix (now uses Discord slash commands)
 - `description` (text, nullable) - Bot description
 - `avatar_url` (text, nullable) - Bot avatar URL
 - `invite_url` (text, nullable) - Discord invite URL
@@ -506,7 +537,7 @@ Comprehensive Discord campaign management with extensive configuration options.
 - `bot_response_style` (text, default: 'friendly') - Response style
 - `brand_color` (text, default: '#6366f1') - Brand color
 - `brand_logo_url` (text, nullable) - Brand logo URL
-- `custom_commands` (jsonb, default: '[]') - Custom commands
+- `custom_commands` (jsonb, default: '[]') - Custom commands (automatically registered as Discord slash commands)
 - `auto_responses` (jsonb, default: '{}') - Auto-response configuration
 - `rate_limit_per_user` (integer, default: 5) - Rate limit per user
 - `allowed_channels` (jsonb, default: '[]') - Allowed channel IDs
@@ -529,7 +560,7 @@ Comprehensive Discord campaign management with extensive configuration options.
 - ~~`support_info`~~ (MOVED to `campaign_landing_pages`) - Support information
 - ~~`landing_page_template_id`~~ (MOVED to `campaign_landing_pages`) - Landing page template ID
 - `template` (text, default: 'standard') - Bot template type
-- `prefix` (text, default: '!') - Command prefix
+- `prefix` (text, default: '/') - Command prefix (now uses Discord slash commands)
 - `description` (text, nullable) - Campaign description
 - `avatar_url` (text, nullable) - Avatar URL
 - `features` (jsonb, default: '{}') - Feature configuration
@@ -951,7 +982,7 @@ Comprehensive view combining Discord campaign configurations with client and ref
 - `channel_id` (text) - Discord channel ID
 - `display_name` (text) - Bot display name
 - `template` (text) - Bot template type
-- `prefix` (text) - Bot command prefix
+- `prefix` (text) - Bot command prefix (now uses '/' for Discord slash commands)
 - `description` (text) - Bot description
 - `avatar_url` (text) - Bot avatar URL
 - `bot_avatar_url` (text) - Alternative bot avatar URL
@@ -1251,3 +1282,37 @@ The following direct relationships are established:
 - **API Response Time**: Improved with single-query approach
 - **Database Queries**: Reduced from 2 sequential to 1 optimized JOIN
 - **Codebase**: Simplified by removing legacy compatibility code
+
+---
+
+## Slash Commands Migration and Custom Commands Cleanup
+
+### **Database and Frontend Cleanup Applied (Latest)**
+
+#### **Database Changes:**
+- ✅ **Removed all custom commands** from `discord_guild_campaigns.custom_commands` 
+- ✅ **Removed all custom commands** from `campaign_templates.template_config.bot_config.custom_commands`
+- ✅ **Campaigns Updated**: 10 campaigns cleaned up
+- ✅ **Templates Updated**: 4 templates cleaned up
+
+#### **Frontend Changes:**
+- ✅ **Campaign Wizard**: Removed prefix configuration field entirely
+- ✅ **Help Messages**: Updated to reference only `/campaigns` and `/start`
+- ✅ **Join-campaigns Channel**: Updated guidance to use slash commands
+
+#### **Discord Bot Changes:**
+- ✅ **Slash Commands Only**: Registers only `/campaigns` and `/start` commands
+- ✅ **No Custom Commands**: Custom commands no longer registered as slash commands
+- ✅ **Clean Interface**: Users see only 2 essential commands when typing `/`
+- ✅ **Improved UX**: All functionality accessible through `/campaigns` interface
+
+#### **API Changes:**
+- ✅ **Bot Config API**: Still returns prefix field (defaults to '/') for compatibility
+- ✅ **Campaign Templates**: Updated to not include custom commands in new campaigns
+
+#### **Result:**
+Discord servers now have a clean, uncluttered slash command interface with only:
+- `/campaigns` - View and join available campaigns for the current channel
+- `/start` - Start onboarding for the active campaign in the current channel
+
+All previous custom command functionality is now accessible through the `/campaigns` interface, providing a much better user experience.

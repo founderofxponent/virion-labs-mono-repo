@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
         bot_name: selectedCampaign.bot_name || 'Virion Bot',
         brand_color: selectedCampaign.brand_color || '#6366f1',
         welcome_message: selectedCampaign.welcome_message,
-        prefix: selectedCampaign.prefix || '!',
+        prefix: selectedCampaign.prefix || '/',
         template: selectedCampaign.template || 'standard',
         
         // Onboarding configuration

@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const OnboardingManager = require('./onboarding-manager');
 require('dotenv').config();
 const { supabase } = require('./supabase');
@@ -24,6 +24,287 @@ const client = new Client({
     GatewayIntentBits.GuildMembers
   ]
 });
+
+// Initialize REST for slash commands
+const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
+
+// ===== SLASH COMMANDS CONFIGURATION =====
+// Only essential commands - organized for future extensibility
+
+const SLASH_COMMANDS = {
+  // Core commands that should always be available
+  CORE: [
+    {
+      name: 'campaigns',
+      description: 'View and join available campaigns for this channel',
+      handler: 'handleCampaignsCommand'
+    },
+    {
+      name: 'start', 
+      description: 'Start onboarding for the active campaign in this channel',
+      handler: 'handleStartCommand'
+    }
+  ],
+  
+  // Future command categories can be added here
+  // ADMIN: [],
+  // MODERATION: [],
+  // UTILITY: []
+};
+
+// Build slash command objects for Discord API
+function buildSlashCommands() {
+  const commands = [];
+  
+  // Add core commands
+  SLASH_COMMANDS.CORE.forEach(cmd => {
+    commands.push(
+      new SlashCommandBuilder()
+        .setName(cmd.name)
+        .setDescription(cmd.description)
+    );
+  });
+  
+  // Future: Add other command categories here
+  // SLASH_COMMANDS.ADMIN?.forEach(cmd => { ... });
+  
+  return commands;
+}
+
+// Register slash commands with Discord
+async function registerSlashCommands() {
+  try {
+    console.log('🔄 Started refreshing application (/) commands.');
+    
+    const commands = buildSlashCommands();
+    console.log(`📝 Registering ${commands.length} slash commands: ${commands.map(c => `/${c.name}`).join(', ')}`);
+
+    // Clear ALL existing commands first (both global and guild-specific)
+    console.log('🧹 Clearing all existing slash commands...');
+    
+    // Clear global commands
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: [] }
+    );
+    
+    // Clear guild-specific commands for all guilds the bot is in
+    client.guilds.cache.forEach(async (guild) => {
+      try {
+        await rest.put(
+          Routes.applicationGuildCommands(client.user.id, guild.id),
+          { body: [] }
+        );
+        console.log(`🧹 Cleared commands for guild: ${guild.name}`);
+      } catch (error) {
+        console.warn(`⚠️ Could not clear commands for guild ${guild.name}:`, error.message);
+      }
+    });
+
+    // Wait a moment for Discord to process the deletions
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Now register only our essential commands globally
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: commands.map(cmd => cmd.toJSON()) }
+    );
+
+    console.log('✅ Successfully registered essential slash commands');
+    console.log('🚫 All old commands have been removed from Discord');
+    console.log('💡 Only /campaigns and /start are now available');
+  } catch (error) {
+    console.error('❌ Error registering slash commands:', error);
+  }
+}
+
+// ===== SLASH COMMAND HANDLERS =====
+
+// Main slash command dispatcher
+async function handleSlashCommand(interaction) {
+  const { commandName, user } = interaction;
+  console.log(`⚡ Slash command /${commandName} from ${user.tag} in ${interaction.guild?.name || 'DM'}`);
+
+  try {
+    // Find the command configuration
+    const coreCommand = SLASH_COMMANDS.CORE.find(cmd => cmd.name === commandName);
+    
+    if (coreCommand) {
+      // Execute the handler function
+      switch (coreCommand.handler) {
+        case 'handleCampaignsCommand':
+          await handleCampaignsCommand(interaction);
+          break;
+        case 'handleStartCommand':
+          await handleStartCommand(interaction);
+          break;
+        default:
+          console.error(`❌ No handler found for command: ${commandName}`);
+          await safeReply(interaction, {
+            content: '❌ Command handler not implemented.',
+            ephemeral: true
+          });
+      }
+    } else {
+      console.error(`❌ Unknown slash command: ${commandName}`);
+      await safeReply(interaction, {
+        content: '❌ Unknown command. Use `/campaigns` to see available options.',
+        ephemeral: true
+      });
+    }
+  } catch (error) {
+    console.error(`❌ Error handling slash command ${commandName}:`, error);
+    await safeReply(interaction, {
+      content: '❌ An error occurred while processing your command. Please try again.',
+      ephemeral: true
+    });
+  }
+}
+
+// /campaigns command handler
+async function handleCampaignsCommand(interaction) {
+  try {
+    await interaction.deferReply({ ephemeral: true });
+    
+    const guildId = interaction.guild?.id;
+    const channelId = interaction.channel?.id;
+    
+    if (!guildId) {
+      await interaction.editReply({
+        content: '❌ This command can only be used in a server, not in DMs.'
+      });
+      return;
+    }
+
+    console.log(`📋 Campaigns command from ${interaction.user.tag} in guild ${guildId}, channel ${channelId}`);
+    
+    // Fetch all campaigns for this guild
+    const campaigns = await fetchAllCampaigns(guildId);
+    
+    if (!campaigns || campaigns.length === 0) {
+      await interaction.editReply({
+        content: '📭 No campaigns are configured for this server yet.\n\n💡 Server administrators can set up campaigns through the dashboard.'
+      });
+      return;
+    }
+
+    // Create embed showing available campaigns
+    const embed = new EmbedBuilder()
+      .setTitle('📋 Available Campaigns')
+      .setDescription('Here are the campaigns available in this server:')
+      .setColor('#6366f1')
+      .setTimestamp();
+
+    campaigns.forEach((campaign, index) => {
+      const statusEmoji = {
+        'active': '🟢',
+        'paused': '⏸️', 
+        'archived': '📁',
+        'inactive': '⚫'
+      }[campaign.status] || '❓';
+      
+      embed.addFields({
+        name: `${statusEmoji} ${campaign.campaign_name}`,
+        value: `Status: ${campaign.status}\nUse \`/start\` to begin onboarding`,
+        inline: true
+      });
+    });
+
+    embed.setFooter({
+      text: 'Use /start to begin onboarding for the active campaign'
+    });
+
+    await interaction.editReply({ embeds: [embed] });
+
+    // Track the interaction
+    await trackInteraction(guildId, channelId, {
+      author: { id: interaction.user.id, tag: interaction.user.tag },
+      id: interaction.id,
+      content: '/campaigns'
+    }, 'slash_command_campaigns');
+
+  } catch (error) {
+    console.error('❌ Error in campaigns command:', error);
+    await safeReply(interaction, {
+      content: '❌ Failed to fetch campaigns. Please try again later.',
+      ephemeral: true
+    });
+  }
+}
+
+// /start command handler  
+async function handleStartCommand(interaction) {
+  try {
+    await interaction.deferReply({ ephemeral: true });
+    
+    const guildId = interaction.guild?.id;
+    const channelId = interaction.channel?.id;
+    const userId = interaction.user.id;
+    const username = interaction.user.tag;
+    
+    if (!guildId) {
+      await interaction.editReply({
+        content: '❌ This command can only be used in a server, not in DMs.'
+      });
+      return;
+    }
+
+    console.log(`🚀 Start command from ${username} in guild ${guildId}, channel ${channelId}`);
+    
+    // Get bot configuration for this guild/channel
+    const botConfig = await getBotConfig(guildId, channelId);
+    
+    if (!botConfig) {
+      await interaction.editReply({
+        content: '❌ No active campaign found for this server.\n\n💡 Server administrators can set up campaigns through the dashboard.'
+      });
+      return;
+    }
+
+    if (botConfig.campaignStatus !== 'active') {
+      await interaction.editReply({
+        content: `❌ The campaign "${botConfig.campaignName}" is currently ${botConfig.campaignStatus} and not accepting new participants.`
+      });
+      return;
+    }
+
+    // Start the onboarding process
+    const onboardingResult = await onboardingManager.startOnboarding(
+      botConfig.campaignId,
+      userId,
+      username,
+      guildId,
+      channelId,
+      botConfig
+    );
+
+    if (onboardingResult.success) {
+      await interaction.editReply({
+        content: `✅ Onboarding started for **${botConfig.campaignName}**!\n\n📩 Check your DMs to continue the process.`
+      });
+    } else {
+      await interaction.editReply({
+        content: `❌ Failed to start onboarding: ${onboardingResult.error || 'Unknown error'}`
+      });
+    }
+
+    // Track the interaction
+    await trackInteraction(guildId, channelId, {
+      author: { id: userId, tag: username },
+      id: interaction.id,
+      content: '/start'
+    }, 'slash_command_start');
+
+  } catch (error) {
+    console.error('❌ Error in start command:', error);
+    await safeReply(interaction, {
+      content: '❌ Failed to start onboarding. Please try again later.',
+      ephemeral: true
+    });
+  }
+}
+
+// ===== END SLASH COMMANDS SECTION =====
 
 // Cache for guild configurations to avoid repeated API calls
 const configCache = new Map();
@@ -114,7 +395,7 @@ const server = app.listen(HTTP_PORT, () => {
 });
 
 // Bot ready event
-client.once('ready', () => {
+client.once('ready', async () => {
   console.log('🤖 Virion Labs Discord Bot is ready!');
   console.log(`📡 Logged in as ${client.user.tag}`);
   console.log(`🔗 Dashboard API: ${DASHBOARD_API_URL}`);
@@ -122,7 +403,11 @@ client.once('ready', () => {
   console.log(`🎯 Target Guild: ${DEFAULT_GUILD_ID || 'Not configured'}`);
   console.log(`📺 Target Channel: ${DEFAULT_JOIN_CAMPAIGNS_CHANNEL_ID || 'join-campaigns (by name)'}`);
   console.log(`🐛 Debug mode: ${DEBUG ? 'ON' : 'OFF'}`);
-  console.log('✅ Bot is now listening for messages, interactions, and webhook requests...\n');
+  
+  // Register slash commands
+  await registerSlashCommands();
+  
+  console.log('✅ Bot is now listening for slash commands, interactions, and webhook requests...\n');
   
   // Test dashboard connection on startup
   testDashboardConnection();
@@ -218,7 +503,8 @@ async function getBotConfig(guildId, channelId = null, options = {}) {
         if (apiData.configured && apiData.campaign) {
           const campaign = apiData.campaign;
           console.log(`✅ Successfully got config from dashboard API: ${campaign.name} (${campaign.campaign_type})`);
-          return {
+          
+          const config = {
             isActive: campaign.is_active,
             campaignStatus: getCampaignStatus(campaign),
             campaignId: campaign.id,
@@ -230,7 +516,7 @@ async function getBotConfig(guildId, channelId = null, options = {}) {
               bot_name: campaign.bot_name || 'Virion Bot',
               brand_color: campaign.brand_color || '#6366f1',
               welcome_message: campaign.welcome_message,
-              prefix: campaign.prefix || '!',
+              prefix: campaign.prefix || '/',
               
               // Template and onboarding
               template: campaign.template || 'standard',
@@ -244,7 +530,6 @@ async function getBotConfig(guildId, channelId = null, options = {}) {
               
               // Response configuration
               auto_responses: campaign.auto_responses || {},
-              custom_commands: campaign.custom_commands || [],
               response_templates: campaign.response_templates || {},
               
               // Access control
@@ -265,6 +550,11 @@ async function getBotConfig(guildId, channelId = null, options = {}) {
             influencerId: campaign.influencer_id,
             referralCode: campaign.referral_code
           };
+          
+          // Note: Only /start and /campaigns slash commands are registered
+          // All campaign functionality is accessed through these essential commands
+          
+          return config;
         }
       }
       
@@ -1101,69 +1391,13 @@ client.on('messageCreate', async (message) => {
       console.log(`   Guild ID: ${guildId}, Channel ID: ${channelId}`);
     }
 
-    if (message.guild && (message.channel.name === 'join-campaigns' || message.channel.id === DEFAULT_JOIN_CAMPAIGNS_CHANNEL_ID || message.content.toLowerCase().startsWith('!campaigns'))) {
-      // Check if this is a publish command from admin
-      if (message.content.toLowerCase().startsWith('!publish') || message.content.toLowerCase().startsWith('!update')) {
-        // Only allow admins/mods to publish
-        if (message.member?.permissions?.has('MANAGE_CHANNELS') || message.member?.permissions?.has('ADMINISTRATOR')) {
-          // Use channel ID if configured, otherwise use channel name
-          const channelIdentifier = DEFAULT_JOIN_CAMPAIGNS_CHANNEL_ID || message.channel.name;
-          const success = await publishCampaignsToChannel(guildId, channelIdentifier, true);
-          if (success) {
-            await message.reply('✅ Campaign list updated successfully!');
-          } else {
-            await message.reply('❌ Failed to update campaign list. Please try again.');
-          }
-          return;
-        } else {
-          await message.reply('❌ You need Manage Channels or Administrator permission to publish campaigns.');
-          return;
-        }
-      }
-
-      const activeCampaigns = await fetchActiveCampaigns(guildId);
-      const allCampaigns = await fetchAllCampaigns(guildId);
-      
-      if (!allCampaigns.length) {
-        await message.reply('No campaigns found for this server.');
+    // Legacy support for join-campaigns channel (will be deprecated)
+    if (message.guild && (message.channel.name === 'join-campaigns' || message.channel.id === DEFAULT_JOIN_CAMPAIGNS_CHANNEL_ID)) {
+      // Only process non-command messages in join-campaigns channel
+      if (!message.content.startsWith('/')) {
+        await message.reply('💡 **Use Slash Commands:** Type `/campaigns` to view and join available campaigns, or `/start` to begin onboarding!\n\n✨ **Clean Interface:** We use only these two slash commands to keep Discord uncluttered!');
         return;
       }
-      
-      // Show active campaigns as buttons if available
-      if (activeCampaigns.length > 0) {
-        const row = new ActionRowBuilder();
-        activeCampaigns.slice(0,5).forEach(c => {
-          row.addComponents(new ButtonBuilder()
-            .setCustomId(`join_${c.id}`)
-            .setLabel(c.campaign_name)
-            .setStyle(ButtonStyle.Primary));
-        });
-        
-        let statusMessage = `**Active Campaigns (${activeCampaigns.length}):**\nSelect a campaign to join:`;
-        
-        // Add inactive campaign information if any exist
-        const inactiveCampaigns = allCampaigns.filter(c => !c.is_active);
-        if (inactiveCampaigns.length > 0) {
-          statusMessage += `\n\n**Inactive Campaigns (${inactiveCampaigns.length}):**`;
-          inactiveCampaigns.forEach(c => {
-            const statusEmoji = c.status === 'paused' ? '⏸️' : c.status === 'archived' ? '📦' : '🚫';
-            statusMessage += `\n${statusEmoji} ${c.campaign_name} (${c.status})`;
-          });
-        }
-        
-        await message.reply({ content: statusMessage, components: [row] });
-      } else {
-        // No active campaigns, show status of all campaigns
-        let statusMessage = '**All Campaigns:**\n';
-        allCampaigns.forEach(c => {
-          const statusEmoji = c.status === 'paused' ? '⏸️' : c.status === 'archived' ? '📦' : '🚫';
-          statusMessage += `\n${statusEmoji} ${c.campaign_name} (${c.status})`;
-        });
-        statusMessage += '\n\n*No active campaigns available to join right now.*';
-        
-        await message.reply(statusMessage);
-      }
-      return;
     }
 
     // Handle DM messages - check all user's guilds for onboarding sessions
@@ -1365,7 +1599,7 @@ client.on('messageCreate', async (message) => {
       const embed = createCampaignEmbed(
         contextConfig,
         '🆘 Help & Commands',
-        `Welcome to **${contextConfig.campaignName}**!\n\n**Available Commands:**\n• Type any message to interact with me\n• Use "start" or "begin" to start onboarding\n• Use "status" to check your onboarding progress\n\n**Need more help?**\nContact our support team!`,
+        `Welcome to **${contextConfig.campaignName}**!\n\n**Available Slash Commands:**\n• \`/campaigns\` - View and join available campaigns for this channel\n• \`/start\` - Start onboarding for the active campaign in this channel\n\n**✨ Clean Interface:** We've simplified to just these two commands to keep Discord uncluttered!\n\n**Tip:** Type \`/\` in any channel to see available commands!\n\n**Need more help?**\nContact the server administrators.`,
         contextConfig.config?.brand_color || '#6366f1'
       );
       await message.reply({ embeds: [embed] });
@@ -1849,15 +2083,34 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// Handle modal interactions
+// Handle all interactions (slash commands, modals, buttons)
 client.on('interactionCreate', async (interaction) => {
-  if (interaction.isModalSubmit()) {
-    if (interaction.customId.startsWith('onboarding_modal_')) {
-      await handleOnboardingModalSubmission(interaction);
+  try {
+    if (interaction.isChatInputCommand()) {
+      await handleSlashCommand(interaction);
+    } else if (interaction.isModalSubmit()) {
+      if (interaction.customId.startsWith('onboarding_modal_')) {
+        await handleOnboardingModalSubmission(interaction);
+      }
+    } else if (interaction.isButton()) {
+      if (interaction.customId.startsWith('start_onboarding_')) {
+        await handleOnboardingStartButton(interaction);
+      }
     }
-  } else if (interaction.isButton()) {
-    if (interaction.customId.startsWith('start_onboarding_')) {
-      await handleOnboardingStartButton(interaction);
+  } catch (error) {
+    console.error('❌ Error handling interaction:', error);
+    
+    // Try to respond with an error message if possible
+    try {
+      const errorMessage = '❌ An error occurred while processing your command. Please try again.';
+      
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: errorMessage, ephemeral: true });
+      } else {
+        await interaction.reply({ content: errorMessage, ephemeral: true });
+      }
+    } catch (replyError) {
+      console.error('❌ Failed to send error reply:', replyError);
     }
   }
 });

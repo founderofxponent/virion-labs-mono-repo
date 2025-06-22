@@ -55,7 +55,7 @@ export async function GET(
       is_default: data.is_default,
       // Extract bot configuration from template_config
       bot_config: {
-        prefix: data.template_config?.bot_config?.prefix || '!',
+        prefix: data.template_config?.bot_config?.prefix || '/',
         description: data.template_config?.bot_config?.description || data.description,
         bot_name: data.template_config?.bot_config?.bot_name || 'VirionBot',
         bot_personality: data.template_config?.bot_config?.bot_personality || 'helpful',

@@ -753,17 +753,17 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
                     <div className="bg-muted/50 p-4 rounded-lg space-y-2">
                       <div className="flex items-center gap-2 text-sm">
                         <Hash className="h-4 w-4" />
-                        <code className="bg-background px-2 py-1 rounded text-xs">{formData.prefix || selectedTemplate.bot_config.prefix}start</code>
+                        <code className="bg-background px-2 py-1 rounded text-xs">/start</code>
                         <span className="text-muted-foreground">- Begin onboarding process</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Hash className="h-4 w-4" />
-                        <code className="bg-background px-2 py-1 rounded text-xs">{formData.prefix || selectedTemplate.bot_config.prefix}onboard</code>
+                        <code className="bg-background px-2 py-1 rounded text-xs">/status</code>
                         <span className="text-muted-foreground">- Start onboarding (alternative)</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Hash className="h-4 w-4" />
-                        <code className="bg-background px-2 py-1 rounded text-xs">{formData.prefix || selectedTemplate.bot_config.prefix}help</code>
+                        <code className="bg-background px-2 py-1 rounded text-xs">/help</code>
                         <span className="text-muted-foreground">- Get help and commands list</span>
                       </div>
                     </div>
@@ -875,7 +875,7 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
                     <div className="bg-muted/50 p-4 rounded-lg space-y-2">
                       <div className="flex items-center gap-2 text-sm">
                         <Hash className="h-4 w-4" />
-                        <code className="bg-background px-2 py-1 rounded text-xs">{formData.prefix || selectedTemplate.bot_config.prefix}help</code>
+                        <code className="bg-background px-2 py-1 rounded text-xs">/help</code>
                         <span className="text-muted-foreground">- Get help and commands list</span>
                       </div>
                       {Object.entries(selectedTemplate.bot_config.auto_responses).map(([trigger, response], idx) => (

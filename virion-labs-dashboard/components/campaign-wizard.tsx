@@ -58,7 +58,6 @@ interface CampaignFormData {
   
   // Step 2: Bot Configuration
   bot_name: string
-  prefix: string
   bot_personality: string
   bot_response_style: string
   brand_color: string
@@ -130,7 +129,6 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     guild_id: '',
     channel_id: '',
     bot_name: 'Virion Bot',
-    prefix: '!',
     bot_personality: 'helpful',
     bot_response_style: 'friendly',
     brand_color: '#6366f1',
@@ -173,7 +171,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       const campaign = campaigns.find(c => c.id === campaignId)
       if (campaign) {
         // Use campaign_type (the correct field) instead of template
-        const campaignTemplate = campaign.campaign_type || campaign.template || 'custom'
+        const campaignTemplate = (campaign as any).campaign_type || (campaign as any).template || 'custom'
         
         setFormData({
           campaign_template: campaignTemplate,
@@ -182,21 +180,20 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           guild_id: campaign.guild_id,
           channel_id: campaign.channel_id || '',
           bot_name: campaign.display_name || 'Virion Bot',
-          prefix: campaign.prefix || '!',
-          bot_personality: campaign.bot_personality || 'helpful',
-          bot_response_style: campaign.bot_response_style || 'friendly',
-          brand_color: campaign.brand_color || '#6366f1',
-          brand_logo_url: campaign.brand_logo_url || '',
+          bot_personality: (campaign as any).bot_personality || 'helpful',
+          bot_response_style: (campaign as any).bot_response_style || 'friendly',
+          brand_color: (campaign as any).brand_color || '#6366f1',
+          brand_logo_url: (campaign as any).brand_logo_url || '',
           description: campaign.description || '',
-          welcome_message: campaign.welcome_message || '',
-          referral_tracking_enabled: campaign.referral_tracking_enabled || false,
-          auto_role_assignment: campaign.auto_role_assignment || false,
-          target_role_ids: campaign.target_role_ids || [],
-          moderation_enabled: campaign.moderation_enabled || true,
-          rate_limit_per_user: campaign.rate_limit_per_user || 5,
-          webhook_url: campaign.webhook_url || '',
-          campaign_start_date: campaign.campaign_start_date || '',
-          campaign_end_date: campaign.campaign_end_date || '',
+          welcome_message: (campaign as any).welcome_message || '',
+          referral_tracking_enabled: (campaign as any).referral_tracking_enabled || false,
+          auto_role_assignment: (campaign as any).auto_role_assignment || false,
+          target_role_ids: (campaign as any).target_role_ids || [],
+          moderation_enabled: (campaign as any).moderation_enabled || true,
+          rate_limit_per_user: (campaign as any).rate_limit_per_user || 5,
+          webhook_url: (campaign as any).webhook_url || '',
+          campaign_start_date: (campaign as any).campaign_start_date || '',
+          campaign_end_date: (campaign as any).campaign_end_date || '',
         })
         
         // Set the selected template ID for the template selection hook
@@ -210,7 +207,6 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     if (templateWithLandingPage) {
       setFormData(prev => ({
         ...prev,
-        prefix: templateWithLandingPage.bot_config.prefix,
         description: templateWithLandingPage.bot_config.description,
         bot_name: templateWithLandingPage.bot_config.bot_name,
         bot_personality: templateWithLandingPage.bot_config.bot_personality,
@@ -288,7 +284,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       case 1:
         return !!(formData.campaign_template && formData.client_id && formData.campaign_name && formData.guild_id)
       case 2:
-        return !!(formData.bot_name && formData.prefix)
+        return !!(formData.bot_name)
       case 3:
         return true // All fields in step 3 are optional or have defaults
       case 4:
@@ -616,15 +612,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="prefix">Bot Prefix *</Label>
-                    <Input
-                      id="prefix"
-                      value={formData.prefix}
-                      onChange={(e) => handleFieldChange('prefix', e.target.value)}
-                      placeholder="!"
-                    />
-                  </div>
+
 
                   <div className="space-y-2">
                     <Label htmlFor="bot_personality">Bot Personality</Label>
