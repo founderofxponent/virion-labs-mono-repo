@@ -147,17 +147,38 @@ async function handleSlashCommand(interaction) {
       }
     } else {
       console.error(`❌ Unknown slash command: ${commandName}`);
-      await safeReply(interaction, {
-        content: '❌ Unknown command. Use `/campaigns` to see available options.',
-        ephemeral: true
-      });
+      try {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            content: '❌ Unknown command. Use `/campaigns` to see available options.',
+            ephemeral: true
+          });
+        }
+      } catch (replyError) {
+        console.error('❌ Failed to send error reply:', replyError);
+      }
     }
   } catch (error) {
     console.error(`❌ Error handling slash command ${commandName}:`, error);
-    await safeReply(interaction, {
-      content: '❌ An error occurred while processing your command. Please try again.',
-      ephemeral: true
-    });
+    try {
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ An error occurred while processing your command. Please try again.',
+          ephemeral: true
+        });
+      } else if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({
+          content: '❌ An error occurred while processing your command. Please try again.'
+        });
+      } else {
+        await interaction.followUp({
+          content: '❌ An error occurred while processing your command. Please try again.',
+          ephemeral: true
+        });
+      }
+    } catch (replyError) {
+      console.error('❌ Failed to send error reply:', replyError);
+    }
   }
 }
 
@@ -188,32 +209,83 @@ async function handleCampaignsCommand(interaction) {
       return;
     }
 
-    // Create embed showing available campaigns
+    // Group campaigns by status for better organization
+    const activeCampaigns = campaigns.filter(c => c.status === 'active');
+    const pausedCampaigns = campaigns.filter(c => c.status === 'paused');
+    const archivedCampaigns = campaigns.filter(c => c.status === 'archived');
+    const inactiveCampaigns = campaigns.filter(c => c.status === 'inactive');
+
+    // Create main embed
     const embed = new EmbedBuilder()
-      .setTitle('📋 Available Campaigns')
-      .setDescription('Here are the campaigns available in this server:')
+      .setTitle('🎯 Campaign Center')
       .setColor('#6366f1')
       .setTimestamp();
 
-    campaigns.forEach((campaign, index) => {
-      const statusEmoji = {
-        'active': '🟢',
-        'paused': '⏸️', 
-        'archived': '📁',
-        'inactive': '⚫'
-      }[campaign.status] || '❓';
-      
-      embed.addFields({
-        name: `${statusEmoji} ${campaign.campaign_name}`,
-        value: `Status: ${campaign.status}\nUse \`/start\` to begin onboarding`,
-        inline: true
+    let description = `Welcome to the campaign center! Here's what's available in **${interaction.guild.name}**:\n\n`;
+
+    // Add active campaigns section
+    if (activeCampaigns.length > 0) {
+      description += `## 🟢 Active Campaigns (${activeCampaigns.length})\n`;
+      activeCampaigns.forEach(campaign => {
+        description += `**${campaign.campaign_name}**\n`;
       });
-    });
+      description += '\n';
+    }
 
+    // Add paused campaigns section
+    if (pausedCampaigns.length > 0) {
+      description += `## ⏸️ Paused Campaigns (${pausedCampaigns.length})\n`;
+      pausedCampaigns.forEach(campaign => {
+        description += `**${campaign.campaign_name}**\n`;
+      });
+      description += '\n';
+    }
+
+    // Add archived campaigns section (limit to 3 for brevity)
+    if (archivedCampaigns.length > 0) {
+      description += `## 📁 Recent Campaigns (${archivedCampaigns.length})\n`;
+      archivedCampaigns.slice(0, 3).forEach(campaign => {
+        description += `**${campaign.campaign_name}**\n`;
+      });
+      if (archivedCampaigns.length > 3) {
+        description += `*...and ${archivedCampaigns.length - 3} more completed campaigns*\n`;
+      }
+      description += '\n';
+    }
+
+    // Add inactive campaigns (limit to 2 for brevity)
+    if (inactiveCampaigns.length > 0) {
+      description += `## ⚫ Other Campaigns (${inactiveCampaigns.length})\n`;
+      inactiveCampaigns.slice(0, 2).forEach(campaign => {
+        description += `**${campaign.campaign_name}**\n`;
+      });
+      if (inactiveCampaigns.length > 2) {
+        description += `*...and ${inactiveCampaigns.length - 2} more campaigns*\n`;
+      }
+      description += '\n';
+    }
+
+    // Add instructions at the bottom - applies to all campaigns
+    description += `---\n`;
+    if (activeCampaigns.length > 0) {
+      description += `🚀 **Ready to get started?** Use \`/start\` to join any active campaign!`;
+    } else {
+      description += `💡 No campaigns are currently accepting new participants. Check back soon!`;
+    }
+
+    embed.setDescription(description);
+
+    // Add footer with helpful info
+    let footerText = `${campaigns.length} total campaign${campaigns.length !== 1 ? 's' : ''}`;
+    if (activeCampaigns.length > 0) {
+      footerText += ` • ${activeCampaigns.length} active`;
+    }
+    
     embed.setFooter({
-      text: 'Use /start to begin onboarding for the active campaign'
+      text: footerText
     });
 
+    // Send simple embed response without buttons
     await interaction.editReply({ embeds: [embed] });
 
     // Track the interaction
@@ -225,10 +297,25 @@ async function handleCampaignsCommand(interaction) {
 
   } catch (error) {
     console.error('❌ Error in campaigns command:', error);
-    await safeReply(interaction, {
-      content: '❌ Failed to fetch campaigns. Please try again later.',
-      ephemeral: true
-    });
+    try {
+      if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({
+          content: '❌ Failed to fetch campaigns. Please try again later.'
+        });
+      } else if (!interaction.replied) {
+        await interaction.reply({
+          content: '❌ Failed to fetch campaigns. Please try again later.',
+          ephemeral: true
+        });
+      } else {
+        await interaction.followUp({
+          content: '❌ Failed to fetch campaigns. Please try again later.',
+          ephemeral: true
+        });
+      }
+    } catch (replyError) {
+      console.error('❌ Failed to send error reply:', replyError);
+    }
   }
 }
 
@@ -268,23 +355,61 @@ async function handleStartCommand(interaction) {
       return;
     }
 
-    // Start the onboarding process
-    const onboardingResult = await onboardingManager.startOnboarding(
-      botConfig.campaignId,
-      userId,
-      username,
-      guildId,
-      channelId,
-      botConfig
-    );
-
-    if (onboardingResult.success) {
-      await interaction.editReply({
-        content: `✅ Onboarding started for **${botConfig.campaignName}**!\n\n📩 Check your DMs to continue the process.`
+    // Check if user already has an onboarding session
+    try {
+      const sessionResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding?campaign_id=${botConfig.campaignId}&discord_user_id=${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0'
+        }
       });
-    } else {
+
+      if (sessionResponse.ok) {
+        const session = await sessionResponse.json();
+        if (session.is_completed) {
+          await interaction.editReply({
+            content: `✅ You've already completed onboarding for **${botConfig.campaignName}**!\n\nWelcome back! You're all set to enjoy the community features.`
+          });
+          return;
+        }
+      }
+
+      // Create or get onboarding session
+      const createResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0'
+        },
+        body: JSON.stringify({
+          campaign_id: botConfig.campaignId,
+          discord_user_id: userId,
+          discord_username: username
+        })
+      });
+
+      if (!createResponse.ok) {
+        throw new Error(`Failed to create onboarding session: ${createResponse.status}`);
+      }
+
+      const newSession = await createResponse.json();
+      
+      if (!newSession.fields || newSession.fields.length === 0) {
+        await interaction.editReply({
+          content: `🎉 Welcome to **${botConfig.campaignName}**!\n\nNo additional information needed - you're all set!`
+        });
+        return;
+      }
+
       await interaction.editReply({
-        content: `❌ Failed to start onboarding: ${onboardingResult.error || 'Unknown error'}`
+        content: `✅ Onboarding started for **${botConfig.campaignName}**!\n\n📩 Check your DMs or use the onboarding modal to continue.`
+      });
+
+    } catch (error) {
+      console.error('❌ Error creating onboarding session:', error);
+      await interaction.editReply({
+        content: `❌ Failed to start onboarding: ${error.message}`
       });
     }
 
@@ -297,10 +422,25 @@ async function handleStartCommand(interaction) {
 
   } catch (error) {
     console.error('❌ Error in start command:', error);
-    await safeReply(interaction, {
-      content: '❌ Failed to start onboarding. Please try again later.',
-      ephemeral: true
-    });
+    try {
+      if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({
+          content: '❌ Failed to start onboarding. Please try again later.'
+        });
+      } else if (!interaction.replied) {
+        await interaction.reply({
+          content: '❌ Failed to start onboarding. Please try again later.',
+          ephemeral: true
+        });
+      } else {
+        await interaction.followUp({
+          content: '❌ Failed to start onboarding. Please try again later.',
+          ephemeral: true
+        });
+      }
+    } catch (replyError) {
+      console.error('❌ Failed to send error reply:', replyError);
+    }
   }
 }
 
@@ -1902,189 +2042,6 @@ function clearAllCache() {
 }
 
 client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isButton()) return;
-  if (interaction.customId.startsWith('join_')) {
-    const campaignId = interaction.customId.replace('join_', '');
-    
-    try {
-      console.log(`🔘 Button clicked: join_${campaignId} by ${interaction.user.tag}`);
-      
-      // First, quickly get campaign data to determine if we need to show a modal
-      const { data, error } = await supabase
-        .from('discord_guild_campaigns')
-        .select(`
-          *,
-          clients:client_id(name, industry)
-        `)
-        .eq('id', campaignId)
-        .single();
-        
-      if (error || !data) {
-        await interaction.reply({ 
-          content: '❌ Campaign not found or no longer available.',
-          flags: 64 // MessageFlags.Ephemeral
-        });
-        return;
-      }
-
-      // Check if campaign is actually active
-      if (!data.is_active) {
-        const statusMessage = data.status === 'paused' ? 'temporarily paused' : 
-                             data.status === 'archived' ? 'completed and archived' : 'currently inactive';
-        await interaction.reply({
-          content: `⏸️ **Campaign ${statusMessage.charAt(0).toUpperCase() + statusMessage.slice(1)}**\n\nThe **${data.campaign_name}** campaign is ${statusMessage}.\n\nPlease check with server administrators for active campaigns.`,
-          flags: 64 // MessageFlags.Ephemeral
-        });
-        return;
-      }
-
-      const config = {
-        campaignId: data.id,
-        campaignName: data.campaign_name,
-        campaignType: data.campaign_type,
-        clientId: data.client_id,
-        clientName: data.clients?.name || 'Unknown Client',
-        config: data,
-        templateConfig: null
-      };
-
-      console.log(`🎯 Processing campaign join for: ${config.campaignName} (${config.campaignType})`);
-
-      // Get or create onboarding session with timeout
-      const userId = interaction.user.id;
-      const username = interaction.user.tag;
-      
-      let session;
-      try {
-        // Add timeout to prevent hanging
-        const sessionPromise = onboardingManager.getOrCreateSession(campaignId, userId, username, {});
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session creation timeout')), 5000) // Reduced to 5 seconds
-        );
-        
-        session = await Promise.race([sessionPromise, timeoutPromise]);
-      } catch (sessionError) {
-        console.error('❌ Session creation failed:', sessionError);
-        await interaction.reply({
-          content: '❌ **Connection Issue**\n\nFailed to start onboarding due to a temporary connection issue. Please try again in a moment.\n\n💡 **Tip**: If this persists, contact server administrators.',
-          flags: 64 // MessageFlags.Ephemeral
-        });
-        return;
-      }
-      
-      if (!session.success) {
-        console.error('❌ Session creation returned error:', session.error);
-        await interaction.reply({
-          content: '❌ **Service Temporarily Unavailable**\n\nFailed to start onboarding. Please try again later.\n\n💡 **Error**: ' + (session.error || 'Unknown error'),
-          flags: 64 // MessageFlags.Ephemeral
-        });
-        return;
-      }
-
-      // Check if already completed
-      if (session.is_completed) {
-        await interaction.reply({
-          content: `✅ **Welcome back!**\n\nYou've already completed the onboarding process for **${config.campaignName}**.\n\nYou're all set to enjoy all the community features!`,
-          flags: 64 // MessageFlags.Ephemeral
-        });
-        return;
-      }
-
-      // Check if there are no fields (immediate completion)
-      if (!session.fields || session.fields.length === 0) {
-        await interaction.reply({
-          content: `🎉 **Welcome to ${config.clientName}!**\n\nNo additional information needed - you're all set!`,
-          flags: 64 // MessageFlags.Ephemeral
-        });
-        
-        // Complete onboarding immediately
-        await onboardingManager.completeOnboarding({
-          author: interaction.user,
-          member: interaction.member,
-          guild: interaction.guild,
-          channel: interaction.channel,
-          reply: async (options) => {
-            await interaction.followUp({ ...options, flags: 64 });
-          },
-          followUp: async (options) => {
-            await interaction.followUp({ ...options, flags: 64 });
-          }
-        }, config, null);
-        return;
-      }
-
-      // Get incomplete fields
-      const incompleteFields = onboardingManager.getIncompleteFields(session);
-      
-      if (incompleteFields.length === 0) {
-        await interaction.reply({
-          content: `🎉 **Welcome back to ${config.clientName}!**\n\nLooks like you've already provided all the required information. You're all set!`,
-          flags: 64 // MessageFlags.Ephemeral
-        });
-        
-        // Complete onboarding 
-        await onboardingManager.completeOnboarding({
-          author: interaction.user,
-          member: interaction.member,
-          guild: interaction.guild,
-          channel: interaction.channel,
-          reply: async (options) => {
-            await interaction.followUp({ ...options, flags: 64 });
-          },
-          followUp: async (options) => {
-            await interaction.followUp({ ...options, flags: 64 });
-          }
-        }, config, null);
-        return;
-      }
-
-      // Store session data for when the modal is submitted BEFORE showing modal
-      await onboardingManager.storeSessionForModal(campaignId, userId, {
-        fields: incompleteFields,
-        config,
-        referralValidation: null
-      });
-
-      // **SHOW MODAL IMMEDIATELY** - Don't defer first!
-      const modal = createOnboardingModal(incompleteFields, 1, config);
-      
-      // Show the modal directly (this responds to the interaction)
-      await interaction.showModal(modal);
-      
-      console.log(`✅ Showed onboarding modal immediately for ${username} in campaign ${config.campaignName}`);
-
-    } catch (error) {
-      console.error('❌ Error handling campaign join button:', error);
-      
-      try {
-        // Check if we can still respond to the interaction
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({
-            content: '❌ **System Error**\n\nAn unexpected error occurred while starting the onboarding process.\n\n🔄 **Please try clicking the button again.** If this persists, contact server administrators.\n\n💡 **Error Code**: ' + (error.code || 'UNKNOWN'),
-            flags: 64 // MessageFlags.Ephemeral
-          });
-        }
-      } catch (replyError) {
-        console.error('❌ Failed to send error response:', replyError);
-        
-        // Last resort: try to send an ephemeral channel message
-        if (interaction.channel) {
-          try {
-            await interaction.channel.send({
-              content: `${interaction.user} ❌ **Onboarding Error**: Failed to start onboarding for the campaign. Please try again or contact administrators.`,
-              flags: 64 // Make this ephemeral
-            });
-          } catch (channelError) {
-            console.error('❌ Failed to send channel error message:', channelError);
-          }
-        }
-      }
-    }
-  }
-});
-
-// Handle all interactions (slash commands, modals, buttons)
-client.on('interactionCreate', async (interaction) => {
   try {
     if (interaction.isChatInputCommand()) {
       await handleSlashCommand(interaction);
@@ -2115,745 +2072,4 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// Handle onboarding modal submissions
-async function handleOnboardingModalSubmission(interaction) {
-  const guildId = interaction.guild.id;
-  const userId = interaction.user.id;
-  const username = interaction.user.tag;
 
-  try {
-    // Immediately defer the interaction to prevent timeout
-    await interaction.deferReply({ flags: 64 }); // MessageFlags.Ephemeral
-    console.log(`📝 Modal submitted by ${username} - interaction deferred`);
-    
-    // ═══════════════════════════════════════════════════════════════
-    // EXTRACT CAMPAIGN ID DIRECTLY FROM MODAL CUSTOM ID
-    // ═══════════════════════════════════════════════════════════════
-    
-    // Parse modal custom ID: "onboarding_modal_{campaignId}_{modalPart}"
-    const customIdParts = interaction.customId.split('_');
-    
-    if (customIdParts.length < 4 || customIdParts[0] !== 'onboarding' || customIdParts[1] !== 'modal') {
-      console.error(`❌ Invalid modal custom ID format: ${interaction.customId}`);
-      await interaction.editReply({
-        content: '❌ **Invalid Modal**\nThis modal format is not recognized. Please restart the onboarding process.',
-      });
-      return;
-    }
-    
-    const campaignId = customIdParts[2];
-    const modalPart = parseInt(customIdParts[3]) || 1;
-    
-    console.log(`✅ Extracted from modal: campaignId=${campaignId}, modalPart=${modalPart}`);
-    
-    // Get the campaign configuration directly using the extracted campaign ID
-    try {
-      const campaignPromise = supabase
-        .from('discord_guild_campaigns')
-        .select(`
-          *,
-          clients:client_id(name, industry)
-        `)
-        .eq('id', campaignId)
-        .single();
-
-      const { data: campaignData, error: campaignError } = await Promise.race([
-        campaignPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Campaign lookup timeout')), 5000))
-      ]);
-
-      if (campaignError || !campaignData) {
-        console.error('❌ Campaign not found:', campaignError);
-        await interaction.editReply({
-          content: '❌ **Campaign Not Found**\nThe campaign for this form no longer exists. Please restart the onboarding process.',
-        });
-        return;
-      }
-
-      // Create config object in the expected format
-      const campaignConfig = {
-        campaignId: campaignData.id,
-        campaignName: campaignData.campaign_name,
-        campaignType: campaignData.campaign_type,
-        clientId: campaignData.client_id,
-        clientName: campaignData.clients?.name || 'Unknown Client',
-        config: campaignData,
-        templateConfig: null,
-        campaignStatus: getCampaignStatus(campaignData),
-        isActive: campaignData.is_active || false
-      };
-
-      console.log(`✅ Found campaign: ${campaignConfig.campaignName} (${campaignConfig.campaignType})`);
-      
-      // Get the stored modal session data
-      const modalSessionData = await onboardingManager.getStoredModalSession(campaignId, userId);
-      
-      if (!modalSessionData) {
-        console.log(`❌ No modal session found for user ${userId} in campaign ${campaignId}`);
-        await interaction.editReply({
-          content: '❌ **Session Expired**\nYour onboarding session has expired. Please restart the process by clicking the campaign button again.',
-        });
-        return;
-      }
-      
-      console.log(`✅ Retrieved modal session with ${modalSessionData.fields?.length || 0} fields`);
-      
-      // Continue with the rest of the modal processing...
-      await processModalSubmission(interaction, campaignConfig, modalPart, modalSessionData);
-      return;
-
-    } catch (campaignLookupError) {
-      console.error('❌ Error during campaign lookup:', campaignLookupError);
-      await interaction.editReply({
-        content: '❌ **Configuration Error**\nFailed to load campaign configuration. Please try clicking the campaign button again.',
-      });
-      return;
-    }
-
-  } catch (error) {
-    console.error('❌ Unexpected error in modal submission:', error);
-    
-    try {
-      if (interaction.deferred && !interaction.replied) {
-        await interaction.editReply({
-          content: '❌ **System Error**\nAn unexpected error occurred while processing your submission.\n\n🔄 **Please try clicking the campaign button again.** If this persists, contact server administrators.',
-        });
-      } else if (!interaction.replied) {
-        await interaction.reply({
-          content: '❌ **System Error**\nAn unexpected error occurred. Please try clicking the campaign button again.',
-          flags: 64 // MessageFlags.Ephemeral
-        });
-      }
-    } catch (replyError) {
-      console.error('❌ Failed to send error response:', replyError);
-    }
-  }
-}
-
-// Extract the modal processing logic into a separate function
-async function processModalSubmission(interaction, config, modalPart, modalSessionData) {
-  const userId = interaction.user.id;
-  const username = interaction.user.tag;
-  let hasReplied = false;
-
-  try {
-    // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 2: INPUT VALIDATION & PROCESSING
-    // ═══════════════════════════════════════════════════════════════
-    const responses = {};
-    
-    // Validate and sanitize responses
-    try {
-      interaction.fields.fields.forEach((field, fieldId) => {
-        const value = field.value?.trim();
-        if (!value) {
-          throw new Error(`Field '${fieldId}' cannot be empty`);
-        }
-        responses[fieldId] = value;
-      });
-    } catch (validationError) {
-      await interaction.editReply({
-        content: `❌ **Validation Error**\n${validationError.message}\n\nPlease fill out all required fields.`,
-      });
-      return;
-    }
-
-    console.log(`📝 Processing modal ${modalPart} submission for ${username}:`, Object.keys(responses));
-
-    // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 3: SESSION DATA RETRIEVAL AND VALIDATION
-    // ═══════════════════════════════════════════════════════════════
-    let referralValidation = null;
-    
-    try {
-      if (!modalSessionData) {
-        console.log(`❌ No modal session data found for ${userId} in campaign ${config.campaignId}`);
-        
-        await interaction.editReply({
-          content: '❌ **Session Error**\nYour onboarding session could not be retrieved. Please restart the process by clicking the campaign button again.',
-        });
-        return;
-      } else {
-        console.log(`✅ Using modal session data with ${modalSessionData.fields?.length || 0} fields`);
-        referralValidation = modalSessionData.referralValidation;
-        
-        // Validate that the submitted fields match the session's field configuration
-        const validFieldKeys = new Set(modalSessionData.fields?.map(f => f.field_key) || []);
-        const submittedKeys = Object.keys(responses);
-        const invalidKeys = submittedKeys.filter(key => !validFieldKeys.has(key));
-        
-        if (invalidKeys.length > 0) {
-          console.error(`❌ Field validation failed. Invalid fields: ${invalidKeys.join(', ')}`);
-          console.error(`📋 Valid fields are: ${Array.from(validFieldKeys).join(', ')}`);
-          console.error(`📋 Submitted fields: ${submittedKeys.join(', ')}`);
-          
-          // Clear the outdated session
-          await onboardingManager.clearModalSession(config.campaignId, userId);
-          
-          await interaction.editReply({
-            content: `❌ **Field Mismatch**\nThe form you submitted contains unexpected fields.\n\n**Invalid fields:** ${invalidKeys.join(', ')}\n**Expected fields:** ${Array.from(validFieldKeys).join(', ')}\n\nPlease restart the onboarding process to get the correct form.`,
-          });
-          return;
-        }
-        
-        console.log(`✅ All submitted fields are valid for campaign ${config.campaignId}`);
-      }
-    } catch (sessionError) {
-      console.error('Error processing session data:', sessionError);
-      await interaction.editReply({
-        content: '❌ **Session Error**\nYour onboarding session could not be processed. Please restart the process.',
-      });
-      return;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 4: IMMEDIATE RESPONSE & ASYNC PROCESSING
-    // ═══════════════════════════════════════════════════════════════
-    
-    // Send immediate acknowledgment (interaction was already deferred)
-    try {
-      await interaction.editReply({
-        content: '⏳ **Processing your responses...**\nPlease wait while we save your information.',
-      });
-      hasReplied = true;
-      console.log(`✅ Sent processing acknowledgment to ${username}`);
-    } catch (editError) {
-      console.error('❌ Failed to send immediate acknowledgment:', editError);
-      return;
-    }
-    
-    // Now process the submission asynchronously
-    let saveResult;
-    try {
-      saveResult = await saveOnboardingModalResponses({
-        campaign_id: config.campaignId,
-        discord_user_id: userId,
-        discord_username: username,
-        responses: responses,
-        modal_part: modalPart,
-        referral_id: referralValidation?.referral_id,
-        referral_link_id: referralValidation?.referral_link_id
-      });
-    } catch (apiError) {
-      console.error('API submission error:', apiError);
-      await interaction.followUp({
-        content: `❌ **Network Error**\nFailed to submit your responses due to a connection issue.\n\n🔄 **Please try again in a moment.** Your progress has been saved.`,
-        flags: 64
-      });
-      return;
-    }
-
-    // Handle API response errors
-    if (!saveResult) {
-      await interaction.followUp({
-        content: '❌ **Server Error**\nReceived an invalid response from the server. Please try again.',
-        flags: 64
-      });
-      return;
-    }
-
-    if (!saveResult.success) {
-      const errorMessage = saveResult.error || 'Unknown error occurred';
-      console.error('Save failed:', errorMessage);
-      
-      // Categorize error types for better user feedback
-      let userMessage;
-      if (errorMessage.includes('validation')) {
-        userMessage = `❌ **Validation Error**\n${errorMessage}\n\nPlease check your responses and try again.`;
-      } else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
-        userMessage = '❌ **Network Error**\nThe request timed out. Please try submitting again.';
-      } else if (errorMessage.includes('database') || errorMessage.includes('connection')) {
-        userMessage = '❌ **Database Error**\nTemporary database issue. Please try again in a few moments.';
-      } else {
-        userMessage = `❌ **Submission Error**\n${errorMessage}\n\nIf this persists, please contact support.`;
-      }
-      
-      await interaction.followUp({
-        content: userMessage,
-        flags: 64
-      });
-      return;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SCENARIO 5: SUCCESS PATHS
-    // ═══════════════════════════════════════════════════════════════
-    
-    if (saveResult.is_completed) {
-      // 🎉 ONBOARDING COMPLETE
-      await interaction.followUp({
-        content: '🎉 **Onboarding Complete!**\nProcessing your responses and setting up your access...',
-        flags: 64
-      });
-
-      try {
-        await onboardingManager.completeOnboarding({
-          author: interaction.user,
-          member: interaction.member,
-          guild: interaction.guild,
-          channel: interaction.channel,
-          reply: async (options) => {
-            try {
-              await interaction.followUp({ ...options, flags: 64 });
-            } catch (error) {
-              console.error('Error sending completion message:', error);
-              // Fallback to ephemeral channel message
-              if (interaction.channel) {
-                await interaction.channel.send({
-                  content: `${interaction.user} ${options.content || 'Onboarding completed!'}`,
-                  embeds: options.embeds,
-                  flags: 64 // Make fallback ephemeral
-                });
-              }
-            }
-          },
-          followUp: async (options) => {
-            try {
-              await interaction.followUp({ ...options, flags: 64 });
-            } catch (error) {
-              console.error('Error sending follow-up:', error);
-            }
-          }
-        }, config, referralValidation);
-        
-        // Clear session after successful completion
-        await onboardingManager.clearModalSession(config.campaignId, userId);
-      } catch (completionError) {
-        console.error('Error completing onboarding:', completionError);
-        await interaction.followUp({
-          content: '⚠️ **Completion Warning**\nYour responses were saved, but there was an issue finalizing your setup. An administrator will review this.',
-          flags: 64
-        });
-      }
-      
-    } else if (saveResult.next_modal_fields && saveResult.next_modal_fields.length > 0) {
-      // 📋 MORE FORMS TO SHOW
-      const nextModalPart = modalPart + 1;
-      const totalParts = Math.ceil((saveResult.progress?.total || 1) / 5); // Assuming 5 fields per modal
-      
-      try {
-        const nextModal = createOnboardingModal(saveResult.next_modal_fields, nextModalPart, config);
-        
-        // Add progress indicator to modal title
-        if (totalParts > 1) {
-          nextModal.setTitle(`${config.campaignName} - Part ${nextModalPart}/${totalParts}`);
-        }
-        
-        await interaction.showModal(nextModal);
-        console.log(`✅ Showed modal part ${nextModalPart} for ${username} (${saveResult.progress?.completed || 0}/${saveResult.progress?.total || 0} completed)`);
-        
-      } catch (modalError) {
-        console.error('Error showing next modal:', modalError);
-        
-        // Check if it's a Discord API limitation
-        if (modalError.message?.includes('Unknown interaction') || modalError.code === 10062) {
-          await interaction.followUp({
-            content: '❌ **Form Display Error**\nThe next form could not be displayed due to timing. Please restart the onboarding process.',
-            flags: 64
-          });
-        } else {
-          await interaction.followUp({
-            content: '❌ **Modal Error**\nFailed to show the next form. Please contact support if this continues.',
-            flags: 64
-          });
-        }
-      }
-      
-    } else {
-      // 📄 PARTIAL SUCCESS
-      await interaction.followUp({
-        content: `✅ **Progress Saved!**\nYour responses have been recorded successfully.\n\n📊 **Status**: ${saveResult.progress?.completed || 0}/${saveResult.progress?.total || 0} fields completed\n\n🔄 **Next**: ${saveResult.next_action || 'Please wait for further instructions or contact support.'}`,
-        flags: 64
-      });
-    }
-
-  } catch (error) {
-    console.error('❌ Error in modal processing:', error);
-    
-    if (!hasReplied) {
-      try {
-        await interaction.editReply({
-          content: '❌ **Processing Error**\nAn error occurred while processing your submission. Please try again.',
-        });
-      } catch (replyError) {
-        console.error('Failed to send error reply:', replyError);
-      }
-    } else {
-      // If we've already replied, use followUp
-      try {
-        await interaction.followUp({
-          content: '❌ **Processing Error**\nAn error occurred while processing your submission. Please try again.',
-          flags: 64
-        });
-      } catch (followUpError) {
-        console.error('Failed to send follow-up error message:', followUpError);
-      }
-    }
-  }
-}
-
-// Helper function to safely reply to interactions
-async function safeReply(interaction, options) {
-  if (interaction.replied || interaction.deferred) {
-    console.log('Interaction already replied to, cannot send response');
-    return false;
-  }
-  
-  // Default to ephemeral messages ONLY for onboarding interactions
-  if (!options.flags && (
-    interaction.customId?.includes('onboarding') || 
-    interaction.customId?.includes('start_onboarding') ||
-    interaction.customId?.includes('join_') // Campaign join buttons
-  )) {
-    options.flags = 64; // Make onboarding messages ephemeral by default
-  }
-  
-  try {
-    await interaction.reply(options);
-    return true;
-  } catch (error) {
-    console.error('Failed to send reply:', error);
-    
-    // Check for specific Discord API errors
-    if (error.code === 10062) {
-      console.error('❌ Discord interaction token expired - cannot respond');
-      
-      // Try to send a follow-up message to the channel if possible
-      if (interaction.channel) {
-        try {
-          await interaction.channel.send({
-            content: `${interaction.user} ⏰ **Interaction Timeout**\n${options.content || 'Your action was processed but the response timed out. Please try again if needed.'}`,
-            embeds: options.embeds,
-            flags: 64 // Make timeout messages ephemeral
-          });
-          return true;
-        } catch (channelError) {
-          console.error('Failed to send channel message:', channelError);
-        }
-      }
-      return false;
-    }
-    
-    // For other errors, try fallback to ephemeral channel message
-    if (interaction.channel) {
-      try {
-        await interaction.channel.send({
-          content: `${interaction.user} ${options.content || 'Action completed!'}`,
-          embeds: options.embeds,
-          flags: 64 // Make fallback messages ephemeral
-        });
-        return true;
-      } catch (fallbackError) {
-        console.error('Fallback reply also failed:', fallbackError);
-      }
-    }
-    return false;
-  }
-}
-
-// Create onboarding modal from fields
-function createOnboardingModal(fields, modalPart, config) {
-  // Include campaign ID in modal custom ID for proper context management
-  const modal = new ModalBuilder()
-    .setCustomId(`onboarding_modal_${config.campaignId}_${modalPart}`)
-    .setTitle(`${config.campaignName} - Onboarding ${modalPart > 1 ? `(Part ${modalPart})` : ''}`);
-
-  const components = [];
-
-  // Discord modals support up to 5 text inputs
-  const fieldsToShow = fields.slice(0, 5);
-  
-  fieldsToShow.forEach((field, index) => {
-    let inputStyle = TextInputStyle.Short;
-    let maxLength = 100;
-
-    // Determine input style and length based on field type
-    switch (field.field_type) {
-      case 'text':
-        if (field.field_description && field.field_description.length > 50) {
-          inputStyle = TextInputStyle.Paragraph;
-          maxLength = 1000;
-        }
-        break;
-      case 'email':
-        inputStyle = TextInputStyle.Short;
-        maxLength = 100;
-        break;
-      case 'number':
-        inputStyle = TextInputStyle.Short;
-        maxLength = 20;
-        break;
-      case 'select':
-        inputStyle = TextInputStyle.Short;
-        maxLength = 100;
-        break;
-      case 'url':
-        inputStyle = TextInputStyle.Short;
-        maxLength = 200;
-        break;
-      default:
-        inputStyle = TextInputStyle.Short;
-        maxLength = 100;
-    }
-
-    // Truncate label if too long (Discord limit is 45 characters)
-    let label = field.field_label;
-    let labelTruncated = false;
-    if (label.length > 45) {
-      label = label.substring(0, 42) + '...';
-      labelTruncated = true;
-    }
-
-    const textInput = new TextInputBuilder()
-      .setCustomId(field.field_key)
-      .setLabel(label)
-      .setStyle(inputStyle)
-      .setRequired(true)
-      .setMaxLength(maxLength);
-
-    // Set placeholder with full question if label was truncated
-    let placeholder = field.field_placeholder;
-    if (labelTruncated) {
-      placeholder = field.field_label; // Show full question in placeholder
-    }
-
-    if (placeholder) {
-      // Discord placeholder limit is 100 characters
-      if (placeholder.length > 100) {
-        placeholder = placeholder.substring(0, 97) + '...';
-      }
-      textInput.setPlaceholder(placeholder);
-    }
-
-    if (field.field_options && field.field_options.length > 0) {
-      const optionsText = `Options: ${field.field_options.join(', ')}`;
-      if (optionsText.length <= 100) {
-        textInput.setPlaceholder(optionsText);
-      } else {
-        textInput.setPlaceholder(`Options: ${field.field_options.slice(0, 3).join(', ')}...`);
-      }
-    }
-
-    // Add validation hints for specific field types
-    if (field.field_type === 'email' && !placeholder) {
-      textInput.setPlaceholder('Enter your email address');
-    } else if (field.field_type === 'number' && !placeholder) {
-      textInput.setPlaceholder('Enter a number');
-    }
-
-    const actionRow = new ActionRowBuilder().addComponents(textInput);
-    components.push(actionRow);
-  });
-
-  modal.addComponents(...components);
-  return modal;
-}
-
-// Save responses from modal submission with comprehensive error handling
-async function saveOnboardingModalResponses(data) {
-  const maxRetries = 3;
-  const retryDelay = 1000; // 1 second
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`🌐 API submission attempt ${attempt}/${maxRetries}...`);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
-      const response = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding/modal`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Virion-Discord-Bot/2.0',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(data),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-
-      // Handle different HTTP status codes
-      if (response.status === 429) {
-        // Rate limited
-        const retryAfter = response.headers.get('Retry-After') || retryDelay / 1000;
-        console.log(`⏳ Rate limited, retrying after ${retryAfter} seconds...`);
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-          continue;
-        }
-        return { 
-          success: false, 
-          error: 'Service temporarily unavailable due to high traffic. Please try again later.' 
-        };
-      }
-
-      if (response.status >= 500) {
-        // Server error - retry
-        console.log(`🔄 Server error (${response.status}), retrying...`);
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
-          continue;
-        }
-        return { 
-          success: false, 
-          error: 'Server is temporarily unavailable. Please try again later.' 
-        };
-      }
-
-      if (!response.ok) {
-        // Client error - don't retry
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (jsonError) {
-          console.error('Failed to parse error response:', jsonError);
-          return { 
-            success: false, 
-            error: `Request failed with status ${response.status}` 
-          };
-        }
-        
-        const errorMessage = errorData.error || errorData.message || `HTTP ${response.status} error`;
-        console.error('API client error:', errorMessage);
-        return { success: false, error: errorMessage };
-      }
-
-      // Success - parse response
-      let result;
-      try {
-        result = await response.json();
-      } catch (jsonError) {
-        console.error('Failed to parse success response:', jsonError);
-        return { 
-          success: false, 
-          error: 'Server returned invalid response format' 
-        };
-      }
-
-      // Validate response structure
-      if (typeof result !== 'object' || result === null) {
-        return { 
-          success: false, 
-          error: 'Server returned unexpected response format' 
-        };
-      }
-
-      console.log(`✅ API submission successful on attempt ${attempt}`);
-      return result;
-
-    } catch (error) {
-      console.error(`❌ API submission attempt ${attempt} failed:`, error.message);
-      
-      // Handle specific error types
-      if (error.name === 'AbortError') {
-        if (attempt === maxRetries) {
-          return { 
-            success: false, 
-            error: 'Request timeout - server took too long to respond' 
-          };
-        }
-      } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-        if (attempt === maxRetries) {
-          return { 
-            success: false, 
-            error: 'Cannot connect to server - please check your connection' 
-          };
-        }
-      } else if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
-        if (attempt === maxRetries) {
-          return { 
-            success: false, 
-            error: 'Connection lost during submission - please try again' 
-          };
-        }
-      } else {
-        // Unknown error - don't retry
-        return { 
-          success: false, 
-          error: `Network error: ${error.message}` 
-        };
-      }
-      
-      // Wait before retry
-      if (attempt < maxRetries) {
-        const delay = retryDelay * attempt;
-        console.log(`⏳ Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  return { 
-    success: false, 
-    error: 'Failed to submit after multiple attempts' 
-  };
-}
-
-// Handle onboarding start button
-async function handleOnboardingStartButton(interaction) {
-  try {
-    console.log(`🔘 Button clicked: ${interaction.customId} by ${interaction.user.tag}`);
-    
-    const [, , campaignId, userId] = interaction.customId.split('_');
-    console.log(`📝 Extracted campaignId: ${campaignId}, userId: ${userId}`);
-    
-    // Verify this is the correct user
-    if (interaction.user.id !== userId) {
-      console.log(`❌ User mismatch: ${interaction.user.id} !== ${userId}`);
-      await interaction.reply({
-        content: '❌ This onboarding form is not for you.',
-        flags: 64 // MessageFlags.Ephemeral
-      });
-      return;
-    }
-
-    // Get stored session data
-    console.log(`🔍 Looking for stored session for campaignId: ${campaignId}, userId: ${userId}`);
-    const sessionData = await onboardingManager.getStoredModalSession(campaignId, userId);
-    if (!sessionData) {
-      console.log(`❌ No session data found for campaignId: ${campaignId}, userId: ${userId}`);
-      await interaction.reply({
-        content: '❌ Onboarding session expired. Please try starting again.',
-        flags: 64 // MessageFlags.Ephemeral
-      });
-      return;
-    }
-
-    console.log(`✅ Found session data with ${sessionData.fields?.length || 0} fields`);
-    const { fields, config } = sessionData;
-    
-    if (!fields || fields.length === 0) {
-      console.log(`❌ No fields found in session data`);
-      await interaction.reply({
-        content: '❌ No onboarding questions found. Please try starting again.',
-        flags: 64 // MessageFlags.Ephemeral
-      });
-      return;
-    }
-    
-    console.log(`🚀 Creating modal with ${fields.length} fields`);
-    // Create and show the first modal
-    const modal = createOnboardingModal(fields, 1, config);
-    await interaction.showModal(modal);
-    console.log(`✅ Modal shown successfully to ${interaction.user.tag}`);
-
-  } catch (error) {
-    console.error('Error handling onboarding start button:', error);
-    console.error('Error stack:', error.stack);
-    // Only try to reply if the interaction hasn't been responded to yet
-    if (!interaction.replied && !interaction.deferred) {
-      try {
-        await interaction.reply({
-          content: '❌ An error occurred. Please try again.',
-          flags: 64 // MessageFlags.Ephemeral
-        });
-      } catch (replyError) {
-        console.error('Failed to send error reply:', replyError);
-      }
-    } else {
-      console.log('Cannot send error reply - interaction already responded to');
-    }
-  }
-}
