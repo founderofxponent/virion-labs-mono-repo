@@ -28,6 +28,22 @@ const client = new Client({
 // Initialize REST for slash commands
 const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
 
+// Helper function for safe interaction replies
+async function safeReply(interaction, options) {
+  try {
+    if (!interaction.replied && !interaction.deferred) {
+      return await interaction.reply(options);
+    } else if (interaction.deferred && !interaction.replied) {
+      return await interaction.editReply(options);
+    } else {
+      return await interaction.followUp(options);
+    }
+  } catch (error) {
+    console.error('❌ Error in safeReply:', error);
+    throw error;
+  }
+}
+
 // ===== SLASH COMMANDS CONFIGURATION =====
 // Only essential commands - organized for future extensibility
 
@@ -338,80 +354,66 @@ async function handleStartCommand(interaction) {
 
     console.log(`🚀 Start command from ${username} in guild ${guildId}, channel ${channelId}`);
     
-    // Get bot configuration for this guild/channel
-    const botConfig = await getBotConfig(guildId, channelId);
+    // Fetch all active campaigns for this guild
+    const activeCampaigns = await fetchActiveCampaigns(guildId);
     
-    if (!botConfig) {
+    if (!activeCampaigns || activeCampaigns.length === 0) {
       await interaction.editReply({
-        content: '❌ No active campaign found for this server.\n\n💡 Server administrators can set up campaigns through the dashboard.'
+        content: '❌ No active campaigns found for this server.\n\n💡 Server administrators can set up campaigns through the dashboard.'
       });
       return;
     }
 
-    if (botConfig.campaignStatus !== 'active') {
-      await interaction.editReply({
-        content: `❌ The campaign "${botConfig.campaignName}" is currently ${botConfig.campaignStatus} and not accepting new participants.`
-      });
-      return;
+    // Create the campaign selection embed
+    const embed = new EmbedBuilder()
+      .setTitle('🚀 Start Campaign Onboarding')
+      .setColor('#6366f1')
+      .setTimestamp();
+
+    let description = `Welcome ${interaction.user.username}! Choose a campaign to start your onboarding journey:\n\n`;
+    
+    activeCampaigns.forEach((campaign, index) => {
+      description += `**${index + 1}.** ${campaign.campaign_name}\n`;
+    });
+    
+    description += `\n💡 **Select a campaign below to begin!**`;
+    
+    embed.setDescription(description);
+    embed.setFooter({ text: `${activeCampaigns.length} active campaign${activeCampaigns.length !== 1 ? 's' : ''} available` });
+
+    // Create buttons for each active campaign (max 5 per row, max 25 total)
+    const components = [];
+    let currentRow = new ActionRowBuilder();
+    let buttonCount = 0;
+
+    activeCampaigns.slice(0, 25).forEach((campaign, index) => { // Discord max 25 components
+      if (buttonCount === 5) {
+        components.push(currentRow);
+        currentRow = new ActionRowBuilder();
+        buttonCount = 0;
+      }
+
+      const button = new ButtonBuilder()
+        .setCustomId(`start_onboarding_${campaign.id}_${userId}`)
+        .setLabel(campaign.campaign_name.length > 80 ? 
+          campaign.campaign_name.substring(0, 77) + '...' : 
+          campaign.campaign_name)
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🚀');
+
+      currentRow.addComponents(button);
+      buttonCount++;
+    });
+
+    if (buttonCount > 0) {
+      components.push(currentRow);
     }
 
-    // Check if user already has an onboarding session
-    try {
-      const sessionResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding?campaign_id=${botConfig.campaignId}&discord_user_id=${userId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Virion-Discord-Bot/2.0'
-        }
-      });
-
-      if (sessionResponse.ok) {
-        const session = await sessionResponse.json();
-        if (session.is_completed) {
-          await interaction.editReply({
-            content: `✅ You've already completed onboarding for **${botConfig.campaignName}**!\n\nWelcome back! You're all set to enjoy the community features.`
-          });
-          return;
-        }
-      }
-
-      // Create or get onboarding session
-      const createResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Virion-Discord-Bot/2.0'
-        },
-        body: JSON.stringify({
-          campaign_id: botConfig.campaignId,
-          discord_user_id: userId,
-          discord_username: username
-        })
-      });
-
-      if (!createResponse.ok) {
-        throw new Error(`Failed to create onboarding session: ${createResponse.status}`);
-      }
-
-      const newSession = await createResponse.json();
-      
-      if (!newSession.fields || newSession.fields.length === 0) {
-        await interaction.editReply({
-          content: `🎉 Welcome to **${botConfig.campaignName}**!\n\nNo additional information needed - you're all set!`
-        });
-        return;
-      }
-
-      await interaction.editReply({
-        content: `✅ Onboarding started for **${botConfig.campaignName}**!\n\n📩 Check your DMs or use the onboarding modal to continue.`
-      });
-
-    } catch (error) {
-      console.error('❌ Error creating onboarding session:', error);
-      await interaction.editReply({
-        content: `❌ Failed to start onboarding: ${error.message}`
-      });
-    }
+    // Send the response with embed and buttons
+    await interaction.editReply({ 
+      embeds: [embed], 
+      components: components 
+    });
 
     // Track the interaction
     await trackInteraction(guildId, channelId, {
@@ -425,16 +427,16 @@ async function handleStartCommand(interaction) {
     try {
       if (interaction.deferred && !interaction.replied) {
         await interaction.editReply({
-          content: '❌ Failed to start onboarding. Please try again later.'
+          content: '❌ Failed to load campaigns. Please try again later.'
         });
       } else if (!interaction.replied) {
         await interaction.reply({
-          content: '❌ Failed to start onboarding. Please try again later.',
+          content: '❌ Failed to load campaigns. Please try again later.',
           ephemeral: true
         });
       } else {
         await interaction.followUp({
-          content: '❌ Failed to start onboarding. Please try again later.',
+          content: '❌ Failed to load campaigns. Please try again later.',
           ephemeral: true
         });
       }
@@ -2071,5 +2073,355 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 });
+
+// Handle onboarding start button interactions
+async function handleOnboardingStartButton(interaction) {
+  try {
+    await interaction.deferReply({ ephemeral: true });
+    
+    // Parse the custom ID: start_onboarding_{campaignId}_{userId}
+    const customIdParts = interaction.customId.split('_');
+    if (customIdParts.length < 4) {
+      await interaction.editReply({
+        content: '❌ Invalid button interaction. Please try again.'
+      });
+      return;
+    }
+    
+    const campaignId = customIdParts[2];
+    const expectedUserId = customIdParts[3];
+    const actualUserId = interaction.user.id;
+    
+    // Verify the user ID matches (security check)
+    if (expectedUserId !== actualUserId) {
+      await interaction.editReply({
+        content: '❌ This button is not for you. Please use `/start` to begin your own onboarding.'
+      });
+      return;
+    }
+    
+    console.log(`🔘 Onboarding start button clicked by ${interaction.user.tag} for campaign ${campaignId}`);
+    
+    // Get campaign configuration using the campaign ID
+    const { data: campaignData, error: campaignError } = await supabase
+      .from('discord_guild_campaigns')
+      .select('*')
+      .eq('id', campaignId)
+      .eq('is_deleted', false)
+      .single();
+      
+    if (campaignError || !campaignData) {
+      console.error('❌ Error fetching campaign:', campaignError);
+      await interaction.editReply({
+        content: '❌ Campaign not found or no longer available.'
+      });
+      return;
+    }
+    
+    // Check if campaign is still active
+    if (!campaignData.is_active) {
+      const status = getCampaignStatus(campaignData);
+      await interaction.editReply({
+        content: `❌ The campaign "${campaignData.campaign_name}" is currently ${status} and not accepting new participants.`
+      });
+      return;
+    }
+    
+    // Build config object for the onboarding manager
+    const config = {
+      isActive: campaignData.is_active,
+      campaignStatus: getCampaignStatus(campaignData),
+      campaignId: campaignData.id,
+      campaignName: campaignData.campaign_name,
+      campaignType: campaignData.campaign_type,
+      clientName: campaignData.client_name,
+      config: {
+        bot_name: campaignData.bot_name || 'Virion Bot',
+        brand_color: campaignData.brand_color || '#6366f1',
+        welcome_message: campaignData.welcome_message,
+        prefix: campaignData.prefix || '/',
+        template: campaignData.template || 'standard',
+        onboarding_flow: campaignData.onboarding_flow || {},
+        onboarding_completion_requirements: campaignData.onboarding_completion_requirements || {},
+        referral_tracking_enabled: campaignData.referral_tracking_enabled || false,
+        auto_role_assignment: campaignData.auto_role_assignment || false,
+        target_role_ids: campaignData.target_role_ids || [],
+        auto_responses: campaignData.auto_responses || {},
+        response_templates: campaignData.response_templates || {},
+        private_channel_setup: campaignData.private_channel_setup || {},
+        access_control_enabled: campaignData.access_control_enabled || false,
+        referral_only_access: campaignData.referral_only_access || false,
+        moderation_enabled: campaignData.moderation_enabled !== false,
+        rate_limit_per_user: campaignData.rate_limit_per_user || 5,
+        allowed_channels: campaignData.allowed_channels || [],
+        blocked_users: campaignData.blocked_users || [],
+        content_filters: campaignData.content_filters || []
+      },
+      referralLinkId: campaignData.referral_link_id,
+      influencerId: campaignData.influencer_id,
+      referralCode: campaignData.referral_code
+    };
+    
+    // Create a synthetic message object for the onboarding manager
+    const syntheticMessage = {
+      author: interaction.user,
+      user: interaction.user,
+      guild: interaction.guild,
+      channel: interaction.channel,
+      content: 'start_onboarding_button',
+      id: interaction.id,
+      reply: async (options) => {
+        if (!interaction.replied && !interaction.deferred) {
+          return await interaction.reply({ ...options, ephemeral: true });
+        } else if (interaction.deferred && !interaction.replied) {
+          return await interaction.editReply(options);
+        } else {
+          return await interaction.followUp({ ...options, ephemeral: true });
+        }
+      },
+      followUp: async (options) => {
+        return await interaction.followUp({ ...options, ephemeral: true });
+      },
+      isButton: () => true
+    };
+    
+    // Check if user already has a completed onboarding session
+    try {
+      const sessionResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding?campaign_id=${campaignId}&discord_user_id=${actualUserId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0'
+        }
+      });
+
+      if (sessionResponse.ok) {
+        const session = await sessionResponse.json();
+        if (session.is_completed) {
+          await interaction.editReply({
+            content: `✅ You've already completed onboarding for **${config.campaignName}**!\n\nWelcome back! You're all set to enjoy the community features.`
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error checking existing session:', error);
+    }
+    
+    // Start the onboarding process
+    console.log(`🚀 Starting onboarding for ${interaction.user.tag} in campaign ${config.campaignName}`);
+    const success = await onboardingManager.startOnboarding(syntheticMessage, config, { autoStart: true });
+    
+    if (success) {
+      await interaction.editReply({
+        content: `🚀 **Onboarding Started!**\n\nWelcome to **${config.campaignName}**! I'm starting your onboarding process now.\n\n📝 Please check for any modals or follow-up messages to complete your setup.`
+      });
+    } else {
+      await interaction.editReply({
+        content: `❌ Failed to start onboarding for **${config.campaignName}**. Please try again later.`
+      });
+    }
+    
+    // Track the interaction
+    await trackInteraction(interaction.guild?.id, interaction.channel?.id, {
+      author: { id: actualUserId, tag: interaction.user.tag },
+      id: interaction.id,
+      content: `start_onboarding_button_${campaignId}`
+    }, 'onboarding_start_button');
+    
+  } catch (error) {
+    console.error('❌ Error in onboarding start button handler:', error);
+    try {
+      if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({
+          content: '❌ An error occurred while starting onboarding. Please try again later.'
+        });
+      } else if (!interaction.replied) {
+        await interaction.reply({
+          content: '❌ An error occurred while starting onboarding. Please try again later.',
+          ephemeral: true
+        });
+      } else {
+        await interaction.followUp({
+          content: '❌ An error occurred while starting onboarding. Please try again later.',
+          ephemeral: true
+        });
+      }
+    } catch (replyError) {
+      console.error('❌ Failed to send error reply:', replyError);
+    }
+  }
+}
+
+// Handle onboarding modal submission interactions
+async function handleOnboardingModalSubmission(interaction) {
+  try {
+    await interaction.deferReply({ ephemeral: true });
+    
+    // Parse the custom ID: onboarding_modal_{campaignId}_{userId}
+    const customIdParts = interaction.customId.split('_');
+    if (customIdParts.length < 4) {
+      await interaction.editReply({
+        content: '❌ Invalid modal submission. Please try again.'
+      });
+      return;
+    }
+    
+    const campaignId = customIdParts[2];
+    const expectedUserId = customIdParts[3];
+    const actualUserId = interaction.user.id;
+    
+    // Verify the user ID matches (security check)
+    if (expectedUserId !== actualUserId) {
+      await interaction.editReply({
+        content: '❌ This modal submission is not valid for your account.'
+      });
+      return;
+    }
+    
+    console.log(`📝 Onboarding modal submitted by ${interaction.user.tag} for campaign ${campaignId}`);
+    
+    // Get campaign configuration
+    const { data: campaignData, error: campaignError } = await supabase
+      .from('discord_guild_campaigns')
+      .select('*')
+      .eq('id', campaignId)
+      .eq('is_deleted', false)
+      .single();
+      
+    if (campaignError || !campaignData) {
+      console.error('❌ Error fetching campaign:', campaignError);
+      await interaction.editReply({
+        content: '❌ Campaign not found. Your responses could not be saved.'
+      });
+      return;
+    }
+    
+    // Build config object
+    const config = {
+      isActive: campaignData.is_active,
+      campaignStatus: getCampaignStatus(campaignData),
+      campaignId: campaignData.id,
+      campaignName: campaignData.campaign_name,
+      campaignType: campaignData.campaign_type,
+      clientName: campaignData.client_name,
+      config: {
+        bot_name: campaignData.bot_name || 'Virion Bot',
+        brand_color: campaignData.brand_color || '#6366f1',
+        welcome_message: campaignData.welcome_message,
+        completion_message: campaignData.completion_message,
+        auto_role_assignment: campaignData.auto_role_assignment || false,
+        target_role_ids: campaignData.target_role_ids || []
+      }
+    };
+    
+    // Process the modal field responses
+    const responses = {};
+    interaction.fields.fields.forEach((field, fieldId) => {
+      responses[fieldId] = field.value;
+    });
+    
+    console.log(`📋 Processing ${Object.keys(responses).length} field responses`);
+    
+    // Save each response to the dashboard
+    let allSaved = true;
+    let lastSaveResult = null;
+    
+    for (const [fieldKey, fieldValue] of Object.entries(responses)) {
+      try {
+        const saveResult = await onboardingManager.saveResponse(
+          campaignId,
+          actualUserId,
+          interaction.user.tag,
+          fieldKey,
+          fieldValue
+        );
+        
+        if (!saveResult.success) {
+          console.error(`❌ Failed to save response for field ${fieldKey}:`, saveResult.error);
+          allSaved = false;
+          break;
+        }
+        
+        lastSaveResult = saveResult;
+        console.log(`✅ Saved response for field ${fieldKey}`);
+      } catch (error) {
+        console.error(`❌ Error saving response for field ${fieldKey}:`, error);
+        allSaved = false;
+        break;
+      }
+    }
+    
+    if (!allSaved) {
+      await interaction.editReply({
+        content: '❌ There was an error saving your responses. Please try again.'
+      });
+      return;
+    }
+    
+    // Check if onboarding is now complete
+    if (lastSaveResult && lastSaveResult.is_completed) {
+      // Create synthetic message for completion
+      const syntheticMessage = {
+        author: interaction.user,
+        user: interaction.user,
+        guild: interaction.guild,
+        channel: interaction.channel,
+        content: 'onboarding_modal_completed',
+        id: interaction.id,
+        reply: async (options) => {
+          return await interaction.editReply(options);
+        },
+        followUp: async (options) => {
+          return await interaction.followUp({ ...options, ephemeral: true });
+        },
+        isButton: () => true
+      };
+      
+      await onboardingManager.completeOnboarding(syntheticMessage, config);
+    } else {
+      // More fields to complete
+      const nextField = lastSaveResult?.next_field;
+      if (nextField) {
+        await interaction.editReply({
+          content: `✅ **Responses Saved!**\n\nThank you for your responses. There are still more fields to complete for **${config.campaignName}**.\n\n📝 You can continue your onboarding through the dashboard or wait for the next modal.`
+        });
+      } else {
+        await interaction.editReply({
+          content: `✅ **Responses Saved!**\n\nThank you for your responses to **${config.campaignName}**. Your onboarding is being processed.`
+        });
+      }
+    }
+    
+    // Track the interaction
+    await trackInteraction(interaction.guild?.id, interaction.channel?.id, {
+      author: { id: actualUserId, tag: interaction.user.tag },
+      id: interaction.id,
+      content: `onboarding_modal_submission_${campaignId}`
+    }, 'onboarding_modal_submission');
+    
+  } catch (error) {
+    console.error('❌ Error in onboarding modal submission handler:', error);
+    try {
+      if (interaction.deferred && !interaction.replied) {
+        await interaction.editReply({
+          content: '❌ An error occurred while processing your responses. Please try again later.'
+        });
+      } else if (!interaction.replied) {
+        await interaction.reply({
+          content: '❌ An error occurred while processing your responses. Please try again later.',
+          ephemeral: true
+        });
+      } else {
+        await interaction.followUp({
+          content: '❌ An error occurred while processing your responses. Please try again later.',
+          ephemeral: true
+        });
+      }
+    } catch (replyError) {
+      console.error('❌ Failed to send error reply:', replyError);
+    }
+  }
+}
 
 
