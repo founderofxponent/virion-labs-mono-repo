@@ -24,7 +24,9 @@ const config = {
   },
   discord_server: {
     defaultGuildId: process.env.DISCORD_GUILD_ID,
-    defaultChannelId: process.env.DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID
+    defaultChannelId: process.env.DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID,
+    requestAccessChannelId: process.env.DISCORD_REQUEST_ACCESS_CHANNEL_ID,
+    verifiedRoleId: process.env.DISCORD_VERIFIED_ROLE_ID
   },
   debug: process.env.DEBUG === 'true'
 };

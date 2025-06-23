@@ -21,6 +21,11 @@ class SlashCommandManager {
           name: 'start', 
           description: 'Start onboarding for the active campaign in this channel',
           handler: 'handleStartCommand'
+        },
+        {
+          name: 'request-access',
+          description: 'Request access to private channels (use in designated request channel)',
+          handler: 'handleRequestAccessCommand'
         }
       ],
       

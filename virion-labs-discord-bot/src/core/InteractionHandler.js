@@ -1,7 +1,9 @@
 const { InteractionUtils } = require('../utils/InteractionUtils');
 const { CampaignsCommand } = require('../commands/CampaignsCommand');
 const { StartCommand } = require('../commands/StartCommand');
+const { RequestAccessCommand } = require('../commands/RequestAccessCommand');
 const { OnboardingHandler } = require('../handlers/OnboardingHandler');
+const { RequestAccessHandler } = require('../handlers/RequestAccessHandler');
 
 /**
  * Handles all Discord interactions (slash commands, buttons, modals)
@@ -14,7 +16,9 @@ class InteractionHandler {
     // Initialize command handlers
     this.campaignsCommand = new CampaignsCommand(config, logger);
     this.startCommand = new StartCommand(config, logger);
+    this.requestAccessCommand = new RequestAccessCommand(config, logger);
     this.onboardingHandler = new OnboardingHandler(config, logger);
+    this.requestAccessHandler = new RequestAccessHandler(config, logger);
   }
 
   /**
@@ -61,6 +65,10 @@ class InteractionHandler {
         await this.startCommand.execute(interaction);
         break;
       
+      case 'request-access':
+        await this.requestAccessCommand.execute(interaction);
+        break;
+      
       default:
         this.logger.error(`❌ Unknown slash command: ${commandName}`);
         await InteractionUtils.sendError(interaction, 'Unknown command. Use `/campaigns` to see available options.');
@@ -86,6 +94,10 @@ class InteractionHandler {
       await this.onboardingHandler.handleStartButton(interaction);
     } else if (customId.startsWith('retry_onboarding_')) {
       await this.onboardingHandler.handleRetryButton(interaction);
+    } else if (customId.startsWith('request_access_submit_')) {
+      await this.requestAccessHandler.handleAccessRequestSubmission(interaction);
+    } else if (customId.startsWith('request_access_cancel_')) {
+      await this.requestAccessHandler.handleAccessRequestCancellation(interaction);
     } else {
       this.logger.warn(`⚠️ Unhandled button interaction: ${customId}`);
       await InteractionUtils.sendError(interaction, 'This button is no longer available.');
@@ -105,6 +117,8 @@ class InteractionHandler {
     // Route based on custom ID pattern
     if (customId.startsWith('onboarding_modal_')) {
       await this.onboardingHandler.handleModalSubmission(interaction);
+    } else if (customId.startsWith('access_request_modal_')) {
+      await this.requestAccessHandler.handleAccessRequestModalSubmission(interaction);
     } else {
       this.logger.warn(`⚠️ Unhandled modal submission: ${customId}`);
       await InteractionUtils.sendError(interaction, 'This form is no longer available.');
@@ -152,7 +166,9 @@ class InteractionHandler {
       handlersInitialized: {
         campaigns: !!this.campaignsCommand,
         start: !!this.startCommand,
-        onboarding: !!this.onboardingHandler
+        requestAccess: !!this.requestAccessCommand,
+        onboarding: !!this.onboardingHandler,
+        requestAccessHandler: !!this.requestAccessHandler
       }
     };
   }

@@ -1,6 +1,6 @@
 # Supabase Database Schema Documentation
 
-This document provides a comprehensive overview of all 28 tables and views in the Supabase database used by the Virion Labs Dashboard and Discord Bot system.
+This document provides a comprehensive overview of all 29 tables and views in the Supabase database used by the Virion Labs Dashboard and Discord Bot system.
 
 ## Recent Changes
 
@@ -1552,6 +1552,44 @@ Audit trail for Discord campaign publishing events.
 - Enables message updates instead of creating new messages
 - Provides audit trail for troubleshooting
 - Supports environment-based channel configuration
+
+---
+
+## access_requests
+
+Stores form responses from Discord `/request-access` command with automatic role assignment.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| discord_user_id | TEXT | Discord user ID who submitted the access request |
+| discord_username | TEXT | Discord username at time of request (user#1234 format) |
+| discord_guild_id | TEXT | Discord guild (server) ID where request was made |
+| full_name | TEXT | Full name provided by user in request form |
+| email | TEXT | Email address provided by user in request form |
+| verified_role_id | TEXT | Discord role ID that was assigned to the user |
+| role_assigned_at | TIMESTAMP | When the verified role was assigned (default: NOW()) |
+| created_at | TIMESTAMP | Record creation time (default: NOW()) |
+| updated_at | TIMESTAMP | Record last update time (default: NOW()) |
+
+**Indexes:**
+- `idx_access_requests_discord_user_id` on discord_user_id
+- `idx_access_requests_discord_guild_id` on discord_guild_id  
+- `idx_access_requests_email` on email
+- `idx_access_requests_created_at` on created_at
+- `idx_access_requests_unique_user_guild` unique constraint on (discord_user_id, discord_guild_id)
+
+**Security:**
+- Row Level Security (RLS) enabled
+- Service role policy allows all operations for internal services
+- Authenticated users have SELECT and INSERT permissions
+
+**Usage:**
+- Stores user information collected through Discord `/request-access` command
+- Tracks automatic role assignments to verified users
+- Provides audit trail for access requests and role assignments
+- Prevents duplicate requests per user per guild via unique constraint
+- No dashboard integration for viewing (as per design requirement)
 
 ---
 
