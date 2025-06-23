@@ -144,6 +144,30 @@ const { data, error } = await this.client
 - ✅ **No Functional Changes**: Same connection validation logic with updated table reference
 - ✅ **Future-Proof**: Bot now aligned with current database schema
 
+### Onboarding Data Reset for Testing
+**Date:** January 2025
+
+**Action:** Complete reset of onboarding data for fresh testing
+
+**Data Cleared:**
+- **campaign_onboarding_responses**: All user responses and modal sessions cleared
+- **campaign_onboarding_completions**: All completion records removed
+- **discord_referral_interactions**: onboarding_completed flags reset to false
+- **discord_guild_campaigns**: successful_onboardings counters reset to 0
+
+**Data Preserved:**
+- ✅ All campaign configurations and onboarding field definitions
+- ✅ All user profiles and authentication data
+- ✅ All referral links and referral tracking data
+- ✅ All Discord interaction history (only flags reset)
+- ✅ All bot configurations and templates
+
+**Impact:** 
+- ✅ **Clean Testing Environment**: All onboarding flows can be tested from scratch
+- ✅ **No Functional Disruption**: Dashboard and bot functionality fully preserved
+- ✅ **Fresh Analytics**: Onboarding completion rates will start from zero
+- ✅ **User Experience Reset**: Previous test users can go through onboarding again
+
 ### Email Validation Pattern Fix
 **Date:** December 2024 - Updated January 2025
 
@@ -951,7 +975,7 @@ Comprehensive Discord campaign management with extensive configuration options.
 - `onboarding_completion_requirements` (jsonb, default: '{}') - Completion requirements
 - `private_channel_setup` (jsonb, default: '{}') - Private channel setup
 - ~~`target_role_id`~~ (REMOVED) - Target role IDs (consolidated into `target_role_ids`)
-- `target_role_ids` (text[], nullable) - Target Discord role IDs (consolidated from multiple role fields)
+- `target_role_ids` (text[], nullable) - Target Discord role IDs (consolidated from multiple role fields). UI supports multiple role IDs with comma-separated input and visual badge display for better user experience.
 - ~~`auto_role_on_join`~~ (REMOVED) - Auto-assign role on join (consolidated into `target_role_ids`)
 - `created_at` (timestamptz, default: now()) - Creation timestamp
 - `updated_at` (timestamptz, default: now()) - Last update timestamp

@@ -42,6 +42,7 @@ import { useCampaignTemplateComplete } from "@/hooks/use-campaign-template-compl
 import { useClients } from "@/hooks/use-clients"
 import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
 import { useOnboardingFields } from "@/hooks/use-onboarding-fields"
+import RoleIdsInput from "@/components/role-ids-input"
 
 interface CampaignWizardProps {
   mode: "create" | "edit"
@@ -612,8 +613,6 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
                     />
                   </div>
 
-
-
                   <div className="space-y-2">
                     <Label htmlFor="bot_personality">Bot Personality</Label>
                     <Select
@@ -776,10 +775,10 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
                   {formData.auto_role_assignment && (
                     <div className="ml-4 space-y-2">
                       <Label htmlFor="role_ids">Role IDs (comma separated)</Label>
-                      <Input
+                      <RoleIdsInput
                         id="role_ids"
-                        value={formData.target_role_ids.join(',')}
-                        onChange={(e) => handleFieldChange('target_role_ids', e.target.value.split(',').map(id => id.trim()).filter(Boolean))}
+                        value={formData.target_role_ids}
+                        onChange={(value) => handleFieldChange('target_role_ids', value)}
                         placeholder="12345,67890"
                       />
                       <p className="text-xs text-muted-foreground">

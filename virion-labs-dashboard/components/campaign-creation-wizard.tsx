@@ -28,6 +28,7 @@ import { ChevronLeft, ChevronRight, Bot, Zap, Users, HeadphonesIcon, Palette, Se
 import { type CampaignTemplate } from "@/lib/campaign-templates"
 import { LandingPageConfig } from "@/components/landing-page-config"
 import { useCampaignTemplateComplete } from "@/hooks/use-campaign-template-complete"
+import RoleIdsInput from "@/components/role-ids-input"
 
 interface CampaignCreationWizardProps {
   open: boolean
@@ -670,10 +671,10 @@ export function CampaignCreationWizard({ open, onOpenChange, onSuccess, clients 
                   {formData.auto_role_assignment && (
                     <div className="space-y-0.5">
                       <Label htmlFor="role_ids">Role IDs (comma separated)</Label>
-                      <Input
+                      <RoleIdsInput
                         id="role_ids"
-                        value={(formData.target_role_ids || []).join(',')}
-                        onChange={(e) => handleFieldChange('target_role_ids', e.target.value.split(',').map(id => id.trim()).filter(Boolean))}
+                        value={formData.target_role_ids || []}
+                        onChange={(value) => handleFieldChange('target_role_ids', value)}
                         placeholder="12345,67890"
                       />
                     </div>
