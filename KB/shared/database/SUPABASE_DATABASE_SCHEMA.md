@@ -4,6 +4,41 @@ This document provides a comprehensive overview of all 29 tables and views in th
 
 ## Recent Changes
 
+### JavaScript Onboarding Reset Script Creation (Latest)
+**Date:** January 24, 2025
+
+**Enhancement:** Created a JavaScript-based onboarding data reset script for manual testing
+
+**Created:**
+- **File**: `virion-labs-dashboard/scripts/reset-onboarding-data.js`
+- **Purpose**: Provides a Node.js script to reset all onboarding test data
+- **Safety**: Added to `.gitignore` to prevent accidental commits to repository
+- **Features**: 
+  - Comprehensive error handling and validation
+  - Detailed progress reporting and verification
+  - Environment variable validation
+  - Transaction-like operations with rollback on failure
+
+**Usage:**
+```bash
+# From virion-labs-dashboard directory
+node scripts/reset-onboarding-data.js
+```
+
+**What the script resets:**
+- All `campaign_onboarding_responses` records
+- All `campaign_onboarding_completions` records  
+- `onboarding_completed` flags in `discord_referral_interactions` table
+- `successful_onboardings` counters in `discord_guild_campaigns` table
+
+**What is preserved:**
+- All campaign configurations and onboarding field definitions
+- All user profiles and authentication data
+- All referral links and referral tracking data
+- All Discord interaction history (only completion flags reset)
+
+**Security:** Script requires `SUPABASE_SERVICE_ROLE_KEY` environment variable and validates all operations before execution.
+
 ### Discord Bot API Response Structure Fix (Latest)
 **Date:** January 2025
 
@@ -82,7 +117,27 @@ This ensures consistent API response parsing across all Discord bot services and
 - ✅ **Current entry point**: `src/index.js` (modular structure)
 - ✅ **Proper usage**: `npm start` or `node src/index.js` (NOT `node index.js`)
 
-### Onboarding Data Reset for Testing
+### Latest Onboarding Data Reset for Testing
+**Date:** January 24, 2025
+
+**Action:** Complete reset of onboarding data for fresh testing environment
+
+**Data Cleared:**
+- **campaign_onboarding_responses**: All user responses and modal sessions cleared (7 responses removed)
+- **campaign_onboarding_completions**: All completion records removed (2 completions removed)
+- **discord_guild_campaigns**: successful_onboardings and users_served counters reset to 0
+
+**Previous State:**
+- 7 responses from 1 user (adorable_dragon_31154) across 2 campaigns
+- 2 completion records for the same user
+- Sample responses included: gaming interests, email addresses, customer names, referral sources
+
+**Current State:**
+- All onboarding response tables are now empty (0 records)
+- Campaign configurations and field definitions preserved
+- Ready for fresh onboarding testing from scratch
+
+### Previous Onboarding Data Reset for Testing
 **Date:** January 2025
 
 **Action:** Complete reset of onboarding data for fresh testing
