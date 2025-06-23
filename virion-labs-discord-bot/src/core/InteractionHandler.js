@@ -1,5 +1,4 @@
 const { InteractionUtils } = require('../utils/InteractionUtils');
-const { CampaignsCommand } = require('../commands/CampaignsCommand');
 const { StartCommand } = require('../commands/StartCommand');
 const { RequestAccessCommand } = require('../commands/RequestAccessCommand');
 const { OnboardingHandler } = require('../handlers/OnboardingHandler');
@@ -14,7 +13,6 @@ class InteractionHandler {
     this.logger = logger;
     
     // Initialize command handlers
-    this.campaignsCommand = new CampaignsCommand(config, logger);
     this.startCommand = new StartCommand(config, logger);
     this.requestAccessCommand = new RequestAccessCommand(config, logger);
     this.onboardingHandler = new OnboardingHandler(config, logger);
@@ -57,10 +55,6 @@ class InteractionHandler {
 
     // Route to appropriate command handler
     switch (commandName) {
-      case 'campaigns':
-        await this.campaignsCommand.execute(interaction);
-        break;
-      
       case 'start':
         await this.startCommand.execute(interaction);
         break;
@@ -71,7 +65,7 @@ class InteractionHandler {
       
       default:
         this.logger.error(`❌ Unknown slash command: ${commandName}`);
-        await InteractionUtils.sendError(interaction, 'Unknown command. Use `/campaigns` to see available options.');
+        await InteractionUtils.sendError(interaction, 'Unknown command. Use `/start` to join campaigns.');
     }
   }
 
@@ -88,8 +82,6 @@ class InteractionHandler {
     // Route based on custom ID pattern
     if (customId === 'campaign_get_started') {
       await this.startCommand.execute(interaction);
-    } else if (customId === 'campaign_view_all') {
-      await this.campaignsCommand.execute(interaction);
     } else if (customId.startsWith('start_onboarding_')) {
       await this.onboardingHandler.handleStartButton(interaction);
     } else if (customId.startsWith('retry_onboarding_')) {
@@ -164,7 +156,6 @@ class InteractionHandler {
   getStats() {
     return {
       handlersInitialized: {
-        campaigns: !!this.campaignsCommand,
         start: !!this.startCommand,
         requestAccess: !!this.requestAccessCommand,
         onboarding: !!this.onboardingHandler,

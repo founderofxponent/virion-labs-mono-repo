@@ -304,7 +304,7 @@ class ReferralHandler {
         .setTitle('❌ Invalid Referral Code')
         .setDescription(
           `The referral code \`${referralCode}\` is not valid or has expired.\n\n` +
-          `Please check with the person who shared it or use \`/campaigns\` to see available options.`
+          `Please check with the person who shared it or use \`/start\` to see available options.`
         )
         .setColor('#ff0000')
         .setTimestamp();

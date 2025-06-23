@@ -64,7 +64,7 @@ class OnboardingHandler {
       // Check if campaign is active
       if (!this.campaignService.isCampaignActive(campaign)) {
         await InteractionUtils.safeReply(interaction, {
-          content: '❌ This campaign is no longer active. Please check `/campaigns` for available options.',
+          content: '❌ This campaign is no longer active. Please use `/start` to see available options.',
           ephemeral: true
         });
         return;

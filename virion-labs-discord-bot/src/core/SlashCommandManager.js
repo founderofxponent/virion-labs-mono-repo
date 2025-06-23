@@ -13,11 +13,6 @@ class SlashCommandManager {
       // Core commands that should always be available
       CORE: [
         {
-          name: 'campaigns',
-          description: 'View and join available campaigns for this channel',
-          handler: 'handleCampaignsCommand'
-        },
-        {
           name: 'start', 
           description: 'Start onboarding for the active campaign in this channel',
           handler: 'handleStartCommand'
