@@ -184,14 +184,10 @@ class CampaignPublisher {
         description += `**${index + 1}.** ${campaign.campaign_name || campaign.name}\n`;
       });
       
-      description += `\n🚀 **Ready to get started?** Use the \`/start\` command to begin your onboarding journey!`;
+      description += `\n🚀 **Ready to get started?** Click the button below to begin your onboarding journey!`;
     } else {
       description += `No campaigns are currently active. Check back soon for new opportunities! 💫`;
     }
-
-    description += `\n\n💡 **Commands:**\n`;
-    description += `• \`/campaigns\` - View all available campaigns\n`;
-    description += `• \`/start\` - Start onboarding for an active campaign`;
 
     embed.setDescription(description);
     embed.setFooter({ 
@@ -207,18 +203,11 @@ class CampaignPublisher {
       // Add a "Get Started" button
       const getStartedButton = new ButtonBuilder()
         .setCustomId('campaign_get_started')
-        .setLabel('🚀 Get Started')
-        .setStyle(ButtonStyle.Primary);
+        .setLabel('Get Started')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🪄');
       
       row.addComponents(getStartedButton);
-      
-      // Add a "View All" button
-      const viewAllButton = new ButtonBuilder()
-        .setCustomId('campaign_view_all')
-        .setLabel('📋 View All Campaigns')
-        .setStyle(ButtonStyle.Secondary);
-      
-      row.addComponents(viewAllButton);
       
       components.push(row);
     }

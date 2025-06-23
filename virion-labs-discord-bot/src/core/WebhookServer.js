@@ -118,9 +118,14 @@ class WebhookServer {
       if (result.success) {
         this.logger.success('✅ Campaigns published successfully via webhook');
         
+        const campaignCount = result.data.campaignCount || 0;
+        const message = campaignCount > 0
+          ? `Successfully published ${campaignCount} campaign(s).`
+          : 'No active campaigns to publish.';
+
         res.json({
           success: true,
-          message: 'Campaigns published successfully',
+          message: message,
           data: result.data
         });
       } else {
