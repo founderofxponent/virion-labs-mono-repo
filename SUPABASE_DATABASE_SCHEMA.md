@@ -4,7 +4,161 @@ This document provides a comprehensive overview of all 28 tables and views in th
 
 ## Recent Changes
 
-### Discord Bot Slash Commands Cleanup (Latest)
+### Discord Bot Session Management Fix (Latest)
+**Date:** December 2024
+
+**Enhancement:** Fixed Discord bot campaign button session management to eliminate race conditions and ensure reliable modal display
+
+**Issue Resolved:**
+- **Problem**: Users clicking campaign buttons sometimes saw generic "Let's Get You Started!" message instead of campaign-specific modal, requiring a second click to work properly
+- **Root Cause**: Race condition between session creation and retrieval, plus reliance on asynchronous session storage before modal display
+- **Flow Issue**: Button handler tried to retrieve modal session that hadn't been stored yet, fell back to generic onboarding flow
+
+**Changes Made:**
+
+**New Session Management Architecture:**
+- **Created** `createCampaignModalSession()` function for synchronous session creation
+- **Implemented** complete session lifecycle: create → validate → store → display
+- **Added** session validation with completion status checking
+- **Enhanced** error handling for session creation failures
+
+**Button Handler Improvements:**
+- **Replaced** async session retrieval with direct session creation in `handleOnboardingStartButton()`
+- **Eliminated** fallback to generic `startOnboarding()` flow for campaign buttons
+- **Added** immediate completion detection for users who already finished onboarding
+- **Implemented** direct modal display for campaigns with no fields configured
+
+**Session Storage Enhancements:**
+- **Fixed** session persistence timing by storing before modal display
+- **Added** session cleanup to prevent stale data conflicts
+- **Enhanced** modal session API calls with proper error handling
+- **Implemented** campaign context validation throughout the flow
+
+**Technical Implementation:**
+```javascript
+// OLD: Race condition flow
+const modalSession = await onboardingManager.getStoredModalSession(campaignId, userId);
+if (!modalSession) {
+  // ❌ Falls back to generic flow, shows "Let's Get You Started!"
+  await onboardingManager.startOnboarding(syntheticMessage, config, { autoStart: true });
+}
+
+// NEW: Synchronous session creation
+const modalSession = await createCampaignModalSession(campaignId, userId, username, config);
+if (modalSession.completed) {
+  // ✅ Direct completion message
+} else if (modalSession.fields?.length > 0) {
+  // ✅ Direct modal display with campaign-specific fields
+}
+```
+
+**Flow Improvements:**
+1. **Button Click**: Immediately creates complete session with all required data
+2. **Session Storage**: Stores session synchronously before any UI interactions
+3. **Validation**: Checks completion status and field availability
+4. **Modal Display**: Shows campaign-specific modal directly, no intermediate messages
+5. **Error Handling**: Provides specific error messages for different failure scenarios
+
+**OnboardingManager Updates:**
+- **Added** `skipIntroMessage` option to `showOnboardingModal()` method
+- **Enhanced** modal display logic to handle direct campaign button interactions
+- **Maintained** backward compatibility with existing onboarding flows
+
+**Impact:** 
+- ✅ **Eliminated Race Conditions**: Sessions created synchronously before modal display
+- ✅ **First-Click Success**: Campaign buttons work correctly on first click every time
+- ✅ **No Generic Messages**: Users see campaign-specific modals immediately
+- ✅ **Better Error Handling**: Clear error messages for different failure scenarios
+- ✅ **Improved UX**: Seamless transition from button click to modal display
+- ✅ **Reliable Session Management**: Consistent session creation and storage across all flows
+
+### Discord Modal Field Labels Optimization
+**Date:** December 2024
+
+**Enhancement:** Updated all onboarding field labels to comply with Discord's 45-character limit for modal fields
+
+**Issue Resolved:**
+- **Problem**: Discord modals have a strict 45-character limit for field labels, but several onboarding field labels exceeded this limit
+- **Root Cause**: Original field labels were written for web forms without considering Discord's UI constraints
+- **Impact**: Users couldn't see onboarding modals due to validation errors when field labels were too long
+
+**Changes Made:**
+
+**Field Label Updates:**
+- `"What would you like to be called in the community?"` (50 chars) → `"Community Display Name"` (22 chars)
+- `"What are your main goals in joining our community?"` (50 chars) → `"Your Main Community Goals"` (25 chars)
+- `"How would you describe your experience level?"` (45 chars) → `"Your Experience Level"` (21 chars)
+- `"What do you hope to get from this community?"` (44 chars) → `"What You Hope to Get Here"` (25 chars)
+- `"Which product categories interest you most?"` (43 chars) → `"Product Categories of Interest"` (30 chars)
+- `"What name should we use for your orders?"` (40 chars) → `"Name for Your Orders"` (20 chars)
+
+**Template Updates:**
+Updated all 5 campaign templates with optimized field labels:
+- **Community Engagement**: 3 fields, max 25 characters
+- **Product Promotion**: 3 fields, max 30 characters  
+- **Referral Onboarding**: 4 fields, max 23 characters
+- **Custom**: 2 fields, max 23 characters
+- **VIP Support**: 3 fields, max 29 characters
+
+**Database Tables Updated:**
+- `campaign_onboarding_fields` - Updated existing field labels
+- `campaign_templates` - Updated template configurations with new labels
+
+**Impact:** 
+- ✅ **Discord Modal Compatibility**: All field labels now under 45-character limit
+- ✅ **Improved UX**: Shorter, clearer labels are easier to read in Discord modals
+- ✅ **Consistent Experience**: All campaigns now work seamlessly with Discord interface
+- ✅ **Future-Proof**: New template system ensures compliance with Discord constraints
+
+### Discord Bot Interaction Type Constraint Fix
+**Date:** December 2024
+
+**Enhancement:** Fixed Discord bot interaction tracking by updating database check constraint
+
+**Issue Resolved:**
+- **Problem**: Discord bot was failing to track interactions with error "new row for relation 'discord_referral_interactions' violates check constraint 'discord_referral_interactions_interaction_type_check'"
+- **Root Cause**: Bot was trying to track new interaction types (`slash_command_campaigns`, `slash_command_start`, `onboarding_start_button`, `onboarding_modal_submission`) that weren't allowed by the database constraint
+- **Impact**: All Discord bot interactions were generating database errors and not being properly tracked for analytics
+
+**Changes Made:**
+
+**Database Migration:**
+```sql
+-- Updated check constraint to include new interaction types
+ALTER TABLE discord_referral_interactions 
+DROP CONSTRAINT IF EXISTS discord_referral_interactions_interaction_type_check;
+
+ALTER TABLE discord_referral_interactions 
+ADD CONSTRAINT discord_referral_interactions_interaction_type_check 
+CHECK (interaction_type = ANY (ARRAY[
+    -- Original types
+    'message', 'command', 'reaction', 'join', 'referral_signup', 
+    'handled_message', 'unhandled_message', 'inactive_campaign_interaction', 
+    'referral_failed', 'guild_join', 'onboarding_completed',
+    -- New interaction types for slash commands and buttons
+    'slash_command_campaigns', 'slash_command_start', 'onboarding_start_button',
+    'onboarding_modal_submission', 'onboarding_started', 'onboarding_response',
+    'referral_validation', 'campaign_interaction'
+]));
+```
+
+**New Interaction Types Added:**
+- `slash_command_campaigns` - Tracks `/campaigns` slash command usage
+- `slash_command_start` - Tracks `/start` slash command usage  
+- `onboarding_start_button` - Tracks campaign join button clicks
+- `onboarding_modal_submission` - Tracks modal form submissions
+- `onboarding_started` - Tracks onboarding initiation events
+- `onboarding_response` - Tracks individual onboarding responses
+- `referral_validation` - Tracks referral code validation attempts
+- `campaign_interaction` - Tracks general campaign interactions
+
+**Impact:** 
+- ✅ **Fixed Database Errors**: All Discord bot interactions now track successfully
+- ✅ **Complete Analytics**: Proper tracking of slash commands, buttons, and modal interactions
+- ✅ **Enhanced Reporting**: Better visibility into user interaction patterns
+- ✅ **No Data Loss**: All interaction types are now properly captured and stored
+
+### Discord Bot Slash Commands Cleanup
 **Date:** December 2024
 
 **Enhancement:** Cleaned up Discord bot to only use essential `/start` and `/campaigns` slash commands
@@ -677,7 +831,7 @@ Tracks all Discord bot interactions with users.
 - `created_at` (timestamptz, default: now()) - Interaction timestamp
 
 **Constraints:**
-- Interaction type must be one of: 'message', 'command', 'reaction', 'join', 'referral_signup', 'handled_message', 'unhandled_message', 'inactive_campaign_interaction', 'referral_failed', 'guild_join', 'onboarding_completed'
+- Interaction type must be one of: 'message', 'command', 'reaction', 'join', 'referral_signup', 'handled_message', 'unhandled_message', 'inactive_campaign_interaction', 'referral_failed', 'guild_join', 'onboarding_completed', 'slash_command_campaigns', 'slash_command_start', 'onboarding_start_button', 'onboarding_modal_submission', 'onboarding_started', 'onboarding_response', 'referral_validation', 'campaign_interaction'
 - Foreign keys to discord_guild_campaigns(id), referral_links(id), referrals(id), auth.users(id)
 
 ### discord_webhook_routes

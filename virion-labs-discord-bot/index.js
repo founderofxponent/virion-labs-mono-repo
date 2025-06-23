@@ -1101,10 +1101,11 @@ async function handleReferralInviteContext(member) {
                   console.log(`❌ Invalid referral code detected: ${context.referral_code} for ${member.user.tag}`);
                   
                   // Send a message about invalid referral but still welcome them
+                  const displayName = config.clientName || config.campaignName || 'our community';
                   const welcomeEmbed = createCampaignEmbed(
                     config,
                     '🎉 Welcome!',
-                    `Welcome to **${config.clientName}**! We detected a referral link, but it appears to be invalid or expired.\n\n✨ No worries though - you can still get started with our community!`,
+                    `Welcome to **${displayName}**! We detected a referral link, but it appears to be invalid or expired.\n\n✨ No worries though - you can still get started with our community!`,
                     config.bot_config?.brand_color || '#ff9900'
                   );
                   
@@ -1206,14 +1207,15 @@ async function handleNewMemberOnboarding(member) {
         if (error.code === 50007) {
           console.log(`❌ Cannot send DM to ${member.user.tag} (DMs disabled)`);
           
-          // Fallback: try to send to system channel with instructions
-          try {
-            if (member.guild.systemChannel) {
-              const fallbackEmbed = new EmbedBuilder()
-                .setTitle(`🎉 Welcome ${member.user.username}!`)
-                .setDescription(`Welcome to **${config.clientName}**!\n\n📝 I tried to start your onboarding process in DMs, but it seems you have DMs disabled.\n\n💡 Please enable DMs from server members and type "start" to begin your onboarding journey!`)
-                .setColor(config.config?.brand_color || '#6366f1')
-                .setTimestamp();
+                      // Fallback: try to send to system channel with instructions
+            try {
+              if (member.guild.systemChannel) {
+                const displayName = config.clientName || config.campaignName || 'our community';
+                const fallbackEmbed = new EmbedBuilder()
+                  .setTitle(`🎉 Welcome ${member.user.username}!`)
+                  .setDescription(`Welcome to **${displayName}**!\n\n📝 I tried to start your onboarding process in DMs, but it seems you have DMs disabled.\n\n💡 Please enable DMs from server members and type "start" to begin your onboarding journey!`)
+                  .setColor(config.config?.brand_color || '#6366f1')
+                  .setTimestamp();
               
               await member.guild.systemChannel.send({
                 content: `${member.user}`,
@@ -1886,7 +1888,8 @@ client.on('guildMemberAdd', async (member) => {
       await handleNewMemberOnboarding(member);
       
       let welcomeTitle = '🎉 Welcome to the Server!';
-      let welcomeMessage = `Welcome to ${config.clientName}, ${member.user.username}!`;
+      const displayName = config.clientName || config.campaignName || 'our community';
+      let welcomeMessage = `Welcome to ${displayName}, ${member.user.username}!`;
       
       // Customize message based on campaign type
       switch (config.campaignType) {
@@ -2074,16 +2077,138 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
+// Create and store modal session for a campaign
+async function createCampaignModalSession(campaignId, userId, username, config) {
+  try {
+    console.log(`📦 Creating campaign modal session for ${username} in campaign ${campaignId}`);
+    
+    // Step 1: Get or create the onboarding session from the dashboard API
+    const sessionResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding?campaign_id=${campaignId}&discord_user_id=${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Virion-Discord-Bot/2.0'
+      }
+    });
+
+    let onboardingSession;
+    
+    if (sessionResponse.ok) {
+      onboardingSession = await sessionResponse.json();
+      console.log(`✅ Retrieved existing onboarding session for ${username}: completed=${onboardingSession.is_completed}`);
+      
+      if (onboardingSession.is_completed) {
+        console.log(`⚠️ User ${username} has already completed onboarding for campaign ${campaignId}`);
+        return { completed: true };
+      }
+    } else {
+      // Create new session
+      console.log(`📝 Creating new onboarding session for ${username}`);
+      const createResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0'
+        },
+        body: JSON.stringify({
+          campaign_id: campaignId,
+          discord_user_id: userId,
+          discord_username: username
+        })
+      });
+
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
+        console.error(`❌ Failed to create onboarding session: ${createResponse.status} - ${errorText}`);
+        return null;
+      }
+
+      onboardingSession = await createResponse.json();
+      console.log(`✅ Created new onboarding session for ${username}: fields=${onboardingSession.fields?.length || 0}`);
+    }
+
+    // Step 2: Process the fields to determine what needs to be shown
+    if (!onboardingSession.fields || onboardingSession.fields.length === 0) {
+      console.log(`⚠️ No fields configured for campaign ${campaignId}`);
+      return { fields: [] };
+    }
+
+    // Get incomplete fields
+    const completedFieldKeys = new Set(
+      onboardingSession.existing_responses?.filter(r => r.field_value && r.field_value.trim() !== '').map(r => r.field_key) || []
+    );
+
+    const incompleteFields = onboardingSession.fields.filter(field => !completedFieldKeys.has(field.field_key));
+    console.log(`🔍 Found ${incompleteFields.length} incomplete fields out of ${onboardingSession.fields.length} total`);
+
+    if (incompleteFields.length === 0) {
+      console.log(`✅ All fields completed for ${username} in campaign ${campaignId}`);
+      return { completed: true };
+    }
+
+    // Step 3: Store the modal session in the database
+    const modalSessionData = {
+      fields: incompleteFields,
+      config,
+      username: username,
+      created_at: new Date().toISOString(),
+      field_keys: incompleteFields.map(f => f.field_key)
+    };
+
+    console.log(`📦 Storing modal session data for ${username}`);
+    
+    // Clear any existing session first
+    await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding/modal-session?campaign_id=${campaignId}&discord_user_id=${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Virion-Discord-Bot/2.0'
+      }
+    });
+
+    // Store new session
+    const storeResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding/modal-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Virion-Discord-Bot/2.0'
+      },
+      body: JSON.stringify({
+        campaign_id: campaignId,
+        discord_user_id: userId,
+        discord_username: username,
+        session_data: modalSessionData
+      })
+    });
+
+    if (!storeResponse.ok) {
+      const errorText = await storeResponse.text();
+      console.error(`❌ Failed to store modal session: ${storeResponse.status} - ${errorText}`);
+      // Continue anyway - we can still show the modal with the data we have
+    } else {
+      console.log(`✅ Modal session stored successfully for ${username}`);
+    }
+
+    // Step 4: Return the session data ready for modal creation
+    return modalSessionData;
+
+  } catch (error) {
+    console.error('❌ Error creating campaign modal session:', error);
+    return null;
+  }
+}
+
 // Handle onboarding start button interactions
 async function handleOnboardingStartButton(interaction) {
   try {
-    await interaction.deferReply({ ephemeral: true });
+    // Don't defer reply when showing modals - Discord doesn't allow both
     
     // Parse the custom ID: start_onboarding_{campaignId}_{userId}
     const customIdParts = interaction.customId.split('_');
     if (customIdParts.length < 4) {
-      await interaction.editReply({
-        content: '❌ Invalid button interaction. Please try again.'
+      await interaction.reply({
+        content: '❌ Invalid button interaction. Please try again.',
+        flags: 64 // MessageFlags.Ephemeral
       });
       return;
     }
@@ -2094,8 +2219,9 @@ async function handleOnboardingStartButton(interaction) {
     
     // Verify the user ID matches (security check)
     if (expectedUserId !== actualUserId) {
-      await interaction.editReply({
-        content: '❌ This button is not for you. Please use `/start` to begin your own onboarding.'
+      await interaction.reply({
+        content: '❌ This button is not for you. Please use `/start` to begin your own onboarding.',
+        flags: 64 // MessageFlags.Ephemeral
       });
       return;
     }
@@ -2112,8 +2238,9 @@ async function handleOnboardingStartButton(interaction) {
       
     if (campaignError || !campaignData) {
       console.error('❌ Error fetching campaign:', campaignError);
-      await interaction.editReply({
-        content: '❌ Campaign not found or no longer available.'
+      await interaction.reply({
+        content: '❌ Campaign not found or no longer available.',
+        flags: 64 // MessageFlags.Ephemeral
       });
       return;
     }
@@ -2121,8 +2248,9 @@ async function handleOnboardingStartButton(interaction) {
     // Check if campaign is still active
     if (!campaignData.is_active) {
       const status = getCampaignStatus(campaignData);
-      await interaction.editReply({
-        content: `❌ The campaign "${campaignData.campaign_name}" is currently ${status} and not accepting new participants.`
+      await interaction.reply({
+        content: `❌ The campaign "${campaignData.campaign_name}" is currently ${status} and not accepting new participants.`,
+        flags: 64 // MessageFlags.Ephemeral
       });
       return;
     }
@@ -2162,65 +2290,96 @@ async function handleOnboardingStartButton(interaction) {
       referralCode: campaignData.referral_code
     };
     
-    // Create a synthetic message object for the onboarding manager
-    const syntheticMessage = {
-      author: interaction.user,
-      user: interaction.user,
-      guild: interaction.guild,
-      channel: interaction.channel,
-      content: 'start_onboarding_button',
-      id: interaction.id,
-      reply: async (options) => {
-        if (!interaction.replied && !interaction.deferred) {
-          return await interaction.reply({ ...options, ephemeral: true });
-        } else if (interaction.deferred && !interaction.replied) {
-          return await interaction.editReply(options);
-        } else {
-          return await interaction.followUp({ ...options, ephemeral: true });
-        }
-      },
-      followUp: async (options) => {
-        return await interaction.followUp({ ...options, ephemeral: true });
-      },
-      isButton: () => true
-    };
-    
-    // Check if user already has a completed onboarding session
-    try {
-      const sessionResponse = await fetch(`${DASHBOARD_API_URL}/discord-bot/onboarding?campaign_id=${campaignId}&discord_user_id=${actualUserId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Virion-Discord-Bot/2.0'
-        }
-      });
 
-      if (sessionResponse.ok) {
-        const session = await sessionResponse.json();
-        if (session.is_completed) {
-          await interaction.editReply({
-            content: `✅ You've already completed onboarding for **${config.campaignName}**!\n\nWelcome back! You're all set to enjoy the community features.`
-          });
-          return;
-        }
+    
+        // Create and store modal session directly for this campaign
+    console.log(`🚀 Creating modal session for ${interaction.user.tag} in campaign ${config.campaignName}`);
+    const modalSession = await createCampaignModalSession(campaignId, actualUserId, interaction.user.tag, config);
+    
+    if (!modalSession) {
+      await interaction.reply({
+        content: `❌ Failed to create onboarding session for **${config.campaignName}**. Please try again later.`,
+        flags: 64 // MessageFlags.Ephemeral
+      });
+      return;
+    }
+    
+    // Check if user has already completed onboarding
+    if (modalSession.completed) {
+      await interaction.reply({
+        content: `✅ You've already completed onboarding for **${config.campaignName}**!\n\nWelcome back! You're all set to enjoy the community features.`,
+        flags: 64 // MessageFlags.Ephemeral
+      });
+      return;
+    }
+    
+    // Check if no fields are configured
+    if (!modalSession.fields || modalSession.fields.length === 0) {
+      console.log(`⚠️ No fields configured for campaign ${config.campaignName}`);
+      
+      // No fields configured - complete onboarding immediately
+      await interaction.reply({
+        content: `🎉 Welcome to **${config.campaignName}**!\n\nNo additional information is needed. You're all set to enjoy the community features!`,
+        flags: 64 // MessageFlags.Ephemeral
+      });
+      
+      // Track completion
+      await trackInteraction(interaction.guild?.id, interaction.channel?.id, {
+        author: { id: actualUserId, tag: interaction.user.tag },
+        id: interaction.id,
+        content: `onboarding_completed_no_fields_${campaignId}`
+      }, 'onboarding_completed');
+      
+      return;
+    }
+
+    // Create and show the actual modal
+    console.log(`📝 Creating modal with ${modalSession.fields.length} fields for ${interaction.user.tag}`);
+    
+    const modal = new ModalBuilder()
+      .setCustomId(`onboarding_modal_${campaignId}_${actualUserId}`)
+      .setTitle(`${config.campaignName} - Onboarding`);
+
+    const components = [];
+    
+    // Add up to 5 fields to the modal (Discord's limit)
+    const fieldsToShow = modalSession.fields.slice(0, 5);
+    
+    for (const field of fieldsToShow) {
+      // Truncate label to Discord's 45-character limit
+      const label = field.field_label || field.field_key;
+      const truncatedLabel = label.length > 45 ? label.substring(0, 42) + '...' : label;
+      
+      const textInput = new TextInputBuilder()
+        .setCustomId(field.field_key)
+        .setLabel(truncatedLabel)
+        .setStyle(field.field_type === 'textarea' ? TextInputStyle.Paragraph : TextInputStyle.Short)
+        .setPlaceholder(field.field_placeholder || `Enter your ${field.field_label || field.field_key}`)
+        .setRequired(field.is_required || false);
+
+      if (field.field_type === 'textarea') {
+        textInput.setMaxLength(1000);
+      } else {
+        textInput.setMaxLength(100);
       }
-    } catch (error) {
-      console.error('❌ Error checking existing session:', error);
+
+      const actionRow = new ActionRowBuilder().addComponents(textInput);
+      components.push(actionRow);
     }
-    
-    // Start the onboarding process
-    console.log(`🚀 Starting onboarding for ${interaction.user.tag} in campaign ${config.campaignName}`);
-    const success = await onboardingManager.startOnboarding(syntheticMessage, config, { autoStart: true });
-    
-    if (success) {
-      await interaction.editReply({
-        content: `🚀 **Onboarding Started!**\n\nWelcome to **${config.campaignName}**! I'm starting your onboarding process now.\n\n📝 Please check for any modals or follow-up messages to complete your setup.`
-      });
-    } else {
-      await interaction.editReply({
-        content: `❌ Failed to start onboarding for **${config.campaignName}**. Please try again later.`
-      });
-    }
+
+    modal.addComponents(...components);
+
+    // Show the modal
+    try {
+      await interaction.showModal(modal);
+      console.log(`✅ Modal shown successfully to ${interaction.user.tag} for campaign ${config.campaignName}`);
+         } catch (modalError) {
+       console.error('❌ Error showing modal:', modalError);
+       await interaction.reply({
+         content: `❌ Failed to show onboarding form. Please try again later.`,
+         flags: 64 // MessageFlags.Ephemeral
+       });
+     }
     
     // Track the interaction
     await trackInteraction(interaction.guild?.id, interaction.channel?.id, {
@@ -2232,19 +2391,15 @@ async function handleOnboardingStartButton(interaction) {
   } catch (error) {
     console.error('❌ Error in onboarding start button handler:', error);
     try {
-      if (interaction.deferred && !interaction.replied) {
-        await interaction.editReply({
-          content: '❌ An error occurred while starting onboarding. Please try again later.'
-        });
-      } else if (!interaction.replied) {
+      if (!interaction.replied) {
         await interaction.reply({
           content: '❌ An error occurred while starting onboarding. Please try again later.',
-          ephemeral: true
+          flags: 64 // MessageFlags.Ephemeral
         });
       } else {
         await interaction.followUp({
           content: '❌ An error occurred while starting onboarding. Please try again later.',
-          ephemeral: true
+          flags: 64 // MessageFlags.Ephemeral
         });
       }
     } catch (replyError) {
