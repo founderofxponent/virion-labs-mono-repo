@@ -146,7 +146,8 @@ class CampaignPublisher {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      return await response.json();
+      const responseData = await response.json();
+      return responseData.campaigns || responseData; // Handle both wrapped and direct response
       
     } catch (error) {
       this.logger.error('❌ Error fetching campaigns:', error);

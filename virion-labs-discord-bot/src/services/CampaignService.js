@@ -30,7 +30,8 @@ class CampaignService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const campaigns = await response.json();
+      const responseData = await response.json();
+      const campaigns = responseData.campaigns || [];
       this.logger.debug(`✅ Found ${campaigns.length} campaigns for guild ${guildId}`);
       
       return campaigns;
@@ -49,7 +50,7 @@ class CampaignService {
   async getActiveCampaigns(guildId) {
     try {
       const allCampaigns = await this.getAllCampaigns(guildId);
-      const activeCampaigns = allCampaigns.filter(campaign => campaign.status === 'active');
+      const activeCampaigns = allCampaigns.filter(campaign => this.isCampaignActive(campaign));
       
       this.logger.debug(`✅ Found ${activeCampaigns.length} active campaigns for guild ${guildId}`);
       return activeCampaigns;
@@ -85,7 +86,8 @@ class CampaignService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const campaign = await response.json();
+      const responseData = await response.json();
+      const campaign = responseData.campaign || responseData; // Handle both wrapped and direct response
       this.logger.debug(`✅ Found campaign: ${campaign.campaign_name}`);
       
       return campaign;

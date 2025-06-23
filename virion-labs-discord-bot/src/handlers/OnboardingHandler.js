@@ -33,8 +33,6 @@ class OnboardingHandler {
    */
   async handleStartButton(interaction) {
     try {
-      await InteractionUtils.safeDefer(interaction, { ephemeral: true });
-      
       const userInfo = InteractionUtils.getUserInfo(interaction);
       const guildInfo = InteractionUtils.getGuildInfo(interaction);
       
@@ -45,8 +43,9 @@ class OnboardingHandler {
       
       // Verify user ID matches
       if (userId !== userInfo.id) {
-        await interaction.editReply({
-          content: '❌ This button is not for you. Please use `/start` to begin your own onboarding.'
+        await InteractionUtils.safeReply(interaction, {
+          content: '❌ This button is not for you. Please use `/start` to begin your own onboarding.',
+          ephemeral: true
         });
         return;
       }
@@ -56,16 +55,18 @@ class OnboardingHandler {
       // Get campaign details
       const campaign = await this.campaignService.getCampaignById(campaignId);
       if (!campaign) {
-        await interaction.editReply({
-          content: '❌ Campaign not found. Please try again or contact an administrator.'
+        await InteractionUtils.safeReply(interaction, {
+          content: '❌ Campaign not found. Please try again or contact an administrator.',
+          ephemeral: true
         });
         return;
       }
 
       // Check if campaign is active
       if (!this.campaignService.isCampaignActive(campaign)) {
-        await interaction.editReply({
-          content: '❌ This campaign is no longer active. Please check `/campaigns` for available options.'
+        await InteractionUtils.safeReply(interaction, {
+          content: '❌ This campaign is no longer active. Please check `/campaigns` for available options.',
+          ephemeral: true
         });
         return;
       }
@@ -74,8 +75,9 @@ class OnboardingHandler {
       const session = await this.getOrCreateSession(campaignId, userInfo.id, userInfo.tag);
       
       if (!session.success) {
-        await interaction.editReply({
-          content: '❌ Failed to start onboarding session. Please try again later.'
+        await InteractionUtils.safeReply(interaction, {
+          content: '❌ Failed to start onboarding session. Please try again later.',
+          ephemeral: true
         });
         return;
       }
@@ -92,7 +94,7 @@ class OnboardingHandler {
         return;
       }
 
-      // Show onboarding modal
+      // Show onboarding modal (this must be the immediate response, no deferring)
       await this.showOnboardingModal(interaction, campaign, session);
       
     } catch (error) {
@@ -293,7 +295,7 @@ class OnboardingHandler {
     try {
       this.logger.debug(`💾 Saving all responses for ${username} in campaign ${campaignId}`);
       
-      const response = await fetch(`${this.dashboardApiUrl}/discord-bot/onboarding/modal-session`, {
+      const response = await fetch(`${this.dashboardApiUrl}/discord-bot/onboarding/modal`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -346,19 +348,24 @@ class OnboardingHandler {
       .setColor('#00ff00')
       .setTimestamp();
 
-    if (campaign.config?.completion_message) {
+    if (campaign.onboarding_completion_requirements?.completion_message) {
       embed.addFields([{
         name: '📋 Important',
-        value: campaign.config.completion_message,
+        value: campaign.onboarding_completion_requirements.completion_message,
         inline: false
       }]);
     }
 
-    await interaction.editReply({ embeds: [embed] });
+    await InteractionUtils.safeReply(interaction, { embeds: [embed], ephemeral: true });
 
     // Handle role assignment
-    if (campaign.config?.auto_role_assignment && campaign.config?.target_role_ids) {
-      await this.assignRoles(interaction, campaign.config.target_role_ids);
+    this.logger.debug(`🔍 Checking role assignment: auto_role_assignment=${campaign.auto_role_assignment}, target_role_ids=${JSON.stringify(campaign.target_role_ids)}`);
+    
+    if (campaign.auto_role_assignment && campaign.target_role_ids && campaign.target_role_ids.length > 0) {
+      this.logger.info(`🎖️ Starting role assignment for ${userInfo.tag}: ${campaign.target_role_ids.length} roles`);
+      await this.assignRoles(interaction, campaign.target_role_ids);
+    } else {
+      this.logger.warn(`⚠️ Role assignment skipped: auto_role_assignment=${campaign.auto_role_assignment}, target_role_ids=${JSON.stringify(campaign.target_role_ids)}`);
     }
 
     // Track completion
@@ -382,7 +389,7 @@ class OnboardingHandler {
       .setColor('#00aa00')
       .setTimestamp();
 
-    await interaction.editReply({ embeds: [embed] });
+    await InteractionUtils.safeReply(interaction, { embeds: [embed], ephemeral: true });
   }
 
   /**

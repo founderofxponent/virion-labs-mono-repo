@@ -1,6 +1,6 @@
 class Logger {
   constructor(debug = false) {
-    this.debug = debug;
+    this.debugEnabled = debug;
   }
 
   info(message, ...args) {
@@ -16,7 +16,7 @@ class Logger {
   }
 
   debug(message, ...args) {
-    if (this.debug) {
+    if (this.debugEnabled) {
       console.log(`[DEBUG] ${new Date().toISOString()} - ${message}`, ...args);
     }
   }
