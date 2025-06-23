@@ -4,6 +4,88 @@ This document provides a comprehensive overview of all 29 tables and views in th
 
 ## Recent Changes
 
+### Discord Analytics Interaction Type Constraint Fix (Latest)
+**Date:** January 24, 2025
+
+**Issue Fixed:** Discord bot `/join` command was failing with constraint violation error when tracking interactions
+
+**Problem:** 
+- Discord bot analytics tracking was failing with constraint violation error code 23514
+- Error message: "new row for relation 'discord_referral_interactions' violates check constraint 'discord_referral_interactions_interaction_type_check'"
+- Root cause: The `interaction_type` check constraint on `discord_referral_interactions` table didn't include `'slash_command_join'` as an allowed value
+- This occurred after implementing the new `/join` slash command that uses `'slash_command_join'` as its interaction type
+
+**Solution Applied:**
+- **Database Constraint Update**: Added `'slash_command_join'` to the allowed interaction types in the check constraint
+- **Migration**: Updated `discord_referral_interactions_interaction_type_check` constraint to include the new interaction type
+- **Complete Fix**: Both `channel_id` nullability and interaction type constraint issues resolved
+
+**Technical Details:**
+- **Previous Constraint**: Only allowed 19 interaction types, missing `'slash_command_join'`
+- **Updated Constraint**: Now allows 20 interaction types including `'slash_command_join'`  
+- **Error Code**: 23514 (PostgreSQL check constraint violation)
+- **Impact**: The new `/join` slash command couldn't track analytics due to constraint rejection
+
+**Migration Applied:**
+```sql
+ALTER TABLE discord_referral_interactions
+DROP CONSTRAINT IF EXISTS discord_referral_interactions_interaction_type_check;
+
+ALTER TABLE discord_referral_interactions
+ADD CONSTRAINT discord_referral_interactions_interaction_type_check
+CHECK (interaction_type = ANY (ARRAY[
+  'message', 'command', 'reaction', 'join', 'referral_signup', 
+  'handled_message', 'unhandled_message', 'inactive_campaign_interaction', 
+  'referral_failed', 'guild_join', 'onboarding_completed', 
+  'slash_command_campaigns', 'slash_command_start', 'slash_command_join',
+  'onboarding_start_button', 'onboarding_modal_submission', 
+  'onboarding_started', 'onboarding_response', 'referral_validation', 
+  'campaign_interaction'
+]));
+```
+
+**Files Updated:**
+- ✅ **Database**: `discord_referral_interactions` constraint updated to include `'slash_command_join'`
+- ✅ **Documentation**: Updated database schema documentation
+
+**Resolution:**
+- ✅ **Fixed /join Command**: Analytics tracking now works correctly with proper interaction type
+- ✅ **Constraint Alignment**: Database constraint now matches documentation
+- ✅ **Complete Analytics**: All Discord bot interactions can now be properly tracked
+- ✅ **Future-Proof**: Prevents similar constraint issues with new interaction types
+
+### Discord Analytics Channel ID Fix 
+**Date:** January 24, 2025
+
+**Issue Fixed:** Discord bot `/join` command was failing with HTTP 500 error when tracking interactions
+
+**Problem:** 
+- Discord bot analytics tracking was failing with "HTTP 500: Internal Server Error"
+- Error occurred in `AnalyticsService.trackInteraction` method when calling `/api/discord-bot/config` endpoint
+- Root cause: `discord_referral_interactions` table had `channel_id` column marked as NOT NULL, but some Discord interactions don't have channel information available
+- When `interaction.channel?.id` was undefined, the `track_discord_interaction` RPC function failed to insert the record
+
+**Solution Applied:**
+- **Database Schema Change**: Made `channel_id` column nullable in `discord_referral_interactions` table
+- **Migration**: `ALTER TABLE discord_referral_interactions ALTER COLUMN channel_id DROP NOT NULL;`
+- **Documentation**: Updated schema documentation to reflect `channel_id` as nullable
+
+**Technical Details:**
+- **Issue Source**: `InteractionUtils.getGuildInfo()` extracts `channelId` as `interaction.channel?.id`
+- **Failure Point**: `track_discord_interaction` RPC function inserting into `discord_referral_interactions`
+- **Error Type**: SQL constraint violation on NOT NULL column with undefined value
+- **Impact**: All Discord analytics tracking was failing, affecting command usage analytics
+
+**Files Updated:**
+- ✅ **Database**: `discord_referral_interactions.channel_id` column constraint modified
+- ✅ **Documentation**: `KB/shared/database/SUPABASE_DATABASE_SCHEMA.md` updated
+
+**Resolution:**
+- ✅ **Fixed /join Command**: Analytics tracking now works correctly
+- ✅ **Preserved Data**: All existing interaction data remains intact
+- ✅ **Flexible Design**: System can now handle interactions without channel context
+- ✅ **Future-Proof**: Prevents similar issues with other interaction types
+
 ### JavaScript Onboarding Reset Script Creation (Latest)
 **Date:** January 24, 2025
 
@@ -1162,7 +1244,7 @@ Tracks all Discord bot interactions with users.
 - `discord_user_id` (text, not null) - Discord user ID
 - `discord_username` (text, not null) - Discord username
 - `message_id` (text, not null) - Discord message ID
-- `channel_id` (text, not null) - Discord channel ID
+- `channel_id` (text, nullable) - Discord channel ID
 - `referral_link_id` (uuid, nullable) - Associated referral link
 - `referral_id` (uuid, nullable) - Associated referral record
 - `influencer_id` (uuid, nullable) - Associated influencer

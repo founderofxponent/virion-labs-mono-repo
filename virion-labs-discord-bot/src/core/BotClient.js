@@ -25,6 +25,7 @@ class BotClient {
     this.interactionHandler = new InteractionHandler(this.config, this.logger);
     
     this.isReady = false;
+    this.eventListenersSetup = false; // Add flag to prevent duplicate setup
   }
 
   /**
@@ -83,6 +84,15 @@ class BotClient {
    * Setup Discord event listeners
    */
   setupEventListeners() {
+    // Prevent duplicate event listener registration
+    if (this.eventListenersSetup) {
+      this.logger.debug('⚠️ Event listeners already setup, skipping...');
+      return;
+    }
+
+    // Clear existing event listeners first
+    this.clearExistingEventListeners();
+    
     // Ready event
     this.client.once('ready', () => {
       this.logger.info(`🤖 Bot logged in as ${this.client.user.tag}`);
@@ -122,6 +132,42 @@ class BotClient {
     this.client.on('reconnecting', () => {
       this.logger.info('🔄 Bot reconnecting to Discord...');
     });
+
+    // Mark event listeners as setup
+    this.eventListenersSetup = true;
+    this.logger.debug('✅ Event listeners setup complete');
+  }
+
+  /**
+   * Clear existing event listeners
+   */
+  clearExistingEventListeners() {
+    try {
+      this.logger.info('🧹 Clearing existing event listeners...');
+      
+      // Get current listener counts for logging
+      const listenerCounts = {};
+      const eventNames = ['ready', 'interactionCreate', 'guildMemberAdd', 'messageCreate', 'error', 'warn', 'disconnect', 'reconnecting'];
+      
+      eventNames.forEach(eventName => {
+        const count = this.client.listenerCount(eventName);
+        if (count > 0) {
+          listenerCounts[eventName] = count;
+        }
+      });
+
+      if (Object.keys(listenerCounts).length > 0) {
+        this.logger.debug('📊 Existing listeners:', listenerCounts);
+      }
+
+      // Remove all listeners
+      this.client.removeAllListeners();
+      
+      this.logger.debug('✅ Event listeners cleared successfully');
+      
+    } catch (error) {
+      this.logger.error('❌ Failed to clear existing event listeners:', error);
+    }
   }
 
   /**
@@ -170,26 +216,57 @@ class BotClient {
     try {
       this.logger.info('🧹 Clearing existing slash commands...');
       
+      // First, fetch and log existing commands for debugging
+      try {
+        const globalCommands = await this.rest.get(Routes.applicationCommands(this.client.user.id));
+        if (globalCommands.length > 0) {
+          this.logger.debug(`📊 Found ${globalCommands.length} existing global commands:`, globalCommands.map(cmd => cmd.name));
+        }
+      } catch (error) {
+        this.logger.warn('⚠️ Could not fetch existing global commands for logging:', error.message);
+      }
+      
       // Clear global commands
       await this.rest.put(
         Routes.applicationCommands(this.client.user.id),
         { body: [] }
       );
+      this.logger.debug('✅ Global commands cleared');
       
-      // Clear guild-specific commands for all guilds
+      // Clear guild-specific commands for all guilds in cache
+      let guildCommandsCleared = 0;
       for (const guild of this.client.guilds.cache.values()) {
         try {
-          await this.rest.put(
-            Routes.applicationGuildCommands(this.client.user.id, guild.id),
-            { body: [] }
+          // Check if guild has commands first
+          const guildCommands = await this.rest.get(
+            Routes.applicationGuildCommands(this.client.user.id, guild.id)
           );
+          
+          if (guildCommands.length > 0) {
+            this.logger.debug(`📊 Found ${guildCommands.length} commands in guild ${guild.name}`);
+            
+            await this.rest.put(
+              Routes.applicationGuildCommands(this.client.user.id, guild.id),
+              { body: [] }
+            );
+            guildCommandsCleared++;
+          }
         } catch (error) {
           this.logger.warn(`⚠️ Could not clear commands for guild ${guild.name}:`, error.message);
         }
       }
       
-      // Wait for Discord to process
+      if (guildCommandsCleared > 0) {
+        this.logger.debug(`✅ Cleared commands from ${guildCommandsCleared} guilds`);
+      }
+      
+      // Note: We can't clear commands from guilds we're no longer in, 
+      // but those commands are automatically removed by Discord when the bot leaves
+      
+      // Wait for Discord to process changes
       await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      this.logger.debug('✅ Command clearing completed');
       
     } catch (error) {
       this.logger.error('❌ Failed to clear existing commands:', error);
@@ -211,8 +288,14 @@ class BotClient {
       this.logger.info('🛑 Shutting down bot...');
       
       if (this.client) {
+        // Remove all event listeners to prevent memory leaks
+        this.client.removeAllListeners();
         await this.client.destroy();
       }
+      
+      // Reset flags for clean restart
+      this.isReady = false;
+      this.eventListenersSetup = false;
       
       this.logger.info('✅ Bot shutdown complete');
       
