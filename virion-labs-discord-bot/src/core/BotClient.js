@@ -1,5 +1,4 @@
 const { Client, REST, Routes } = require('discord.js');
-const { SupabaseClient } = require('../database/SupabaseClient');
 const { SlashCommandManager } = require('./SlashCommandManager');
 const { EventHandler } = require('./EventHandler');
 const { InteractionHandler } = require('./InteractionHandler');
@@ -17,16 +16,13 @@ class BotClient {
       intents: config.discord.intents
     });
     
-    // Initialize database
-    this.database = new SupabaseClient();
-    
     // Initialize REST client for API operations
     this.rest = new REST({ version: '10' }).setToken(config.discord.token);
     
     // Initialize managers
-    this.slashCommandManager = new SlashCommandManager(this.config, this.logger, this.database);
-    this.eventHandler = new EventHandler(this.config, this.logger, this.database);
-    this.interactionHandler = new InteractionHandler(this.config, this.logger, this.database);
+    this.slashCommandManager = new SlashCommandManager(this.config, this.logger);
+    this.eventHandler = new EventHandler(this.config, this.logger);
+    this.interactionHandler = new InteractionHandler(this.config, this.logger);
     
     this.isReady = false;
   }
@@ -36,12 +32,12 @@ class BotClient {
    */
   async start() {
     try {
-      this.logger.info('🔌 Connecting to Discord...');
+      this.logger.info('🔌 Connecting to services...');
       
-      // Test database connection first
-      const dbConnected = await this.database.testConnection();
-      if (!dbConnected) {
-        throw new Error('Failed to connect to database');
+      // Test API connection first
+      const apiConnected = await this.testApiConnection();
+      if (!apiConnected) {
+        throw new Error('Failed to connect to Dashboard API');
       }
       
       // Set up event listeners
@@ -61,6 +57,25 @@ class BotClient {
     } catch (error) {
       this.logger.error('❌ Failed to start bot:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Test connection to the Dashboard API
+   * @returns {Promise<boolean>}
+   */
+  async testApiConnection() {
+    try {
+      const response = await fetch(`${this.config.api.dashboardUrl}/health`);
+      if (response.ok) {
+        this.logger.info('✅ Dashboard API connection test successful');
+        return true;
+      }
+      this.logger.error(`❌ Dashboard API connection test failed: Status ${response.status}`);
+      return false;
+    } catch (error) {
+      this.logger.error('❌ Dashboard API connection test error:', error);
+      return false;
     }
   }
 
@@ -186,13 +201,6 @@ class BotClient {
    */
   getClient() {
     return this.client;
-  }
-
-  /**
-   * Get the database instance
-   */
-  getDatabase() {
-    return this.database;
   }
 
   /**

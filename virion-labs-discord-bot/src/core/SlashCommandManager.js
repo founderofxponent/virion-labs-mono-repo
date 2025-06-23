@@ -4,10 +4,9 @@ const { SlashCommandBuilder } = require('discord.js');
  * Manages slash command registration and configuration
  */
 class SlashCommandManager {
-  constructor(config, logger, database) {
+  constructor(config, logger) {
     this.config = config;
     this.logger = logger;
-    this.database = database;
     
     // Command definitions - organized for easy extension
     this.commandDefinitions = {

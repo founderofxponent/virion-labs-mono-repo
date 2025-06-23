@@ -7,14 +7,13 @@ const { AnalyticsService } = require('../services/AnalyticsService');
  * Handles the /campaigns slash command
  */
 class CampaignsCommand {
-  constructor(config, logger, database) {
+  constructor(config, logger) {
     this.config = config;
     this.logger = logger;
-    this.database = database;
     
     // Initialize services
-    this.campaignService = new CampaignService(config, logger, database);
-    this.analyticsService = new AnalyticsService(config, logger, database);
+    this.campaignService = new CampaignService(config, logger);
+    this.analyticsService = new AnalyticsService(config, logger);
   }
 
   /**

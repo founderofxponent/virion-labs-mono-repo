@@ -7,15 +7,14 @@ const { OnboardingHandler } = require('../handlers/OnboardingHandler');
  * Handles all Discord interactions (slash commands, buttons, modals)
  */
 class InteractionHandler {
-  constructor(config, logger, database) {
+  constructor(config, logger) {
     this.config = config;
     this.logger = logger;
-    this.database = database;
     
     // Initialize command handlers
-    this.campaignsCommand = new CampaignsCommand(config, logger, database);
-    this.startCommand = new StartCommand(config, logger, database);
-    this.onboardingHandler = new OnboardingHandler(config, logger, database);
+    this.campaignsCommand = new CampaignsCommand(config, logger);
+    this.startCommand = new StartCommand(config, logger);
+    this.onboardingHandler = new OnboardingHandler(config, logger);
   }
 
   /**

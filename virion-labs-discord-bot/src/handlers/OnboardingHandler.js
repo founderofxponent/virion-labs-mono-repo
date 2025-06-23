@@ -7,15 +7,14 @@ const { AnalyticsService } = require('../services/AnalyticsService');
  * Handles onboarding-related interactions and processes
  */
 class OnboardingHandler {
-  constructor(config, logger, database) {
+  constructor(config, logger) {
     this.config = config;
     this.logger = logger;
-    this.database = database;
     this.dashboardApiUrl = config.api.dashboardUrl;
     
     // Initialize services
-    this.campaignService = new CampaignService(config, logger, database);
-    this.analyticsService = new AnalyticsService(config, logger, database);
+    this.campaignService = new CampaignService(config, logger);
+    this.analyticsService = new AnalyticsService(config, logger);
     
     // Active modal sessions (in-memory store)
     this.modalSessions = new Map();

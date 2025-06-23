@@ -6,15 +6,14 @@ const { AnalyticsService } = require('../services/AnalyticsService');
  * Handles referral-related functionality and validation
  */
 class ReferralHandler {
-  constructor(config, logger, database) {
+  constructor(config, logger) {
     this.config = config;
     this.logger = logger;
-    this.database = database;
     this.dashboardApiUrl = config.api.dashboardUrl;
     
     // Initialize services
-    this.campaignService = new CampaignService(config, logger, database);
-    this.analyticsService = new AnalyticsService(config, logger, database);
+    this.campaignService = new CampaignService(config, logger);
+    this.analyticsService = new AnalyticsService(config, logger);
   }
 
   /**

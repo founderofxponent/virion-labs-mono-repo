@@ -2,10 +2,9 @@
  * Service for handling campaign-related operations
  */
 class CampaignService {
-  constructor(config, logger, database) {
+  constructor(config, logger) {
     this.config = config;
     this.logger = logger;
-    this.database = database;
     this.dashboardApiUrl = config.api.dashboardUrl;
   }
 

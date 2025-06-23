@@ -4,13 +4,12 @@ const { ReferralHandler } = require('../handlers/ReferralHandler');
  * Handles Discord events (member joins, messages, etc.)
  */
 class EventHandler {
-  constructor(config, logger, database) {
+  constructor(config, logger) {
     this.config = config;
     this.logger = logger;
-    this.database = database;
     
     // Initialize specialized handlers
-    this.referralHandler = new ReferralHandler(config, logger, database);
+    this.referralHandler = new ReferralHandler(config, logger);
   }
 
   /**
