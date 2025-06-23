@@ -288,12 +288,23 @@ class OnboardingManager {
       console.error('Error sending completion message:', error);
     }
 
+    // Handle role assignment after onboarding completion
+    console.log(`🎖️ Checking role assignment for ${user.tag} in campaign ${config.campaignName}`);
+    console.log(`🔍 Auto role assignment enabled: ${config.config?.auto_role_assignment}`);
+    console.log(`🔍 Target role IDs: ${JSON.stringify(config.config?.target_role_ids)}`);
+    
     if (config.config?.auto_role_assignment) {
       if (Array.isArray(config.config.target_role_ids) && config.config.target_role_ids.length > 0) {
+        console.log(`🚀 Starting role assignment for ${user.tag} with ${config.config.target_role_ids.length} roles`);
         await this.assignRoles(message, config.config.target_role_ids);
       } else if (config.config?.target_role_id) {
+        console.log(`🚀 Starting role assignment for ${user.tag} with legacy single role`);
         await this.assignRoles(message, [config.config.target_role_id]);
+      } else {
+        console.warn(`⚠️ Auto role assignment enabled but no target_role_ids configured for campaign ${config.campaignName}`);
       }
+    } else {
+      console.log(`ℹ️ Auto role assignment disabled for campaign ${config.campaignName}`);
     }
 
     await this.trackCompletion(message, config, referralValidation);
@@ -325,23 +336,102 @@ class OnboardingManager {
 
   async assignRoles(message, roleIds) {
     try {
+      console.log(`🎖️ Attempting to assign ${roleIds.length} roles to ${(message.author || message.user).tag}`);
+      console.log(`🔍 Role IDs to assign: ${roleIds.join(', ')}`);
+      
+      let successfulRoles = [];
+      let failedRoles = [];
+      
       for (const roleId of roleIds) {
-        const role = message.guild.roles.cache.get(roleId);
-        if (role && message.member) {
+        try {
+          const role = message.guild.roles.cache.get(roleId);
+          if (!role) {
+            console.error(`❌ Role with ID ${roleId} not found in guild cache`);
+            failedRoles.push(`Role ID: ${roleId} (not found)`);
+            continue;
+          }
+          
+          if (!message.member) {
+            console.error(`❌ Member object not available for ${(message.author || message.user).tag}`);
+            failedRoles.push(`${role.name} (member not available)`);
+            continue;
+          }
+          
+          // Check if user already has the role
+          if (message.member.roles.cache.has(roleId)) {
+            console.log(`✅ User ${(message.author || message.user).tag} already has role ${role.name}`);
+            successfulRoles.push(role.name);
+            continue;
+          }
+          
+          // Check bot permissions
+          const botMember = message.guild.members.cache.get(message.guild.client.user.id);
+          if (!botMember || !botMember.permissions.has('ManageRoles')) {
+            console.error(`❌ Bot lacks ManageRoles permission in guild ${message.guild.name}`);
+            failedRoles.push(`${role.name} (bot lacks permission)`);
+            continue;
+          }
+          
+          // Check role hierarchy
+          if (role.position >= botMember.roles.highest.position) {
+            console.error(`❌ Role ${role.name} is higher than bot's highest role`);
+            failedRoles.push(`${role.name} (role too high)`);
+            continue;
+          }
+
           await message.member.roles.add(role);
-
-          const roleEmbed = new EmbedBuilder()
-            .setTitle('🎖️ Role Assigned!')
-            .setDescription(`You've been assigned the **${role.name}** role!`)
-            .setColor('#00aa00')
-            .setTimestamp();
-
-          await message.followUp({ embeds: [roleEmbed], flags: 64 }); // Make role assignment ephemeral
-          console.log(`✅ Assigned role ${role.name} to ${(message.author || message.user).tag} after onboarding completion`);
+          successfulRoles.push(role.name);
+          console.log(`✅ Successfully assigned role ${role.name} to ${(message.author || message.user).tag}`);
+          
+        } catch (roleError) {
+          console.error(`❌ Error assigning individual role ${roleId}:`, roleError);
+          const role = message.guild.roles.cache.get(roleId);
+          failedRoles.push(`${role?.name || roleId} (${roleError.message})`);
         }
       }
+      
+      // Send feedback to user about role assignment results
+      if (successfulRoles.length > 0) {
+        const roleEmbed = new EmbedBuilder()
+          .setTitle('🎖️ Roles Assigned!')
+          .setDescription(`You've been assigned the following role${successfulRoles.length > 1 ? 's' : ''}:\n\n${successfulRoles.map(name => `• **${name}**`).join('\n')}`)
+          .setColor('#00aa00')
+          .setTimestamp();
+
+        await message.followUp({ embeds: [roleEmbed], flags: 64 });
+      }
+      
+      if (failedRoles.length > 0) {
+        console.error(`❌ Failed to assign ${failedRoles.length} roles to ${(message.author || message.user).tag}:`);
+        failedRoles.forEach(role => console.error(`  - ${role}`));
+        
+        const errorEmbed = new EmbedBuilder()
+          .setTitle('⚠️ Role Assignment Issues')
+          .setDescription(`Some roles couldn't be assigned:\n\n${failedRoles.map(role => `• ${role}`).join('\n')}\n\n💡 Please contact a server administrator for assistance.`)
+          .setColor('#ff9900')
+          .setTimestamp();
+
+        await message.followUp({ embeds: [errorEmbed], flags: 64 });
+      }
+      
+      // Log summary
+      console.log(`🎖️ Role assignment summary for ${(message.author || message.user).tag}: ${successfulRoles.length} success, ${failedRoles.length} failed`);
+      
     } catch (error) {
-      console.error('Error assigning roles:', error);
+      console.error('❌ Fatal error in assignRoles:', error);
+      console.error('Error stack:', error.stack);
+      
+      const errorEmbed = new EmbedBuilder()
+        .setTitle('❌ Role Assignment Error')
+        .setDescription('There was an unexpected error while assigning your roles. Please contact a server administrator.')
+        .setColor('#ff0000')
+        .setTimestamp();
+
+      try {
+        await message.followUp({ embeds: [errorEmbed], flags: 64 });
+      } catch (followUpError) {
+        console.error('❌ Failed to send role assignment error message:', followUpError);
+      }
     }
   }
 

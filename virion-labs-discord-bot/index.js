@@ -2516,10 +2516,20 @@ async function handleOnboardingModalSubmission(interaction) {
     
     // Check if onboarding is now complete
     if (lastSaveResult && lastSaveResult.is_completed) {
+      // Fetch the member object for role assignment
+      let member = null;
+      try {
+        member = await interaction.guild.members.fetch(actualUserId);
+        console.log(`✅ Fetched member object for role assignment: ${member.user.tag}`);
+      } catch (memberError) {
+        console.error(`❌ Failed to fetch member object for ${interaction.user.tag}:`, memberError);
+      }
+      
       // Create synthetic message for completion
       const syntheticMessage = {
         author: interaction.user,
         user: interaction.user,
+        member: member, // Add the member object for role assignment
         guild: interaction.guild,
         channel: interaction.channel,
         content: 'onboarding_modal_completed',

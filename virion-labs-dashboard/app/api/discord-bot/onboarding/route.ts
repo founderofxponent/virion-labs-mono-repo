@@ -296,8 +296,20 @@ function validateFieldValue(field: any, value: any) {
 
     case 'select':
       const options = field.field_options || []
-      if (options.length > 0 && !options.includes(trimmedValue)) {
-        return { valid: false, message: `Please select one of: ${options.join(', ')}` }
+      if (options.length > 0) {
+        // Check for case-insensitive match first
+        const matchingOption = options.find((option: string) => 
+          option.toLowerCase() === trimmedValue.toLowerCase()
+        )
+        
+        if (matchingOption) {
+          // Use the correctly cased option from the list
+          return { valid: true, value: matchingOption }
+        }
+        
+        // If no exact match found, allow any text input (user preference)
+        // This maintains flexibility while preserving the validation structure
+        console.log(`Field ${field.field_key}: User entered "${trimmedValue}", available options: ${options.join(', ')}. Allowing custom input.`)
       }
       break
 

@@ -418,6 +418,22 @@ const campaignId = customIdParts[2]; // Direct campaign context!
 
 **Impact:** Users now see the onboarding modal immediately upon clicking campaign join buttons, eliminating the previous two-step process that was accidentally introduced in recent updates.
 
+### Validation Changes (Latest Update)
+
+**Flexible Select Field Validation**: The onboarding system now supports more flexible text input for select fields:
+
+- **Case-Insensitive Matching**: User input like "tiktok" will match "TikTok" from predefined options
+- **Custom Text Allowed**: If user input doesn't match any predefined option, it's still accepted as valid input
+- **Preserves Structure**: The validation framework remains intact while being more user-friendly
+- **Applies to Both Routes**: Changes implemented in both `/api/discord-bot/onboarding/route.ts` and `/api/discord-bot/onboarding/modal/route.ts`
+
+**Example**: For `referral_source` field with options `["Instagram", "YouTube", "TikTok", "Twitter/X", "Friend recommendation", "Other social media", "Other"]`:
+- User input "tiktok" → Accepted and normalized to "TikTok"
+- User input "Snapchat" → Accepted as-is (custom input)
+- User input "instagram" → Accepted and normalized to "Instagram"
+
+This change improves user experience by preventing validation errors due to minor case differences while maintaining data quality through intelligent normalization.
+
 ## Table of Contents
 1. [User Management](#user-management)
 2. [Client Management](#client-management)
