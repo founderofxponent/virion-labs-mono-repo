@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const templateId = params.id
+    const templateId = (await params).id
 
     if (!templateId) {
       return NextResponse.json({ error: 'Template ID is required' }, { status: 400 })

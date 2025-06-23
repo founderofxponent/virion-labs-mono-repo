@@ -103,6 +103,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const [templatesLoading, setTemplatesLoading] = useState(true)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [applyingTemplate, setApplyingTemplate] = useState(false)
+  const [userExplicitlyChangedTemplate, setUserExplicitlyChangedTemplate] = useState(false)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   
   // Hooks
   const { clients, loading: clientsLoading } = useClients()
@@ -166,6 +168,13 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     loadTemplates()
   }, [])
 
+  // Initialize states for create mode
+  useEffect(() => {
+    if (mode === 'create') {
+      setInitialLoadComplete(true)
+    }
+  }, [mode])
+
   // Load existing campaign data for edit mode
   useEffect(() => {
     if (mode === 'edit' && campaignId && campaigns.length > 0) {
@@ -180,25 +189,27 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           campaign_name: campaign.name,
           guild_id: campaign.guild_id,
           channel_id: campaign.channel_id || '',
-          bot_name: campaign.display_name || 'Virion Bot',
-          bot_personality: (campaign as any).bot_personality || 'helpful',
-          bot_response_style: (campaign as any).bot_response_style || 'friendly',
-          brand_color: (campaign as any).brand_color || '#6366f1',
-          brand_logo_url: (campaign as any).brand_logo_url || '',
+          bot_name: campaign.bot_name || campaign.display_name || 'Virion Bot',
+          bot_personality: campaign.bot_personality || 'helpful',
+          bot_response_style: campaign.bot_response_style || 'friendly',
+          brand_color: campaign.brand_color || '#6366f1',
+          brand_logo_url: campaign.brand_logo_url || '',
           description: campaign.description || '',
-          welcome_message: (campaign as any).welcome_message || '',
-          referral_tracking_enabled: (campaign as any).referral_tracking_enabled || false,
-          auto_role_assignment: (campaign as any).auto_role_assignment || false,
-          target_role_ids: (campaign as any).target_role_ids || [],
-          moderation_enabled: (campaign as any).moderation_enabled || true,
-          rate_limit_per_user: (campaign as any).rate_limit_per_user || 5,
-          webhook_url: (campaign as any).webhook_url || '',
-          campaign_start_date: (campaign as any).campaign_start_date || '',
-          campaign_end_date: (campaign as any).campaign_end_date || '',
+          welcome_message: campaign.welcome_message || '',
+          referral_tracking_enabled: campaign.referral_tracking_enabled || false,
+          auto_role_assignment: campaign.auto_role_assignment || false,
+          target_role_ids: campaign.target_role_ids || [],
+          moderation_enabled: campaign.moderation_enabled || true,
+          rate_limit_per_user: campaign.rate_limit_per_user || 5,
+          webhook_url: campaign.webhook_url || '',
+          campaign_start_date: campaign.campaign_start_date || '',
+          campaign_end_date: campaign.campaign_end_date || '',
         })
         
         // Set the selected template ID for the template selection hook
         setSelectedTemplateId(campaignTemplate)
+        // Mark initial load as complete after setting up the form
+        setInitialLoadComplete(true)
       }
     }
   }, [mode, campaignId, campaigns])
@@ -206,20 +217,33 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   // Handle template selection and auto-fill
   useEffect(() => {
     if (templateWithLandingPage) {
-      setFormData(prev => ({
-        ...prev,
-        description: templateWithLandingPage.bot_config.description,
-        bot_name: templateWithLandingPage.bot_config.bot_name,
-        bot_personality: templateWithLandingPage.bot_config.bot_personality,
-        bot_response_style: templateWithLandingPage.bot_config.bot_response_style,
-        brand_color: templateWithLandingPage.bot_config.brand_color,
-        welcome_message: templateWithLandingPage.bot_config.welcome_message,
-        referral_tracking_enabled: templateWithLandingPage.bot_config.features.referral_tracking,
-        auto_role_assignment: templateWithLandingPage.bot_config.features.auto_role,
-        moderation_enabled: templateWithLandingPage.bot_config.features.moderation,
-      }))
+      // Only apply template overrides in these scenarios:
+      // 1. Create mode (new campaign)
+      // 2. Edit mode but user explicitly changed template
+      const shouldApplyTemplateOverrides = mode === 'create' || 
+        (mode === 'edit' && userExplicitlyChangedTemplate && initialLoadComplete)
+
+      if (shouldApplyTemplateOverrides) {
+        setFormData(prev => ({
+          ...prev,
+          description: templateWithLandingPage.bot_config.description,
+          bot_name: templateWithLandingPage.bot_config.bot_name,
+          bot_personality: templateWithLandingPage.bot_config.bot_personality,
+          bot_response_style: templateWithLandingPage.bot_config.bot_response_style,
+          brand_color: templateWithLandingPage.bot_config.brand_color,
+          welcome_message: templateWithLandingPage.bot_config.welcome_message,
+          referral_tracking_enabled: templateWithLandingPage.bot_config.features.referral_tracking,
+          auto_role_assignment: templateWithLandingPage.bot_config.features.auto_role,
+          moderation_enabled: templateWithLandingPage.bot_config.features.moderation,
+        }))
+        
+        // Reset the flag after applying template overrides
+        if (userExplicitlyChangedTemplate) {
+          setUserExplicitlyChangedTemplate(false)
+        }
+      }
     }
-  }, [templateWithLandingPage])
+  }, [templateWithLandingPage, mode, userExplicitlyChangedTemplate, initialLoadComplete])
 
   // Handle inherited landing page template data
   useEffect(() => {
@@ -246,6 +270,9 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const handleTemplateSelect = async (templateId: string) => {
     setFormData(prev => ({ ...prev, campaign_template: templateId }))
     setSelectedTemplateId(templateId)
+    
+    // Mark that user explicitly changed template (will trigger template overrides)
+    setUserExplicitlyChangedTemplate(true)
     
     // Apply template onboarding fields in edit mode
     if (mode === 'edit' && campaignId) {

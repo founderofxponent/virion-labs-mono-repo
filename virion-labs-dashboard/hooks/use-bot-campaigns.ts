@@ -47,6 +47,22 @@ export interface BotCampaign {
   referral_link_title?: string
   referral_code?: string
   referral_platform?: string
+  // Bot configuration fields
+  auto_role_assignment?: boolean
+  target_role_ids?: string[]
+  referral_tracking_enabled?: boolean
+  moderation_enabled?: boolean
+  bot_name?: string
+  bot_personality?: string
+  bot_response_style?: string
+  brand_color?: string
+  brand_logo_url?: string
+  welcome_message?: string
+  webhook_url?: string
+  rate_limit_per_user?: number
+  features?: Record<string, any>
+  auto_responses?: Record<string, any>
+  custom_commands?: any[]
 }
 
 interface BotCampaignsFilters {
