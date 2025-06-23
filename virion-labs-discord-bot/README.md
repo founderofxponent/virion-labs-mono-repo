@@ -1,21 +1,77 @@
 # Virion Labs Discord Bot
 
-A Discord bot for server management, campaign handling, and member onboarding. The AI service functionality has been removed.
+A modular Discord bot for server management, campaign handling, and member onboarding with a clean, extensible architecture.
 
-## 🚀 Features
+## 🎯 Overview
 
-- **Campaign Management**: Supports different campaign types (referral, community engagement, gaming)
-- **Member Onboarding**: Automated welcome messages and onboarding flows
-- **Referral System**: Handles referral codes and campaign tracking
-- **Dashboard Integration**: Connects with Virion Labs dashboard for configuration
-- **Basic Interaction**: Responds to direct mentions and help commands
-- **Production Ready**: Docker support, PM2 integration, and error handling
+This Discord bot provides a comprehensive solution for managing campaigns, onboarding new members, and handling referral systems. Built with a modular architecture, it's designed for easy maintenance and future extensibility.
+
+## 🏗️ Architecture
+
+The bot is organized into a clean, modular structure:
+
+```
+src/
+├── index.js                    # Main entry point
+├── core/                       # Core bot components
+│   ├── BotClient.js           # Discord client orchestrator
+│   ├── SlashCommandManager.js # Command management
+│   ├── InteractionHandler.js  # Interaction routing
+│   ├── EventHandler.js        # Discord event handling
+│   └── WebhookServer.js       # Express server for webhooks
+├── commands/                   # Slash command implementations
+│   ├── CampaignsCommand.js    # /campaigns command
+│   └── StartCommand.js        # /start command
+├── handlers/                   # Specialized interaction handlers
+│   ├── OnboardingHandler.js   # Onboarding management
+│   └── ReferralHandler.js     # Referral system
+├── services/                   # Business logic services
+│   ├── CampaignService.js     # Campaign operations
+│   ├── AnalyticsService.js    # Analytics and tracking
+│   └── CampaignPublisher.js   # Campaign publishing
+├── utils/                      # Utility functions
+│   ├── Logger.js              # Consistent logging
+│   └── InteractionUtils.js    # Safe interaction handling
+└── database/                   # Database operations
+    └── SupabaseClient.js      # Supabase wrapper
+```
+
+## ✨ Features
+
+### 🎮 Slash Commands
+- `/campaigns` - View available campaigns in the server
+- `/start` - Start onboarding for active campaigns
+
+### 📋 Onboarding System
+- Modal-based forms for user information collection
+- Progress tracking and session management
+- Automatic role assignment upon completion
+- Customizable fields per campaign
+
+### 🤝 Referral System
+- Referral code validation and tracking
+- Automatic processing of invite-based referrals
+- Analytics and conversion tracking
+- Direct message support for referral codes
+
+### 📢 Campaign Management
+- Automatic campaign publishing to Discord channels
+- Webhook support for real-time updates
+- Campaign status management (active, paused, archived)
+- Channel targeting by ID or name
+
+### 📊 Analytics & Tracking
+- User interaction tracking
+- Onboarding completion statistics
+- Referral conversion analytics
+- Bot usage metrics and performance monitoring
 
 ## 📋 Prerequisites
 
 - Node.js 16.0.0 or higher
-- Discord bot token with Message Content Intent enabled
-- Virion Labs Dashboard API (optional, for campaign features)
+- Discord bot token with required intents
+- Supabase database (for data persistence)
+- Virion Labs Dashboard API (for campaign management)
 
 ## 🛠️ Quick Setup
 
@@ -35,8 +91,20 @@ cp env.example .env
 
 Edit `.env` file:
 ```bash
+# Discord Configuration
 DISCORD_BOT_TOKEN=your_discord_bot_token_here
+DISCORD_GUILD_ID=your_guild_id_here
+DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID=your_channel_id_here
+
+# API Configuration
 DASHBOARD_API_URL=http://localhost:3000/api
+WEBHOOK_PORT=3001
+
+# Database Configuration
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# Debug
 DEBUG=true
 ```
 
@@ -44,12 +112,14 @@ DEBUG=true
 
 1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
 2. Create new application → Bot section
-3. **Enable "Message Content Intent"** (crucial!)
+3. **Enable required intents:**
+   - Message Content Intent
+   - Server Members Intent
 4. Copy bot token to `.env` file
 5. Generate invite URL with permissions:
    - Send Messages
-   - Read Message History
-   - Manage Messages
+   - Use Slash Commands
+   - Manage Roles
    - Read Message History
 
 ### 4. Start the Bot
@@ -60,13 +130,17 @@ npm start
 
 ## 🎯 Bot Functionality
 
-The bot will:
+### Core Features
+1. **Slash Commands**: Modern Discord interaction system
+2. **Campaign Management**: Integration with dashboard for campaign configuration
+3. **Member Onboarding**: Automated welcome and onboarding flows
+4. **Referral Processing**: Handles referral codes and tracking
+5. **Analytics**: Comprehensive interaction and conversion tracking
 
-1. **Basic Responses**: Only responds to direct mentions (@bot) or !help commands
-2. **Campaign Support**: If connected to Virion Labs Dashboard, provides campaign-specific features
-3. **Member Onboarding**: Sends welcome messages to new members (if campaign configured)
-4. **Referral Handling**: Processes referral codes when campaigns are active
-5. **Message Tracking**: Logs interactions for dashboard analytics
+### Webhook Support
+The bot includes an Express server for webhook endpoints:
+- `/api/publish-campaigns` - Automatically publish campaigns to Discord
+- `/health` - Health check endpoint
 
 ## 🚀 Deployment Options
 
@@ -86,50 +160,52 @@ npm run docker:build
 npm run docker:run
 ```
 
-Or manually:
+### Option 3: Development
+
 ```bash
-docker build -t virion-discord-bot .
-docker run -d --name virion-bot --env-file .env virion-discord-bot
+npm run dev
 ```
-
-### Option 3: Cloud Deployment
-
-**Railway:**
-1. Connect GitHub repo
-2. Add environment variables
-3. Deploy automatically
-
-**Render:**
-1. Create "Background Worker"
-2. Connect repo
-3. Set start command: `npm start`
 
 ## 🎮 Campaign Types
 
-The bot supports different campaign configurations:
+The bot supports various campaign configurations:
 
-- **Referral Onboarding**: Welcome messages with referral code handling
-- **Community Engagement**: Help commands and community interaction
-- **Gaming Community**: Gaming-focused welcome messages and perks
-- **Custom Campaigns**: Configurable through Virion Labs Dashboard
+- **Referral Campaigns**: Code-based referral tracking
+- **Community Engagement**: Member onboarding and role assignment
+- **Gaming Communities**: Gaming-focused features and perks
+- **Custom Campaigns**: Fully configurable through dashboard
+
+## 🔧 Extending the Bot
+
+The modular architecture makes it easy to add new features:
+
+### Adding a New Command
+1. Create command class in `src/commands/`
+2. Add to `SlashCommandManager`
+3. Register in `InteractionHandler`
+
+### Adding a New Service
+1. Create service in `src/services/`
+2. Import and use in relevant components
+
+See [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) for detailed examples.
 
 ## 🐛 Troubleshooting
 
-### Bot not responding
-- Check Discord bot token
-- Verify "Message Content Intent" is enabled
-- Check bot permissions in Discord server
-- Try mentioning the bot directly (@BotName) or use !help
+### Bot not responding to slash commands
+- Check Discord bot token and permissions
+- Verify slash commands are registered (check bot logs)
+- Ensure bot has "Use Slash Commands" permission
 
-### Dashboard connection issues
-- Verify DASHBOARD_API_URL is correct
-- Check if dashboard API is running
-- Bot will continue with basic functionality if dashboard is unavailable
+### Database connection issues
+- Verify Supabase credentials
+- Check network connectivity
+- Review database permissions
 
-### Permission errors
-- Re-invite bot with correct permissions
-- Check channel-specific permission overrides
-- Verify bot role hierarchy
+### Webhook not working
+- Check webhook port configuration
+- Verify API endpoint accessibility
+- Review webhook server logs
 
 ### Debug Mode
 Set `DEBUG=true` in `.env` for detailed logging:
@@ -152,32 +228,48 @@ DEBUG=true npm start
 
 - Never commit `.env` file to git
 - Use environment variables for all secrets
-- Regularly rotate Discord bot tokens
+- Regularly rotate Discord bot tokens and database keys
 - Monitor bot activity and logs
 - Use non-root user in Docker containers
+- Validate all user inputs
 
 ## 📈 Monitoring
 
-The bot provides detailed console logging:
+The bot provides structured logging with different levels:
 
 ```
-🤖 Virion Labs Discord Bot is ready!
-📡 Logged in as YourBot#1234
-🔗 Dashboard API: http://localhost:3000/api
-✅ Bot is now listening for messages...
-
-📨 Message from user#1234 in My Server: @BotName help
-📝 Processing message from user#1234: @BotName help
-💬 Basic response sent
+[INFO] 2024-01-01T00:00:00.000Z - 🚀 Starting Virion Labs Discord Bot...
+[INFO] 2024-01-01T00:00:00.000Z - 🤖 Bot logged in as YourBot#1234
+[INFO] 2024-01-01T00:00:00.000Z - 📊 Serving 5 servers
+[INFO] 2024-01-01T00:00:00.000Z - ✅ Registered 2 slash commands: /campaigns, /start
+[INFO] 2024-01-01T00:00:00.000Z - 🌐 Webhook server started on port 3001
+[INFO] 2024-01-01T00:00:00.000Z - ✅ Bot and webhook server started successfully
 ```
+
+## 📊 Performance
+
+The new architecture provides:
+- **Memory Efficiency**: Modular loading and cleanup
+- **Error Resilience**: Graceful error handling and recovery
+- **Scalability**: Easy to add new features and components
+- **Maintainability**: Clear separation of concerns
+
+## 🔄 Migration
+
+If you're upgrading from the previous version, see [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) for:
+- Architecture changes
+- New features
+- Breaking changes (none!)
+- Migration steps
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+3. Follow the existing architecture patterns
+4. Add tests for new functionality
+5. Update documentation
+6. Submit a Pull Request
 
 ## 📄 License
 
@@ -186,10 +278,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - Check [troubleshooting section](#-troubleshooting)
-- Review console logs for errors
-- Test webhook independently
-- Verify Discord bot configuration
+- Review [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)
+- Check console logs for detailed error messages
+- Verify all environment variables are set correctly
 
 ---
 
-**Built by Virion Labs** | **Version 1.0.0** | **Node.js 16+** 
+**Built by Virion Labs** | **Version 2.0.0** | **Node.js 16+** | **Modular Architecture** 

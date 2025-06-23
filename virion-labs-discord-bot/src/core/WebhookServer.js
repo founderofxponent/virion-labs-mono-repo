@@ -1,0 +1,200 @@
+const express = require('express');
+const cors = require('cors');
+const { CampaignPublisher } = require('../services/CampaignPublisher');
+
+/**
+ * Express server for handling webhooks and API endpoints
+ */
+class WebhookServer {
+  constructor(config, logger, botClient) {
+    this.config = config;
+    this.logger = logger;
+    this.botClient = botClient;
+    
+    // Initialize Express app
+    this.app = express();
+    this.server = null;
+    
+    // Initialize services
+    this.campaignPublisher = new CampaignPublisher(config, logger, botClient);
+    
+    this.setupMiddleware();
+    this.setupRoutes();
+  }
+
+  /**
+   * Setup Express middleware
+   */
+  setupMiddleware() {
+    this.app.use(express.json());
+    this.app.use(cors());
+    
+    // Request logging
+    this.app.use((req, res, next) => {
+      this.logger.info(`📡 ${req.method} ${req.path} from ${req.ip}`);
+      next();
+    });
+    
+    // Error handling middleware
+    this.app.use((error, req, res, next) => {
+      this.logger.error('❌ Express error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    });
+  }
+
+  /**
+   * Setup API routes
+   */
+  setupRoutes() {
+    // Health check endpoint
+    this.app.get('/health', (req, res) => {
+      res.json({
+        success: true,
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+      });
+    });
+
+    // Main webhook endpoint for campaign publishing
+    this.app.post('/api/publish-campaigns', async (req, res) => {
+      await this.handlePublishCampaigns(req, res);
+    });
+
+    // Future: Add more webhook endpoints here
+    // this.app.post('/api/onboarding-webhook', async (req, res) => {
+    //   await this.handleOnboardingWebhook(req, res);
+    // });
+    
+    // this.app.post('/api/referral-webhook', async (req, res) => {
+    //   await this.handleReferralWebhook(req, res);
+    // });
+
+    // 404 handler
+    this.app.use('*', (req, res) => {
+      res.status(404).json({
+        success: false,
+        error: 'Endpoint not found'
+      });
+    });
+  }
+
+  /**
+   * Handle campaign publishing webhook
+   * @param {express.Request} req 
+   * @param {express.Response} res 
+   */
+  async handlePublishCampaigns(req, res) {
+    try {
+      this.logger.info('📡 Received webhook request to publish campaigns');
+      
+      const { guild_id, channel_id, campaigns } = req.body;
+      
+      // Use environment variables if not provided in request
+      const targetGuildId = guild_id || this.config.discord_server.defaultGuildId;
+      const targetChannelId = channel_id || this.config.discord_server.defaultChannelId || 'join-campaigns';
+      
+      if (!targetGuildId) {
+        this.logger.error('❌ No guild ID provided');
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Guild ID is required' 
+        });
+      }
+      
+      this.logger.info(`🎯 Auto-publishing campaigns to guild: ${targetGuildId}, channel: ${targetChannelId}`);
+      
+      // Publish campaigns using the campaign publisher service
+      const result = await this.campaignPublisher.publishToChannel(
+        targetGuildId, 
+        targetChannelId, 
+        true // forceUpdate
+      );
+      
+      if (result.success) {
+        this.logger.success('✅ Campaigns published successfully via webhook');
+        
+        res.json({
+          success: true,
+          message: 'Campaigns published successfully',
+          data: result.data
+        });
+      } else {
+        this.logger.error('❌ Failed to publish campaigns via webhook:', result.error);
+        
+        res.status(500).json({
+          success: false,
+          error: result.error || 'Failed to publish campaigns'
+        });
+      }
+      
+    } catch (error) {
+      this.logger.error('❌ Error in publish campaigns webhook:', error);
+      
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * Start the webhook server
+   */
+  async start() {
+    return new Promise((resolve, reject) => {
+      try {
+        const port = this.config.api.port;
+        
+        this.server = this.app.listen(port, () => {
+          this.logger.success(`🌐 Webhook server started on port ${port}`);
+          resolve();
+        });
+        
+        this.server.on('error', (error) => {
+          this.logger.error('❌ Webhook server error:', error);
+          reject(error);
+        });
+        
+      } catch (error) {
+        this.logger.error('❌ Failed to start webhook server:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Shutdown the webhook server
+   */
+  async shutdown() {
+    return new Promise((resolve) => {
+      if (this.server) {
+        this.server.close(() => {
+          this.logger.info('🛑 Webhook server shut down');
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Get server statistics
+   * @returns {Object}
+   */
+  getStats() {
+    return {
+      isRunning: !!this.server,
+      port: this.config.api.port,
+      servicesInitialized: {
+        campaignPublisher: !!this.campaignPublisher
+      }
+    };
+  }
+}
+
+module.exports = { WebhookServer }; 
