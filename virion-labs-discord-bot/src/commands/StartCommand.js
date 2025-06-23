@@ -34,6 +34,27 @@ class StartCommand {
         return;
       }
 
+      // Check if user has the required "Verified" role
+      const hasVerifiedRole = await this.checkVerifiedRole(interaction);
+      if (!hasVerifiedRole) {
+        await interaction.editReply({
+          content: '❌ You need the **Verified** role to use this command. Please request access first using `/request-access`.'
+        });
+        return;
+      }
+
+      // Check if command is used in the correct channel
+      const isCorrectChannel = this.checkCorrectChannel(interaction);
+      if (!isCorrectChannel) {
+        const correctChannelId = this.config.discord_server.defaultChannelId;
+        const correctChannelMention = correctChannelId ? `<#${correctChannelId}>` : 'the designated campaigns channel';
+        
+        await interaction.editReply({
+          content: `❌ The \`/start\` command can only be used in ${correctChannelMention}.\n\nPlease use the command in the correct channel to join campaigns.`
+        });
+        return;
+      }
+
       this.logger.info(`🚀 Start command from ${userInfo.tag} in guild ${guildInfo.id}, channel ${guildInfo.channelId}`);
       
       // Fetch all active campaigns for this guild
@@ -63,6 +84,52 @@ class StartCommand {
     } catch (error) {
       this.logger.error('❌ Error in start command:', error);
       await this.handleError(interaction, 'Failed to load campaigns. Please try again later.');
+    }
+  }
+
+  /**
+   * Check if user has the verified role
+   * @param {import('discord.js').ChatInputCommandInteraction} interaction 
+   * @returns {Promise<boolean>}
+   */
+  async checkVerifiedRole(interaction) {
+    try {
+      const verifiedRoleId = this.config.discord_server.verifiedRoleId;
+      
+      // If no verified role is configured, allow access (for development/testing)
+      if (!verifiedRoleId) {
+        this.logger.warn('⚠️ DISCORD_VERIFIED_ROLE_ID not configured - allowing access to all users');
+        return true;
+      }
+
+      // Use utility method to check role
+      return await InteractionUtils.hasRole(interaction, verifiedRoleId);
+    } catch (error) {
+      this.logger.error('❌ Error checking verified role:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if command is used in the correct channel
+   * @param {import('discord.js').ChatInputCommandInteraction} interaction 
+   * @returns {boolean}
+   */
+  checkCorrectChannel(interaction) {
+    try {
+      const allowedChannelId = this.config.discord_server.defaultChannelId;
+      
+      // If no specific channel is configured, allow in any channel
+      if (!allowedChannelId) {
+        this.logger.warn('⚠️ DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID not configured - allowing access in all channels');
+        return true;
+      }
+
+      // Use utility method to check channel
+      return InteractionUtils.isInChannel(interaction, allowedChannelId);
+    } catch (error) {
+      this.logger.error('❌ Error checking channel permissions:', error);
+      return false;
     }
   }
 

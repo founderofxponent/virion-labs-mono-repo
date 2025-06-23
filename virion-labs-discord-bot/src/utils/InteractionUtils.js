@@ -98,6 +98,41 @@ class InteractionUtils {
       channelName: interaction.channel?.name
     };
   }
+
+  /**
+   * Check if user has a specific role
+   * @param {import('discord.js').Interaction} interaction 
+   * @param {string} roleId - Role ID to check for
+   * @returns {Promise<boolean>}
+   */
+  static async hasRole(interaction, roleId) {
+    try {
+      if (!interaction.guild || !roleId) {
+        return false;
+      }
+
+      const member = interaction.guild.members.cache.get(interaction.user.id) ||
+                    await interaction.guild.members.fetch(interaction.user.id);
+      
+      return member.roles.cache.has(roleId);
+    } catch (error) {
+      console.error('❌ Error checking user role:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if interaction is in a specific channel
+   * @param {import('discord.js').Interaction} interaction 
+   * @param {string} channelId - Channel ID to check against
+   * @returns {boolean}
+   */
+  static isInChannel(interaction, channelId) {
+    if (!channelId || !interaction.channel) {
+      return false;
+    }
+    return interaction.channel.id === channelId;
+  }
 }
 
 module.exports = { InteractionUtils }; 
