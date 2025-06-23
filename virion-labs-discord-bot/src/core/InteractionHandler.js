@@ -81,6 +81,8 @@ class InteractionHandler {
     // Route based on custom ID pattern
     if (customId.startsWith('start_onboarding_')) {
       await this.onboardingHandler.handleStartButton(interaction);
+    } else if (customId.startsWith('retry_onboarding_')) {
+      await this.onboardingHandler.handleRetryButton(interaction);
     } else {
       this.logger.warn(`⚠️ Unhandled button interaction: ${customId}`);
       await InteractionUtils.sendError(interaction, 'This button is no longer available.');

@@ -145,28 +145,56 @@ const { data, error } = await this.client
 - ✅ **Future-Proof**: Bot now aligned with current database schema
 
 ### Email Validation Pattern Fix
-**Date:** December 2024
+**Date:** December 2024 - Updated January 2025
 
 **Enhancement:** Fixed double-escaped email validation pattern causing valid emails to fail validation in Discord bot onboarding
 
 **Issue Resolved:**
 - **Problem**: Valid email addresses like `vercilliusjrmila@gmail.com` were being rejected with "Invalid format" error during Discord onboarding
-- **Root Cause**: Email field validation pattern was double-escaped in database: `^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$` instead of correct `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$`
+- **Root Cause**: Email field validation pattern was over-escaped in database: `^[^\\\\\\\\s@]+@[^\\\\\\\\s@]+\\\\\\\\.[^\\\\\\\\s@]+$` instead of correct `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$`
 - **Impact**: Users couldn't complete onboarding because email validation always failed
 
 **Technical Details:**
-- **Database Pattern**: `^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$` (double-escaped backslashes)
-- **JavaScript Interpretation**: `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$` (but still malformed)
-- **Correct Pattern**: `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$` (single backslash before dot)
+- **Database Pattern (Broken)**: `^[^\\\\\\\\s@]+@[^\\\\\\\\s@]+\\\\\\\\.[^\\\\\\\\s@]+$` (quadruple-escaped backslashes)
+- **JavaScript Interpretation**: Created malformed regex that rejected all emails
+- **Correct Pattern**: `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$` (proper email regex)
+
+**Latest Fix (January 2025):**
+```sql
+UPDATE campaign_onboarding_fields 
+SET validation_rules = '{"pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", "pattern_message": "Please enter a valid email address"}'::jsonb
+WHERE campaign_id = 'a5838fcb-53a7-4276-b2d2-459632317668'
+  AND field_key = 'email'
+  AND field_type = 'email';
+```
+
+**✅ VALIDATION FIX CONFIRMED** (Applied January 23, 2025):
+- **Fixed** email validation pattern from `^[^\\\\\\\\s@]+@[^\\\\\\\\s@]+\\\\\\\\.[^\\\\\\\\s@]+$` to correct `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$`
+- **Verified** fix resolves issue with email `vercilliusjrmila@gmail.com` from user `adorable_dragon_31154`
+- **Enhanced** Discord bot client-side validation to prevent similar issues before submission
+- **Added** retry mechanism with validation error display for better user experience
+
+**🔧 COMPREHENSIVE EMAIL VALIDATION CLEANUP** (Applied January 23, 2025):
+- **Root Cause Identified**: Campaign templates contained quadruple-escaped regex patterns causing validation failures
+- **Templates Fixed**: Removed broken validation patterns from all 5 campaign templates (Product Promotion, Referral Onboarding, VIP Support, Community Engagement, Custom)
+- **All Campaign Fields Updated**: Cleaned validation_rules for all email fields across all campaigns
+- **Select Field Validation Enhanced**: Confirmed "How You Heard About Us" fields already allow flexible input (case-insensitive matching + custom text)
+- **Future Prevention**: Templates no longer propagate broken validation patterns to new campaigns
 
 **Changes Made:**
 - **Updated** email field validation pattern in `campaign_onboarding_fields` table
-- **Fixed** pattern from `^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$` to `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$`
+- **Fixed** pattern from over-escaped regex to proper `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$`
+- **Verified** fix works with test email `vercilliusjrmila@gmail.com`
 - **Enhanced** validation logging temporarily to debug the issue
-- **Verified** fix with test email validation
+
+**Root Cause Analysis:**
+- The issue was in custom validation rules (`validation_rules.pattern`) not the basic email validation
+- The `validateFieldValue()` function first passes basic email regex, then applies custom pattern rules
+- Custom pattern was malformed due to excessive escaping, causing `rules.pattern_message || 'Invalid format'` error
+- Fix updated the custom pattern to match the working basic email regex
 
 **API Endpoint Enhanced:**
-- Added detailed validation logging to `/api/discord-bot/onboarding` PUT endpoint
+- Added detailed validation logging to `/api/discord-bot/onboarding/modal` endpoint
 - Logged field configuration, validation rules, and test results
 - Identified exact failure point in custom pattern validation
 
@@ -175,6 +203,7 @@ const { data, error } = await this.client
 - ✅ **Onboarding Restored**: Users can successfully complete Discord onboarding flows
 - ✅ **Pattern Corrected**: Proper regex pattern for email validation
 - ✅ **No More "Invalid Format"**: Eliminated false validation failures
+- ✅ **Custom Rules Fixed**: Resolved issue with over-escaped regex patterns in validation_rules
 
 ### Discord Bot Session Management Fix
 **Date:** December 2024

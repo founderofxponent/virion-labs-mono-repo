@@ -146,13 +146,25 @@ class OnboardingHandler {
 
       this.logger.debug(`📋 Form responses:`, responses);
 
+      // Get session data for field validation
+      const sessionKey = `${campaignId}:${userInfo.id}`;
+      const modalSession = this.modalSessions.get(sessionKey);
+      
+      // Pre-validate responses before sending to backend
+      const validationResult = this.validateResponses(responses, modalSession?.fields || []);
+      
+      if (!validationResult.isValid) {
+        // Show validation errors and re-prompt with corrected modal
+        await this.showValidationErrorsAndReprompt(interaction, campaign, modalSession, validationResult.errors, responses);
+        return;
+      }
+
       // Save responses to database
       const saveResult = await this.saveAllResponses(campaignId, userInfo.id, userInfo.tag, responses);
       
       if (!saveResult.success) {
-        await interaction.editReply({
-          content: '❌ Failed to save your responses. Please try again.'
-        });
+        // Parse backend validation errors and re-prompt if possible
+        await this.handleBackendValidationErrors(interaction, campaign, modalSession, saveResult.error, responses);
         return;
       }
 
@@ -170,6 +182,490 @@ class OnboardingHandler {
       this.logger.error('❌ Error handling modal submission:', error);
       await InteractionUtils.sendError(interaction, 'An error occurred while processing your submission. Please try again.');
     }
+  }
+
+  /**
+   * Validate responses before submission
+   * @param {Object} responses - User responses
+   * @param {Array} fields - Field definitions
+   * @returns {Object} - Validation result
+   */
+  validateResponses(responses, fields) {
+    const errors = [];
+    
+    for (const [fieldKey, value] of Object.entries(responses)) {
+      const field = fields.find(f => f.field_key === fieldKey);
+      if (!field) continue;
+      
+      const validationResult = this.validateFieldValue(field, value);
+      if (!validationResult.valid) {
+        errors.push({
+          field: fieldKey,
+          label: field.field_label || fieldKey,
+          message: validationResult.message,
+          value: value
+        });
+      }
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors: errors
+    };
+  }
+
+  /**
+   * Client-side field validation (mirrors backend validation)
+   * @param {Object} field - Field definition
+   * @param {string} value - Field value
+   * @returns {Object} - Validation result
+   */
+  validateFieldValue(field, value) {
+    // Check if required field is empty
+    if (!value || value.trim() === '') {
+      if (field.is_required) {
+        return { valid: false, message: 'This field is required' };
+      }
+      return { valid: true, value: '' };
+    }
+
+    const trimmedValue = value.trim();
+
+    switch (field.field_type) {
+      case 'email':
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(trimmedValue)) {
+          return { valid: false, message: 'Invalid format' };
+        }
+        break;
+
+      case 'number':
+        const num = parseFloat(trimmedValue);
+        if (isNaN(num)) {
+          return { valid: false, message: 'Please enter a valid number' };
+        }
+        break;
+
+      case 'select':
+        const options = field.field_options || [];
+        if (options.length > 0) {
+          // Check for case-insensitive match
+          const matchingOption = options.find(option => 
+            option.toLowerCase() === trimmedValue.toLowerCase()
+          );
+          
+          if (!matchingOption) {
+            // Allow custom input but log it
+            this.logger.info(`Field ${field.field_key}: User entered "${trimmedValue}", available options: ${options.join(', ')}. Allowing custom input.`);
+          }
+        }
+        break;
+
+      case 'checkbox':
+        const validCheckboxValues = ['yes', 'no', 'true', 'false', '1', '0'];
+        if (!validCheckboxValues.includes(trimmedValue.toLowerCase())) {
+          return { valid: false, message: 'Please answer with yes/no or true/false' };
+        }
+        break;
+
+      case 'date':
+        const date = new Date(trimmedValue);
+        if (isNaN(date.getTime())) {
+          return { valid: false, message: 'Please enter a valid date (YYYY-MM-DD format)' };
+        }
+        break;
+
+      case 'url':
+        try {
+          new URL(trimmedValue);
+        } catch {
+          return { valid: false, message: 'Please enter a valid URL' };
+        }
+        break;
+    }
+
+    // Apply custom validation rules if any
+    if (field.validation_rules) {
+      const rules = field.validation_rules;
+      
+      if (rules.min_length && trimmedValue.length < rules.min_length) {
+        return { valid: false, message: `Minimum length is ${rules.min_length} characters` };
+      }
+      
+      if (rules.max_length && trimmedValue.length > rules.max_length) {
+        return { valid: false, message: `Maximum length is ${rules.max_length} characters` };
+      }
+      
+      if (rules.pattern) {
+        const regex = new RegExp(rules.pattern);
+        if (!regex.test(trimmedValue)) {
+          return { valid: false, message: rules.pattern_message || 'Invalid format' };
+        }
+      }
+    }
+
+    return { valid: true, value: trimmedValue };
+  }
+
+  /**
+   * Show validation errors and re-prompt with modal
+   * @param {import('discord.js').ModalSubmitInteraction} interaction
+   * @param {Object} campaign
+   * @param {Object} modalSession
+   * @param {Array} errors
+   * @param {Object} previousResponses
+   */
+  async showValidationErrorsAndReprompt(interaction, campaign, modalSession, errors, previousResponses) {
+    try {
+      // Create error message
+      const errorMessage = errors.map(err => `• **${err.label}**: ${err.message}`).join('\n');
+      
+      await interaction.editReply({
+        content: `❌ **Please correct the following errors and try again:**\n\n${errorMessage}\n\n*Tip: Check the format requirements for each field.*`
+      });
+
+      // Wait a moment for user to read the error, then show modal again
+      setTimeout(async () => {
+        try {
+          await this.showOnboardingModalWithPreviousValues(interaction, campaign, modalSession, previousResponses, errors);
+        } catch (error) {
+          this.logger.error('❌ Error re-showing modal after validation error:', error);
+        }
+      }, 3000);
+
+    } catch (error) {
+      this.logger.error('❌ Error showing validation errors:', error);
+      await interaction.editReply({
+        content: '❌ There were validation errors in your submission. Please try again.'
+      });
+    }
+  }
+
+  /**
+   * Handle backend validation errors
+   * @param {import('discord.js').ModalSubmitInteraction} interaction
+   * @param {Object} campaign
+   * @param {Object} modalSession
+   * @param {string} errorMessage
+   * @param {Object} previousResponses
+   */
+  async handleBackendValidationErrors(interaction, campaign, modalSession, errorMessage, previousResponses) {
+    try {
+      // Parse validation errors from backend response
+      const errors = this.parseBackendValidationErrors(errorMessage, modalSession?.fields || []);
+      
+      if (errors.length > 0) {
+        await this.showValidationErrorsAndReprompt(interaction, campaign, modalSession, errors, previousResponses);
+      } else {
+        await interaction.editReply({
+          content: `❌ ${errorMessage}\n\nPlease try again.`
+        });
+      }
+    } catch (error) {
+      this.logger.error('❌ Error handling backend validation errors:', error);
+      await interaction.editReply({
+        content: '❌ Failed to save your responses. Please try again.'
+      });
+    }
+  }
+
+  /**
+   * Parse backend validation error messages
+   * @param {string} errorMessage
+   * @param {Array} fields
+   * @returns {Array} Parsed errors
+   */
+  parseBackendValidationErrors(errorMessage, fields) {
+    const errors = [];
+    
+    // Extract individual validation errors from the message
+    // Format: "Validation errors: Field Name: Error message, Another Field: Another error"
+    if (errorMessage.includes('Validation errors:')) {
+      const errorsText = errorMessage.replace('Validation errors:', '').trim();
+      const errorPairs = errorsText.split(', ');
+      
+      for (const errorPair of errorPairs) {
+        const colonIndex = errorPair.indexOf(':');
+        if (colonIndex > 0) {
+          const fieldLabel = errorPair.substring(0, colonIndex).trim();
+          const errorMsg = errorPair.substring(colonIndex + 1).trim();
+          
+          // Find the field by label
+          const field = fields.find(f => f.field_label === fieldLabel);
+          
+          errors.push({
+            field: field?.field_key || fieldLabel.toLowerCase().replace(/\s+/g, '_'),
+            label: fieldLabel,
+            message: errorMsg,
+            value: ''
+          });
+        }
+      }
+    }
+    
+    return errors;
+  }
+
+  /**
+   * Show onboarding modal with previous values and error highlighting
+   * @param {import('discord.js').Interaction} interaction 
+   * @param {Object} campaign 
+   * @param {Object} modalSession
+   * @param {Object} previousResponses
+   * @param {Array} errors
+   */
+  async showOnboardingModalWithPreviousValues(interaction, campaign, modalSession, previousResponses = {}, errors = []) {
+    try {
+      const userInfo = InteractionUtils.getUserInfo(interaction);
+      const fields = modalSession?.fields || [];
+      
+      if (fields.length === 0) {
+        return;
+      }
+
+      // Create new modal with error context
+      const modal = new ModalBuilder()
+        .setCustomId(`onboarding_modal_${campaign.id}_${userInfo.id}`)
+        .setTitle(`Join ${campaign.campaign_name}`);
+
+      // Add fields to modal with previous values and error indicators
+      for (const field of fields.slice(0, 5)) { // Discord limit of 5 fields
+        const hasError = errors.some(err => err.field === field.field_key);
+        const previousValue = previousResponses[field.field_key] || '';
+        
+        const textInput = new TextInputBuilder()
+          .setCustomId(field.field_key)
+          .setLabel(this.getFieldLabelWithValidation(field, hasError))
+          .setStyle(field.field_type === 'long_text' ? TextInputStyle.Paragraph : TextInputStyle.Short)
+          .setRequired(field.is_required || false)
+          .setPlaceholder(this.getFieldPlaceholderWithHints(field, hasError));
+
+        // Set previous value if available
+        if (previousValue) {
+          textInput.setValue(previousValue);
+        }
+
+        if (field.min_length) textInput.setMinLength(field.min_length);
+        if (field.max_length) textInput.setMaxLength(field.max_length);
+
+        const actionRow = new ActionRowBuilder().addComponents(textInput);
+        modal.addComponents(actionRow);
+      }
+
+      // Show modal via followUp since this is called after initial interaction
+      const followUpMessage = await interaction.followUp({
+        content: '🔄 **Please fill out the form again with the corrections:**',
+        ephemeral: true
+      });
+
+      // We need to create a button that triggers the modal since we can't show modal in followUp
+      const retryButton = new ButtonBuilder()
+        .setCustomId(`retry_onboarding_${campaign.id}_${userInfo.id}`)
+        .setLabel('📝 Retry Form')
+        .setStyle(ButtonStyle.Primary);
+
+      const retryRow = new ActionRowBuilder().addComponents(retryButton);
+
+      await interaction.editReply({
+        content: `❌ **Please correct the following errors and click "Retry Form" below:**\n\n${errors.map(err => `• **${err.label}**: ${err.message}`).join('\n')}\n\n👇 **Click the button below to retry:**`,
+        components: [retryRow]
+      });
+
+      // Store the modal data for the retry button
+      this.storeModalSession(campaign.id, userInfo.id, {
+        ...modalSession,
+        previousResponses,
+        validationErrors: errors,
+        retryContext: true
+      });
+
+    } catch (error) {
+      this.logger.error('❌ Error showing modal with previous values:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle retry button for re-showing modal after validation errors
+   * @param {import('discord.js').ButtonInteraction} interaction 
+   */
+  async handleRetryButton(interaction) {
+    try {
+      const userInfo = InteractionUtils.getUserInfo(interaction);
+      
+      // Parse campaign ID from custom ID: retry_onboarding_{campaignId}_{userId}
+      const customIdParts = interaction.customId.split('_');
+      const campaignId = customIdParts[2];
+      const userId = customIdParts[3];
+      
+      // Verify user ID matches
+      if (userId !== userInfo.id) {
+        await InteractionUtils.safeReply(interaction, {
+          content: '❌ This button is not for you.',
+          ephemeral: true
+        });
+        return;
+      }
+
+      // Get campaign and session data
+      const campaign = await this.campaignService.getCampaignById(campaignId);
+      if (!campaign) {
+        await InteractionUtils.safeReply(interaction, {
+          content: '❌ Campaign not found. Please try again.',
+          ephemeral: true
+        });
+        return;
+      }
+
+      const sessionKey = `${campaignId}:${userInfo.id}`;
+      const modalSession = this.modalSessions.get(sessionKey);
+
+      if (!modalSession) {
+        await InteractionUtils.safeReply(interaction, {
+          content: '❌ Session expired. Please start over with `/start`.',
+          ephemeral: true
+        });
+        return;
+      }
+
+      // Show the modal again with previous values
+      await this.showOnboardingModalForRetry(interaction, campaign, modalSession);
+      
+    } catch (error) {
+      this.logger.error('❌ Error handling retry button:', error);
+      await InteractionUtils.sendError(interaction, 'An error occurred. Please try again.');
+    }
+  }
+
+  /**
+   * Show modal for retry with previous values
+   * @param {import('discord.js').ButtonInteraction} interaction
+   * @param {Object} campaign
+   * @param {Object} modalSession
+   */
+  async showOnboardingModalForRetry(interaction, campaign, modalSession) {
+    try {
+      const userInfo = InteractionUtils.getUserInfo(interaction);
+      const fields = modalSession.fields || [];
+      const previousResponses = modalSession.previousResponses || {};
+      const errors = modalSession.validationErrors || [];
+      
+      if (fields.length === 0) {
+        await InteractionUtils.safeReply(interaction, {
+          content: '❌ No fields to fill. Please start over.',
+          ephemeral: true
+        });
+        return;
+      }
+
+      // Create modal
+      const modal = new ModalBuilder()
+        .setCustomId(`onboarding_modal_${campaign.id}_${userInfo.id}`)
+        .setTitle(`Join ${campaign.campaign_name}`);
+
+      // Add fields to modal with previous values
+      for (const field of fields.slice(0, 5)) {
+        const hasError = errors.some(err => err.field === field.field_key);
+        const previousValue = previousResponses[field.field_key] || '';
+        
+        const textInput = new TextInputBuilder()
+          .setCustomId(field.field_key)
+          .setLabel(this.getFieldLabelWithValidation(field, hasError))
+          .setStyle(field.field_type === 'long_text' ? TextInputStyle.Paragraph : TextInputStyle.Short)
+          .setRequired(field.is_required || false)
+          .setPlaceholder(this.getFieldPlaceholderWithHints(field, hasError));
+
+        // Set previous value if available
+        if (previousValue) {
+          textInput.setValue(previousValue);
+        }
+
+        if (field.min_length) textInput.setMinLength(field.min_length);
+        if (field.max_length) textInput.setMaxLength(field.max_length);
+
+        const actionRow = new ActionRowBuilder().addComponents(textInput);
+        modal.addComponents(actionRow);
+      }
+
+      // Show modal
+      await interaction.showModal(modal);
+      
+    } catch (error) {
+      this.logger.error('❌ Error showing retry modal:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get field label with validation hints
+   * @param {Object} field
+   * @param {boolean} hasError
+   * @returns {string}
+   */
+  getFieldLabelWithValidation(field, hasError) {
+    let label = field.field_label || field.field_key;
+    
+    if (hasError) {
+      label = `❌ ${label}`;
+    }
+    
+    // Add format hints for specific field types
+    switch (field.field_type) {
+      case 'email':
+        label += ' (Email format)';
+        break;
+      case 'date':
+        label += ' (YYYY-MM-DD)';
+        break;
+      case 'url':
+        label += ' (Valid URL)';
+        break;
+      case 'number':
+        label += ' (Numbers only)';
+        break;
+    }
+    
+    return label;
+  }
+
+  /**
+   * Get field placeholder with validation hints
+   * @param {Object} field
+   * @param {boolean} hasError
+   * @returns {string}
+   */
+  getFieldPlaceholderWithHints(field, hasError) {
+    let placeholder = field.placeholder;
+    
+    if (!placeholder) {
+      switch (field.field_type) {
+        case 'email':
+          placeholder = 'example@domain.com';
+          break;
+        case 'date':
+          placeholder = '2024-01-15';
+          break;
+        case 'url':
+          placeholder = 'https://example.com';
+          break;
+        case 'number':
+          placeholder = 'Enter a number';
+          break;
+        case 'select':
+          if (field.field_options && field.field_options.length > 0) {
+            placeholder = `Choose: ${field.field_options.slice(0, 3).join(', ')}${field.field_options.length > 3 ? '...' : ''}`;
+          }
+          break;
+        default:
+          placeholder = `Enter your ${field.field_label || field.field_key}`;
+      }
+    }
+    
+    if (hasError) {
+      placeholder = `⚠️ ${placeholder}`;
+    }
+    
+    return placeholder;
   }
 
   /**
@@ -195,14 +691,14 @@ class OnboardingHandler {
         return;
       }
 
-      // Add fields to modal
+      // Add fields to modal with enhanced validation hints
       for (const field of incompleteFields) {
         const textInput = new TextInputBuilder()
           .setCustomId(field.field_key)
-          .setLabel(field.field_label || field.field_key)
+          .setLabel(this.getFieldLabelWithValidation(field, false))
           .setStyle(field.field_type === 'long_text' ? TextInputStyle.Paragraph : TextInputStyle.Short)
           .setRequired(field.is_required || false)
-          .setPlaceholder(field.placeholder || `Enter your ${field.field_label || field.field_key}`);
+          .setPlaceholder(this.getFieldPlaceholderWithHints(field, false));
 
         if (field.min_length) textInput.setMinLength(field.min_length);
         if (field.max_length) textInput.setMaxLength(field.max_length);
