@@ -41,7 +41,7 @@ class SupabaseClient {
   async testConnection() {
     try {
       const { data, error } = await this.client
-        .from('bot_configurations')
+        .from('discord_guild_campaigns')
         .select('id')
         .limit(1);
       

@@ -4,7 +4,45 @@ This document provides a comprehensive overview of all 28 tables and views in th
 
 ## Recent Changes
 
-### Email Validation Pattern Fix (Latest)
+### Discord Bot Database Connection Fix (Latest)
+**Date:** January 2025
+
+**Enhancement:** Fixed Discord bot startup by updating database connection test to use current table structure
+
+**Issue Resolved:**
+- **Problem**: Discord bot was failing to start with error "relation 'public.bot_configurations' does not exist"
+- **Root Cause**: Bot's SupabaseClient was testing database connection using the deprecated `bot_configurations` table which was replaced with `discord_guild_campaigns`
+- **Impact**: Discord bot could not start and connect to the database
+
+**Changes Made:**
+- **Updated** `SupabaseClient.testConnection()` method in `virion-labs-discord-bot/src/database/SupabaseClient.js`
+- **Changed** connection test from `bot_configurations` table to `discord_guild_campaigns` table
+- **Maintained** same connection test logic with updated table reference
+
+**Technical Details:**
+```javascript
+// OLD: Used deprecated table
+const { data, error } = await this.client
+  .from('bot_configurations')  // ❌ Table no longer exists
+  .select('id')
+  .limit(1);
+
+// NEW: Uses current table structure  
+const { data, error } = await this.client
+  .from('discord_guild_campaigns')  // ✅ Current active table
+  .select('id')
+  .limit(1);
+```
+
+**Background:** The `bot_configurations` table was deprecated and removed as part of the campaign schema cleanup migration. All bot configuration data is now stored in the `discord_guild_campaigns` table which provides more comprehensive campaign management capabilities.
+
+**Impact:** 
+- ✅ **Discord Bot Startup Fixed**: Bot now successfully connects to database and starts
+- ✅ **Updated Architecture**: Connection test uses current table structure
+- ✅ **No Functional Changes**: Same connection validation logic with updated table reference
+- ✅ **Future-Proof**: Bot now aligned with current database schema
+
+### Email Validation Pattern Fix
 **Date:** December 2024
 
 **Enhancement:** Fixed double-escaped email validation pattern causing valid emails to fail validation in Discord bot onboarding
