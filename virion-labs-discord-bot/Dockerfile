@@ -10,9 +10,7 @@ COPY package*.json ./
 RUN npm ci --only=production && npm cache clean --force
 
 # Copy application files
-COPY index.js ./
-COPY onboarding-manager.js ./
-COPY supabase.js ./
+COPY src/ ./src/
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
@@ -26,8 +24,8 @@ USER discordbot
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e "console.log('Bot health check passed')" || exit 1
 
-# Expose port (not really needed for Discord bot, but good practice)
-EXPOSE 3000
+# Expose port for webhook server
+EXPOSE 3001
 
-# Start the bot
-CMD ["node", "index.js"] 
+# Start the bot using the new entry point
+CMD ["node", "src/index.js"] 
