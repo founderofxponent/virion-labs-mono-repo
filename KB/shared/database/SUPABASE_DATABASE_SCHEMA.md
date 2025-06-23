@@ -117,6 +117,55 @@ This ensures consistent API response parsing across all Discord bot services and
 - ✅ **Current entry point**: `src/index.js` (modular structure)
 - ✅ **Proper usage**: `npm start` or `node src/index.js` (NOT `node index.js`)
 
+### Discord Bot /join Slash Command Implementation (Latest)
+**Date:** January 24, 2025
+
+**Enhancement:** Added new `/join` slash command to Discord bot for channel-specific campaign discovery
+
+**New Slash Command:**
+- **Command**: `/join`
+- **Purpose**: Shows active campaigns for the specific Discord channel where the command is triggered
+- **Behavior**: 
+  - Only displays campaigns that have a `channel_id` matching the current channel
+  - Excludes campaigns with no `channel_id` (null/empty values)
+  - Provides channel-specific campaign filtering for better user experience
+  - Shows helpful messages when no campaigns are found for the specific channel
+
+**Key Features:**
+- **Channel Filtering**: `campaign.channel_id === interaction.channel.id`
+- **Active Status Check**: Only shows campaigns with active status
+- **User-Friendly Messages**: 
+  - Shows channel mention in campaign list
+  - Explains when server has campaigns but none for current channel
+  - Provides clear guidance for administrators
+- **Visual Design**: Green-themed embed with 🔗 emoji and success-style buttons
+- **Analytics Tracking**: Logs interactions as `slash_command_join` type
+
+**Files Modified:**
+- ✅ **Created**: `virion-labs-discord-bot/src/commands/JoinCommand.js` - Main command implementation
+- ✅ **Updated**: `virion-labs-discord-bot/src/core/SlashCommandManager.js` - Added command registration
+- ✅ **Updated**: `virion-labs-discord-bot/src/core/InteractionHandler.js` - Added command routing
+- ✅ **Updated**: `KB/shared/database/SUPABASE_DATABASE_SCHEMA.md` - Added `slash_command_join` interaction type
+
+**Command Logic:**
+```javascript
+// Filter campaigns to only show those that match the current channel
+const channelCampaigns = allActiveCampaigns.filter(campaign => {
+  return campaign.channel_id && campaign.channel_id === guildInfo.channelId;
+});
+```
+
+**User Experience:**
+- **Success**: Shows campaign list with channel-specific filtering
+- **No Campaigns**: Shows helpful message explaining server has X campaigns but none for this channel
+- **Error Handling**: Graceful error messages with retry suggestions
+- **Integration**: Uses existing onboarding flow when users select campaigns
+
+**Database Impact:**
+- **New Interaction Type**: Added `slash_command_join` to `discord_referral_interactions.interaction_type` enum
+- **Analytics**: Tracks usage for channel-specific campaign discovery
+- **No Schema Changes**: Uses existing `discord_guild_campaigns.channel_id` field for filtering
+
 ### Latest Onboarding Data Reset for Testing
 **Date:** January 24, 2025
 
@@ -1039,6 +1088,7 @@ Comprehensive Discord campaign management with extensive configuration options.
 - Campaign type must be one of: 'referral_onboarding', 'product_promotion', 'community_engagement', 'support'
 - Template must be one of: 'standard', 'advanced', 'custom', 'referral_campaign', 'support_campaign'
 - Foreign keys to clients(id), referral_links(id), auth.users(id)
+- **NOTE**: The unique constraint on (guild_id, channel_id) has been removed to allow multiple campaigns per Discord server/channel combination
 
 **Campaign Status Logic:**
 The campaign status is determined by multiple fields:
@@ -1127,7 +1177,7 @@ Tracks all Discord bot interactions with users.
 - `created_at` (timestamptz, default: now()) - Interaction timestamp
 
 **Constraints:**
-- Interaction type must be one of: 'message', 'command', 'reaction', 'join', 'referral_signup', 'handled_message', 'unhandled_message', 'inactive_campaign_interaction', 'referral_failed', 'guild_join', 'onboarding_completed', 'slash_command_campaigns', 'slash_command_start', 'onboarding_start_button', 'onboarding_modal_submission', 'onboarding_started', 'onboarding_response', 'referral_validation', 'campaign_interaction'
+- Interaction type must be one of: 'message', 'command', 'reaction', 'join', 'referral_signup', 'handled_message', 'unhandled_message', 'inactive_campaign_interaction', 'referral_failed', 'guild_join', 'onboarding_completed', 'slash_command_campaigns', 'slash_command_start', 'slash_command_join', 'onboarding_start_button', 'onboarding_modal_submission', 'onboarding_started', 'onboarding_response', 'referral_validation', 'campaign_interaction'
 - Foreign keys to discord_guild_campaigns(id), referral_links(id), referrals(id), auth.users(id)
 
 ### discord_webhook_routes

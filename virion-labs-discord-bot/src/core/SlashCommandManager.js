@@ -18,6 +18,11 @@ class SlashCommandManager {
           handler: 'handleStartCommand'
         },
         {
+          name: 'join',
+          description: 'Show active campaigns for this specific channel',
+          handler: 'handleJoinCommand'
+        },
+        {
           name: 'request-access',
           description: 'Request access to private channels (use in designated request channel)',
           handler: 'handleRequestAccessCommand'

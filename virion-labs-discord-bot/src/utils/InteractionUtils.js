@@ -31,11 +31,29 @@ class InteractionUtils {
    */
   static async safeDefer(interaction, options = {}) {
     try {
-      if (!interaction.replied && !interaction.deferred) {
-        return await interaction.deferReply(options);
+      // Check interaction state more thoroughly
+      if (interaction.replied) {
+        console.log('⚠️ Interaction already replied');
+        return;
       }
+      
+      if (interaction.deferred) {
+        console.log('⚠️ Interaction already deferred');
+        return;
+      }
+
+      // Use flags instead of ephemeral property to fix deprecation warning
+      const deferOptions = {};
+      if (options.ephemeral) {
+        deferOptions.flags = 64; // MessageFlags.Ephemeral
+      }
+      
+      console.log(`🔄 Deferring interaction: replied=${interaction.replied}, deferred=${interaction.deferred}`);
+      return await interaction.deferReply(deferOptions);
+      
     } catch (error) {
       console.error('❌ Error in safeDefer:', error);
+      console.error(`Interaction state: replied=${interaction.replied}, deferred=${interaction.deferred}`);
       throw error;
     }
   }

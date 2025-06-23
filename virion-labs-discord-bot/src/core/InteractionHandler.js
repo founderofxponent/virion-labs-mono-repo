@@ -1,5 +1,6 @@
 const { InteractionUtils } = require('../utils/InteractionUtils');
 const { StartCommand } = require('../commands/StartCommand');
+const { JoinCommand } = require('../commands/JoinCommand');
 const { RequestAccessCommand } = require('../commands/RequestAccessCommand');
 const { OnboardingHandler } = require('../handlers/OnboardingHandler');
 const { RequestAccessHandler } = require('../handlers/RequestAccessHandler');
@@ -14,6 +15,7 @@ class InteractionHandler {
     
     // Initialize command handlers
     this.startCommand = new StartCommand(config, logger);
+    this.joinCommand = new JoinCommand(config, logger);
     this.requestAccessCommand = new RequestAccessCommand(config, logger);
     this.onboardingHandler = new OnboardingHandler(config, logger);
     this.requestAccessHandler = new RequestAccessHandler(config, logger);
@@ -25,6 +27,8 @@ class InteractionHandler {
    */
   async handleInteraction(interaction) {
     try {
+      this.logger.debug(`📥 Received interaction: type=${interaction.type}, replied=${interaction.replied}, deferred=${interaction.deferred}`);
+      
       if (interaction.isChatInputCommand()) {
         await this.handleSlashCommand(interaction);
       } else if (interaction.isButton()) {
@@ -52,11 +56,17 @@ class InteractionHandler {
     const guildInfo = InteractionUtils.getGuildInfo(interaction);
     
     this.logger.info(`⚡ Slash command /${commandName} from ${userInfo.tag} in ${guildInfo?.name || 'DM'}`);
+    this.logger.debug(`🔍 Initial interaction state: replied=${interaction.replied}, deferred=${interaction.deferred}`);
 
     // Route to appropriate command handler
     switch (commandName) {
       case 'start':
         await this.startCommand.execute(interaction);
+        break;
+      
+      case 'join':
+        this.logger.debug(`🔗 Executing join command, interaction state: replied=${interaction.replied}, deferred=${interaction.deferred}`);
+        await this.joinCommand.execute(interaction);
         break;
       
       case 'request-access':
@@ -65,7 +75,7 @@ class InteractionHandler {
       
       default:
         this.logger.error(`❌ Unknown slash command: ${commandName}`);
-        await InteractionUtils.sendError(interaction, 'Unknown command. Use `/start` to join campaigns.');
+        await InteractionUtils.sendError(interaction, 'Unknown command. Use `/start` or `/join` to join campaigns.');
     }
   }
 
@@ -157,6 +167,7 @@ class InteractionHandler {
     return {
       handlersInitialized: {
         start: !!this.startCommand,
+        join: !!this.joinCommand,
         requestAccess: !!this.requestAccessCommand,
         onboarding: !!this.onboardingHandler,
         requestAccessHandler: !!this.requestAccessHandler
