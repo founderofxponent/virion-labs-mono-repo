@@ -316,24 +316,33 @@ class OnboardingHandler {
    */
   async showValidationErrorsAndReprompt(interaction, campaign, modalSession, errors, previousResponses) {
     try {
-      // Create error message
+      const userInfo = InteractionUtils.getUserInfo(interaction);
       const errorMessage = errors.map(err => `• **${err.label}**: ${err.message}`).join('\n');
-      
+
+      this.logger.debug(`Showing validation errors for ${userInfo.tag} in campaign ${campaign.id}: ${errorMessage}`);
+
+      const retryButton = new ButtonBuilder()
+        .setCustomId(`retry_onboarding_${campaign.id}_${userInfo.id}`)
+        .setLabel('📝 Retry Form')
+        .setStyle(ButtonStyle.Primary);
+
+      const retryRow = new ActionRowBuilder().addComponents(retryButton);
+
       await interaction.editReply({
-        content: `❌ **Please correct the following errors and try again:**\n\n${errorMessage}\n\n*Tip: Check the format requirements for each field.*`
+        content: `❌ **Please correct the following errors and click "Retry Form" below:**\n\n${errorMessage}\n\n👇 **Click the button below to retry:**`,
+        components: [retryRow]
       });
 
-      // Wait a moment for user to read the error, then show modal again
-      setTimeout(async () => {
-        try {
-          await this.showOnboardingModalWithPreviousValues(interaction, campaign, modalSession, previousResponses, errors);
-        } catch (error) {
-          this.logger.error('❌ Error re-showing modal after validation error:', error);
-        }
-      }, 3000);
+      // Store the modal data for the retry button
+      this.storeModalSession(campaign.id, userInfo.id, {
+        ...modalSession,
+        previousResponses,
+        validationErrors: errors,
+        retryContext: true
+      });
 
     } catch (error) {
-      this.logger.error('❌ Error showing validation errors:', error);
+      this.logger.error('❌ Error showing validation errors and re-prompting:', error);
       await interaction.editReply({
         content: '❌ There were validation errors in your submission. Please try again.'
       });
@@ -414,74 +423,11 @@ class OnboardingHandler {
    * @param {Array} errors
    */
   async showOnboardingModalWithPreviousValues(interaction, campaign, modalSession, previousResponses = {}, errors = []) {
-    try {
-      const userInfo = InteractionUtils.getUserInfo(interaction);
-      const fields = modalSession?.fields || [];
-      
-      if (fields.length === 0) {
-        return;
-      }
-
-      // Create new modal with error context
-      const modal = new ModalBuilder()
-        .setCustomId(`onboarding_modal_${campaign.id}_${userInfo.id}`)
-        .setTitle(`Join ${campaign.campaign_name}`);
-
-      // Add fields to modal with previous values and error indicators
-      for (const field of fields.slice(0, 5)) { // Discord limit of 5 fields
-        const hasError = errors.some(err => err.field === field.field_key);
-        const previousValue = previousResponses[field.field_key] || '';
-        
-        const textInput = new TextInputBuilder()
-          .setCustomId(field.field_key)
-          .setLabel(this.getFieldLabelWithValidation(field, hasError))
-          .setStyle(field.field_type === 'long_text' ? TextInputStyle.Paragraph : TextInputStyle.Short)
-          .setRequired(field.is_required || false)
-          .setPlaceholder(this.getFieldPlaceholderWithHints(field, hasError));
-
-        // Set previous value if available
-        if (previousValue) {
-          textInput.setValue(previousValue);
-        }
-
-        if (field.min_length) textInput.setMinLength(field.min_length);
-        if (field.max_length) textInput.setMaxLength(field.max_length);
-
-        const actionRow = new ActionRowBuilder().addComponents(textInput);
-        modal.addComponents(actionRow);
-      }
-
-      // Show modal via followUp since this is called after initial interaction
-      const followUpMessage = await interaction.followUp({
-        content: '🔄 **Please fill out the form again with the corrections:**',
-        ephemeral: true
-      });
-
-      // We need to create a button that triggers the modal since we can't show modal in followUp
-      const retryButton = new ButtonBuilder()
-        .setCustomId(`retry_onboarding_${campaign.id}_${userInfo.id}`)
-        .setLabel('📝 Retry Form')
-        .setStyle(ButtonStyle.Primary);
-
-      const retryRow = new ActionRowBuilder().addComponents(retryButton);
-
-      await interaction.editReply({
-        content: `❌ **Please correct the following errors and click "Retry Form" below:**\n\n${errors.map(err => `• **${err.label}**: ${err.message}`).join('\n')}\n\n👇 **Click the button below to retry:**`,
-        components: [retryRow]
-      });
-
-      // Store the modal data for the retry button
-      this.storeModalSession(campaign.id, userInfo.id, {
-        ...modalSession,
-        previousResponses,
-        validationErrors: errors,
-        retryContext: true
-      });
-
-    } catch (error) {
-      this.logger.error('❌ Error showing modal with previous values:', error);
-      throw error;
-    }
+    // This method is now handled by handleRetryButton and showOnboardingModalForRetry
+    // It can be deprecated or removed if no other part of the code uses it.
+    // For now, we'll forward to the new logic for safety.
+    this.logger.warn('showOnboardingModalWithPreviousValues is deprecated. Use handleRetryButton flow.');
+    await this.showOnboardingModalForRetry(interaction, campaign, modalSession);
   }
 
   /**
