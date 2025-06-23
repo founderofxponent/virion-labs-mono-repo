@@ -78,7 +78,11 @@ class InteractionHandler {
     this.logger.info(`🔘 Button interaction: ${customId} from ${userInfo.tag}`);
 
     // Route based on custom ID pattern
-    if (customId.startsWith('start_onboarding_')) {
+    if (customId === 'campaign_get_started') {
+      await this.startCommand.execute(interaction);
+    } else if (customId === 'campaign_view_all') {
+      await this.campaignsCommand.execute(interaction);
+    } else if (customId.startsWith('start_onboarding_')) {
       await this.onboardingHandler.handleStartButton(interaction);
     } else if (customId.startsWith('retry_onboarding_')) {
       await this.onboardingHandler.handleRetryButton(interaction);

@@ -19,9 +19,10 @@ class CampaignPublisher {
    * @param {string} guildId 
    * @param {string} channelIdentifier 
    * @param {boolean} forceUpdate 
+   * @param {object | null} campaignsData
    * @returns {Promise<Object>}
    */
-  async publishToChannel(guildId, channelIdentifier = 'join-campaigns', forceUpdate = false) {
+  async publishToChannel(guildId, channelIdentifier = 'join-campaigns', forceUpdate = false, campaignsData = null) {
     try {
       this.logger.info(`📢 Publishing campaigns to guild: ${guildId}, channel: ${channelIdentifier}`);
       
@@ -50,8 +51,8 @@ class CampaignPublisher {
 
       this.logger.info(`📍 Found channel: ${channel.name} (${channel.id})`);
 
-      // Fetch campaigns for this guild
-      const campaigns = await this.fetchCampaigns(guildId);
+      // Fetch campaigns for this guild if not provided
+      const campaigns = campaignsData ? (campaignsData.active || []).concat(campaignsData.inactive || []) : await this.fetchCampaigns(guildId);
       
       if (!campaigns || campaigns.length === 0) {
         this.logger.warn(`⚠️ No campaigns found for guild: ${guildId}`);
@@ -82,7 +83,7 @@ class CampaignPublisher {
       }
 
       // Create campaign embed and components
-      const { embed, components } = this.createCampaignMessage(campaigns, guild.name);
+      const { embed, components } = this.createCampaignMessage(campaigns, guild.name, campaignsData);
 
       // Send or update the message
       let message;
@@ -159,11 +160,14 @@ class CampaignPublisher {
    * Create campaign message embed and components
    * @param {Array} campaigns 
    * @param {string} guildName 
+   * @param {object | null} campaignsData
    * @returns {Object}
    */
-  createCampaignMessage(campaigns, guildName) {
+  createCampaignMessage(campaigns, guildName, campaignsData = null) {
     // Filter active campaigns
-    const activeCampaigns = campaigns.filter(campaign => campaign.status === 'active');
+    const activeCampaigns = campaignsData 
+      ? campaignsData.active 
+      : campaigns.filter(campaign => campaign.status === 'active');
     
     // Create embed
     const embed = new EmbedBuilder()
@@ -177,7 +181,7 @@ class CampaignPublisher {
       description += `We have **${activeCampaigns.length}** active campaign${activeCampaigns.length !== 1 ? 's' : ''} you can join:\n\n`;
       
       activeCampaigns.forEach((campaign, index) => {
-        description += `**${index + 1}.** ${campaign.campaign_name}\n`;
+        description += `**${index + 1}.** ${campaign.campaign_name || campaign.name}\n`;
       });
       
       description += `\n🚀 **Ready to get started?** Use the \`/start\` command to begin your onboarding journey!`;

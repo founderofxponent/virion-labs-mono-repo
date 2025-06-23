@@ -111,7 +111,8 @@ class WebhookServer {
       const result = await this.campaignPublisher.publishToChannel(
         targetGuildId, 
         targetChannelId, 
-        true // forceUpdate
+        true, // forceUpdate
+        campaigns
       );
       
       if (result.success) {
