@@ -4,7 +4,39 @@ This document provides a comprehensive overview of all 28 tables and views in th
 
 ## Recent Changes
 
-### Discord Bot Session Management Fix (Latest)
+### Email Validation Pattern Fix (Latest)
+**Date:** December 2024
+
+**Enhancement:** Fixed double-escaped email validation pattern causing valid emails to fail validation in Discord bot onboarding
+
+**Issue Resolved:**
+- **Problem**: Valid email addresses like `vercilliusjrmila@gmail.com` were being rejected with "Invalid format" error during Discord onboarding
+- **Root Cause**: Email field validation pattern was double-escaped in database: `^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$` instead of correct `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$`
+- **Impact**: Users couldn't complete onboarding because email validation always failed
+
+**Technical Details:**
+- **Database Pattern**: `^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$` (double-escaped backslashes)
+- **JavaScript Interpretation**: `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$` (but still malformed)
+- **Correct Pattern**: `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$` (single backslash before dot)
+
+**Changes Made:**
+- **Updated** email field validation pattern in `campaign_onboarding_fields` table
+- **Fixed** pattern from `^[^\\\\s@]+@[^\\\\s@]+\\\\.[^\\\\s@]+$` to `^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$`
+- **Enhanced** validation logging temporarily to debug the issue
+- **Verified** fix with test email validation
+
+**API Endpoint Enhanced:**
+- Added detailed validation logging to `/api/discord-bot/onboarding` PUT endpoint
+- Logged field configuration, validation rules, and test results
+- Identified exact failure point in custom pattern validation
+
+**Impact:** 
+- ✅ **Email Validation Fixed**: All valid email addresses now pass validation
+- ✅ **Onboarding Restored**: Users can successfully complete Discord onboarding flows
+- ✅ **Pattern Corrected**: Proper regex pattern for email validation
+- ✅ **No More "Invalid Format"**: Eliminated false validation failures
+
+### Discord Bot Session Management Fix
 **Date:** December 2024
 
 **Enhancement:** Fixed Discord bot campaign button session management to eliminate race conditions and ensure reliable modal display
