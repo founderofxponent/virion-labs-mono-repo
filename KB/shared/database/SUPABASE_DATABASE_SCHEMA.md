@@ -4,7 +4,58 @@ This document provides a comprehensive overview of all 29 tables and views in th
 
 ## Recent Changes
 
-### Referral Conversion Tracking Endpoint Implementation (Latest)
+### API Routes Supabase Client Configuration Standardization (Latest)
+**Date:** January 25, 2025
+
+**Enhancement:** Standardized Supabase client configuration across all API routes to use service role key for consistent database access
+
+**Issue Fixed:**
+- **Problem**: Some API routes were using anonymous key instead of service role key, causing 404 errors and permission issues
+- **Root Cause**: Inconsistent Supabase client initialization across API routes
+- **Affected Routes**: `/api/referral/[code]`, `/api/referral/signup`, `/api/referral/conversion`, `/api/referral/preview/[campaignId]`
+- **Impact**: Referral system had authentication/permission issues leading to failed requests
+
+**Standardization Applied:**
+
+**Before - Problematic Pattern:**
+```typescript
+import { supabase } from '@/lib/supabase'  // Used anonymous key
+```
+
+**After - Consistent Pattern:**
+```typescript
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+```
+
+**Routes Fixed:**
+- ✅ **`/api/referral/[code]/route.ts`** - Fixed HEAD/GET request 404 errors
+- ✅ **`/api/referral/signup/route.ts`** - Fixed referral signup permission issues
+- ✅ **`/api/referral/conversion/route.ts`** - Fixed conversion tracking permission issues
+- ✅ **`/api/referral/preview/[campaignId]/route.ts`** - Fixed campaign preview permission issues
+
+**Technical Benefits:**
+- ✅ **Consistent Permissions**: All API routes now have full database access via service role key
+- ✅ **Resolved 404 Errors**: HEAD requests to referral endpoints now return 200 OK
+- ✅ **Proper Redirects**: GET requests properly redirect to target URLs
+- ✅ **Database Access**: All routes can read/write to database tables without permission restrictions
+- ✅ **Environment Variable Usage**: All routes consistently use environment variables instead of hardcoded values
+
+**Impact:**
+- ✅ **Fixed Referral Landing Pages**: No more 404 errors when loading referral pages
+- ✅ **Improved System Reliability**: Consistent database access patterns across the application
+- ✅ **Better Debugging**: Easier to identify and fix database-related issues
+- ✅ **Maintainability**: Single pattern for Supabase client configuration
+
+**Files Updated:**
+- ✅ **API Routes**: 4 referral-related API route files updated
+- ✅ **Documentation**: Updated database schema documentation
+
+### Referral Conversion Tracking Endpoint Implementation
 **Date:** January 25, 2025
 
 **Enhancement:** Implemented missing `/api/referral/[code]/convert` endpoint to track user conversions from referral landing pages
