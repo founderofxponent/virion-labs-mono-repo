@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Calendar, Download, Users, Target, Activity, TrendingUp } from "lucide-react"
+import { Calendar, Download, Users, Target, Activity, TrendingUp, Info } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -202,7 +202,7 @@ export function AnalyticsPage() {
         'Metric,Value',
         `Total Clients,${exportData.totalClients}`,
         `Total Campaigns,${exportData.totalCampaigns}`,
-        `Total Responses,${exportData.totalOnboardingResponses}`,
+        `Total Users Started,${exportData.totalOnboardingStarts}`,
         `Average Completion Rate,${exportData.averageCompletionRate}%`,
         '',
         'DAILY PERFORMANCE',
@@ -318,6 +318,15 @@ export function AnalyticsPage() {
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Users className="h-4 w-4" />
               Total Clients
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Total number of registered clients on the platform.</p>
+                  <p>Each client can have multiple campaigns.</p>
+                </TooltipContent>
+              </UITooltip>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -332,6 +341,15 @@ export function AnalyticsPage() {
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Target className="h-4 w-4" />
               Total Campaigns
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Total number of Discord bot campaigns created across all clients.</p>
+                  <p>Includes both active and inactive campaigns.</p>
+                </TooltipContent>
+              </UITooltip>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -346,6 +364,15 @@ export function AnalyticsPage() {
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Activity className="h-4 w-4" />
               Users Started
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Number of users who initiated the onboarding process by opening the first modal.</p>
+                  <p>This is the starting point for calculating completion rates.</p>
+                </TooltipContent>
+              </UITooltip>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -360,6 +387,15 @@ export function AnalyticsPage() {
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
               Completion Rate
+              <UITooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Percentage of users who completed the full onboarding process out of those who started.</p>
+                  <p>Calculated as: (Users Completed ÷ Users Started) × 100</p>
+                </TooltipContent>
+              </UITooltip>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -382,7 +418,18 @@ export function AnalyticsPage() {
         <TabsContent value="overview" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Performance Over Time</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Performance Over Time
+                <UITooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Daily trends showing new campaigns created, users who started onboarding,</p>
+                    <p>and users who completed the full process.</p>
+                  </TooltipContent>
+                </UITooltip>
+              </CardTitle>
               <CardDescription>Campaigns, users started, and completions over the selected period</CardDescription>
             </CardHeader>
             <CardContent className="h-[400px]">
@@ -429,7 +476,18 @@ export function AnalyticsPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Client Status Distribution</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Client Status Distribution
+                  <UITooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Shows the distribution of active vs total clients</p>
+                      <p>on the platform.</p>
+                    </TooltipContent>
+                  </UITooltip>
+                </CardTitle>
                 <CardDescription>Breakdown of clients by status</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
@@ -467,7 +525,18 @@ export function AnalyticsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Industry Distribution</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Industry Distribution
+                  <UITooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Distribution of clients across different industries.</p>
+                      <p>Currently shows active vs total client breakdown.</p>
+                    </TooltipContent>
+                  </UITooltip>
+                </CardTitle>
                 <CardDescription>Clients by industry</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
@@ -506,7 +575,18 @@ export function AnalyticsPage() {
         <TabsContent value="campaigns" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Campaign Performance</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Campaign Performance
+                <UITooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Compares users started vs completions for each campaign.</p>
+                    <p>Shows both absolute numbers and completion rates.</p>
+                  </TooltipContent>
+                </UITooltip>
+              </CardTitle>
               <CardDescription>Users started and completion rates by campaign</CardDescription>
             </CardHeader>
             <CardContent className="h-[400px]">
@@ -553,7 +633,18 @@ export function AnalyticsPage() {
           <TabsContent value="activity" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Campaign Activity</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  Campaign Activity
+                  <UITooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Shows Discord bot interactions for each campaign including commands, messages, and user engagements.</p>
+                      <p>This is different from onboarding metrics.</p>
+                    </TooltipContent>
+                  </UITooltip>
+                </CardTitle>
                 <CardDescription>Recent campaign interactions and metrics</CardDescription>
               </CardHeader>
               <CardContent>
@@ -568,7 +659,19 @@ export function AnalyticsPage() {
                           <div>
                             <p className="font-medium">{campaign.campaign_name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {campaign.client_name} • {campaign.total_interactions} interactions • {campaign.interactions_last_7_days} in last 7 days
+                              {campaign.client_name} • 
+                              <UITooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help underline decoration-dotted">
+                                    {campaign.total_interactions} interactions
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Discord bot interactions like /start, /join commands,</p>
+                                  <p>messages, and access requests</p>
+                                </TooltipContent>
+                              </UITooltip>
+                              • {campaign.interactions_last_7_days} in last 7 days
                             </p>
                           </div>
                         </div>
