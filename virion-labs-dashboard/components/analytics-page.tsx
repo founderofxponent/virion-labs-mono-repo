@@ -27,11 +27,60 @@ import {
   Pie,
   Cell,
 } from "recharts"
-import { AnalyticsService, AnalyticsData } from "@/lib/analytics-service"
-import { ExportDialog } from "@/components/export-dialog"
 import { useToast } from "@/hooks/use-toast"
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
+
+interface ComprehensiveAnalyticsData {
+  overview: {
+    total_campaigns: number
+    active_campaigns: number
+    campaigns_last_30_days: number
+    total_clients: number
+    active_clients: number
+    new_clients_30_days: number
+    total_users_responded: number  // Fixed: count users not responses
+    users_completed: number        // Fixed: clearer naming
+    total_field_responses: number  // Optional: detailed response count
+    responses_last_7_days: number
+    responses_last_30_days: number
+    total_interactions: number
+    unique_interaction_users: number
+    onboarding_completions: number
+    interactions_24h: number
+    total_referral_links: number
+    active_referral_links: number
+    total_clicks: number
+    total_conversions: number
+    completion_rate: number
+    click_through_rate: number
+  }
+  campaigns: Array<{
+    campaign_id: string
+    campaign_name: string
+    client_name: string
+    total_fields: number
+    active_fields: number
+    required_fields: number
+    total_users_started: number
+    total_users_completed: number
+    total_interactions: number
+    interactions_last_7_days: number
+    completion_rate: number
+    is_active: boolean
+    created_at: string
+  }>
+}
+
+interface DailyMetrics {
+  date: string
+  campaigns_created: number
+  responses_received: number
+  responses_completed: number
+  interactions: number
+  referral_clicks: number
+  new_users: number
+}
 
 export function AnalyticsPage() {
   const { profile, user } = useAuth()
@@ -39,7 +88,8 @@ export function AnalyticsPage() {
   const [dateRange, setDateRange] = useState("last-30-days")
   const [date, setDate] = useState(new Date())
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null)
+  const [analyticsData, setAnalyticsData] = useState<ComprehensiveAnalyticsData | null>(null)
+  const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics[]>([])
   const [loading, setLoading] = useState(true)
   const [isQuickExporting, setIsQuickExporting] = useState(false)
 
@@ -51,8 +101,15 @@ export function AnalyticsPage() {
 
       setLoading(true)
       try {
-        const data = await AnalyticsService.getAnalytics(user.id, profile.role, dateRange)
-        setAnalyticsData(data)
+        const response = await fetch('/api/analytics/campaign-overview')
+        const result = await response.json()
+        
+        if (result.success) {
+          setAnalyticsData(result.data.overview)
+          setDailyMetrics(result.data.dailyMetrics || [])
+        } else {
+          console.error('Failed to fetch analytics:', result.error)
+        }
       } catch (error) {
         console.error('Error fetching analytics:', error)
       } finally {
@@ -111,15 +168,57 @@ export function AnalyticsPage() {
   }
 
   const handleQuickExport = async () => {
-    if (!analyticsData) return
-    
     setIsQuickExporting(true)
     try {
-      await AnalyticsService.exportAnalytics(analyticsData, {
-        format: 'csv',
-        dateRange,
-        sections: ['overview', 'clients', 'campaigns', 'performance', 'activity']
-      })
+      // Convert the new data structure to the old format for export compatibility
+      const exportData = {
+        totalClients: analyticsData.overview.total_clients,
+        totalCampaigns: analyticsData.overview.total_campaigns,
+        totalOnboardingResponses: analyticsData.overview.total_users_responded,
+        averageCompletionRate: analyticsData.overview.completion_rate,
+        performanceData: dailyMetrics.map(day => ({
+          date: format(new Date(day.date), 'MMM dd'),
+          campaigns: day.campaigns_created,
+          responses: day.responses_received,
+          completions: day.responses_completed
+        })),
+        clientData: [
+          { name: 'Active', value: analyticsData.overview.active_clients, type: 'status' },
+          { name: 'Total', value: analyticsData.overview.total_clients, type: 'status' }
+        ],
+        campaignData: analyticsData.campaigns.slice(0, 10).map(campaign => ({
+          name: campaign.campaign_name,
+          responses: campaign.total_users_started,
+          completions: campaign.total_users_completed,
+          completion_rate: campaign.completion_rate
+        })),
+        industryData: [],
+        recentActivity: []
+      }
+
+      // Create CSV content
+      const csvContent = [
+        'OVERVIEW METRICS',
+        'Metric,Value',
+        `Total Clients,${exportData.totalClients}`,
+        `Total Campaigns,${exportData.totalCampaigns}`,
+        `Total Responses,${exportData.totalOnboardingResponses}`,
+        `Average Completion Rate,${exportData.averageCompletionRate}%`,
+        '',
+        'DAILY PERFORMANCE',
+        'Date,Campaigns Created,Responses,Completions,Interactions,Clicks',
+        ...dailyMetrics.map(day => 
+          `${day.date},${day.campaigns_created},${day.responses_received},${day.responses_completed},${day.interactions},${day.referral_clicks}`
+        )
+      ].join('\n')
+
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `analytics-report-${format(new Date(), 'yyyy-MM-dd')}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
       
       toast({
         title: "Export successful!",
@@ -208,23 +307,6 @@ export function AnalyticsPage() {
                   <p>Export all analytics data as CSV file</p>
                 </TooltipContent>
               </UITooltip>
-              <UITooltip>
-                <TooltipTrigger asChild>
-                  <ExportDialog 
-                    analyticsData={analyticsData} 
-                    dateRange={dateRange}
-                    trigger={
-                      <Button variant="outline" size="sm">
-                        <Download className="mr-2 h-4 w-4" />
-                        Export Options
-                      </Button>
-                    }
-                  />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Choose export format and customize sections</p>
-                </TooltipContent>
-              </UITooltip>
             </div>
           )}
         </div>
@@ -239,9 +321,9 @@ export function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(analyticsData.totalClients)}</div>
+            <div className="text-2xl font-bold">{formatNumber(analyticsData.overview.total_clients)}</div>
             <p className="text-xs text-muted-foreground">
-              {analyticsData.totalClients > 0 ? "Active clients on platform" : "No clients registered yet"}
+              {analyticsData.overview.total_clients > 0 ? "Active clients on platform" : "No clients registered yet"}
             </p>
           </CardContent>
         </Card>
@@ -253,9 +335,9 @@ export function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(analyticsData.totalCampaigns)}</div>
+            <div className="text-2xl font-bold">{formatNumber(analyticsData.overview.total_campaigns)}</div>
             <p className="text-xs text-muted-foreground">
-              {analyticsData.totalCampaigns > 0 ? "Bot campaigns deployed" : "No campaigns created yet"}
+              {analyticsData.overview.total_campaigns > 0 ? "Bot campaigns deployed" : "No campaigns created yet"}
             </p>
           </CardContent>
         </Card>
@@ -263,13 +345,13 @@ export function AnalyticsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Activity className="h-4 w-4" />
-              User Responses
+              Users Responded
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(analyticsData.totalOnboardingResponses)}</div>
+            <div className="text-2xl font-bold">{formatNumber(analyticsData.overview.total_users_responded)}</div>
             <p className="text-xs text-muted-foreground">
-              {analyticsData.totalOnboardingResponses > 0 ? "Onboarding interactions" : "No responses yet"}
+              {analyticsData.overview.total_users_responded > 0 ? "Users who started onboarding" : "No responses yet"}
             </p>
           </CardContent>
         </Card>
@@ -281,9 +363,9 @@ export function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatPercentage(analyticsData.averageCompletionRate)}</div>
+            <div className="text-2xl font-bold">{formatPercentage(analyticsData.overview.completion_rate)}</div>
             <p className="text-xs text-muted-foreground">
-              {analyticsData.averageCompletionRate > 0 ? "Average onboarding completion" : "No completions yet"}
+              {analyticsData.overview.completion_rate > 0 ? "Average onboarding completion" : "No completions yet"}
             </p>
           </CardContent>
         </Card>
@@ -304,10 +386,15 @@ export function AnalyticsPage() {
               <CardDescription>Campaigns, responses, and completions over the selected period</CardDescription>
             </CardHeader>
             <CardContent className="h-[400px]">
-              {analyticsData.performanceData.length > 0 ? (
+              {dailyMetrics.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={analyticsData.performanceData}
+                    data={dailyMetrics.map(day => ({
+                      date: format(new Date(day.date), 'MMM dd'),
+                      campaigns: day.campaigns_created,
+                      responses: day.responses_received,
+                      completions: day.responses_completed
+                    }))}
                     margin={{
                       top: 5,
                       right: 30,
@@ -346,11 +433,14 @@ export function AnalyticsPage() {
                 <CardDescription>Breakdown of clients by status</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
-                {analyticsData.clientData.length > 0 ? (
+                {analyticsData.overview.total_clients > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={analyticsData.clientData}
+                        data={[
+                          { name: 'Active', value: analyticsData.overview.active_clients },
+                          { name: 'Total', value: analyticsData.overview.total_clients }
+                        ]}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -359,7 +449,7 @@ export function AnalyticsPage() {
                         dataKey="value"
                         label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                       >
-                        {analyticsData.clientData.map((entry, index) => (
+                        {['Active', 'Total'].map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
@@ -381,10 +471,13 @@ export function AnalyticsPage() {
                 <CardDescription>Clients by industry</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
-                {analyticsData.industryData.length > 0 ? (
+                {analyticsData.overview.total_clients > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={analyticsData.industryData}
+                      data={[
+                        { name: 'Active', value: analyticsData.overview.active_clients },
+                        { name: 'Total', value: analyticsData.overview.total_clients }
+                      ]}
                       margin={{
                         top: 5,
                         right: 30,
@@ -393,11 +486,11 @@ export function AnalyticsPage() {
                       }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="industry" />
+                      <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="count" fill="#8884d8" name="Number of Clients" />
+                      <Bar dataKey="value" fill="#8884d8" name="Number of Clients" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -417,10 +510,15 @@ export function AnalyticsPage() {
               <CardDescription>Response and completion rates by campaign</CardDescription>
             </CardHeader>
             <CardContent className="h-[400px]">
-              {analyticsData.campaignData.length > 0 ? (
+              {analyticsData.campaigns.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={analyticsData.campaignData}
+                    data={analyticsData.campaigns.slice(0, 10).map(campaign => ({
+                      name: campaign.campaign_name,
+                      responses: campaign.total_users_started,
+                      completions: campaign.total_users_completed,
+                      completion_rate: campaign.completion_rate
+                    }))}
                     margin={{
                       top: 5,
                       right: 30,
@@ -455,34 +553,34 @@ export function AnalyticsPage() {
           <TabsContent value="activity" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Latest actions across the platform</CardDescription>
+                <CardTitle>Campaign Activity</CardTitle>
+                <CardDescription>Recent campaign interactions and metrics</CardDescription>
               </CardHeader>
               <CardContent>
-                {analyticsData.recentActivity.length > 0 ? (
+                {analyticsData.campaigns.length > 0 ? (
                   <div className="space-y-4">
-                    {analyticsData.recentActivity.map((activity, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                    {analyticsData.campaigns.slice(0, 10).map((campaign, index) => (
+                      <div key={campaign.campaign_id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className={`w-2 h-2 rounded-full ${
-                            activity.type === 'campaign' ? 'bg-blue-500' : 'bg-green-500'
+                            campaign.is_active ? 'bg-green-500' : 'bg-gray-400'
                           }`} />
                           <div>
-                            <p className="font-medium">{activity.description}</p>
+                            <p className="font-medium">{campaign.campaign_name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {new Date(activity.timestamp).toLocaleString()}
+                              {campaign.client_name} • {campaign.total_interactions} interactions • {campaign.interactions_last_7_days} in last 7 days
                             </p>
                           </div>
                         </div>
-                        <div className="text-xs text-muted-foreground capitalize">
-                          {activity.type}
+                        <div className="text-xs text-muted-foreground">
+                          {campaign.is_active ? 'Active' : 'Inactive'}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-32">
-                    <p className="text-muted-foreground">No recent activity to display</p>
+                    <p className="text-muted-foreground">No campaign activity to display</p>
                   </div>
                 )}
               </CardContent>

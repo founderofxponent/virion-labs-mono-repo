@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const campaignId = searchParams.get('campaignId');
 
     // Get real-time activity (last 24 hours)
-    const { data: recentActivity, error: activityError } = await supabase
+    let recentActivityQuery = supabase
       .from('campaign_onboarding_responses')
       .select(`
         id,
@@ -26,9 +26,15 @@ export async function GET(request: NextRequest) {
         campaign_id
       `)
       .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-      .eq('campaign_id', campaignId || '')
       .order('created_at', { ascending: false })
       .limit(50);
+
+    // Only filter by campaign_id if one is provided
+    if (campaignId) {
+      recentActivityQuery = recentActivityQuery.eq('campaign_id', campaignId);
+    }
+
+    const { data: recentActivity, error: activityError } = await recentActivityQuery;
 
     if (activityError) {
       console.error('Recent activity error:', activityError);
@@ -39,11 +45,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Get active sessions (responses in last 15 minutes) - simplified approach
-    const { data: activeSessions, error: sessionsError } = await supabase
+    let activeSessionsQuery = supabase
       .from('campaign_onboarding_responses')
       .select('discord_user_id, discord_username, updated_at')
-      .gte('updated_at', new Date(Date.now() - 15 * 60 * 1000).toISOString())
-      .eq('campaign_id', campaignId || '');
+      .gte('updated_at', new Date(Date.now() - 15 * 60 * 1000).toISOString());
+
+    // Only filter by campaign_id if one is provided
+    if (campaignId) {
+      activeSessionsQuery = activeSessionsQuery.eq('campaign_id', campaignId);
+    }
+
+    const { data: activeSessions, error: sessionsError } = await activeSessionsQuery;
 
     if (sessionsError) {
       console.error('Active sessions error:', sessionsError);
@@ -76,7 +88,7 @@ export async function GET(request: NextRequest) {
     // Get hourly activity for the last 24 hours using RPC
     const { data: hourlyActivity, error: hourlyError } = await supabase
       .rpc('get_hourly_activity', { 
-        campaign_id_param: campaignId 
+        campaign_id_param: campaignId || null
       });
 
     if (hourlyError) {

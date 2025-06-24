@@ -51,8 +51,16 @@ class OnboardingHandler {
 
       this.logger.info(`🚀 Starting onboarding for ${userInfo.tag} in campaign ${campaignId}`);
       
-      // Get campaign details
-      const campaign = await this.campaignService.getCampaignById(campaignId);
+      // CRITICAL: Add timeout protection for button interactions that show modals
+      // Discord requires modal response within 3 seconds of button interaction
+      
+      // Get campaign details with timeout
+      const campaignPromise = this.campaignService.getCampaignById(campaignId);
+      const campaignTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Campaign fetch timeout')), 2000)
+      );
+      
+      const campaign = await Promise.race([campaignPromise, campaignTimeout]);
       if (!campaign) {
         await InteractionUtils.safeReply(interaction, {
           content: '❌ Campaign not found. Please try again or contact an administrator.',
@@ -70,8 +78,13 @@ class OnboardingHandler {
         return;
       }
 
-      // Get or create onboarding session
-      const session = await this.getOrCreateSession(campaignId, userInfo.id, userInfo.tag);
+      // Get or create onboarding session with timeout
+      const sessionPromise = this.getOrCreateSession(campaignId, userInfo.id, userInfo.tag);
+      const sessionTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session fetch timeout')), 1000)
+      );
+      
+      const session = await Promise.race([sessionPromise, sessionTimeout]);
       
       if (!session.success) {
         await InteractionUtils.safeReply(interaction, {
@@ -98,7 +111,14 @@ class OnboardingHandler {
       
     } catch (error) {
       this.logger.error('❌ Error handling start button:', error);
-      await InteractionUtils.sendError(interaction, 'An error occurred while starting onboarding. Please try again.');
+      
+      // Handle specific timeout errors
+      if (error.message.includes('timeout')) {
+        this.logger.warn('⏰ Interaction timeout occurred - system busy');
+        await InteractionUtils.sendError(interaction, 'The system is busy. Please wait a moment and try again.');
+      } else {
+        await InteractionUtils.sendError(interaction, 'An error occurred while starting onboarding. Please try again.');
+      }
     }
   }
 

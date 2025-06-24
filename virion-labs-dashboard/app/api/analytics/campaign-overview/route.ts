@@ -12,9 +12,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const campaignId = searchParams.get('campaignId');
 
-    // Get campaign analytics summary
+    // Get comprehensive analytics summary
     const { data: analyticsData, error: analyticsError } = await supabase
-      .rpc('get_campaign_analytics_summary', { 
+      .rpc('get_comprehensive_analytics_summary', { 
         p_campaign_id: campaignId || null 
       });
 
@@ -26,13 +26,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get daily metrics for the last 30 days
+    // Get daily activity metrics for the last 30 days
     const { data: dailyMetrics, error: dailyError } = await supabase
-      .from('daily_onboarding_metrics')
-      .select('*')
-      .gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-      .eq('campaign_id', campaignId || '')
-      .order('date', { ascending: false });
+      .rpc('get_daily_activity_metrics', { 
+        p_campaign_id: campaignId || null,
+        p_days: 30
+      });
 
     if (dailyError) {
       console.error('Daily metrics error:', dailyError);

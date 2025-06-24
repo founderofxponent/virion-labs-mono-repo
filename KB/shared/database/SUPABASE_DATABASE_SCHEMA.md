@@ -1179,6 +1179,7 @@ This database schema supports a comprehensive referral marketing and Discord bot
 - **Campaign Management**: Flexible campaign creation with onboarding flows (5 tables)
 - **Analytics & Tracking**: Comprehensive analytics and user interaction tracking (1 table)
 - **Database Views**: 7 analytical views for reporting and optimized querying
+- **Advanced Analytics Functions**: Real-time comprehensive analytics with database functions for improved performance
 
 **Enhanced Campaign Onboarding Management**: The dashboard now provides comprehensive onboarding fields management:
 - **Direct Integration**: Campaign edit form includes onboarding questions management in Step 3
@@ -1297,6 +1298,86 @@ Stores form responses from Discord `/request-access` command with automatic role
 - Provides audit trail for access requests and role assignments
 - Prevents duplicate requests per user per guild via unique constraint
 - No dashboard integration for viewing (as per design requirement)
+
+---
+
+## Advanced Analytics Functions
+
+### campaign_analytics_view
+
+Comprehensive analytical view that aggregates campaign performance metrics:
+
+```sql
+CREATE OR REPLACE VIEW campaign_analytics_view AS
+SELECT 
+    c.id as campaign_id,
+    c.campaign_name,
+    c.client_id,
+    clients.name as client_name,
+    c.is_active,
+    c.created_at,
+    COALESCE(field_counts.total_fields, 0) as total_fields,
+    COALESCE(field_counts.active_fields, 0) as active_fields,
+    COALESCE(field_counts.required_fields, 0) as required_fields,
+    COALESCE(response_stats.total_users_started, 0) as total_users_started,
+    COALESCE(response_stats.total_users_completed, 0) as total_users_completed,
+    COALESCE(interaction_stats.total_interactions, 0) as total_interactions,
+    COALESCE(interaction_stats.interactions_last_7_days, 0) as interactions_last_7_days,
+    CASE 
+        WHEN COALESCE(response_stats.total_users_started, 0) > 0 
+        THEN ROUND((COALESCE(response_stats.total_users_completed, 0)::numeric / response_stats.total_users_started::numeric) * 100, 2)
+        ELSE 0 
+    END as completion_rate
+FROM discord_guild_campaigns c
+LEFT JOIN clients ON c.client_id = clients.id
+-- Includes joins for field counts, response statistics, and interaction data
+WHERE c.is_deleted = false;
+```
+
+### get_comprehensive_analytics_summary(p_campaign_id UUID DEFAULT NULL)
+
+Returns comprehensive analytics data as JSON including:
+
+**Overview Metrics:**
+- `total_campaigns`, `active_campaigns`, `campaigns_last_30_days`
+- `total_clients`, `active_clients`, `new_clients_30_days`
+- **User Metrics (Updated for Clarity):**
+  - `total_users_responded` - Count of unique users who started onboarding (not individual responses)
+  - `users_completed` - Count of unique users who completed all required fields
+  - `total_field_responses` - Total individual field submissions for detailed tracking
+- `responses_last_7_days`, `responses_last_30_days`
+- `total_interactions`, `unique_interaction_users`
+- `onboarding_completions`, `interactions_24h`
+- `total_referral_links`, `active_referral_links`
+- `total_clicks`, `total_conversions`
+- **Calculated Rates:**
+  - `completion_rate` - Percentage: (users_completed / total_users_responded) × 100
+  - `click_through_rate` - Percentage: (conversions / total_clicks) × 100
+
+**Campaign Details:**
+- Array of campaign objects with individual performance metrics
+- Fields include: campaign_id, campaign_name, client_name, performance data
+- Filtered by campaign_id if provided, otherwise returns all campaigns
+
+### get_daily_activity_metrics(p_campaign_id UUID DEFAULT NULL, p_days INTEGER DEFAULT 30)
+
+Returns daily time-series data for specified period:
+
+**Returns TABLE with columns:**
+- `date` (DATE) - Activity date
+- `campaigns_created` (INTEGER) - New campaigns created
+- `responses_received` (INTEGER) - Onboarding responses received
+- `responses_completed` (INTEGER) - Completed onboarding responses
+- `interactions` (INTEGER) - Discord bot interactions
+- `referral_clicks` (INTEGER) - Referral link clicks
+- `new_users` (INTEGER) - New unique users
+
+**Usage in Analytics Dashboard:**
+- Admin dashboard uses these functions for real-time analytics
+- API endpoints `/api/analytics/campaign-overview` and `/api/analytics/real-time` 
+- Provides data for charts, metrics cards, and activity feeds
+- Supports both global analytics and campaign-specific filtering
+- Optimized queries with proper indexes for performance
 
 ---
 
