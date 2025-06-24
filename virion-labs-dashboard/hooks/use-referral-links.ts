@@ -221,7 +221,59 @@ export function useReferralLinks() {
         .eq('id', id)
         .single()
 
-      // 2. Delete the referral link
+      // 2. Handle foreign key constraints: Delete or unlink related discord_invite_links first
+      const { data: discordInvites, error: discordInvitesError } = await supabase
+        .from('discord_invite_links')
+        .select('id, discord_invite_code')
+        .eq('referral_link_id', id)
+
+      if (discordInvitesError) {
+        console.error('Error checking discord invite links:', discordInvitesError)
+        throw new Error(`Failed to check related Discord invites: ${discordInvitesError.message}`)
+      }
+
+      if (discordInvites && discordInvites.length > 0) {
+        // Option 1: Set referral_link_id to null (preserve Discord invites)
+        const { error: unlinkError } = await supabase
+          .from('discord_invite_links')
+          .update({ referral_link_id: null })
+          .eq('referral_link_id', id)
+
+        if (unlinkError) {
+          console.error('Error unlinking discord invites:', unlinkError)
+          throw new Error(`Failed to unlink Discord invites: ${unlinkError.message}`)
+        }
+
+        console.log(`Unlinked ${discordInvites.length} Discord invite(s) from referral link`)
+      }
+
+      // 3. Delete related records that have ON DELETE CASCADE or should be cleaned up
+      // Delete referral analytics
+      const { error: analyticsError } = await supabase
+        .from('referral_analytics')
+        .delete()
+        .eq('link_id', id)
+
+      if (analyticsError) {
+        console.error('Error deleting referral analytics:', analyticsError)
+        // Don't throw here, analytics cleanup is not critical for referral link deletion
+      }
+
+      // Delete referral records (this might also have foreign key constraints)
+      const { error: referralsError } = await supabase
+        .from('referrals')
+        .delete()
+        .eq('referral_link_id', id)
+
+      if (referralsError) {
+        console.error('Error deleting referrals:', referralsError)
+        // Don't throw here if it's just missing referrals
+        if (!referralsError.message.includes('No rows found')) {
+          throw new Error(`Failed to delete related referrals: ${referralsError.message}`)
+        }
+      }
+
+      // 4. Delete the referral link
       const { error } = await supabase
         .from('referral_links')
         .delete()
@@ -229,7 +281,7 @@ export function useReferralLinks() {
 
       if (error) throw error
       
-      // 3. Update client influencer count
+      // 5. Update client influencer count
       const campaign = Array.isArray(linkData?.campaign) ? linkData.campaign[0] : linkData?.campaign
       if (campaign?.client_id) {
         try {
@@ -241,7 +293,7 @@ export function useReferralLinks() {
         }
       }
       
-      // 4. Update local state
+      // 6. Update local state
       setLinks(prev => prev.filter(link => link.id !== id))
       
       return { error: null }

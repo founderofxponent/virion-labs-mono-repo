@@ -4,6 +4,57 @@ This document provides a comprehensive overview of all 29 tables and views in th
 
 ## Recent Changes
 
+### Referral Link Deletion Foreign Key Constraint Fix (Latest)
+**Date:** January 25, 2025
+
+**Issue Fixed:** Foreign key constraint error preventing influencers from deleting their referral links
+
+**Problem:** 
+- Influencers couldn't delete their referral links from the dashboard
+- Error: `update or delete on table "referral_links" violates foreign key constraint "discord_invite_links_referral_link_id_fkey"`
+- Error code: `23503 - Key is still referenced from table "discord_invite_links"`
+- Root cause: `discord_invite_links` table had a strict foreign key constraint that prevented deletion of referenced referral links
+
+**Changes Made:**
+
+**Database Migration Applied:**
+```sql
+-- Update foreign key constraint to SET NULL on delete
+ALTER TABLE discord_invite_links 
+DROP CONSTRAINT IF EXISTS discord_invite_links_referral_link_id_fkey;
+
+ALTER TABLE discord_invite_links 
+ADD CONSTRAINT discord_invite_links_referral_link_id_fkey 
+FOREIGN KEY (referral_link_id) 
+REFERENCES referral_links(id) 
+ON DELETE SET NULL;
+```
+
+**Frontend Logic Update** (`hooks/use-referral-links.ts`):
+- Added comprehensive foreign key constraint handling in `deleteLink` function
+- Properly unlinks Discord invites before referral link deletion
+- Cleans up related analytics and referral records
+- Maintains data integrity while allowing deletion
+
+**Solution Benefits:**
+- ✅ **Graceful Deletion**: Referral links can now be deleted without constraint violations
+- ✅ **Data Preservation**: Discord invites remain active but become unlinked (referral_link_id = null)
+- ✅ **Clean Cascade**: Related analytics and referral records are properly cleaned up
+- ✅ **User Experience**: Influencers can manage their referral links without technical errors
+- ✅ **Data Integrity**: All operations maintain referential integrity
+
+**Technical Details:**
+- **Strategy**: Changed from restrictive constraint to graceful unlinking with `ON DELETE SET NULL`
+- **Impact**: Discord invites persist but lose referral attribution when referral link is deleted
+- **Cleanup**: Automatic cleanup of analytics and referral records in application code
+- **Error Handling**: Comprehensive error handling with detailed logging
+
+**Files Updated:**
+- ✅ **Database**: Applied migration `fix_referral_link_foreign_key_constraint`
+- ✅ **Frontend**: Updated `virion-labs-dashboard/hooks/use-referral-links.ts`
+- ✅ **Migration Script**: Created `virion-labs-dashboard/scripts/fix-referral-link-foreign-keys.sql`
+- ✅ **Documentation**: Updated database schema documentation
+
 ### Dashboard "Publish to Discord" Button Public Campaign Filtering (Latest)
 **Date:** January 25, 2025
 
@@ -133,7 +184,7 @@ CHECK (interaction_type = ANY (ARRAY[
 - ✅ **Flexible Design**: System can now handle interactions without channel context
 - ✅ **Future-Proof**: Prevents similar issues with other interaction types
 
-### JavaScript Onboarding Reset Script Creation (Latest)
+### JavaScript Onboarding Reset Script Creation
 **Date:** January 24, 2025
 
 **Enhancement:** Created a JavaScript-based onboarding data reset script for manual testing
@@ -1378,7 +1429,10 @@ Manages Discord invite links for campaigns.
 - `updated_at` (timestamptz, default: now()) - Last update timestamp
 
 **Constraints:**
-- Foreign keys to discord_guild_campaigns(id), referral_links(id)
+- Foreign keys to discord_guild_campaigns(id), referral_links(id) ON DELETE SET NULL
+
+**Recent Fixes:**
+- Fixed foreign key constraint issue preventing referral link deletion by updating `referral_link_id` foreign key to use `ON DELETE SET NULL` instead of preventing deletion
 
 ### discord_activities
 Discord activity and embedded app configurations.
