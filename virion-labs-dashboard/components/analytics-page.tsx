@@ -39,7 +39,7 @@ interface ComprehensiveAnalyticsData {
     total_clients: number
     active_clients: number
     new_clients_30_days: number
-    total_users_responded: number  // Fixed: count users not responses
+    total_users_responded: number  // Users who started onboarding (not completed responses)
     users_completed: number        // Fixed: clearer naming
     total_field_responses: number  // Optional: detailed response count
     responses_last_7_days: number
@@ -174,7 +174,7 @@ export function AnalyticsPage() {
       const exportData = {
         totalClients: analyticsData.overview.total_clients,
         totalCampaigns: analyticsData.overview.total_campaigns,
-        totalOnboardingResponses: analyticsData.overview.total_users_responded,
+        totalOnboardingStarts: analyticsData.overview.total_users_responded,
         averageCompletionRate: analyticsData.overview.completion_rate,
         performanceData: dailyMetrics.map(day => ({
           date: format(new Date(day.date), 'MMM dd'),
@@ -345,13 +345,13 @@ export function AnalyticsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Activity className="h-4 w-4" />
-              Users Responded
+              Users Started
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatNumber(analyticsData.overview.total_users_responded)}</div>
             <p className="text-xs text-muted-foreground">
-              {analyticsData.overview.total_users_responded > 0 ? "Users who started onboarding" : "No responses yet"}
+              {analyticsData.overview.total_users_responded > 0 ? "Users who started onboarding" : "No users started yet"}
             </p>
           </CardContent>
         </Card>
@@ -383,7 +383,7 @@ export function AnalyticsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Performance Over Time</CardTitle>
-              <CardDescription>Campaigns, responses, and completions over the selected period</CardDescription>
+              <CardDescription>Campaigns, users started, and completions over the selected period</CardDescription>
             </CardHeader>
             <CardContent className="h-[400px]">
               {dailyMetrics.length > 0 ? (
@@ -408,7 +408,7 @@ export function AnalyticsPage() {
                     <YAxis yAxisId="right" orientation="right" />
                     <Tooltip />
                     <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="responses" stroke="#8884d8" activeDot={{ r: 8 }} name="Responses" />
+                    <Line yAxisId="left" type="monotone" dataKey="responses" stroke="#8884d8" activeDot={{ r: 8 }} name="Users Started" />
                     <Line yAxisId="right" type="monotone" dataKey="completions" stroke="#82ca9d" name="Completions" />
                     <Line yAxisId="left" type="monotone" dataKey="campaigns" stroke="#ffc658" name="New Campaigns" />
                   </LineChart>
@@ -507,7 +507,7 @@ export function AnalyticsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Campaign Performance</CardTitle>
-              <CardDescription>Response and completion rates by campaign</CardDescription>
+              <CardDescription>Users started and completion rates by campaign</CardDescription>
             </CardHeader>
             <CardContent className="h-[400px]">
               {analyticsData.campaigns.length > 0 ? (
@@ -532,7 +532,7 @@ export function AnalyticsPage() {
                     <YAxis yAxisId="right" orientation="right" />
                     <Tooltip />
                     <Legend />
-                    <Bar yAxisId="left" dataKey="responses" fill="#8884d8" name="Responses" />
+                    <Bar yAxisId="left" dataKey="responses" fill="#8884d8" name="Users Started" />
                     <Bar yAxisId="left" dataKey="completions" fill="#82ca9d" name="Completions" />
                     <Line yAxisId="right" dataKey="completion_rate" stroke="#ffc658" name="Completion Rate (%)" />
                   </BarChart>
@@ -541,7 +541,7 @@ export function AnalyticsPage() {
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
                     <p className="text-muted-foreground">No campaign performance data available</p>
-                    <p className="text-sm text-muted-foreground mt-2">Data will appear once campaigns start receiving responses</p>
+                    <p className="text-sm text-muted-foreground mt-2">Data will appear once users start onboarding campaigns</p>
                   </div>
                 </div>
               )}

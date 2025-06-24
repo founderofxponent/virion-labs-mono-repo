@@ -118,6 +118,46 @@ class AnalyticsService {
   }
 
   /**
+   * Track onboarding start
+   * @param {string} campaignId 
+   * @param {string} guildId 
+   * @param {string} userId 
+   * @param {string} username 
+   * @returns {Promise<boolean>}
+   */
+  async trackOnboardingStart(campaignId, guildId, userId, username) {
+    try {
+      this.logger.debug(`🚀 Tracking onboarding start for campaign ${campaignId}`);
+      
+      const response = await fetch(`${this.dashboardApiUrl}/discord-bot/onboarding/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Virion-Discord-Bot/2.0'
+        },
+        body: JSON.stringify({
+          campaign_id: campaignId,
+          discord_user_id: userId,
+          discord_username: username,
+          guild_id: guildId,
+          started_at: new Date().toISOString()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      this.logger.debug(`✅ Successfully tracked onboarding start`);
+      return true;
+      
+    } catch (error) {
+      this.logger.error('❌ Error tracking onboarding start:', error);
+      return false;
+    }
+  }
+
+  /**
    * Track onboarding completion
    * @param {string} campaignId 
    * @param {string} guildId 

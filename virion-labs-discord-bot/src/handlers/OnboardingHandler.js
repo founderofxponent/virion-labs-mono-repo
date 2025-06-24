@@ -642,6 +642,15 @@ class OnboardingHandler {
   async showOnboardingModal(interaction, campaign, session) {
     try {
       const userInfo = InteractionUtils.getUserInfo(interaction);
+      const guildInfo = InteractionUtils.getGuildInfo(interaction);
+      
+      // Track onboarding start when modal is first shown
+      await this.analyticsService.trackOnboardingStart(
+        campaign.id, 
+        guildInfo.id, 
+        userInfo.id, 
+        userInfo.tag
+      );
       
       // Create modal
       const modal = new ModalBuilder()

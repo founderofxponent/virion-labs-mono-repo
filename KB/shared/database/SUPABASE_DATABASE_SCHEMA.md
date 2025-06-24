@@ -977,6 +977,24 @@ Tracks unique onboarding completions per user per campaign.
 **Constraints:**
 - Foreign key to discord_guild_campaigns(id)
 
+### campaign_onboarding_starts
+Tracks when users initiate onboarding sessions to calculate accurate completion rates.
+
+**Columns:**
+- `id` (uuid, primary key) - Start tracking ID
+- `campaign_id` (uuid, not null) - Reference to discord_guild_campaigns
+- `discord_user_id` (text, not null) - Discord user ID
+- `discord_username` (text, not null) - Discord username
+- `guild_id` (text, nullable) - Discord guild ID
+- `started_at` (timestamptz, default: now()) - When user started onboarding
+- `created_at` (timestamptz, default: now()) - Record creation timestamp
+
+**Constraints:**
+- Foreign key to discord_guild_campaigns(id)
+- Unique constraint on (campaign_id, discord_user_id) to prevent duplicates
+
+
+
 ### campaign_landing_pages
 Landing page content and configuration for Discord campaigns. This table was created to separate landing page data from the main campaign configuration.
 
