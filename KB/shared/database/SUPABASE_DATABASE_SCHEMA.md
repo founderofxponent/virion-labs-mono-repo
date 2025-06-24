@@ -4,7 +4,70 @@ This document provides a comprehensive overview of all 29 tables and views in th
 
 ## Recent Changes
 
-### Referral Link Deletion Foreign Key Constraint Fix (Latest)
+### Referral Conversion Tracking Endpoint Implementation (Latest)
+**Date:** January 25, 2025
+
+**Enhancement:** Implemented missing `/api/referral/[code]/convert` endpoint to track user conversions from referral landing pages
+
+**Issue Fixed:**
+- **Problem**: Landing page "Join Discord" button was failing with `405 Method Not Allowed` error
+- **Root Cause**: `/api/referral/[code]/convert/route.ts` file existed but was completely empty
+- **Impact**: Referral conversion tracking wasn't working, breaking analytics pipeline from landing page to Discord
+
+**Implementation Details:**
+
+**New Endpoint:** `POST /api/referral/{referral_code}/convert`
+
+**Request Payload:**
+```json
+{
+  "action": "discord_redirect",
+  "discord_invite_url": "https://discord.gg/example",
+  "campaign_id": "uuid",
+  "influencer_id": "uuid"
+}
+```
+
+**Functionality:**
+- ✅ **Validates Referral Code**: Ensures referral link exists and is active
+- ✅ **Analytics Tracking**: Records conversion intent in `referral_analytics` table
+- ✅ **Click Counter**: Increments clicks counter in `referral_links` table
+- ✅ **Metadata Storage**: Stores campaign and influencer context for conversion tracking
+- ✅ **User Context**: Captures IP address, user agent, and referrer for analytics
+
+**Database Operations:**
+1. **Referral Link Validation**: Queries `referral_links` table to verify active status
+2. **Analytics Insertion**: Inserts conversion event into `referral_analytics` table
+3. **Stats Update**: Updates click counter in `referral_links` table
+4. **Error Handling**: Gracefully handles analytics failures without breaking flow
+
+**Response Format:**
+```json
+{
+  "success": true,
+  "message": "Conversion tracked successfully",
+  "action": "discord_redirect",
+  "referral_link_id": "uuid"
+}
+```
+
+**Impact:**
+- ✅ **Fixed Landing Page Flow**: Users can now successfully click "Join Discord" without 405 errors
+- ✅ **Complete Analytics Pipeline**: Conversion tracking works from landing page through Discord join
+- ✅ **Improved Data Quality**: Accurate click and conversion metrics for referral performance
+- ✅ **Better Attribution**: Full tracking of user journey from referral to Discord engagement
+
+**Files Created:**
+- ✅ **API Endpoint**: `virion-labs-dashboard/app/api/referral/[code]/convert/route.ts` - Complete POST endpoint implementation
+- ✅ **Documentation**: Updated database schema documentation
+
+**Technical Notes:**
+- **Analytics Event Type**: Uses 'click' event type as conversion intent leading to actual conversion on Discord join
+- **Error Resilience**: Analytics and stats update failures don't break the conversion flow
+- **IP Detection**: Properly handles proxied requests with `x-forwarded-for` and `x-real-ip` headers
+- **Timestamp Tracking**: Records precise conversion timing for analytics reporting
+
+### Referral Link Deletion Foreign Key Constraint Fix  
 **Date:** January 25, 2025
 
 **Issue Fixed:** Foreign key constraint error preventing influencers from deleting their referral links
