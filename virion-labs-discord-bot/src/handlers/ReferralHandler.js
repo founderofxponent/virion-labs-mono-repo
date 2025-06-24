@@ -209,7 +209,7 @@ class ReferralHandler {
         .setDescription(
           `Welcome to **${member.guild.name}**, ${member.user.username}!\n\n` +
           `You joined through **${validation.influencer?.name || 'a referral'}'s** invitation.\n\n` +
-          `🚀 Ready to get started? Use \`/start\` to begin your onboarding journey!`
+          `🚀 Ready to get started? Use \`/join\` to begin your onboarding journey!`
         )
         .setColor('#6366f1')
         .setTimestamp();
@@ -251,7 +251,7 @@ class ReferralHandler {
           `We have **${activeCampaigns.length}** active campaign${activeCampaigns.length !== 1 ? 's' : ''} you can join:\n\n` +
           activeCampaigns.slice(0, 3).map(c => `• **${c.campaign_name}**`).join('\n') +
           (activeCampaigns.length > 3 ? `\n• ...and ${activeCampaigns.length - 3} more!` : '') +
-          `\n\n🚀 Use \`/start\` to begin your onboarding journey!`
+          `\n\n🚀 Use \`/join\` to begin your onboarding journey!`
         )
         .setColor('#6366f1')
         .setTimestamp();
@@ -281,7 +281,7 @@ class ReferralHandler {
           `Great! Your referral code is valid.\n\n` +
           `**Influencer:** ${validation.influencer?.name || 'Unknown'}\n` +
           `**Campaign:** ${validation.campaign?.campaign_name || 'Unknown'}\n\n` +
-          `🚀 Use \`/start\` in **${targetGuild.name}** to begin your onboarding!`
+          `🚀 Use \`/join\` in **${targetGuild.name}** to begin your onboarding!`
         )
         .setColor('#00ff00')
         .setTimestamp();
@@ -304,7 +304,7 @@ class ReferralHandler {
         .setTitle('❌ Invalid Referral Code')
         .setDescription(
           `The referral code \`${referralCode}\` is not valid or has expired.\n\n` +
-          `Please check with the person who shared it or use \`/start\` to see available options.`
+          `Please check with the person who shared it or use \`/join\` to see available options.`
         )
         .setColor('#ff0000')
         .setTimestamp();

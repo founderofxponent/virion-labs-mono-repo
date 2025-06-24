@@ -82,8 +82,11 @@ class CampaignPublisher {
         }
       }
 
+      // Check if we're publishing to the join-campaigns channel
+      const isJoinCampaignsChannel = this.isJoinCampaignsChannel(channel.id, channelIdentifier);
+
       // Create campaign embed and components
-      const { embed, components } = this.createCampaignMessage(campaigns, guild.name, campaignsData);
+      const { embed, components } = this.createCampaignMessage(campaigns, guild.name, campaignsData, isJoinCampaignsChannel);
 
       // Send or update the message
       let message;
@@ -161,13 +164,22 @@ class CampaignPublisher {
    * @param {Array} campaigns 
    * @param {string} guildName 
    * @param {object | null} campaignsData
+   * @param {boolean} isJoinCampaignsChannel - Whether this is the join-campaigns channel
    * @returns {Object}
    */
-  createCampaignMessage(campaigns, guildName, campaignsData = null) {
+  createCampaignMessage(campaigns, guildName, campaignsData = null, isJoinCampaignsChannel = false) {
     // Filter active campaigns
-    const activeCampaigns = campaignsData 
+    let activeCampaigns = campaignsData 
       ? campaignsData.active 
       : campaigns.filter(campaign => campaign.status === 'active');
+
+    // If publishing to join-campaigns channel, only show public campaigns (no channel_id)
+    if (isJoinCampaignsChannel) {
+      activeCampaigns = activeCampaigns.filter(campaign => 
+        !campaign.channel_id || campaign.channel_id === null
+      );
+      this.logger.debug(`🔍 Filtered to ${activeCampaigns.length} public campaigns for join-campaigns channel`);
+    }
     
     // Create embed
     const embed = new EmbedBuilder()
@@ -213,6 +225,33 @@ class CampaignPublisher {
     }
 
     return { embed, components };
+  }
+
+  /**
+   * Check if the target channel is the join-campaigns channel
+   * @param {string} channelId - The Discord channel ID
+   * @param {string} channelIdentifier - The channel identifier used for publishing
+   * @returns {boolean}
+   */
+  isJoinCampaignsChannel(channelId, channelIdentifier) {
+    // Check if the channel identifier matches known join-campaigns patterns
+    const joinCampaignsIdentifiers = [
+      'join-campaigns',
+      this.config.discord_server.defaultChannelId
+    ].filter(Boolean); // Remove any null/undefined values
+
+    // Check if channelIdentifier matches any of the join-campaigns patterns
+    const matchesIdentifier = joinCampaignsIdentifiers.some(identifier => {
+      // If identifier is a channel ID (all digits), compare with channelId
+      if (identifier.match(/^\d+$/)) {
+        return identifier === channelId;
+      }
+      // If identifier is a channel name, compare with channelIdentifier
+      return identifier.toLowerCase() === channelIdentifier.toLowerCase();
+    });
+
+    this.logger.debug(`🔍 Channel check: ${channelId} (${channelIdentifier}) is join-campaigns: ${matchesIdentifier}`);
+    return matchesIdentifier;
   }
 
   /**

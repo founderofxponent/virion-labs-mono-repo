@@ -43,7 +43,7 @@ class OnboardingHandler {
       // Verify user ID matches
       if (userId !== userInfo.id) {
         await InteractionUtils.safeReply(interaction, {
-          content: '❌ This button is not for you. Please use `/start` to begin your own onboarding.',
+          content: '❌ This button is not for you. Please use `/join` to begin your own onboarding.',
           ephemeral: true
         });
         return;
@@ -64,7 +64,7 @@ class OnboardingHandler {
       // Check if campaign is active
       if (!this.campaignService.isCampaignActive(campaign)) {
         await InteractionUtils.safeReply(interaction, {
-          content: '❌ This campaign is no longer active. Please use `/start` to see available options.',
+          content: '❌ This campaign is no longer active. Please use `/join` to see available options.',
           ephemeral: true
         });
         return;
@@ -467,7 +467,7 @@ class OnboardingHandler {
 
       if (!modalSession) {
         await InteractionUtils.safeReply(interaction, {
-          content: '❌ Session expired. Please start over with `/start`.',
+          content: '❌ Session expired. Please start over with `/join`.',
           ephemeral: true
         });
         return;

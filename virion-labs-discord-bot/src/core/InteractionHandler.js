@@ -1,5 +1,4 @@
 const { InteractionUtils } = require('../utils/InteractionUtils');
-const { StartCommand } = require('../commands/StartCommand');
 const { JoinCommand } = require('../commands/JoinCommand');
 const { RequestAccessCommand } = require('../commands/RequestAccessCommand');
 const { OnboardingHandler } = require('../handlers/OnboardingHandler');
@@ -14,7 +13,6 @@ class InteractionHandler {
     this.logger = logger;
     
     // Initialize command handlers
-    this.startCommand = new StartCommand(config, logger);
     this.joinCommand = new JoinCommand(config, logger);
     this.requestAccessCommand = new RequestAccessCommand(config, logger);
     this.onboardingHandler = new OnboardingHandler(config, logger);
@@ -60,10 +58,6 @@ class InteractionHandler {
 
     // Route to appropriate command handler
     switch (commandName) {
-      case 'start':
-        await this.startCommand.execute(interaction);
-        break;
-      
       case 'join':
         this.logger.debug(`🔗 Executing join command, interaction state: replied=${interaction.replied}, deferred=${interaction.deferred}`);
         await this.joinCommand.execute(interaction);
@@ -75,7 +69,7 @@ class InteractionHandler {
       
       default:
         this.logger.error(`❌ Unknown slash command: ${commandName}`);
-        await InteractionUtils.sendError(interaction, 'Unknown command. Use `/start` or `/join` to join campaigns.');
+        await InteractionUtils.sendError(interaction, 'Unknown command. Use `/join` to join campaigns.');
     }
   }
 
@@ -91,7 +85,7 @@ class InteractionHandler {
 
     // Route based on custom ID pattern
     if (customId === 'campaign_get_started') {
-      await this.startCommand.execute(interaction);
+      await this.joinCommand.execute(interaction);
     } else if (customId.startsWith('start_onboarding_')) {
       await this.onboardingHandler.handleStartButton(interaction);
     } else if (customId.startsWith('retry_onboarding_')) {
@@ -166,7 +160,6 @@ class InteractionHandler {
   getStats() {
     return {
       handlersInitialized: {
-        start: !!this.startCommand,
         join: !!this.joinCommand,
         requestAccess: !!this.requestAccessCommand,
         onboarding: !!this.onboardingHandler,
