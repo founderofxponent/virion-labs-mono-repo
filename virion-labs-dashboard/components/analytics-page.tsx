@@ -28,6 +28,7 @@ import {
   Cell,
 } from "recharts"
 import { useToast } from "@/hooks/use-toast"
+import { ExportDialog } from "@/components/export-dialog"
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 
@@ -91,7 +92,6 @@ export function AnalyticsPage() {
   const [analyticsData, setAnalyticsData] = useState<ComprehensiveAnalyticsData | null>(null)
   const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics[]>([])
   const [loading, setLoading] = useState(true)
-  const [isQuickExporting, setIsQuickExporting] = useState(false)
 
   const isAdmin = profile?.role === "admin"
 
@@ -167,75 +167,6 @@ export function AnalyticsPage() {
     return `${value.toFixed(1)}%`
   }
 
-  const handleQuickExport = async () => {
-    setIsQuickExporting(true)
-    try {
-      // Convert the new data structure to the old format for export compatibility
-      const exportData = {
-        totalClients: analyticsData.overview.total_clients,
-        totalCampaigns: analyticsData.overview.total_campaigns,
-        totalOnboardingStarts: analyticsData.overview.total_users_responded,
-        averageCompletionRate: analyticsData.overview.completion_rate,
-        performanceData: dailyMetrics.map(day => ({
-          date: format(new Date(day.date), 'MMM dd'),
-          campaigns: day.campaigns_created,
-          responses: day.responses_received,
-          completions: day.responses_completed
-        })),
-        clientData: [
-          { name: 'Active', value: analyticsData.overview.active_clients, type: 'status' },
-          { name: 'Total', value: analyticsData.overview.total_clients, type: 'status' }
-        ],
-        campaignData: analyticsData.campaigns.slice(0, 10).map(campaign => ({
-          name: campaign.campaign_name,
-          responses: campaign.total_users_started,
-          completions: campaign.total_users_completed,
-          completion_rate: campaign.completion_rate
-        })),
-        industryData: [],
-        recentActivity: []
-      }
-
-      // Create CSV content
-      const csvContent = [
-        'OVERVIEW METRICS',
-        'Metric,Value',
-        `Total Clients,${exportData.totalClients}`,
-        `Total Campaigns,${exportData.totalCampaigns}`,
-        `Total Users Started,${exportData.totalOnboardingStarts}`,
-        `Average Completion Rate,${exportData.averageCompletionRate}%`,
-        '',
-        'DAILY PERFORMANCE',
-        'Date,Campaigns Created,Responses,Completions,Interactions,Clicks',
-        ...dailyMetrics.map(day => 
-          `${day.date},${day.campaigns_created},${day.responses_received},${day.responses_completed},${day.interactions},${day.referral_clicks}`
-        )
-      ].join('\n')
-
-      const blob = new Blob([csvContent], { type: 'text/csv' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `analytics-report-${format(new Date(), 'yyyy-MM-dd')}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
-      
-      toast({
-        title: "Export successful!",
-        description: "Analytics report exported as CSV",
-      })
-    } catch (error) {
-      console.error('Quick export failed:', error)
-      toast({
-        title: "Export failed",
-        description: "There was an error exporting your analytics report. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsQuickExporting(false)
-    }
-  }
-
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -281,33 +212,21 @@ export function AnalyticsPage() {
             </SelectContent>
           </Select>
           {analyticsData && (
-            <div className="flex gap-2">
-              <UITooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleQuickExport}
-                    disabled={isQuickExporting}
-                  >
-                    {isQuickExporting ? (
-                      <>
-                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
-                        Exporting...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="mr-2 h-4 w-4" />
-                        Quick CSV
-                      </>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Export all analytics data as CSV file</p>
-                </TooltipContent>
-              </UITooltip>
-            </div>
+            <UITooltip>
+              <TooltipTrigger asChild>
+                <ExportDialog 
+                  trigger={
+                    <Button variant="outline" size="sm">
+                      <Download className="mr-2 h-4 w-4" />
+                      Export Data
+                    </Button>
+                  }
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Export comprehensive data including analytics, onboarding responses, and referral data</p>
+              </TooltipContent>
+            </UITooltip>
           )}
         </div>
       </div>

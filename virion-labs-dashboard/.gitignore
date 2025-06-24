@@ -26,5 +26,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# temp export files
+/temp/
+
 # Manual testing scripts (do not commit)
 scripts/reset-onboarding-data.js

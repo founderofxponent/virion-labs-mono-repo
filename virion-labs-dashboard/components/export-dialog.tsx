@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Download, FileText, Database, Printer, CheckCircle2 } from "lucide-react"
+import { Download, FileText, Database, Users, TrendingUp } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -15,233 +15,333 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
-import { AnalyticsService, AnalyticsData, ExportOptions } from "@/lib/analytics-service"
+import { supabase } from "@/lib/supabase"
 
 interface ExportDialogProps {
-  analyticsData: AnalyticsData
-  dateRange: string
   trigger?: React.ReactNode
+  defaultCampaignId?: string
 }
 
-export function ExportDialog({ analyticsData, dateRange, trigger }: ExportDialogProps) {
+export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) {
+  const { user, profile } = useAuth()
   const { toast } = useToast()
-  const [isOpen, setIsOpen] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [exportType, setExportType] = useState("comprehensive")
+  const [format, setFormat] = useState("csv")
+  const [dateRange, setDateRange] = useState("30")
   const [isExporting, setIsExporting] = useState(false)
-  const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'pdf'>('csv')
-  const [selectedSections, setSelectedSections] = useState<Array<'overview' | 'clients' | 'campaigns' | 'performance' | 'activity'>>([
-    'overview', 'clients', 'campaigns', 'performance', 'activity'
-  ])
 
-  const handleSectionToggle = (section: 'overview' | 'clients' | 'campaigns' | 'performance' | 'activity', checked: boolean) => {
-    if (checked) {
-      setSelectedSections(prev => [...prev, section])
-    } else {
-      setSelectedSections(prev => prev.filter(s => s !== section))
+  const isAdmin = profile?.role === "admin"
+  const isClient = profile?.role === "client"
+
+  const exportOptions = [
+    {
+      id: "comprehensive",
+      title: "Complete Data Export",
+      description: "All available data including analytics, onboarding responses, referrals, and user data",
+      icon: Database,
+      adminOnly: false,
+      includes: [
+        "Campaign analytics and performance metrics",
+        "Complete onboarding responses and user data",
+        "Referral links, conversions, and earnings data",
+        "User interaction and engagement metrics",
+        ...(isAdmin ? ["Access requests and form submissions"] : [])
+      ]
+    },
+    {
+      id: "onboarding",
+      title: "Onboarding & User Data",
+      description: "User responses, completion data, and onboarding analytics",
+      icon: Users,
+      adminOnly: false,
+      includes: [
+        "All user onboarding form responses",
+        "Completion and start tracking data",
+        "User engagement and progress metrics",
+        "Campaign-specific user data"
+      ]
+    },
+    {
+      id: "referrals",
+      title: "Referral System Data",
+      description: "Referral links, conversions, earnings, and analytics",
+      icon: TrendingUp,
+      adminOnly: false,
+      includes: [
+        "Referral link performance and statistics",
+        "User conversion and signup data",
+        "Earnings and commission tracking",
+        "Referral analytics and attribution data"
+      ]
+    },
+    {
+      id: "analytics",
+      title: "Analytics & Reports",
+      description: "Campaign performance metrics and business intelligence",
+      icon: FileText,
+      adminOnly: false,
+      includes: [
+        "Campaign performance summaries",
+        "User engagement metrics",
+        "Conversion rates and completion data",
+        "Daily activity and trend reports"
+      ]
     }
-  }
+  ]
 
   const handleExport = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to export data.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsExporting(true)
     
     try {
-      const exportOptions: ExportOptions = {
-        format: exportFormat,
-        dateRange,
-        sections: selectedSections
+      // Get Supabase session token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session?.access_token) {
+        throw new Error('Failed to get authentication token')
       }
 
-      await AnalyticsService.exportAnalytics(analyticsData, exportOptions)
+      const params = new URLSearchParams({
+        exportType,
+        format,
+        dateRange,
+        ...(defaultCampaignId && { campaignId: defaultCampaignId })
+      })
+
+      // Step 1: Generate the export file
+      const response = await fetch(`/api/analytics/export?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Export failed')
+      }
+
+      const result = await response.json()
       
-      // Show success notification
+      if (!result.success || !result.download_url) {
+        throw new Error('Invalid export response')
+      }
+
+      // Step 2: Download the generated file
+      const downloadResponse = await fetch(result.download_url, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
+
+      if (!downloadResponse.ok) {
+        throw new Error('Failed to download generated file')
+      }
+
+      // Handle file download
+      const fileContent = await downloadResponse.text()
+      const blob = new Blob([fileContent], { type: result.content_type })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
       toast({
         title: "Export successful!",
-        description: `Analytics report exported as ${exportFormat.toUpperCase()}`,
+        description: `Your ${exportType} data has been exported successfully.`,
       })
-      
-      // Close dialog after successful export
-      setTimeout(() => {
-        setIsOpen(false)
-        setIsExporting(false)
-      }, 1000)
+
+      setOpen(false)
     } catch (error) {
       console.error('Export failed:', error)
       toast({
         title: "Export failed",
-        description: "There was an error exporting your analytics report. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error exporting your data. Please try again.",
         variant: "destructive",
       })
+    } finally {
       setIsExporting(false)
     }
   }
 
-  const formatOptions = [
-    {
-      value: 'csv' as const,
-      label: 'CSV Format',
-      description: 'Comma-separated values for spreadsheet applications',
-      icon: Database,
-      recommended: true
-    },
-    {
-      value: 'json' as const,
-      label: 'JSON Format',
-      description: 'Machine-readable format for developers',
-      icon: FileText,
-      recommended: false
-    },
-    {
-      value: 'pdf' as const,
-      label: 'PDF Report',
-      description: 'Formatted report ready for presentation',
-      icon: Printer,
-      recommended: false
-    }
-  ]
-
-  const sectionOptions = [
-    {
-      id: 'overview' as const,
-      label: 'Overview Metrics',
-      description: 'Total clients, campaigns, responses, and completion rates',
-      enabled: true
-    },
-    {
-      id: 'performance' as const,
-      label: 'Performance Over Time',
-      description: 'Daily/weekly performance trends',
-      enabled: analyticsData.performanceData.length > 0
-    },
-    {
-      id: 'clients' as const,
-      label: 'Client Distribution',
-      description: 'Client status and industry breakdown',
-      enabled: analyticsData.clientData.length > 0 || analyticsData.industryData.length > 0
-    },
-    {
-      id: 'campaigns' as const,
-      label: 'Campaign Performance',
-      description: 'Individual campaign metrics and completion rates',
-      enabled: analyticsData.campaignData.length > 0
-    },
-    {
-      id: 'activity' as const,
-      label: 'Recent Activity',
-      description: 'Latest actions and events on the platform',
-      enabled: analyticsData.recentActivity.length > 0
-    }
-  ]
+  const selectedOption = exportOptions.find(opt => opt.id === exportType)
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline">
+          <Button variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />
-            Export
+            Export Data
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
-            Export Analytics Report
+            <Database className="h-5 w-5" />
+            Export Data
           </DialogTitle>
           <DialogDescription>
-            Choose the format and sections to include in your analytics export. 
-            Report covers the period: <strong>{dateRange.replace('-', ' ')}</strong>
+            Export your data in various formats. Choose the type of data you want to export and configure the export settings.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Export Format Selection */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Export Format</Label>
-            <RadioGroup value={exportFormat} onValueChange={(value) => setExportFormat(value as any)}>
-              {formatOptions.map((option) => (
-                <div key={option.value} className="flex items-start space-x-3 rounded-lg border p-3 hover:bg-muted/50">
-                  <RadioGroupItem value={option.value} id={option.value} className="mt-1" />
-                  <div className="flex-1 space-y-1">
-                    <Label 
-                      htmlFor={option.value} 
-                      className="flex items-center gap-2 text-sm font-medium cursor-pointer"
-                    >
-                      <option.icon className="h-4 w-4" />
-                      {option.label}
-                      {option.recommended && (
-                        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
-                          Recommended
-                        </span>
-                      )}
-                    </Label>
-                    <p className="text-xs text-muted-foreground">{option.description}</p>
-                  </div>
-                </div>
-              ))}
+          {/* Export Type Selection */}
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Select Data Type</Label>
+            <RadioGroup value={exportType} onValueChange={setExportType}>
+              <div className="grid gap-4 md:grid-cols-2">
+                {exportOptions.map((option) => {
+                  const Icon = option.icon
+                  return (
+                    <Card key={option.id} className={`cursor-pointer transition-colors ${
+                      exportType === option.id ? 'ring-2 ring-primary' : ''
+                    }`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value={option.id} id={option.id} />
+                          <Label htmlFor={option.id} className="flex items-center gap-2 cursor-pointer flex-1">
+                            <Icon className="h-4 w-4" />
+                            <span className="font-medium">{option.title}</span>
+                            {option.adminOnly && !isAdmin && (
+                              <Badge variant="secondary">Admin Only</Badge>
+                            )}
+                          </Label>
+                        </div>
+                        <CardDescription className="ml-6">
+                          {option.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="ml-6">
+                          <p className="text-sm font-medium mb-2">Includes:</p>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            {option.includes.map((item, index) => (
+                              <li key={index} className="flex items-start gap-2">
+                                <span className="mt-1.5 h-1 w-1 bg-current rounded-full flex-shrink-0" />
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
             </RadioGroup>
           </div>
 
-          <Separator />
-
-          {/* Section Selection */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Include Sections</Label>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  const allAvailableSections = sectionOptions
-                    .filter(option => option.enabled)
-                    .map(option => option.id)
-                  setSelectedSections(allAvailableSections)
-                }}
-              >
-                Select All
-              </Button>
-            </div>
+          {/* Export Settings */}
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              {sectionOptions.map((option) => (
-                <div key={option.id} className="flex items-start space-x-3 rounded-lg border p-3">
-                  <Checkbox
-                    id={option.id}
-                    checked={selectedSections.includes(option.id)}
-                    onCheckedChange={(checked) => handleSectionToggle(option.id, checked as boolean)}
-                    disabled={!option.enabled}
-                  />
-                  <div className="flex-1 space-y-1">
-                    <Label 
-                      htmlFor={option.id} 
-                      className={`text-sm font-medium cursor-pointer ${!option.enabled ? 'text-muted-foreground' : ''}`}
-                    >
-                      {option.label}
-                      {selectedSections.includes(option.id) && option.enabled && (
-                        <CheckCircle2 className="inline-block ml-2 h-3 w-3 text-green-600" />
-                      )}
-                    </Label>
-                    <p className={`text-xs ${!option.enabled ? 'text-muted-foreground' : 'text-muted-foreground'}`}>
-                      {option.description}
-                      {!option.enabled && ' (No data available)'}
-                    </p>
-                  </div>
-                </div>
-              ))}
+              <Label htmlFor="format">File Format</Label>
+              <Select value={format} onValueChange={setFormat}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">CSV (Excel Compatible)</SelectItem>
+                  <SelectItem value="json">JSON (Developer Friendly)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dateRange">Date Range</Label>
+              <Select value={dateRange} onValueChange={setDateRange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7">Last 7 days</SelectItem>
+                  <SelectItem value="30">Last 30 days</SelectItem>
+                  <SelectItem value="90">Last 90 days</SelectItem>
+                  <SelectItem value="365">Last year</SelectItem>
+                  <SelectItem value="all">All time</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Export Scope</Label>
+              <div className="flex items-center h-10 px-3 py-2 border border-input bg-background rounded-md">
+                <span className="text-sm">
+                  {defaultCampaignId ? "Current Campaign" : "All Campaigns"}
+                </span>
+              </div>
             </div>
           </div>
+
+          {/* Export Preview */}
+          {selectedOption && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <selectedOption.icon className="h-5 w-5" />
+                  {selectedOption.title}
+                </CardTitle>
+                <CardDescription>
+                  Preview of what will be included in your export
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Export Format:</span>
+                    <Badge variant="outline">{format.toUpperCase()}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Date Range:</span>
+                    <Badge variant="outline">
+                      {dateRange === 'all' ? 'All Time' : `Last ${dateRange} days`}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Scope:</span>
+                    <Badge variant="outline">
+                      {defaultCampaignId ? 'Single Campaign' : 'All Campaigns'}
+                    </Badge>
+                  </div>
+                  {profile?.role && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Access Level:</span>
+                      <Badge variant="outline" className="capitalize">
+                        {profile.role}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isExporting}>
+          <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleExport} 
-            disabled={isExporting || selectedSections.length === 0}
-            className="min-w-[100px]"
-          >
+          <Button onClick={handleExport} disabled={isExporting}>
             {isExporting ? (
               <>
                 <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
@@ -250,7 +350,7 @@ export function ExportDialog({ analyticsData, dateRange, trigger }: ExportDialog
             ) : (
               <>
                 <Download className="mr-2 h-4 w-4" />
-                Export
+                Export {selectedOption?.title}
               </>
             )}
           </Button>
