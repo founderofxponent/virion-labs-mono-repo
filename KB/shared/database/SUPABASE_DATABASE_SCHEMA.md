@@ -7,29 +7,29 @@ This document provides a comprehensive overview of all 29 tables and views in th
 ### Discord Analytics Interaction Type Constraint Fix (Latest)
 **Date:** January 24, 2025
 
-**Issue Fixed:** Discord bot `/join` command was failing with constraint violation error when tracking interactions
+**Issue Fixed:** Discord bot request access functionality was failing with constraint violation error when tracking interactions
 
 **Problem:** 
 - Discord bot analytics tracking was failing with constraint violation error code 23514
 - Error message: "new row for relation 'discord_referral_interactions' violates check constraint 'discord_referral_interactions_interaction_type_check'"
-- Root cause: The `interaction_type` check constraint on `discord_referral_interactions` table didn't include `'slash_command_join'` as an allowed value
-- This occurred after implementing the new `/join` slash command that uses `'slash_command_join'` as its interaction type
+- Root cause: The `interaction_type` check constraint on `discord_referral_interactions` table didn't include request access related interaction types
+- This affected multiple interaction types: `'slash_command_request_access'`, `'access_request_modal_display'`, `'access_request_completed'`
 
 **Solution Applied:**
-- **Database Constraint Update**: Added `'slash_command_join'` to the allowed interaction types in the check constraint
-- **Migration**: Updated `discord_referral_interactions_interaction_type_check` constraint to include the new interaction type
+- **Database Constraint Update**: Added missing request access interaction types to the allowed values in the check constraint
+- **Migration**: Updated `discord_referral_interactions_interaction_type_check` constraint to include the new interaction types
 - **Complete Fix**: Both `channel_id` nullability and interaction type constraint issues resolved
 
 **Technical Details:**
-- **Previous Constraint**: Only allowed 19 interaction types, missing `'slash_command_join'`
-- **Updated Constraint**: Now allows 20 interaction types including `'slash_command_join'`  
+- **Previous Constraint**: Only allowed 20 interaction types, missing request access types
+- **Updated Constraint**: Now allows 23 interaction types including request access workflow types  
 - **Error Code**: 23514 (PostgreSQL check constraint violation)
-- **Impact**: The new `/join` slash command couldn't track analytics due to constraint rejection
+- **Impact**: The request access functionality couldn't track analytics due to constraint rejection
 
 **Migration Applied:**
 ```sql
 ALTER TABLE discord_referral_interactions
-DROP CONSTRAINT IF EXISTS discord_referral_interactions_interaction_type_check;
+DROP CONSTRAINT discord_referral_interactions_interaction_type_check;
 
 ALTER TABLE discord_referral_interactions
 ADD CONSTRAINT discord_referral_interactions_interaction_type_check
@@ -37,20 +37,21 @@ CHECK (interaction_type = ANY (ARRAY[
   'message', 'command', 'reaction', 'join', 'referral_signup', 
   'handled_message', 'unhandled_message', 'inactive_campaign_interaction', 
   'referral_failed', 'guild_join', 'onboarding_completed', 
-  'slash_command_campaigns', 'slash_command_join',
+  'slash_command_campaigns', 'slash_command_start', 'slash_command_join',
   'onboarding_start_button', 'onboarding_modal_submission', 
   'onboarding_started', 'onboarding_response', 'referral_validation', 
-  'campaign_interaction'
+  'campaign_interaction', 'slash_command_request_access',
+  'access_request_modal_display', 'access_request_completed'
 ]));
 ```
 
 **Files Updated:**
-- ✅ **Database**: `discord_referral_interactions` constraint updated to include `'slash_command_join'`
+- ✅ **Database**: `discord_referral_interactions` constraint updated to include request access interaction types
 - ✅ **Documentation**: Updated database schema documentation
 
 **Resolution:**
-- ✅ **Fixed /join Command**: Analytics tracking now works correctly with proper interaction type
-- ✅ **Constraint Alignment**: Database constraint now matches documentation
+- ✅ **Fixed Request Access**: Analytics tracking now works correctly for all request access workflow steps
+- ✅ **Constraint Alignment**: Database constraint now matches all interaction types used by the Discord bot
 - ✅ **Complete Analytics**: All Discord bot interactions can now be properly tracked
 - ✅ **Future-Proof**: Prevents similar constraint issues with new interaction types
 
