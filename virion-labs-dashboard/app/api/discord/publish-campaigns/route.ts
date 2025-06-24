@@ -42,10 +42,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Separate active and inactive campaigns
-    const activeCampaigns = campaigns?.filter(c => c.is_active) || []
+    let activeCampaigns = campaigns?.filter(c => c.is_active) || []
     const inactiveCampaigns = campaigns?.filter(c => !c.is_active) || []
 
     console.log(`📊 Found ${activeCampaigns.length} active and ${inactiveCampaigns.length} inactive campaigns`)
+
+    // Filter for public campaigns only (campaigns with channel_id = null) when publishing to join-campaigns channel
+    // This matches the behavior of the /join command and Discord bot CampaignPublisher
+    const isJoinCampaignsChannel = channel_id === process.env.DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID || channel_id === 'join-campaigns'
+    
+    if (isJoinCampaignsChannel) {
+      const originalActiveCount = activeCampaigns.length
+      activeCampaigns = activeCampaigns.filter(c => !c.channel_id || c.channel_id === null)
+      console.log(`🔍 Filtered to ${activeCampaigns.length} public campaigns for join-campaigns channel (was ${originalActiveCount} total active)`)
+    }
 
     // Prepare the Discord webhook payload
     const webhookPayload = {

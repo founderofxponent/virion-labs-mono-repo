@@ -4,7 +4,53 @@ This document provides a comprehensive overview of all 29 tables and views in th
 
 ## Recent Changes
 
-### Discord Analytics Interaction Type Constraint Fix (Latest)
+### Dashboard "Publish to Discord" Button Public Campaign Filtering (Latest)
+**Date:** January 25, 2025
+
+**Enhancement:** Fixed the "Publish to Discord" button to only send active public campaigns to Discord, matching the behavior of the "Get Started" button and `/join` command.
+
+**Issue Resolved:**
+- **Problem**: Dashboard "Publish to Discord" button was sending ALL active campaigns to Discord, including private channel-specific campaigns
+- **Expected Behavior**: Should only send public campaigns (those with `channel_id = null`) when publishing to the join-campaigns channel
+- **Impact**: Private channel campaigns were appearing in the public join-campaigns channel, causing confusion
+
+**Changes Made:**
+
+**Dashboard API Update** (`/api/discord/publish-campaigns/route.ts`):
+```javascript
+// NEW: Filter for public campaigns only when publishing to join-campaigns channel
+const isJoinCampaignsChannel = channel_id === process.env.DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID || channel_id === 'join-campaigns'
+
+if (isJoinCampaignsChannel) {
+  const originalActiveCount = activeCampaigns.length
+  activeCampaigns = activeCampaigns.filter(c => !c.channel_id || c.channel_id === null)
+  console.log(`🔍 Filtered to ${activeCampaigns.length} public campaigns for join-campaigns channel (was ${originalActiveCount} total active)`)
+}
+```
+
+**Behavioral Alignment:**
+- ✅ **Dashboard "Publish to Discord"** - Now filters for public campaigns only
+- ✅ **Discord Bot `/join` Command** - Already filtered for public campaigns correctly  
+- ✅ **Discord Bot CampaignPublisher** - Already filtered for public campaigns correctly
+- ✅ **"Get Started" Button** - Shows only public campaigns as expected
+
+**Technical Details:**
+- **Public Campaigns**: Campaigns where `channel_id IS NULL` - available to all users
+- **Private Campaigns**: Campaigns where `channel_id IS NOT NULL` - only visible in specific channels
+- **Channel Detection**: Uses `DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID` environment variable or 'join-campaigns' name
+- **Logging**: Added debug logging to track filtering behavior
+
+**Impact:**
+- ✅ **Consistent Behavior**: All campaign discovery methods now show the same public campaigns
+- ✅ **Proper Channel Organization**: Private campaigns stay in their designated channels
+- ✅ **No Cross-Campaign Confusion**: Users only see campaigns they should have access to
+- ✅ **Memory Alignment**: Implements the intelligent filtering described in Discord bot campaign system memory
+
+**Files Updated:**
+- ✅ **Dashboard API**: `virion-labs-dashboard/app/api/discord/publish-campaigns/route.ts` - Added public campaign filtering
+- ✅ **Documentation**: Updated database schema documentation
+
+### Discord Analytics Interaction Type Constraint Fix
 **Date:** January 24, 2025
 
 **Issue Fixed:** Discord bot request access functionality was failing with constraint violation error when tracking interactions
