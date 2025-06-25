@@ -1,15 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Calendar, Download, Users, Target, Activity, TrendingUp, Info } from "lucide-react"
+import { Download, Users, Target, Activity, TrendingUp, Info } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/components/auth-provider"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { format } from "date-fns"
 import {
@@ -86,9 +83,6 @@ interface DailyMetrics {
 export function AnalyticsPage() {
   const { profile, user } = useAuth()
   const { toast } = useToast()
-  const [dateRange, setDateRange] = useState("last-30-days")
-  const [date, setDate] = useState(new Date())
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [analyticsData, setAnalyticsData] = useState<ComprehensiveAnalyticsData | null>(null)
   const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics[]>([])
   const [loading, setLoading] = useState(true)
@@ -118,7 +112,7 @@ export function AnalyticsPage() {
     }
 
     fetchAnalytics()
-  }, [user?.id, profile?.role, dateRange])
+  }, [user?.id, profile?.role])
 
   if (loading) {
     return (
@@ -180,37 +174,6 @@ export function AnalyticsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-[240px] justify-start text-left font-normal">
-                <Calendar className="mr-2 h-4 w-4" />
-                {format(date, "PPP")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <CalendarComponent
-                mode="single"
-                selected={date}
-                onSelect={(date) => {
-                  setDate(date || new Date())
-                  setIsCalendarOpen(false)
-                }}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
-          <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select date range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="last-7-days">Last 7 days</SelectItem>
-              <SelectItem value="last-30-days">Last 30 days</SelectItem>
-              <SelectItem value="last-90-days">Last 90 days</SelectItem>
-              <SelectItem value="year-to-date">Year to date</SelectItem>
-              <SelectItem value="all-time">All time</SelectItem>
-            </SelectContent>
-          </Select>
           {analyticsData && (
             <UITooltip>
               <TooltipTrigger asChild>
@@ -224,7 +187,7 @@ export function AnalyticsPage() {
                 />
               </TooltipTrigger>
               <TooltipContent>
-                <p>Export comprehensive data including analytics, onboarding responses, and referral data</p>
+                <p>Export campaign onboarding responses and user data</p>
               </TooltipContent>
             </UITooltip>
           )}

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Download, FileText, Database, Users, TrendingUp } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Download, FileText, Users, CheckCircle2, Circle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -14,13 +14,27 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
+
+interface Campaign {
+  id: string
+  campaign_name: string
+  client_name: string
+  client_industry: string
+  is_active: boolean
+  total_responses: number
+  completed_responses: number
+  unique_fields: string[]
+  created_at: string
+}
 
 interface ExportDialogProps {
   trigger?: React.ReactNode
@@ -31,69 +45,111 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
   const { user, profile } = useAuth()
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
-  const [exportType, setExportType] = useState("comprehensive")
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([])
+  const [selectMode, setSelectMode] = useState<"single" | "multiple" | "all">("all")
   const [format, setFormat] = useState("csv")
   const [dateRange, setDateRange] = useState("30")
   const [isExporting, setIsExporting] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const isAdmin = profile?.role === "admin"
   const isClient = profile?.role === "client"
 
-  const exportOptions = [
-    {
-      id: "comprehensive",
-      title: "Complete Data Export",
-      description: "All available data including analytics, onboarding responses, referrals, and user data",
-      icon: Database,
-      adminOnly: false,
-      includes: [
-        "Campaign analytics and performance metrics",
-        "Complete onboarding responses and user data",
-        "Referral links, conversions, and earnings data",
-        "User interaction and engagement metrics",
-        ...(isAdmin ? ["Access requests and form submissions"] : [])
-      ]
-    },
-    {
-      id: "onboarding",
-      title: "Onboarding & User Data",
-      description: "User responses, completion data, and onboarding analytics",
-      icon: Users,
-      adminOnly: false,
-      includes: [
-        "All user onboarding form responses",
-        "Completion and start tracking data",
-        "User engagement and progress metrics",
-        "Campaign-specific user data"
-      ]
-    },
-    {
-      id: "referrals",
-      title: "Referral System Data",
-      description: "Referral links, conversions, earnings, and analytics",
-      icon: TrendingUp,
-      adminOnly: false,
-      includes: [
-        "Referral link performance and statistics",
-        "User conversion and signup data",
-        "Earnings and commission tracking",
-        "Referral analytics and attribution data"
-      ]
-    },
-    {
-      id: "analytics",
-      title: "Analytics & Reports",
-      description: "Campaign performance metrics and business intelligence",
-      icon: FileText,
-      adminOnly: false,
-      includes: [
-        "Campaign performance summaries",
-        "User engagement metrics",
-        "Conversion rates and completion data",
-        "Daily activity and trend reports"
-      ]
+  // Load campaigns when dialog opens
+  useEffect(() => {
+    if (open && (isAdmin || isClient)) {
+      loadCampaigns()
     }
-  ]
+  }, [open, isAdmin, isClient])
+
+  // Set default campaign if provided
+  useEffect(() => {
+    if (defaultCampaignId && campaigns.length > 0) {
+      setSelectMode("single")
+      setSelectedCampaigns([defaultCampaignId])
+    }
+  }, [defaultCampaignId, campaigns])
+
+  const loadCampaigns = async () => {
+    setLoading(true)
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session?.access_token) {
+        throw new Error('Failed to get authentication token')
+      }
+
+      const response = await fetch('/api/campaigns/export-data', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to load campaigns')
+      }
+
+      const data = await response.json()
+      setCampaigns(data.campaigns || [])
+    } catch (error) {
+      console.error('Error loading campaigns:', error)
+      toast({
+        title: "Error loading campaigns",
+        description: "Failed to load campaign data. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCampaignToggle = (campaignId: string) => {
+    if (selectMode === "single") {
+      setSelectedCampaigns([campaignId])
+    } else if (selectMode === "multiple") {
+      setSelectedCampaigns(prev => 
+        prev.includes(campaignId) 
+          ? prev.filter(id => id !== campaignId)
+          : [...prev, campaignId]
+      )
+    }
+  }
+
+  const handleSelectModeChange = (mode: "single" | "multiple" | "all") => {
+    setSelectMode(mode)
+    if (mode === "all") {
+      setSelectedCampaigns([])
+    } else if (mode === "single" && selectedCampaigns.length > 1) {
+      setSelectedCampaigns([selectedCampaigns[0]])
+    }
+  }
+
+  const handleSelectAll = () => {
+    if (selectedCampaigns.length === campaigns.length) {
+      setSelectedCampaigns([])
+    } else {
+      setSelectedCampaigns(campaigns.map(c => c.id))
+    }
+  }
+
+  const getSelectedCampaignsData = () => {
+    if (selectMode === "all") {
+      return {
+        campaigns: campaigns,
+        totalResponses: campaigns.reduce((sum, c) => sum + c.total_responses, 0),
+        totalCompleted: campaigns.reduce((sum, c) => sum + c.completed_responses, 0)
+      }
+    } else {
+      const selected = campaigns.filter(c => selectedCampaigns.includes(c.id))
+      return {
+        campaigns: selected,
+        totalResponses: selected.reduce((sum, c) => sum + c.total_responses, 0),
+        totalCompleted: selected.reduce((sum, c) => sum + c.completed_responses, 0)
+      }
+    }
+  }
 
   const handleExport = async () => {
     if (!user) {
@@ -105,10 +161,18 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
       return
     }
 
+    if (selectMode !== "all" && selectedCampaigns.length === 0) {
+      toast({
+        title: "No campaigns selected",
+        description: "Please select at least one campaign to export.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsExporting(true)
     
     try {
-      // Get Supabase session token
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
       if (sessionError || !session?.access_token) {
@@ -116,14 +180,15 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
       }
 
       const params = new URLSearchParams({
-        exportType,
         format,
         dateRange,
-        ...(defaultCampaignId && { campaignId: defaultCampaignId })
+        selectMode,
+        ...(selectMode !== "all" && { campaignIds: selectedCampaigns.join(',') })
       })
 
-      // Step 1: Generate the export file
-      const response = await fetch(`/api/analytics/export?${params}`, {
+      // Generate the export file
+      const response = await fetch(`/api/campaigns/export-data?${params}`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
@@ -141,7 +206,7 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
         throw new Error('Invalid export response')
       }
 
-      // Step 2: Download the generated file
+      // Download the generated file
       const downloadResponse = await fetch(result.download_url, {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
@@ -164,9 +229,10 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
+      const selectedData = getSelectedCampaignsData()
       toast({
         title: "Export successful!",
-        description: `Your ${exportType} data has been exported successfully.`,
+        description: `Exported ${selectedData.campaigns.length} campaign${selectedData.campaigns.length !== 1 ? 's' : ''} with ${selectedData.totalResponses} responses.`,
       })
 
       setOpen(false)
@@ -182,7 +248,7 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
     }
   }
 
-  const selectedOption = exportOptions.find(opt => opt.id === exportType)
+  const selectedData = getSelectedCampaignsData()
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -190,70 +256,128 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
         {trigger || (
           <Button variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />
-            Export Data
+            Export Campaign Data
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Export Data
+            <Users className="h-5 w-5" />
+            Export Campaign Onboarding Data
           </DialogTitle>
           <DialogDescription>
-            Export your data in various formats. Choose the type of data you want to export and configure the export settings.
+            Export onboarding responses and user data from your campaigns. Select specific campaigns or export all campaign data.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Export Type Selection */}
+          {/* Campaign Selection Mode */}
           <div className="space-y-4">
-            <Label className="text-base font-semibold">Select Data Type</Label>
-            <RadioGroup value={exportType} onValueChange={setExportType}>
-              <div className="grid gap-4 md:grid-cols-2">
-                {exportOptions.map((option) => {
-                  const Icon = option.icon
-                  return (
-                    <Card key={option.id} className={`cursor-pointer transition-colors ${
-                      exportType === option.id ? 'ring-2 ring-primary' : ''
-                    }`}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value={option.id} id={option.id} />
-                          <Label htmlFor={option.id} className="flex items-center gap-2 cursor-pointer flex-1">
-                            <Icon className="h-4 w-4" />
-                            <span className="font-medium">{option.title}</span>
-                            {option.adminOnly && !isAdmin && (
-                              <Badge variant="secondary">Admin Only</Badge>
-                            )}
-                          </Label>
-                        </div>
-                        <CardDescription className="ml-6">
-                          {option.description}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="ml-6">
-                          <p className="text-sm font-medium mb-2">Includes:</p>
-                          <ul className="text-sm text-muted-foreground space-y-1">
-                            {option.includes.map((item, index) => (
-                              <li key={index} className="flex items-start gap-2">
-                                <span className="mt-1.5 h-1 w-1 bg-current rounded-full flex-shrink-0" />
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            </RadioGroup>
+            <Label className="text-base font-semibold">Campaign Selection</Label>
+            <div className="flex gap-4">
+              <Button
+                variant={selectMode === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleSelectModeChange("all")}
+              >
+                All Campaigns
+              </Button>
+              <Button
+                variant={selectMode === "multiple" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleSelectModeChange("multiple")}
+              >
+                Multiple Campaigns
+              </Button>
+              <Button
+                variant={selectMode === "single" ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleSelectModeChange("single")}
+              >
+                Single Campaign
+              </Button>
+            </div>
           </div>
 
+          {/* Campaign List */}
+          {selectMode !== "all" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">Select Campaigns</Label>
+                {selectMode === "multiple" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSelectAll}
+                  >
+                    {selectedCampaigns.length === campaigns.length ? "Deselect All" : "Select All"}
+                  </Button>
+                )}
+              </div>
+              
+              <ScrollArea className="h-64 border rounded-md p-4">
+                {loading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">Loading campaigns...</span>
+                  </div>
+                ) : campaigns.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    No campaigns found
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {campaigns.map((campaign) => (
+                      <div
+                        key={campaign.id}
+                        className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedCampaigns.includes(campaign.id)
+                            ? 'bg-primary/5 border-primary'
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => handleCampaignToggle(campaign.id)}
+                      >
+                        {selectMode === "multiple" ? (
+                          <Checkbox
+                            checked={selectedCampaigns.includes(campaign.id)}
+                            onChange={() => {}}
+                          />
+                        ) : (
+                          selectedCampaigns.includes(campaign.id) ? (
+                            <CheckCircle2 className="h-4 w-4 text-primary" />
+                          ) : (
+                            <Circle className="h-4 w-4 text-muted-foreground" />
+                          )
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">{campaign.campaign_name}</p>
+                            {campaign.is_active ? (
+                              <Badge variant="default">Active</Badge>
+                            ) : (
+                              <Badge variant="secondary">Inactive</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {campaign.client_name} • {campaign.total_responses} responses • {campaign.completed_responses} completed
+                          </p>
+                          {campaign.unique_fields.length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Fields: {campaign.unique_fields.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          )}
+
           {/* Export Settings */}
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="format">File Format</Label>
               <Select value={format} onValueChange={setFormat}>
@@ -282,66 +406,82 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="space-y-2">
-              <Label>Export Scope</Label>
-              <div className="flex items-center h-10 px-3 py-2 border border-input bg-background rounded-md">
-                <span className="text-sm">
-                  {defaultCampaignId ? "Current Campaign" : "All Campaigns"}
-                </span>
-              </div>
-            </div>
           </div>
 
           {/* Export Preview */}
-          {selectedOption && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <selectedOption.icon className="h-5 w-5" />
-                  {selectedOption.title}
-                </CardTitle>
-                <CardDescription>
-                  Preview of what will be included in your export
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Export Format:</span>
-                    <Badge variant="outline">{format.toUpperCase()}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Date Range:</span>
-                    <Badge variant="outline">
-                      {dateRange === 'all' ? 'All Time' : `Last ${dateRange} days`}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Scope:</span>
-                    <Badge variant="outline">
-                      {defaultCampaignId ? 'Single Campaign' : 'All Campaigns'}
-                    </Badge>
-                  </div>
-                  {profile?.role && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Access Level:</span>
-                      <Badge variant="outline" className="capitalize">
-                        {profile.role}
-                      </Badge>
-                    </div>
-                  )}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Export Preview
+              </CardTitle>
+              <CardDescription>
+                Summary of data that will be exported
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Campaigns:</span>
+                  <Badge variant="outline">
+                    {selectMode === "all" ? `All (${campaigns.length})` : selectedData.campaigns.length}
+                  </Badge>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                <div className="flex items-center justify-between text-sm">
+                  <span>Total Responses:</span>
+                  <Badge variant="outline">{selectedData.totalResponses}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Completed Responses:</span>
+                  <Badge variant="outline">{selectedData.totalCompleted}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Export Format:</span>
+                  <Badge variant="outline">{format.toUpperCase()}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Date Range:</span>
+                  <Badge variant="outline">
+                    {dateRange === 'all' ? 'All Time' : `Last ${dateRange} days`}
+                  </Badge>
+                </div>
+                {profile?.role && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span>Access Level:</span>
+                    <Badge variant="outline" className="capitalize">
+                      {profile.role}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              {selectMode !== "all" && selectedData.campaigns.length > 0 && (
+                <>
+                  <Separator className="my-4" />
+                  <div>
+                    <p className="text-sm font-medium mb-2">Selected Campaigns:</p>
+                    <div className="space-y-1">
+                      {selectedData.campaigns.map((campaign) => (
+                        <div key={campaign.id} className="text-xs text-muted-foreground">
+                          • {campaign.campaign_name} ({campaign.client_name}) - {campaign.total_responses} responses
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleExport} disabled={isExporting}>
+          <Button 
+            onClick={handleExport} 
+            disabled={isExporting || (selectMode !== "all" && selectedCampaigns.length === 0)}
+          >
             {isExporting ? (
               <>
                 <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-foreground" />
@@ -350,7 +490,7 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
             ) : (
               <>
                 <Download className="mr-2 h-4 w-4" />
-                Export {selectedOption?.title}
+                Export Campaign Data
               </>
             )}
           </Button>

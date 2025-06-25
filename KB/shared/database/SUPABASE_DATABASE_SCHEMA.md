@@ -4,7 +4,157 @@ This document provides a comprehensive overview of all 29 tables and views in th
 
 ## Recent Changes
 
-### API Routes Supabase Client Configuration Standardization (Latest)
+### Export Data Feature Overhaul - Campaign-Focused Export System (Latest)
+**Date:** January 25, 2025
+
+**Enhancement:** Completely overhauled the Export Data feature to focus specifically on campaign onboarding responses with flexible campaign selection (single, multiple, or all campaigns).
+
+**Changes Made:**
+
+**Before - Complex Multi-Type Export System:**
+- Multiple export types: comprehensive, onboarding, referrals, analytics
+- Mixed data types in single export
+- Complex UI with multiple options
+- Single large API endpoint handling all export types
+
+**After - Simplified Campaign-Focused System:**
+- Single focus: Campaign onboarding responses only
+- Flexible campaign selection: single, multiple, or all campaigns
+- Clean, intuitive UI with campaign preview
+- Dedicated API endpoints for campaign data
+
+**New API Structure:**
+```typescript
+// New dedicated endpoints
+GET  /api/campaigns/export-data           // Load campaigns with stats
+POST /api/campaigns/export-data           // Generate export file
+GET  /api/campaigns/export-data/download  // Download generated file
+
+// Legacy endpoint (redirects for compatibility)
+GET  /api/analytics/export                // Redirects to new endpoint
+```
+
+**New UI Features:**
+1. **Campaign Selection Modes:**
+   - All Campaigns: Export all available campaigns
+   - Multiple Campaigns: Select multiple campaigns with checkboxes
+   - Single Campaign: Select one specific campaign
+
+2. **Campaign Preview:**
+   - Shows campaign name, client, response counts
+   - Displays unique form fields for each campaign
+   - Real-time statistics and completion rates
+
+3. **Enhanced Export Preview:**
+   - Shows exactly what will be exported
+   - Campaign-specific statistics
+   - Clear summary of selected data
+
+**Export Data Structure (CSV):**
+```csv
+CAMPAIGN - Campaign Name - Client Name
+Campaign ID,uuid-123
+Total Responses,50
+Completed,45
+Fields,"name, email, age, interests"
+
+Discord User ID,Discord Username,Is Completed,Started At,Last Updated,name,email,age,interests
+"123456","user1","Yes","2025-01-25","2025-01-25","John","john@example.com","25","gaming"
+```
+
+**Technical Implementation:**
+1. **New API Endpoints:**
+   - `/api/campaigns/export-data` (GET): Loads campaigns with response statistics
+   - `/api/campaigns/export-data` (POST): Generates export files based on selection
+   - `/api/campaigns/export-data/download` (GET): Serves generated files
+
+2. **Campaign Statistics Integration:**
+   - Real-time response counts per campaign
+   - Completion rate calculations
+   - Unique form fields detection
+   - Active/inactive campaign filtering
+
+3. **Backward Compatibility:**
+   - Legacy `/api/analytics/export` redirects to new endpoint
+   - Parameter mapping for existing integrations
+   - Maintains same authentication and authorization
+
+**Files Updated:**
+- ✅ **`components/export-dialog.tsx`** - Complete UI overhaul for campaign selection
+- ✅ **`app/api/campaigns/export-data/route.ts`** - New dedicated export API
+- ✅ **`app/api/campaigns/export-data/download/route.ts`** - New download endpoint
+- ✅ **`app/api/analytics/export/route.ts`** - Simplified to redirect for compatibility
+- ✅ **Database Schema Documentation** - Updated to reflect new export system
+
+**Benefits:**
+- ✅ **Simplified User Experience**: Focus on what users actually need - campaign data
+- ✅ **Better Performance**: Targeted queries instead of massive data exports
+- ✅ **Improved Data Organization**: Campaign-specific tables eliminate confusion
+- ✅ **Flexible Selection**: Choose exactly which campaigns to export
+- ✅ **Real-time Statistics**: See response counts and completion rates before export
+- ✅ **Backward Compatibility**: Existing integrations continue to work
+- ✅ **Cleaner Codebase**: Dedicated endpoints instead of monolithic export system
+
+### Export Data Function Enhancement - Campaign-Specific CSV Tables
+**Date:** January 25, 2025
+
+**Enhancement:** Updated the Export Data function to organize onboarding responses by campaign in separate CSV "tables" instead of mixing all campaigns into one table.
+
+**Issue Fixed:**
+- **Problem**: Campaign onboarding responses were exported as a single table with all possible form fields as columns, creating sparse data when campaigns had different field schemas
+- **Root Cause**: Different campaigns have different onboarding form configurations, but all responses were combined into one CSV table
+- **Impact**: Made it difficult to analyze campaign-specific data and created confusion with mixed field schemas
+
+**Changes Applied:**
+
+**Before - Single Mixed Table:**
+```csv
+=== USER ONBOARDING PROFILES ===
+Discord User ID,Discord Username,Campaign Name,Client Name,Is Completed,Started At,Last Updated,field1,field2,field3,field4,field5
+"user1","User1","Campaign A","Client 1","Yes","2025-01-25","2025-01-25","value1","value2","","","" 
+"user2","User2","Campaign B","Client 2","Yes","2025-01-25","2025-01-25","","","value3","value4","value5"
+```
+
+**After - Campaign-Specific Tables:**
+```csv
+=== CAMPAIGN: Campaign A (Client 1) ===
+Campaign ID: uuid-123
+Total Responses: 1
+Completed: 1
+Fields: field1, field2
+
+Discord User ID,Discord Username,Is Completed,Started At,Last Updated,field1,field2
+"user1","User1","Yes","2025-01-25","2025-01-25","value1","value2"
+
+=== CAMPAIGN: Campaign B (Client 2) ===
+Campaign ID: uuid-456
+Total Responses: 1
+Completed: 1
+Fields: field3, field4, field5
+
+Discord User ID,Discord Username,Is Completed,Started At,Last Updated,field3,field4,field5
+"user2","User2","Yes","2025-01-25","2025-01-25","value3","value4","value5"
+```
+
+**Implementation Details:**
+1. **Campaign Grouping**: User profiles are grouped by `campaign_id` and `campaign_name`
+2. **Dynamic Field Detection**: Each campaign section only includes fields that exist for that specific campaign
+3. **Campaign Metadata**: Each section includes campaign ID, total responses, completion count, and field list
+4. **Consistent Structure**: Fixed columns (User ID, Username, Completion Status, Timestamps) + dynamic form fields
+5. **Extended to All Sections**: Applied to onboarding responses, completions, and starts sections
+
+**Files Updated:**
+- ✅ **`/api/analytics/export/route.ts`** - Updated CSV generation logic for campaign-specific tables
+- ✅ **Database Schema Documentation** - Updated to reflect export function changes
+
+**Benefits:**
+- ✅ **Cleaner Data**: Each campaign's data is isolated with only relevant fields
+- ✅ **Better Analysis**: Campaign-specific analysis is now straightforward
+- ✅ **Reduced Confusion**: No more empty columns from unrelated campaigns
+- ✅ **Improved Readability**: Clear campaign headers and metadata
+- ✅ **Consistent Format**: Maintains same structure across all onboarding data types
+
+### API Routes Supabase Client Configuration Standardization
 **Date:** January 25, 2025
 
 **Enhancement:** Standardized Supabase client configuration across all API routes to use service role key for consistent database access
@@ -1531,3 +1681,69 @@ Discord servers now have a clean, uncluttered slash command interface with only:
 - `/join` - Intelligently shows campaigns based on channel context (replaces `/start`)
 
 All previous custom command functionality is now accessible through the slash command interface, providing a much better user experience with intelligent context-aware filtering.
+
+### Referral Export API Database Relationship Fixes (Latest)
+**Date:** January 25, 2025
+
+**Enhancement:** Fixed multiple database relationship errors in the analytics export API that were causing errors when exporting referral data
+
+**Issues Fixed:**
+
+**1. referral_links and user_profiles Relationship Error (PGRST200)**
+- **Problem**: Export API was trying to directly join `referral_links` with `user_profiles` table
+- **Root Cause**: `referral_links.influencer_id` points to `auth.users`, not directly to `user_profiles`
+- **Solution**: Changed to separate queries - first get referral links, then get user profile data for each link
+- **Before**: `user_profiles!inner(full_name, email)` - caused relationship not found error
+- **After**: Separate `user_profiles` query using `influencer_id` to get user data
+
+**2. Multiple discord_guild_campaigns Relationships (PGRST201)**
+- **Problem**: Ambiguous relationship between `referral_links` and `discord_guild_campaigns` tables
+- **Root Cause**: Two foreign key relationships exist:
+  - `discord_guild_campaigns.referral_link_id` → `referral_links.id`
+  - `referral_links.campaign_id` → `discord_guild_campaigns.id`
+- **Solution**: Explicitly specify which foreign key to use in queries
+- **Before**: `discord_guild_campaigns(...)` - caused "more than one relationship found" error
+- **After**: `discord_guild_campaigns!referral_links_campaign_id_fkey(...)` - uses specific relationship
+
+**3. Database Column Name Corrections**
+- **Fixed**: `referral_analytics.referral_link_id` → `referral_analytics.link_id` (actual column name)
+- **Fixed**: `referral_links.code` → `referral_links.referral_code` (actual column name)
+- **Updated**: All CSV export headers and data mapping to use correct field names
+
+**Technical Implementation:**
+```typescript
+// Before - Problematic approach
+.select(`
+  user_profiles!inner(full_name, email),
+  discord_guild_campaigns(campaign_name, clients(name))
+`)
+
+// After - Fixed approach
+.select(`
+  discord_guild_campaigns!referral_links_campaign_id_fkey(
+    campaign_name, client_id, clients(name)
+  )
+`)
+
+// Separate user profile query
+const referralLinksWithUserData = await Promise.all(
+  (referralLinks || []).map(async (link) => {
+    const { data: userProfile } = await supabase
+      .from('user_profiles')
+      .select('full_name, email')
+      .eq('id', link.influencer_id)
+      .single();
+    return { ...link, user_profiles: userProfile };
+  })
+);
+```
+
+**Impact:**
+- ✅ **Fixed Export Functionality**: Analytics export now works without database relationship errors
+- ✅ **Proper Data Export**: All referral links, referrals, and analytics data now export correctly
+- ✅ **CSV Format Support**: Both JSON and CSV exports work with correct field names
+- ✅ **Database Integrity**: Proper use of foreign key relationships ensures data consistency
+
+**Files Updated:**
+- ✅ **API Route**: `/app/api/analytics/export/route.ts` - Fixed all relationship queries
+- ✅ **Documentation**: Updated database schema documentation with fix details
