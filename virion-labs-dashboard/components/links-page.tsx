@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Copy, ExternalLink, QrCode, Search, Plus, Edit, Trash2, MoreHorizontal, Power, PowerOff, RefreshCw } from "lucide-react"
+import { Copy, ExternalLink, QrCode, Search, Plus, Edit, Trash2, MoreHorizontal, Power, PowerOff, RefreshCw, Download } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,6 +24,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -39,6 +44,7 @@ import { useReferralLinks } from "@/hooks/use-referral-links"
 import { type ReferralLinkWithAnalytics } from "@/lib/supabase"
 import { toast } from "sonner"
 import { ReferralLinkSuccessModal } from "./referral-link-success-modal"
+import { QRCodeSVG } from "qrcode.react"
 
 export function LinksPage() {
   const { profile } = useAuth()
@@ -439,28 +445,86 @@ interface LinkCardProps {
 }
 
 function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }: LinkCardProps) {
+  const handleDownloadQR = () => {
+    const svg = document.getElementById(`qr-code-svg-${link.id}`)
+    if (!svg) return
+
+    const svgData = new XMLSerializer().serializeToString(svg)
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+    
+    img.onload = () => {
+      canvas.width = img.width
+      canvas.height = img.height
+      if (ctx) {
+        ctx.drawImage(img, 0, 0)
+        const downloadLink = document.createElement('a')
+        downloadLink.download = `qr-code-${link.referral_code || 'referral'}.png`
+        downloadLink.href = canvas.toDataURL()
+        downloadLink.click()
+      }
+    }
+    
+    img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
+  }
+
   return (
     <Card className="w-full hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex gap-4">
           {/* Left Column - QR Code/Thumbnail */}
           <div className="flex-shrink-0">
-            <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden border-2 border-gray-200">
-              {link.thumbnail_url ? (
-                <img 
-                  src={link.thumbnail_url} 
-                  alt={link.title} 
-                  className="w-full h-full object-cover" 
-                  onError={(e) => {
-                    e.currentTarget.src = "/placeholder.svg?height=80&width=80"
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  <QrCode className="h-8 w-8" />
+            <Popover>
+              <PopoverTrigger asChild>
+                <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden border-2 border-gray-200 cursor-pointer hover:bg-muted/80 transition-colors">
+                  {link.thumbnail_url ? (
+                    <img 
+                      src={link.thumbnail_url} 
+                      alt={link.title} 
+                      className="w-full h-full object-cover" 
+                      onError={(e) => {
+                        e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+                      }}
+                    />
+                  ) : (
+                    <QRCodeSVG
+                      value={link.referral_url}
+                      size={76}
+                      bgColor="#ffffff"
+                      fgColor="#000000"
+                      level="L"
+                      includeMargin={false}
+                      className="w-full h-full p-1"
+                    />
+                  )}
                 </div>
-              )}
-            </div>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <h4 className="font-medium">QR Code for {link.title}</h4>
+                    <p className="text-sm text-muted-foreground">Scan to open referral link</p>
+                  </div>
+                  <div className="flex flex-col items-center space-y-4 p-4 bg-muted/30 rounded-lg">
+                    <QRCodeSVG
+                      id={`qr-code-svg-${link.id}`}
+                      value={link.referral_url}
+                      size={200}
+                      bgColor="#ffffff"
+                      fgColor="#000000"
+                      level="M"
+                      includeMargin={true}
+                      className="border rounded-md"
+                    />
+                    <Button onClick={handleDownloadQR} variant="outline" size="sm">
+                      <Download className="mr-2 h-4 w-4" />
+                      Download QR Code
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Right Column - All Content */}

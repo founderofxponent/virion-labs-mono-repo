@@ -22,8 +22,9 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { MessageSquare, Users, Copy, ExternalLink, CheckCircle } from "lucide-react"
+import { MessageSquare, Users, Copy, ExternalLink, CheckCircle, Download, QrCode } from "lucide-react"
 import { toast } from "sonner"
+import { QRCodeSVG } from "qrcode.react"
 
 interface Campaign {
   campaign_id: string
@@ -106,6 +107,32 @@ export function CreateReferralLinkDialog({
       navigator.clipboard.writeText(createdLink.referral_link.referral_url)
       toast.success("Link copied to clipboard!")
     }
+  }
+
+  const handleDownloadQR = () => {
+    if (!createdLink?.referral_link?.referral_url) return
+
+    const svg = document.getElementById('qr-code-svg')
+    if (!svg) return
+
+    const svgData = new XMLSerializer().serializeToString(svg)
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+    
+    img.onload = () => {
+      canvas.width = img.width
+      canvas.height = img.height
+      if (ctx) {
+        ctx.drawImage(img, 0, 0)
+        const downloadLink = document.createElement('a')
+        downloadLink.download = `qr-code-${createdLink.referral_link.referral_code || 'referral'}.png`
+        downloadLink.href = canvas.toDataURL()
+        downloadLink.click()
+      }
+    }
+    
+    img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
   }
 
   const handleClose = () => {
@@ -215,6 +242,27 @@ export function CreateReferralLinkDialog({
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* QR Code Section */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">QR Code</Label>
+              <div className="flex flex-col items-center space-y-4 p-4 bg-muted/30 rounded-lg">
+                <QRCodeSVG
+                  id="qr-code-svg"
+                  value={createdLink.referral_link.referral_url}
+                  size={120}
+                  bgColor="#ffffff"
+                  fgColor="#000000"
+                  level="M"
+                  includeMargin={true}
+                  className="border rounded-md"
+                />
+                <Button onClick={handleDownloadQR} variant="outline" size="sm">
+                  <Download className="mr-2 h-4 w-4" />
+                  Download QR Code
+                </Button>
+              </div>
             </div>
 
             <Separator />
