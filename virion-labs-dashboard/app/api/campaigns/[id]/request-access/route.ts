@@ -63,10 +63,41 @@ export async function POST(
           { error: 'Access request already pending' },
           { status: 400 }
         )
+      } else if (existingAccess.request_status === 'denied') {
+        // Update existing denied record to allow re-requesting access
+        const { data: updatedData, error: updateError } = await supabase
+          .from('campaign_influencer_access')
+          .update({
+            request_status: 'pending',
+            request_message: message,
+            requested_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            is_active: false,
+            // Clear previous admin response fields for fresh review
+            admin_response: null,
+            access_granted_by: null,
+            access_granted_at: null
+          })
+          .eq('id', existingAccess.id)
+          .select()
+          .single()
+
+        if (updateError) {
+          console.error('Error updating existing access request:', updateError)
+          return NextResponse.json(
+            { error: 'Failed to update access request' },
+            { status: 500 }
+          )
+        }
+
+        return NextResponse.json({
+          message: 'Access request resubmitted successfully',
+          request_id: updatedData.id
+        })
       }
     }
 
-    // Create new access request
+    // Create new access request (only if no existing record found)
     const { data, error } = await supabase
       .from('campaign_influencer_access')
       .insert({

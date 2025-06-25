@@ -1035,7 +1035,7 @@ The `campaign_landing_pages` table now supports automatic template inheritance t
 5. **Template Relationships**: Campaign templates are directly linked to landing page templates via the `default_landing_page_id` foreign key relationship
 
 ### campaign_influencer_access
-Manages influencer access to campaigns.
+Manages influencer access to campaigns with support for re-requesting access after denial.
 
 **Columns:**
 - `id` (uuid, primary key) - Access record ID
@@ -1054,6 +1054,13 @@ Manages influencer access to campaigns.
 **Constraints:**
 - Request status must be one of: 'pending', 'approved', 'denied'
 - Foreign keys to discord_guild_campaigns(id), auth.users(id)
+- Unique constraint on (campaign_id, influencer_id) - one access record per influencer per campaign
+
+**Re-request Access Behavior:**
+- When access is denied, users can request access again
+- Re-requesting updates the existing record instead of creating a new one
+- Previous admin response and grant details are cleared for fresh review
+- This prevents unique constraint violations while maintaining audit trail
 
 ### campaign_onboarding_fields
 Stores onboarding form field configurations for campaigns.
