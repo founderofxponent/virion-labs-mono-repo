@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Users, MessageSquare, TrendingUp, Clock, CheckCircle, XCircle } from "lucide-react"
+import { CheckCircle, XCircle, Clock, MessageSquare, Building2 } from "lucide-react"
 import { CreateReferralLinkDialog } from "@/components/create-referral-link-dialog"
 
 interface AvailableCampaign {
@@ -84,7 +83,6 @@ export function AvailableCampaignsPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Refresh campaigns to show updated status
         fetchAvailableCampaigns()
         console.log('Access request submitted successfully')
       } else {
@@ -109,8 +107,47 @@ export function AvailableCampaignsPage() {
     return type.replace('_', ' ').toUpperCase()
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString()
+  const getAccessStatusInfo = (campaign: AvailableCampaign) => {
+    if (campaign.has_access) {
+      return {
+        icon: CheckCircle,
+        text: 'Ready to Go',
+        color: 'text-green-600',
+        bgColor: 'bg-green-50',
+        borderColor: 'border-green-200'
+      }
+    } else if (campaign.request_status === 'pending') {
+      return {
+        icon: Clock,
+        text: 'Request Pending',
+        color: 'text-yellow-600',
+        bgColor: 'bg-yellow-50',
+        borderColor: 'border-yellow-200'
+      }
+    } else if (campaign.request_status === 'denied') {
+      return {
+        icon: XCircle,
+        text: 'Access Denied',
+        color: 'text-red-600',
+        bgColor: 'bg-red-50',
+        borderColor: 'border-red-200'
+      }
+    } else {
+      return {
+        icon: XCircle,
+        text: 'Request Access',
+        color: 'text-gray-600',
+        bgColor: 'bg-gray-50',
+        borderColor: 'border-gray-200'
+      }
+    }
+  }
+
+  const getButtonText = (campaign: AvailableCampaign) => {
+    if (campaign.has_access) return 'Create Link'
+    if (campaign.request_status === 'pending') return 'Pending...'
+    if (campaign.request_status === 'denied') return 'Request Again'
+    return 'Request Access'
   }
 
   if (loading) {
@@ -129,7 +166,7 @@ export function AvailableCampaignsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Available Campaigns</h1>
         <p className="text-muted-foreground">
-          Browse and create referral links for campaigns you have access to
+          Browse campaigns and create referral links
         </p>
       </div>
 
@@ -147,119 +184,75 @@ export function AvailableCampaignsPage() {
         </Card>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {campaigns.map((campaign) => (
-          <Card key={campaign.campaign_id} className="relative hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg leading-6">{campaign.campaign_name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {campaign.client_name} • {campaign.client_industry}
-                  </p>
-                </div>
-                <Badge 
-                  className={`${getCampaignTypeColor(campaign.campaign_type)} text-white text-xs`}
-                >
-                  {formatCampaignType(campaign.campaign_type)}
-                </Badge>
-              </div>
-            </CardHeader>
-            
-            <CardContent className="space-y-4">
-              {/* Campaign Description */}
-              {campaign.campaign_description && (
-                <p className="text-sm text-muted-foreground">
-                  {campaign.campaign_description}
-                </p>
-              )}
+      <div className="space-y-3">
+        {campaigns.map((campaign) => {
+          const statusInfo = getAccessStatusInfo(campaign)
+          const StatusIcon = statusInfo.icon
 
-              {/* Discord Server Info */}
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Discord Server</p>
-                  <p className="text-xs text-muted-foreground">
-                    {campaign.discord_server_name || 'Discord Community'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Campaign Stats */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-semibold">{campaign.total_interactions}</p>
+          return (
+            <div key={campaign.campaign_id} className="bg-white border rounded-lg p-6 hover:shadow-sm transition-shadow">
+              <div className="flex items-start justify-between gap-8">
+                {/* Left side - Campaign info - Better distributed */}
+                <div className="flex-1 min-w-0">
+                  {/* Header row with campaign name and type */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1 min-w-0 pr-4">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        {campaign.campaign_name}
+                      </h3>
+                      <div className="flex items-center gap-3 text-sm text-gray-600">
+                        <Building2 className="h-4 w-4" />
+                        <span className="font-medium">{campaign.client_name}</span>
+                        <span>•</span>
+                        <span>{campaign.client_industry}</span>
+                      </div>
+                    </div>
+                    <Badge 
+                      className={`${getCampaignTypeColor(campaign.campaign_type)} text-white text-xs px-3 py-1 shrink-0`}
+                    >
+                      {formatCampaignType(campaign.campaign_type)}
+                    </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">Interactions</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-semibold">{campaign.referral_conversions}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Conversions</p>
-                </div>
-              </div>
 
-              {/* Campaign Dates */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  <span>Started: {formatDate(campaign.campaign_start_date)}</span>
-                </div>
-                {campaign.campaign_end_date && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>Ends: {formatDate(campaign.campaign_end_date)}</span>
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              {/* Access Status & Action */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  {campaign.has_access ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span className="text-sm text-green-600 font-medium">Access Granted</span>
-                    </>
-                  ) : campaign.request_status === 'pending' ? (
-                    <>
-                      <Clock className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm text-yellow-600 font-medium">Request Pending</span>
-                    </>
-                  ) : campaign.request_status === 'denied' ? (
-                    <>
-                      <XCircle className="h-4 w-4 text-red-500" />
-                      <span className="text-sm text-red-600 font-medium">Access Denied</span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="h-4 w-4 text-red-500" />
-                      <span className="text-sm text-red-600 font-medium">Access Required</span>
-                    </>
+                  {/* Description - full width */}
+                  {campaign.campaign_description && (
+                    <p className="text-sm text-gray-600 leading-relaxed mb-3">
+                      {campaign.campaign_description.length > 150 
+                        ? campaign.campaign_description.substring(0, 150) + '...' 
+                        : campaign.campaign_description}
+                    </p>
                   )}
+
+                  {/* Discord info */}
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <MessageSquare className="h-4 w-4" />
+                    <span>{campaign.discord_server_name || 'Discord Community'}</span>
+                  </div>
                 </div>
 
-                <Button 
-                  onClick={() => handleCreateLink(campaign)}
-                  disabled={!campaign.has_access && !campaign.can_request_access}
-                  className="w-full"
-                  variant={campaign.has_access ? "default" : "outline"}
-                >
-                  {campaign.has_access ? 'Create Referral Link' : 
-                   campaign.request_status === 'pending' ? 'Request Pending' :
-                   campaign.request_status === 'denied' ? 'Request Again' :
-                   'Request Access'}
-                </Button>
+                {/* Right side - Status & action - Compact but prominent */}
+                <div className="flex items-center gap-4 shrink-0">
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${statusInfo.bgColor} ${statusInfo.borderColor}`}>
+                    <StatusIcon className={`h-4 w-4 ${statusInfo.color}`} />
+                    <span className={`text-sm font-medium ${statusInfo.color}`}>
+                      {statusInfo.text}
+                    </span>
+                  </div>
+
+                  <Button 
+                    onClick={() => handleCreateLink(campaign)}
+                    disabled={!campaign.has_access && !campaign.can_request_access}
+                    size="sm"
+                    variant={campaign.has_access ? "default" : "outline"}
+                    className="min-w-[120px] px-4"
+                  >
+                    {getButtonText(campaign)}
+                  </Button>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          )
+        })}
       </div>
 
       <CreateReferralLinkDialog
@@ -268,7 +261,6 @@ export function AvailableCampaignsPage() {
         onOpenChange={setShowCreateDialog}
         onSuccess={() => {
           setShowCreateDialog(false)
-          // Optionally redirect to links page or show success message
           console.log('Referral link created successfully!')
         }}
       />

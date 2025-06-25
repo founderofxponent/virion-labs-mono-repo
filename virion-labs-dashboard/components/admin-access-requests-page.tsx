@@ -3,22 +3,17 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { useAccessRequests } from "@/hooks/use-access-requests"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { 
-  Users, 
   Clock, 
   CheckCircle, 
   XCircle, 
   MessageSquare,
-  Calendar,
-  Building,
-  UserCheck,
-  UserX
+  UserCheck
 } from "lucide-react"
 import {
   Dialog,
@@ -65,6 +60,7 @@ export function AdminAccessRequestsPage() {
   const [showResponseDialog, setShowResponseDialog] = useState(false)
   const [responseAction, setResponseAction] = useState<'approve' | 'deny'>('approve')
   const [adminResponse, setAdminResponse] = useState('')
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAccessRequests()
@@ -84,6 +80,41 @@ export function AdminAccessRequestsPage() {
       console.error('Error fetching access requests:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleQuickAction = async (request: AccessRequest, action: 'approve' | 'deny') => {
+    if (!profile?.id) return
+    
+    setProcessingId(request.id)
+    
+    try {
+      const response = await fetch('/api/admin/access-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          request_id: request.id,
+          action: action,
+          admin_id: profile.id,
+          admin_response: action === 'approve' ? 'Access granted' : 'Access denied'
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        fetchAccessRequests()
+        refreshCount()
+        console.log(`Access request ${action}d successfully`)
+      } else {
+        console.error('Failed to respond to request:', data.error)
+      }
+    } catch (error) {
+      console.error('Error responding to request:', error)
+    } finally {
+      setProcessingId(null)
     }
   }
 
@@ -114,7 +145,6 @@ export function AdminAccessRequestsPage() {
       const data = await response.json()
 
       if (response.ok) {
-        // Refresh the requests list and sidebar count
         fetchAccessRequests()
         refreshCount()
         setShowResponseDialog(false)
@@ -130,7 +160,6 @@ export function AdminAccessRequestsPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -164,9 +193,9 @@ export function AdminAccessRequestsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Campaign Access Requests</h1>
+          <h1 className="text-3xl font-bold">Access Requests</h1>
           <p className="text-muted-foreground">
-            Review and approve influencer access requests for campaigns
+            Quick review and approval of campaign access requests
           </p>
         </div>
         <Badge variant="secondary" className="text-lg px-3 py-1">
@@ -178,126 +207,152 @@ export function AdminAccessRequestsPage() {
         <Card>
           <CardContent className="p-8 text-center">
             <UserCheck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Pending Requests</h3>
+            <h3 className="text-lg font-semibold mb-2">All Caught Up!</h3>
             <p className="text-muted-foreground">
-              All campaign access requests have been processed.
+              No pending access requests to review.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6">
+        <div className="space-y-2">
           {requests.map((request) => (
-            <Card key={request.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <CardTitle className="text-xl">
-                      {request.discord_guild_campaigns.campaign_name}
-                    </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        className={`text-white ${getCampaignTypeColor(request.discord_guild_campaigns.campaign_type)}`}
-                      >
-                        {formatCampaignType(request.discord_guild_campaigns.campaign_type)}
-                      </Badge>
-                      <Badge variant="outline">
-                        {request.discord_guild_campaigns.clients.name}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    <span>{formatDate(request.requested_at)}</span>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                {/* Influencer Info */}
-                <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+            <div key={request.id} className="bg-white border rounded-lg p-6 hover:bg-gray-50 transition-colors">
+              <div className="flex items-center justify-between gap-8">
+                {/* Left side - Main info */}
+                <div className="flex items-center gap-6 flex-1 min-w-0">
+                  {/* Avatar */}
                   {request.user_profiles.avatar_url ? (
                     <img 
                       src={request.user_profiles.avatar_url}
                       alt={request.user_profiles.full_name}
-                      className="w-10 h-10 rounded-full object-cover"
+                      className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
+                    <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
                       {request.user_profiles.full_name.charAt(0)}
                     </div>
                   )}
-                  <div>
-                    <p className="font-medium">{request.user_profiles.full_name}</p>
-                    <p className="text-sm text-muted-foreground">{request.user_profiles.email}</p>
+                  
+                  {/* User & Campaign Info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <p className="font-semibold text-gray-900 text-lg">
+                        {request.user_profiles.full_name}
+                      </p>
+                      <span className="text-gray-400 text-lg">→</span>
+                      <p className="font-medium text-gray-700 text-lg flex-1 min-w-0 truncate">
+                        {request.discord_guild_campaigns.campaign_name}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <span className="min-w-0 truncate">{request.user_profiles.email}</span>
+                      <Badge 
+                        className={`text-white text-xs ${getCampaignTypeColor(request.discord_guild_campaigns.campaign_type)}`}
+                      >
+                        {formatCampaignType(request.discord_guild_campaigns.campaign_type)}
+                      </Badge>
+                      <span className="font-medium">{request.discord_guild_campaigns.clients.name}</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Request Message */}
-                {request.request_message && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Request Message</span>
-                    </div>
-                    <div className="p-3 bg-muted rounded-lg">
-                      <p className="text-sm">{request.request_message}</p>
+                {/* Right side - Time & Actions */}
+                <div className="flex items-center gap-6 flex-shrink-0">
+                  <div className="text-right text-sm text-gray-500 min-w-[120px]">
+                    <div className="flex items-center gap-2 justify-end">
+                      <Clock className="h-4 w-4" />
+                      <span>{formatDate(request.requested_at)}</span>
                     </div>
                   </div>
-                )}
-
-                <Separator />
-
-                {/* Action Buttons */}
-                <div className="flex gap-3">
-                  <Button 
-                    onClick={() => handleResponseRequest(request, 'approve')}
-                    className="flex-1"
-                    variant="default"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Approve Access
-                  </Button>
-                  <Button 
-                    onClick={() => handleResponseRequest(request, 'deny')}
-                    className="flex-1"
-                    variant="destructive"
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Deny Access
-                  </Button>
+                  
+                  <div className="flex gap-3">
+                    <Button
+                      size="default"
+                      variant="outline"
+                      className="border-green-200 text-green-700 hover:bg-green-50 px-6"
+                      onClick={() => handleQuickAction(request, 'approve')}
+                      disabled={processingId === request.id}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="default"
+                      variant="outline"
+                      className="border-red-200 text-red-700 hover:bg-red-50 px-6"
+                      onClick={() => handleQuickAction(request, 'deny')}
+                      disabled={processingId === request.id}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Deny
+                    </Button>
+                    {request.request_message && (
+                      <Button
+                        size="default"
+                        variant="ghost"
+                        onClick={() => handleResponseRequest(request, 'approve')}
+                        disabled={processingId === request.id}
+                        title="View message & respond"
+                        className="px-4"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+
+              {/* Request Message (if exists) */}
+              {request.request_message && (
+                <div className="mt-4 p-4 bg-blue-50 rounded border-l-4 border-blue-200 text-sm text-gray-700 ml-[72px]">
+                  <span className="font-medium text-blue-800">Message: </span>
+                  {request.request_message}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
 
       {/* Response Dialog */}
       <Dialog open={showResponseDialog} onOpenChange={setShowResponseDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>
               {responseAction === 'approve' ? 'Approve' : 'Deny'} Access Request
             </DialogTitle>
             <DialogDescription>
-              {responseAction === 'approve' 
-                ? 'Grant access to this campaign for the influencer?' 
-                : 'Deny access to this campaign for the influencer?'}
+              Add a personal message to your {responseAction === 'approve' ? 'approval' : 'denial'}.
             </DialogDescription>
           </DialogHeader>
           
           {selectedRequest && (
             <div className="space-y-4">
-              <div className="p-3 bg-muted rounded-lg">
-                <p className="font-medium">{selectedRequest.user_profiles.full_name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {selectedRequest.discord_guild_campaigns.campaign_name}
-                </p>
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex items-center gap-3">
+                  {selectedRequest.user_profiles.avatar_url ? (
+                    <img 
+                      src={selectedRequest.user_profiles.avatar_url}
+                      alt={selectedRequest.user_profiles.full_name}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
+                      {selectedRequest.user_profiles.full_name.charAt(0)}
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium">{selectedRequest.user_profiles.full_name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedRequest.discord_guild_campaigns.campaign_name}
+                    </p>
+                  </div>
+                </div>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="admin-response">
-                  Response Message {responseAction === 'deny' ? '(Required)' : '(Optional)'}
+                  Personal Message {responseAction === 'deny' ? '(Required)' : '(Optional)'}
                 </Label>
                 <Textarea
                   id="admin-response"
@@ -308,6 +363,7 @@ export function AdminAccessRequestsPage() {
                   }
                   value={adminResponse}
                   onChange={(e) => setAdminResponse(e.target.value)}
+                  className="min-h-[100px]"
                 />
               </div>
             </div>
