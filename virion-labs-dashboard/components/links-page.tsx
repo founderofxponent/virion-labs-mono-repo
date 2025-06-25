@@ -4,9 +4,8 @@ import { useState } from "react"
 import { Copy, ExternalLink, QrCode, Search, Plus, Edit, Trash2, MoreHorizontal, Power, PowerOff, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/components/auth-provider"
 import { ReferralLinkForm } from "@/components/referral-link-form"
 import {
@@ -56,7 +55,7 @@ export function LinksPage() {
 
   const [showLinkForm, setShowLinkForm] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [createdLink, setCreatedLink] = useState<any>(null)
+  const [createdLink, setCreatedLink] = useState<ReferralLinkWithAnalytics | null>(null)
   const [editingLink, setEditingLink] = useState<ReferralLinkWithAnalytics | null>(null)
   const [deletingLink, setDeletingLink] = useState<ReferralLinkWithAnalytics | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
@@ -143,7 +142,7 @@ export function LinksPage() {
     }
   }
 
-  const handleLinkCreated = (link: any) => {
+  const handleLinkCreated = (link: ReferralLinkWithAnalytics) => {
     setCreatedLink(link)
     setShowLinkForm(false)
     setShowSuccessModal(true)
@@ -282,8 +281,9 @@ export function LinksPage() {
       </div>
 
       {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search links..."
@@ -344,6 +344,7 @@ export function LinksPage() {
               <SelectItem value="highest-rate">Highest Rate</SelectItem>
             </SelectContent>
           </Select>
+          </div>
         </div>
       </div>
 
@@ -361,7 +362,7 @@ export function LinksPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-3">
           {filteredLinks.map((link) => (
             <LinkCard 
               key={link.id} 
@@ -439,80 +440,47 @@ interface LinkCardProps {
 
 function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }: LinkCardProps) {
   return (
-    <Card>
+    <Card className="w-full hover:shadow-md transition-shadow">
       <CardContent className="p-4">
-        <div className="grid gap-4 md:grid-cols-[100px_1fr] items-start">
-          <div className="aspect-video bg-muted rounded-md overflow-hidden">
-            {link.thumbnail_url ? (
-              <img 
-                src={link.thumbnail_url} 
-                alt={link.title} 
-                className="w-full h-full object-cover" 
-                onError={(e) => {
-                  e.currentTarget.src = "/placeholder.svg?height=100&width=180"
-                }}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                <QrCode className="h-8 w-8" />
-              </div>
-            )}
+        <div className="flex gap-4">
+          {/* Left Column - QR Code/Thumbnail */}
+          <div className="flex-shrink-0">
+            <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden border-2 border-gray-200">
+              {link.thumbnail_url ? (
+                <img 
+                  src={link.thumbnail_url} 
+                  alt={link.title} 
+                  className="w-full h-full object-cover" 
+                  onError={(e) => {
+                    e.currentTarget.src = "/placeholder.svg?height=80&width=80"
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                  <QrCode className="h-8 w-8" />
+                </div>
+              )}
+            </div>
           </div>
-          <div className="space-y-3">
-            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-medium">{link.title}</h3>
-                  <Badge variant={link.is_active ? "default" : "secondary"}>
-                    {link.is_active ? "Active" : "Inactive"}
-                  </Badge>
-                  {link.campaign_context && (
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                      Campaign
-                    </Badge>
-                  )}
-                </div>
-                {link.description && (
-                  <p className="text-sm text-muted-foreground">{link.description}</p>
-                )}
-                
-                {/* Campaign Context */}
+
+          {/* Right Column - All Content */}
+          <div className="flex-1 min-w-0 space-y-3">
+            {/* Header Section */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-semibold">{link.title}</h3>
+                <Badge variant={link.is_active ? "default" : "secondary"} className="text-xs">
+                  {link.is_active ? "Active" : "Inactive"}
+                </Badge>
                 {link.campaign_context && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-md p-2 space-y-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-blue-900">Campaign:</span>
-                      <span className="text-blue-800">{link.campaign_context.campaign_name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-blue-900">Client:</span>
-                      <span className="text-blue-800">{link.campaign_context.client_name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium text-blue-900">Type:</span>
-                      <Badge variant="secondary" className="text-xs">
-                        {link.campaign_context.campaign_type.split('_').map(word => 
-                          word.charAt(0).toUpperCase() + word.slice(1)
-                        ).join(' ')}
-                      </Badge>
-                    </div>
-                  </div>
+                  <Badge variant="outline" className="text-blue-700 border-blue-200 text-xs">
+                    Campaign
+                  </Badge>
                 )}
-                
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>{link.platform}</span>
-                  <span>•</span>
-                  <span>{formatDate(link.created_at)}</span>
-                  {link.expires_at && (
-                    <>
-                      <span>•</span>
-                      <span>Expires {formatDate(link.expires_at)}</span>
-                    </>
-                  )}
-                </div>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -546,44 +514,80 @@ function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }
               </DropdownMenu>
             </div>
             
-            <div className="flex items-center gap-2">
-              <Input 
-                value={link.referral_url} 
-                readOnly 
-                className="text-xs font-mono" 
-              />
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => onCopy(link.referral_url)}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
+            {/* Meta Information Row */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+              <span className="font-medium">{link.platform}</span>
+              <span>•</span>
+              <span>{formatDate(link.created_at)}</span>
+              {link.campaign_context && (
+                <>
+                  <span>•</span>
+                  <span className="text-blue-700 font-medium">{link.campaign_context.campaign_name}</span>
+                  <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
+                    {link.campaign_context.client_name}
+                  </span>
+                </>
+              )}
+              {link.expires_at && (
+                <>
+                  <span>•</span>
+                  <span>Expires {formatDate(link.expires_at)}</span>
+                </>
+              )}
             </div>
-            
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex items-center gap-4">
-                <div className="text-sm">
-                  <span className="font-medium">{link.clicks.toLocaleString()}</span> clicks
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">{link.conversions.toLocaleString()}</span> conversions
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">{(link.conversion_rate || 0).toFixed(1)}%</span> rate
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">{link.is_active ? 'Active' : 'Inactive'}</span> status
+
+            {/* Description */}
+            {link.description && (
+              <p className="text-xs text-muted-foreground">{link.description}</p>
+            )}
+
+            {/* Performance Highlights */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="text-xl font-bold text-blue-600">{link.clicks.toLocaleString()}</div>
+                <div className="text-xs font-medium text-blue-900">Clicks</div>
+              </div>
+              <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="text-xl font-bold text-blue-600">{link.conversions.toLocaleString()}</div>
+                <div className="text-xs font-medium text-blue-900">Converts</div>
+              </div>
+              <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="text-xl font-bold text-blue-600">{(link.conversion_rate || 0).toFixed(1)}%</div>
+                <div className="text-xs font-medium text-blue-900">Rate</div>
+              </div>
+            </div>
+
+            {/* URL and Action Section */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex gap-2">
+                  <Input 
+                    value={link.referral_url} 
+                    readOnly 
+                    className="text-xs font-mono bg-white border-gray-200 focus:ring-0 flex-1 h-8" 
+                    placeholder="Referral Link"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => onCopy(link.referral_url)}
+                    className="flex-shrink-0 px-2 h-8"
+                    title="Copy link"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex-1 flex justify-end gap-2">
+              
+              <div className="flex-shrink-0">
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={() => window.open(link.original_url, '_blank')}
+                  className="whitespace-nowrap h-8 px-3 text-xs"
                 >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Original
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  View Original
                 </Button>
               </div>
             </div>
