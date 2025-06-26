@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Copy, ExternalLink, QrCode, Search, Plus, Edit, Trash2, MoreHorizontal, Power, PowerOff, RefreshCw, Download } from "lucide-react"
+import { Copy, ExternalLink, QrCode, Search, Plus, Edit, Trash2, MoreHorizontal, Power, PowerOff, RefreshCw, Download, Info } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -250,7 +250,24 @@ export function LinksPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Links</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              Total Links
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-4 w-4 p-0 hover:bg-transparent">
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Total Links</h4>
+                    <p className="text-sm text-muted-foreground">
+                      The total number of referral links you've created. This includes both active and inactive links.
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.totalLinks}</div>
@@ -259,7 +276,24 @@ export function LinksPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              Total Clicks
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-4 w-4 p-0 hover:bg-transparent">
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Total Clicks</h4>
+                    <p className="text-sm text-muted-foreground">
+                      The total number of times people have clicked on your referral links. Each click represents someone visiting your content through your referral link.
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.totalClicks.toLocaleString()}</div>
@@ -268,7 +302,24 @@ export function LinksPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Conversions</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              Total Conversions
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-4 w-4 p-0 hover:bg-transparent">
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Total Conversions</h4>
+                    <p className="text-sm text-muted-foreground">
+                      The total number of successful conversions from your referral links. A conversion happens when someone clicks your link and completes a desired action (like signing up or making a purchase).
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.totalConversions.toLocaleString()}</div>
@@ -277,7 +328,27 @@ export function LinksPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg Conversion Rate</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              Avg Conversion Rate
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-4 w-4 p-0 hover:bg-transparent">
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Average Conversion Rate</h4>
+                    <p className="text-sm text-muted-foreground">
+                      The percentage of clicks that result in conversions, averaged across all your links. This helps you understand how effective your referral links are at driving action.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Formula: (Total Conversions ÷ Total Clicks) × 100
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.averageConversionRate.toFixed(1)}%</div>
@@ -607,17 +678,71 @@ function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }
 
             {/* Performance Highlights */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-3 relative">
                 <div className="text-xl font-bold text-blue-600">{link.clicks.toLocaleString()}</div>
-                <div className="text-xs font-medium text-blue-900">Clicks</div>
+                <div className="text-xs font-medium text-blue-900 flex items-center justify-center gap-1">
+                  Clicks
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-3 w-3 p-0 hover:bg-transparent">
+                        <Info className="h-2.5 w-2.5 text-blue-700/60" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64" side="top">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Clicks</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Number of times people have clicked on this specific referral link. Each click represents a visitor accessing your content.
+                        </p>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
-              <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-3 relative">
                 <div className="text-xl font-bold text-blue-600">{link.conversions.toLocaleString()}</div>
-                <div className="text-xs font-medium text-blue-900">Converts</div>
+                <div className="text-xs font-medium text-blue-900 flex items-center justify-center gap-1">
+                  Converts
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-3 w-3 p-0 hover:bg-transparent">
+                        <Info className="h-2.5 w-2.5 text-blue-700/60" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64" side="top">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Conversions</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Number of successful conversions from this link. A conversion occurs when someone clicks your link and completes the desired action (signup, purchase, etc.).
+                        </p>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
-              <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="text-center bg-blue-50 border border-blue-200 rounded-lg p-3 relative">
                 <div className="text-xl font-bold text-blue-600">{(link.conversion_rate || 0).toFixed(1)}%</div>
-                <div className="text-xs font-medium text-blue-900">Rate</div>
+                <div className="text-xs font-medium text-blue-900 flex items-center justify-center gap-1">
+                  Rate
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-3 w-3 p-0 hover:bg-transparent">
+                        <Info className="h-2.5 w-2.5 text-blue-700/60" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64" side="top">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Conversion Rate</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Percentage of clicks that resulted in conversions for this link. Higher rates indicate more effective content and targeting.
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Formula: (Conversions ÷ Clicks) × 100
+                        </p>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
             </div>
 
