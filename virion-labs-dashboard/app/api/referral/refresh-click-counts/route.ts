@@ -18,14 +18,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data, error } = await supabase.rpc('refresh_conversion_counts_for_influencer', {
+    const { data, error } = await supabase.rpc('refresh_click_counts_for_influencer', {
       p_influencer_id: influencer_id,
     });
 
     if (error) {
-        console.error('Error calling refresh_conversion_counts_for_influencer RPC:', error);
+        console.error('Error calling refresh_click_counts_for_influencer RPC:', error);
         return NextResponse.json(
-            { error: 'Failed to refresh conversion counts via RPC' },
+            { error: 'Failed to refresh click counts via RPC' },
             { status: 500 }
         );
     }
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data);
 
   } catch (error) {
-    console.error('Error in refresh-counts route:', error)
+    console.error('Error in refresh-click-counts route:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

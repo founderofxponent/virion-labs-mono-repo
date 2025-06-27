@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "supabase-virion-labs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "sbp_49e5be8a2a6e58277baa0b89ec1dafa6f9410751"
+      ]
+    }
+  }
+}

@@ -59,7 +59,7 @@ WHERE c.is_deleted = false;
 -- Update the campaign_analytics_view to use the new logic
 DROP VIEW IF EXISTS campaign_analytics_view CASCADE;
 
-CREATE VIEW campaign_analytics_view AS
+CREATE OR REPLACE VIEW campaign_analytics_view AS
 SELECT 
     c.id as campaign_id,
     c.campaign_name,

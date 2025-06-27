@@ -80,19 +80,7 @@ export async function POST(
       // Don't fail the request for analytics errors
     }
 
-    // Update referral link click stats (increment clicks counter)
-    const { error: updateError } = await supabase
-      .from('referral_links')
-      .update({
-        clicks: (referralLink.clicks || 0) + 1,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', referralLink.id)
-
-    if (updateError) {
-      console.error('Error updating referral link stats:', updateError)
-      // Don't fail the request for stats update errors
-    }
+    
 
     return NextResponse.json({
       success: true,

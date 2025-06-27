@@ -50,8 +50,8 @@ interface ComprehensiveAnalyticsData {
     active_referral_links: number
     total_clicks: number
     total_conversions: number
-    completion_rate: number
-    click_through_rate: number
+    completion_rate: number | null
+    click_through_rate: number | null
   }
   campaigns: Array<{
     campaign_id: string
@@ -157,7 +157,10 @@ export function AnalyticsPage() {
     return new Intl.NumberFormat('en-US').format(value)
   }
 
-  const formatPercentage = (value: number) => {
+  const formatPercentage = (value: number | null | undefined) => {
+    if (typeof value !== 'number' || !isFinite(value)) {
+      return "0.0%"
+    }
     return `${value.toFixed(1)}%`
   }
 

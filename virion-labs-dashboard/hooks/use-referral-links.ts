@@ -5,12 +5,14 @@ import { supabase, type ReferralLink, type ReferralLinkInsert, type ReferralLink
 import { useAuth } from '@/components/auth-provider'
 import { generateReferralCode, generateReferralUrl } from '@/lib/url-utils'
 import { updateClientInfluencerCount } from '@/lib/client-helpers'
+import { useToast } from "@/hooks/use-toast"
 
 export function useReferralLinks() {
   const [links, setLinks] = useState<ReferralLinkWithAnalytics[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { user } = useAuth()
+  const { toast } = useToast()
 
   // Fetch all referral links for the current user
   const fetchLinks = async () => {
@@ -23,26 +25,40 @@ export function useReferralLinks() {
       setLoading(true)
       setError(null)
 
-      // First, refresh the conversion counts to ensure data consistency
+      // First, refresh both conversion and click counts to ensure data consistency
       try {
-        const refreshResponse = await fetch('/api/referral/refresh-counts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            influencer_id: user.id
+        const refreshPromises = [
+          fetch('/api/referral/refresh-counts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ influencer_id: user.id })
+          }),
+          fetch('/api/referral/refresh-click-counts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ influencer_id: user.id })
           })
-        })
+        ];
 
-        if (refreshResponse.ok) {
-          const refreshResult = await refreshResponse.json()
-          console.log('Conversion counts refreshed:', refreshResult)
-        } else {
-          console.warn('Failed to refresh conversion counts:', refreshResponse.status)
-        }
+        const results = await Promise.all(refreshPromises);
+
+        results.forEach(async (response, index) => {
+          const type = index === 0 ? 'conversion' : 'click';
+          if (response.ok) {
+            const result = await response.json();
+            console.log(`Successfully refreshed ${type} counts:`, result);
+          } else {
+            console.warn(`Failed to refresh ${type} counts:`, response.status);
+          }
+        });
+        
       } catch (refreshError) {
-        console.warn('Error refreshing conversion counts:', refreshError)
+        console.warn('Error refreshing counts:', refreshError)
+        toast({
+          title: "Couldn't refresh all data",
+          description: "Your latest analytics may not be reflected. Please try again in a few moments.",
+          variant: "destructive",
+        })
         // Continue with normal fetch even if refresh fails
       }
       

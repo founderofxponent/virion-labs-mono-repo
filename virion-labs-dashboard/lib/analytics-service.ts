@@ -143,8 +143,6 @@ export class AnalyticsService {
       const { data: campaigns, error: campaignsError } = await supabase
         .from('discord_guild_campaigns')
         .select('*')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString())
 
       if (campaignsError) throw campaignsError
 

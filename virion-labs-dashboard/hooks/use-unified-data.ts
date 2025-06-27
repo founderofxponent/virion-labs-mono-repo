@@ -128,25 +128,32 @@ const transformInfluencerData = (linksData: any[], referralsData: any[], campaig
   }
 }
 
-const transformAdminData = (clientsData: any[], campaignsData: any[], usersData: any[]): UnifiedData => {
-  const totalClients = clientsData.length
-  const totalCampaigns = campaignsData.length
-  const totalUsers = usersData.length
-  const activeCampaigns = campaignsData.filter(campaign => campaign.is_active).length
+const transformAdminData = (
+  clientsData: any[], 
+  campaignsData: any[], 
+  onboardingStartsData: any[], 
+  onboardingCompletionsData: any[]
+): UnifiedData => {
+  const totalClients = clientsData.length;
+  const totalCampaigns = campaignsData.length;
+  const usersStarted = onboardingStartsData.length;
+  
+  const uniqueCompletions = new Set(onboardingCompletionsData.map(c => c.discord_user_id));
+  const completionRate = usersStarted > 0 ? (uniqueCompletions.size / usersStarted) * 100 : 0;
 
-  // Calculate total interactions across all campaigns
-  const totalInteractions = campaignsData.reduce((sum, campaign) => sum + (campaign.total_interactions || 0), 0)
+  const totalInteractions = campaignsData.reduce((sum, campaign) => sum + (campaign.total_interactions || 0), 0);
 
   const stats: UnifiedStats = {
     primary: totalClients,
     secondary: totalCampaigns,
-    tertiary: totalUsers,
-    quaternary: activeCampaigns,
+    tertiary: usersStarted,
+    quaternary: totalInteractions,
     primaryLabel: "Total Clients",
     secondaryLabel: "Total Campaigns",
-    tertiaryLabel: "Total Users",
-    quaternaryLabel: "Active Campaigns"
-  }
+    tertiaryLabel: "Users Started",
+    quaternaryLabel: "Total Interactions",
+    conversionRate: completionRate
+  };
 
   const primaryList: UnifiedListItem[] = clientsData.slice(0, 10).map(client => ({
     id: client.id,
@@ -208,56 +215,56 @@ const transformAdminData = (clientsData: any[], campaignsData: any[], usersData:
 }
 
 const transformClientData = (campaignsData: any[], influencersData: any[], conversionsData: any[]): UnifiedData => {
-  const totalCampaigns = campaignsData.length
-  const activeInfluencers = new Set(conversionsData.map(c => c.influencer_id)).size
-  const totalConversions = conversionsData.length
-  const activeCampaigns = campaignsData.filter(campaign => campaign.is_active).length
+  const totalCampaigns = campaignsData.length;
+  const activeInfluencers = new Set(conversionsData.map(c => c.influencer_id)).size;
+  const totalConversions = conversionsData.length;
+  const activeCampaigns = campaignsData.filter(campaign => campaign.is_active).length;
 
   const stats: UnifiedStats = {
     primary: totalCampaigns,
     secondary: activeInfluencers,
     tertiary: totalConversions,
     quaternary: activeCampaigns,
-    primaryLabel: "Campaigns",
+    primaryLabel: "Total Campaigns",
     secondaryLabel: "Active Influencers",
-    tertiaryLabel: "Conversions",
+    tertiaryLabel: "Total Conversions",
     quaternaryLabel: "Active Campaigns"
-  }
+  };
 
   const primaryList: UnifiedListItem[] = campaignsData.slice(0, 10).map(campaign => ({
     id: campaign.id,
-    title: campaign.title,
-    subtitle: campaign.platform,
-    value: campaign.conversions || 0,
+    title: campaign.campaign_name,
+    subtitle: campaign.campaign_type,
+    value: campaign.total_interactions || 0,
     status: campaign.is_active ? 'active' : 'inactive',
     metadata: {
-      clicks: campaign.clicks || 0,
-      interactions: campaign.total_interactions || 0,
-      influencer: campaign.influencer_name || 'Unknown'
+      conversions: campaign.referral_conversions || 0,
+      onboardings: campaign.successful_onboardings || 0,
+      guildId: campaign.guild_id
     },
     created: new Date(campaign.created_at).toLocaleDateString()
-  }))
+  }));
 
   const secondaryList: UnifiedListItem[] = influencersData.slice(0, 10).map(influencer => ({
     id: influencer.id,
     title: influencer.full_name,
     subtitle: influencer.email,
-    value: influencer.conversions || 0,
-    status: (influencer.conversions || 0) > 0 ? 'active' : 'inactive',
+    value: conversionsData.filter(c => c.influencer_id === influencer.id).length,
+    status: (conversionsData.filter(c => c.influencer_id === influencer.id).length || 0) > 0 ? 'active' : 'inactive',
     metadata: {
       role: influencer.role,
       joinDate: influencer.created_at
     },
     created: new Date(influencer.created_at).toLocaleDateString()
-  }))
+  }));
 
   const recentActivity: UnifiedActivity[] = conversionsData.slice(0, 5).map(conversion => ({
     id: conversion.id,
     user: conversion.name,
-    action: `Completed conversion - $${parseFloat(String(conversion.conversion_value || '0')).toFixed(2)}`,
+    action: `Completed conversion - ${parseFloat(String(conversion.conversion_value || '0')).toFixed(2)}`,
     time: getTimeAgo(new Date(conversion.created_at)),
     type: 'success'
-  }))
+  }));
 
   return {
     stats,
@@ -269,8 +276,8 @@ const transformClientData = (campaignsData: any[], influencersData: any[], conve
       permissions: ['view_campaigns', 'view_influencers', 'view_analytics'],
       lastUpdated: new Date().toISOString()
     }
-  }
-}
+  };
+};
 
 // Utility function
 const getTimeAgo = (date: Date): string => {
@@ -394,7 +401,7 @@ export function useUnifiedData() {
         }
 
         case 'admin': {
-          const [clientsResponse, campaignsResponse, usersResponse] = await Promise.all([
+          const [clientsResponse, campaignsResponse, onboardingStartsResponse, onboardingCompletionsResponse] = await Promise.all([
             supabase
               .from('clients')
               .select('*')
@@ -411,56 +418,77 @@ export function useUnifiedData() {
               .limit(50),
 
             supabase
-              .from('user_profiles')
-              .select('id, role, created_at')
+              .from('campaign_onboarding_starts')
+              .select('id, discord_user_id')
+              .limit(1000),
+              
+            supabase
+              .from('campaign_onboarding_completions')
+              .select('id, discord_user_id')
               .limit(1000)
-          ])
+          ]);
 
-          if (clientsResponse.error) throw clientsResponse.error
-          if (campaignsResponse.error) throw campaignsResponse.error
-          if (usersResponse.error) throw usersResponse.error
+          if (clientsResponse.error) throw clientsResponse.error;
+          if (campaignsResponse.error) throw campaignsResponse.error;
+          if (onboardingStartsResponse.error) throw onboardingStartsResponse.error;
+          if (onboardingCompletionsResponse.error) throw onboardingCompletionsResponse.error;
 
           transformedData = transformAdminData(
             clientsResponse.data || [],
             campaignsResponse.data || [],
-            usersResponse.data || []
-          )
-          break
+            onboardingStartsResponse.data || [],
+            onboardingCompletionsResponse.data || []
+          );
+          break;
         }
 
         case 'client': {
-          // For clients, we'll fetch referral links as campaigns and related data
-          const [campaignsResponse, usersResponse, conversionsResponse] = await Promise.all([
+          const { data: clientData, error: clientError } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+
+          if (clientError) throw clientError;
+          if (!clientData) throw new Error("Client not found");
+
+          const [campaignsResponse, influencersResponse, conversionsResponse] = await Promise.all([
             supabase
-              .from('referral_links')
-              .select('*')
-              .order('conversions', { ascending: false })
+              .from('discord_guild_campaigns')
+              .select(`
+                *,
+                clients!inner(name)
+              `)
+              .eq('client_id', clientData.id)
+              .order('created_at', { ascending: false })
               .limit(50),
 
             supabase
               .from('user_profiles')
-              .select('*')
+              .select('id, full_name, email, created_at, role')
+              // .in('id', campaign.influencer_ids) // This would be ideal but needs a way to get all influencer IDs first
               .eq('role', 'influencer')
               .limit(50),
 
             supabase
               .from('referrals')
-              .select('*')
+              .select('id, influencer_id, status, created_at, conversion_value, name')
               .eq('status', 'completed')
+              // .in('campaign_id', campaigns.map(c => c.id)) // This would be ideal
               .order('created_at', { ascending: false })
               .limit(100)
-          ])
+          ]);
 
-          if (campaignsResponse.error) throw campaignsResponse.error
-          if (usersResponse.error) throw usersResponse.error
-          if (conversionsResponse.error) throw conversionsResponse.error
+          if (campaignsResponse.error) throw campaignsResponse.error;
+          if (influencersResponse.error) throw influencersResponse.error;
+          if (conversionsResponse.error) throw conversionsResponse.error;
 
           transformedData = transformClientData(
             campaignsResponse.data || [],
-            usersResponse.data || [],
+            influencersResponse.data || [],
             conversionsResponse.data || []
-          )
-          break
+          );
+          break;
         }
 
         default:
