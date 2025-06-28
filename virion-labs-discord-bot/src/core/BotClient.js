@@ -1,7 +1,8 @@
-const { Client, REST, Routes } = require('discord.js');
+const { Client, REST, Routes, Events } = require('discord.js');
 const { SlashCommandManager } = require('./SlashCommandManager');
 const { EventHandler } = require('./EventHandler');
 const { InteractionHandler } = require('./InteractionHandler');
+const { OnboardingHandler } = require('../handlers/OnboardingHandler');
 
 /**
  * Main Discord Bot Client that orchestrates all components
@@ -23,6 +24,10 @@ class BotClient {
     this.slashCommandManager = new SlashCommandManager(this.config, this.logger);
     this.eventHandler = new EventHandler(this.config, this.logger);
     this.interactionHandler = new InteractionHandler(this.config, this.logger);
+    
+    // Initialize the cache FIRST, then pass it to the handler.
+    this.invitesCache = new Map();
+    this.onboardingHandler = new OnboardingHandler(this.config, this.logger, this.invitesCache);
     
     this.isReady = false;
     this.eventListenersSetup = false; // Add flag to prevent duplicate setup
@@ -98,17 +103,15 @@ class BotClient {
       this.logger.info(`🤖 Bot logged in as ${this.client.user.tag}`);
       this.logger.info(`📊 Serving ${this.client.guilds.cache.size} servers`);
       this.isReady = true;
+      this.onReady();
     });
+
+    // Guild events
+    this.client.on('guildCreate', this.handleGuildCreate);
+    this.client.on('guildDelete', this.handleGuildDelete);
 
     // Interaction events
-    this.client.on('interactionCreate', async (interaction) => {
-      await this.interactionHandler.handleInteraction(interaction);
-    });
-
-    // Guild member events
-    this.client.on('guildMemberAdd', async (member) => {
-      await this.eventHandler.handleGuildMemberAdd(member);
-    });
+    this.client.on('interactionCreate', (interaction) => this.interactionHandler.handleInteraction(interaction));
 
     // Message events (for legacy support if needed)
     this.client.on('messageCreate', async (message) => {
@@ -131,6 +134,13 @@ class BotClient {
 
     this.client.on('reconnecting', () => {
       this.logger.info('🔄 Bot reconnecting to Discord...');
+    });
+
+    // Onboarding event - crucial for referral tracking
+    this.client.on(Events.GuildMemberAdd, (member) => {
+      if (this.onboardingHandler) {
+          this.onboardingHandler.handleGuildMemberAdd(member);
+      }
     });
 
     // Mark event listeners as setup
@@ -274,6 +284,59 @@ class BotClient {
   }
 
   /**
+   * Cache invites for a specific guild
+   * @param {import('discord.js').Guild} guild 
+   */
+  async cacheGuildInvites(guild) {
+    try {
+      this.logger.info(`🔄 Caching invites for guild: ${guild.name} (${guild.id})`);
+      const invites = await guild.invites.fetch();
+      
+      // Create a new Map with immutable snapshots of invite data
+      const inviteSnapshots = new Map();
+      for (const [code, invite] of invites) {
+        // Create an immutable snapshot of the invite data
+        inviteSnapshots.set(code, {
+          code: invite.code,
+          uses: invite.uses,
+          maxUses: invite.maxUses,
+          inviter: invite.inviter,
+          channel: invite.channel,
+          guild: invite.guild,
+          createdTimestamp: invite.createdTimestamp,
+          expiresTimestamp: invite.expiresTimestamp
+        });
+      }
+      
+      this.invitesCache.set(guild.id, inviteSnapshots);
+      this.logger.success(`✅ Cached ${inviteSnapshots.size} invites for ${guild.name}.`);
+    } catch (error) {
+      this.logger.error(`❌ Failed to cache invites for ${guild.name}:`, error.message);
+    }
+  }
+
+  /**
+   * Handle the bot joining a new guild.
+   * @param {import('discord.js').Guild} guild
+   */
+  handleGuildCreate = async (guild) => {
+    this.logger.info(`➕ Bot joined new guild: ${guild.name} (${guild.id})`);
+    await this.cacheGuildInvites(guild);
+  }
+
+  /**
+   * Handle the bot leaving a guild.
+   * @param {import('discord.js').Guild} guild
+   */
+  handleGuildDelete = (guild) => {
+    this.logger.info(`➖ Bot left guild: ${guild.name} (${guild.id})`);
+    if (this.invitesCache.has(guild.id)) {
+      this.invitesCache.delete(guild.id);
+      this.logger.info(`🗑️ Removed invites for ${guild.name} from cache.`);
+    }
+  }
+
+  /**
    * Get the Discord client instance
    */
   getClient() {
@@ -302,6 +365,14 @@ class BotClient {
     } catch (error) {
       this.logger.error('❌ Error during bot shutdown:', error);
     }
+  }
+
+  async onReady() {
+    // Clear any existing cache before fetching fresh data
+    this.invitesCache.clear();
+    const fetchPromises = this.client.guilds.cache.map(guild => this.cacheGuildInvites(guild));
+
+    await Promise.all(fetchPromises);
   }
 }
 

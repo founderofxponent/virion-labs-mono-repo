@@ -163,9 +163,10 @@ class AnalyticsService {
    * @param {string} guildId 
    * @param {string} userId 
    * @param {string} username 
+   * @param {string} [referralCode=null]
    * @returns {Promise<boolean>}
    */
-  async trackOnboardingCompletion(campaignId, guildId, userId, username) {
+  async trackOnboardingCompletion(campaignId, guildId, userId, username, referralCode = null) {
     try {
       this.logger.debug(`🎯 Tracking onboarding completion for campaign ${campaignId}`);
       
@@ -180,7 +181,8 @@ class AnalyticsService {
           discord_user_id: userId,
           discord_username: username,
           guild_id: guildId,
-          completed_at: new Date().toISOString()
+          completed_at: new Date().toISOString(),
+          referral_code: referralCode
         })
       });
 

@@ -1,4 +1,4 @@
-const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, Events } = require('discord.js');
 const { InteractionUtils } = require('../utils/InteractionUtils');
 const { CampaignService } = require('../services/CampaignService');
 const { AnalyticsService } = require('../services/AnalyticsService');
@@ -7,9 +7,10 @@ const { AnalyticsService } = require('../services/AnalyticsService');
  * Handles onboarding-related interactions and processes
  */
 class OnboardingHandler {
-  constructor(config, logger) {
+  constructor(config, logger, invitesCache) {
     this.config = config;
     this.logger = logger;
+    this.invitesCache = invitesCache;
     this.dashboardApiUrl = config.api.dashboardUrl;
     
     // Initialize services
@@ -35,10 +36,11 @@ class OnboardingHandler {
       const userInfo = InteractionUtils.getUserInfo(interaction);
       const guildInfo = InteractionUtils.getGuildInfo(interaction);
       
-      // Parse campaign ID from custom ID: start_onboarding_{campaignId}_{userId}
+      // Parse campaign ID from custom ID: start_onboarding_{campaignId}_{userId}_{referralCode}
       const customIdParts = interaction.customId.split('_');
       const campaignId = customIdParts[2];
       const userId = customIdParts[3];
+      const referralCode = this.extractReferralCodeFromCustomId(interaction.customId);
       
       // Verify user ID matches
       if (userId !== userInfo.id) {
@@ -79,7 +81,7 @@ class OnboardingHandler {
       }
 
       // Get or create onboarding session with timeout
-      const sessionPromise = this.getOrCreateSession(campaignId, userInfo.id, userInfo.tag);
+      const sessionPromise = this.getOrCreateSession(campaignId, userInfo.id, userInfo.tag, referralCode);
       const sessionTimeout = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Session fetch timeout')), 1000)
       );
@@ -704,7 +706,7 @@ class OnboardingHandler {
    * @param {string} username 
    * @returns {Promise<Object>}
    */
-  async getOrCreateSession(campaignId, userId, username) {
+  async getOrCreateSession(campaignId, userId, username, referralCode = null) {
     try {
       this.logger.debug(`📋 Getting/creating onboarding session for ${username} in campaign ${campaignId}`);
       
@@ -734,7 +736,8 @@ class OnboardingHandler {
         body: JSON.stringify({
           campaign_id: campaignId,
           discord_user_id: userId,
-          discord_username: username
+          discord_username: username,
+          referral_code: referralCode
         })
       });
 
@@ -745,6 +748,12 @@ class OnboardingHandler {
 
       const newSession = await createResponse.json();
       this.logger.debug(`✅ Created new session for ${username}`);
+      
+      // Manually add referral code to the session object if it exists
+      if (referralCode) {
+        newSession.referral_code = referralCode;
+      }
+
       return { ...newSession, success: true };
 
     } catch (error) {
@@ -803,6 +812,11 @@ class OnboardingHandler {
     const userInfo = InteractionUtils.getUserInfo(interaction);
     const guildInfo = InteractionUtils.getGuildInfo(interaction);
     
+    // Get the session to check for a referral code
+    const sessionKey = `${campaign.id}:${userInfo.id}`;
+    const modalSession = this.modalSessions.get(sessionKey);
+    const referralCode = modalSession?.referral_code || null;
+
     // Create completion message
     const displayName = campaign.client_name || campaign.campaign_name || 'our community';
     let completionMessage = `🎉 **Welcome to ${displayName}!**\n\nThank you for completing the onboarding process!`;
@@ -843,7 +857,8 @@ class OnboardingHandler {
       campaign.id, 
       guildInfo.id, 
       userInfo.id, 
-      userInfo.tag
+      userInfo.tag,
+      referralCode
     );
   }
 
@@ -956,6 +971,180 @@ class OnboardingHandler {
       if (session.expiresAt < now) {
         this.modalSessions.delete(key);
       }
+    }
+  }
+
+  extractReferralCodeFromCustomId(customId) {
+    const parts = customId.split('_');
+    if (parts[0] === 'start' && parts[1] === 'onboarding' && parts.length > 4) {
+      // Format: start_onboarding_{campaignId}_{userId}_{referralCode}
+      return parts[4];
+    }
+    return null;
+  }
+
+  /**
+   * Handle a new member joining the guild
+   * @param {import('discord.js').GuildMember} member 
+   */
+  async handleGuildMemberAdd(member) {
+    try {
+      this.logger.info(`👋 New member joined: ${member.user.tag} in guild ${member.guild.id}`);
+
+      // Check which invite was used
+      const usedInvite = await this.findUsedInvite(member.guild);
+      if (!usedInvite) {
+        this.logger.warn(`Could not determine which invite was used by ${member.user.tag}.`);
+        return;
+      }
+
+      this.logger.info(`✅ ${member.user.tag} joined using invite code: ${usedInvite.code}`);
+
+      // Check if this is one of our managed invites
+      const { data: managedInvite, error } = await this.campaignService.getManagedInvite(usedInvite.code);
+      
+      if (error) {
+        this.logger.error(`Error checking for managed invite ${usedInvite.code}:`, error);
+        return;
+      }
+
+      if (managedInvite) {
+        this.logger.info(`🎉 Found managed invite! Referral from link: ${managedInvite.referral_link_id}`);
+        
+        const campaign = await this.campaignService.getCampaignById(managedInvite.campaign_id);
+        if (!campaign) return;
+
+        // Automatically start the onboarding process for the referred user
+        const welcomeMessage = `Welcome, ${member.user.toString()}! You've been invited via a special link for the **${campaign.campaign_name}** campaign. Click the button below to get started!`;
+        
+        const startButton = new ButtonBuilder()
+          .setCustomId(`start_onboarding_${campaign.id}_${member.id}_${managedInvite.referral_code}`)
+          .setLabel('🚀 Start Onboarding')
+          .setStyle(ButtonStyle.Success);
+
+        const row = new ActionRowBuilder().addComponents(startButton);
+
+        // Send a welcome message in the system channel or a specific channel
+        let channel = member.guild.systemChannel;
+        
+        if (!channel) {
+          this.logger.warn(`⚠️ No system channel found for guild ${member.guild.name}. Looking for alternative channels...`);
+          
+          // Try to find a general channel as fallback
+          channel = member.guild.channels.cache.find(ch => 
+            ch.type === 0 && // Text channel
+            (ch.name.includes('general') || ch.name.includes('welcome') || ch.name.includes('chat')) &&
+            ch.permissionsFor(member.guild.members.me).has(['SendMessages', 'ViewChannel'])
+          );
+          
+          if (!channel) {
+            // Last resort: find any text channel the bot can send messages to
+            channel = member.guild.channels.cache.find(ch => 
+              ch.type === 0 && // Text channel
+              ch.permissionsFor(member.guild.members.me).has(['SendMessages', 'ViewChannel'])
+            );
+          }
+        }
+        
+        if (channel) {
+          this.logger.info(`📤 Sending welcome message to ${channel.name} for ${member.user.tag}`);
+          try {
+            await channel.send({ content: welcomeMessage, components: [row] });
+            this.logger.success(`✅ Welcome message sent successfully to ${channel.name}`);
+          } catch (sendError) {
+            this.logger.error(`❌ Failed to send welcome message to ${channel.name}:`, sendError);
+          }
+        } else {
+          this.logger.error(`❌ No suitable channel found to send welcome message for ${member.user.tag}`);
+        }
+      }
+    } catch (error) {
+      this.logger.error('❌ Error in handleGuildMemberAdd:', error);
+    }
+  }
+
+  /**
+   * Find which invite was used by a new member by comparing invite uses
+   * @param {import('discord.js').Guild} guild
+   * @returns {Promise<import('discord.js').Invite|null>}
+   */
+  async findUsedInvite(guild) {
+    this.logger.info(`[INVITE_DEBUG] Starting findUsedInvite for guild: ${guild.id}`);
+    try {
+      // Log the state of the cache BEFORE fetching new invites
+      const oldInvites = this.invitesCache.get(guild.id);
+      if (!oldInvites) {
+        this.logger.warn(`[INVITE_DEBUG] No old invites found in cache for guild ${guild.id}. Caching new invites and returning.`);
+        const newInvitesOnEmpty = await guild.invites.fetch();
+        this.invitesCache.set(guild.id, newInvitesOnEmpty);
+        return null;
+      }
+      this.logger.info(`[INVITE_DEBUG] Found ${oldInvites.size} old invites in cache.`);
+      oldInvites.forEach(inv => this.logger.info(`[INVITE_DEBUG] OLD: ${inv.code} (Uses: ${inv.uses})`));
+
+
+      const newInvites = await guild.invites.fetch();
+      this.logger.info(`[INVITE_DEBUG] Fetched ${newInvites.size} new invites from Discord.`);
+      newInvites.forEach(inv => this.logger.info(`[INVITE_DEBUG] NEW: ${inv.code} (Uses: ${inv.uses})`));
+
+      let usedInvite = null;
+
+      // Check for an invite where the use count has increased.
+      this.logger.info(`[INVITE_DEBUG] Checking for invites with increased usage...`);
+      let inviteWithIncreasedUses = null;
+      
+             for (const [inviteCode, newInvite] of newInvites) {
+         const oldInvite = oldInvites.get(inviteCode);
+         if (!oldInvite) {
+           this.logger.debug(`[INVITE_DEBUG] Invite ${inviteCode} not found in old cache (new invite)`);
+           continue;
+         }
+         
+         // Detailed debugging
+         this.logger.debug(`[INVITE_DEBUG] Detailed comparison for ${inviteCode}:`);
+         this.logger.debug(`[INVITE_DEBUG]   - Old invite object: code=${oldInvite.code}, uses=${oldInvite.uses}`);
+         this.logger.debug(`[INVITE_DEBUG]   - New invite object: code=${newInvite.code}, uses=${newInvite.uses}`);
+         this.logger.debug(`[INVITE_DEBUG]   - Comparison: ${newInvite.uses} > ${oldInvite.uses} = ${newInvite.uses > oldInvite.uses}`);
+         
+         this.logger.debug(`[INVITE_DEBUG] Comparing ${inviteCode}: OLD ${oldInvite.uses} vs NEW ${newInvite.uses}`);
+         
+         if (newInvite.uses > oldInvite.uses) {
+           this.logger.info(`[INVITE_DEBUG] Found increased use for ${inviteCode}: OLD ${oldInvite.uses} -> NEW ${newInvite.uses}`);
+           inviteWithIncreasedUses = newInvite;
+           break;
+         }
+       }
+
+      if (inviteWithIncreasedUses) {
+        this.logger.info(`[INVITE_DEBUG] Found used invite by increased usage: ${inviteWithIncreasedUses.code}`);
+        usedInvite = inviteWithIncreasedUses;
+      } else {
+        this.logger.info(`[INVITE_DEBUG] No invites with increased usage found. Checking for disappeared single-use invites...`);
+        // Check if a single-use invite disappeared.
+        const disappearedInvite = oldInvites.find(oldInv => 
+            !newInvites.has(oldInv.code) && oldInv.maxUses === 1
+        );
+        if (disappearedInvite) {
+            this.logger.info(`[INVITE_DEBUG] Found used invite by disappearance: ${disappearedInvite.code}`);
+            usedInvite = disappearedInvite;
+        }
+      }
+
+      if (usedInvite) {
+        this.logger.info(`[INVITE_DEBUG] Returning used invite: ${usedInvite.code}`);
+        
+        // Update the cache with the latest snapshot only after successful detection
+        this.logger.info(`[INVITE_DEBUG] Updating cache with new invites for guild ${guild.id}.`);
+        this.invitesCache.set(guild.id, newInvites);
+      } else {
+        this.logger.warn(`[INVITE_DEBUG] Could not determine used invite. NOT updating cache to preserve state for next attempt.`);
+      }
+
+      return usedInvite;
+
+    } catch (error) {
+      this.logger.error(`[INVITE_DEBUG] Error in findUsedInvite for guild ${guild.id}:`, error);
+      return null;
     }
   }
 }

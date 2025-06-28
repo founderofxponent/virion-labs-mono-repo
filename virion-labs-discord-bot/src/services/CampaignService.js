@@ -230,6 +230,35 @@ class CampaignService {
       return null;
     }
   }
+
+  /**
+   * Get managed invite details by Discord invite code
+   * @param {string} inviteCode
+   * @returns {Promise<Object|null>}
+   */
+  async getManagedInvite(inviteCode) {
+    try {
+      this.logger.debug(`🔍 Checking for managed invite with code: ${inviteCode}`);
+      
+      const response = await fetch(`${this.dashboardApiUrl}/discord/invite/${inviteCode}/context`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        return { data, error: null };
+      }
+      
+      if (response.status === 404) {
+        return { data: null, error: null }; // Not a managed invite, not an error
+      }
+
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+      
+    } catch (error) {
+      this.logger.error('❌ Error getting managed invite context:', error);
+      return { data: null, error: error.message };
+    }
+  }
 }
 
 module.exports = { CampaignService }; 

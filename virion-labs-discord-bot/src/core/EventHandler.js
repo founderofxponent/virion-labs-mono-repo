@@ -166,6 +166,27 @@ class EventHandler {
       }
     };
   }
+
+  /**
+   * Placeholder for handling guild creation.
+   * Logic is now in BotClient.
+   * @param {import('discord.js').Guild} guild
+   */
+  handleGuildCreate(guild) {
+    this.logger.info(`EventHandler: Guild Create - ${guild.name}. Logic handled by BotClient.`);
+    // The core logic is now managed directly in BotClient's constructor
+    // to have access to the client instance for caching.
+  }
+
+  /**
+   * Placeholder for handling guild deletion.
+   * Logic is now in BotClient.
+   * @param {import('discord.js').Guild} guild
+   */
+  handleGuildDelete(guild) {
+    this.logger.info(`EventHandler: Guild Delete - ${guild.name}. Logic handled by BotClient.`);
+    // The core logic is now managed directly in BotClient's constructor.
+  }
 }
 
 module.exports = { EventHandler }; 

@@ -13,7 +13,8 @@ export async function POST(request: NextRequest) {
       campaign_id,
       discord_user_id,
       discord_username,
-      guild_id
+      guild_id,
+      referral_code
     } = body
 
     if (!campaign_id || !discord_user_id || !discord_username) {
@@ -76,6 +77,41 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to update campaign statistics' },
         { status: 500 }
       )
+    }
+
+    if (referral_code) {
+      // Find the referral link to get the influencer_id and link_id
+      const { data: link, error: linkError } = await supabase
+        .from('referral_links')
+        .select('id, influencer_id')
+        .eq('referral_code', referral_code)
+        .single();
+
+      if (linkError) {
+        console.warn(`Could not find referral link for code: ${referral_code}`, linkError);
+        // Don't block completion if the link is not found, just log it
+      } else if (link) {
+        // Create the referral record to track the conversion
+        const { error: referralError } = await supabase
+          .from('referrals')
+          .insert({
+            influencer_id: link.influencer_id,
+            referral_link_id: link.id,
+            referred_user_id: null, // We may not have a user profile UUID yet
+            name: discord_username,
+            email: null, // Email is not available at this stage
+            discord_id: discord_user_id,
+            status: 'completed', // Mark as completed since they finished onboarding
+            source_platform: 'Discord',
+          });
+
+        if (referralError) {
+          console.error('Error creating referral record:', referralError);
+          // Don't block completion, just log the error
+        } else {
+          console.log(`Successfully created referral record for ${discord_username}`);
+        }
+      }
     }
 
     return NextResponse.json({

@@ -16,6 +16,7 @@ import {
   ChevronRight 
 } from "lucide-react"
 import { VideoPlayer } from "@/components/ui/video-player"
+import { toast } from "@/components/ui/use-toast"
 
 interface CampaignData {
   referral_link: {
@@ -103,43 +104,38 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
   }
 
   const handleJoinDiscord = async () => {
-    if (data?.referral_link.discord_invite_url) {
-      setJoining(true)
-      
-      try {
-        // First, record the conversion intent
-        await fetch(`/api/referral/${referralCode}/convert`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'discord_redirect',
-            discord_invite_url: data.referral_link.discord_invite_url,
-            campaign_id: data.campaign.id,
-            influencer_id: data.referral_link.influencer_id
-          })
+    setJoining(true);
+    try {
+      const response = await fetch('/api/discord/create-managed-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referral_code: referralCode }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.invite_url) {
+        window.location.href = result.invite_url;
+      } else {
+        // Fallback to old URL if API fails, and alert the user.
+        toast({
+          title: "Could not create a tracked invite.",
+          description: "Redirecting you to a general invite. You may need to enter the referral code manually.",
+          variant: "destructive",
         })
-        
-        // Store referral context in sessionStorage for later retrieval
-        sessionStorage.setItem('virion_referral_context', JSON.stringify({
-          referral_code: referralCode,
-          campaign_id: data.campaign.id,
-          campaign_name: data.campaign.campaign_name,
-          influencer_name: data.influencer.full_name,
-          discord_guild_id: data.campaign.guild_id,
-          timestamp: Date.now()
-        }))
-        
-        // Open Discord invite in the same tab for better tracking
-        window.location.href = data.referral_link.discord_invite_url
-        
-      } catch (error) {
-        console.error('Error tracking conversion:', error)
-        // Still proceed to Discord even if tracking fails
-        window.open(data.referral_link.discord_invite_url, '_blank')
-        setTimeout(() => setJoining(false), 3000)
+        if (data?.referral_link.discord_invite_url) {
+          window.location.href = data.referral_link.discord_invite_url;
+        } else {
+          setError("This campaign's Discord invite is not available.");
+          setJoining(false);
+        }
       }
+    } catch (error) {
+      console.error('Error creating managed invite:', error);
+      setError('Failed to create a secure invite link. Please try again.');
+      setJoining(false);
     }
-  }
+  };
 
   const getCampaignTypeLabel = (type: string) => {
     return type.replace('_', ' ').toUpperCase()
@@ -343,13 +339,6 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
                       You'll be taken to Discord where our bot will automatically welcome you with 
                       campaign-specific information and exclusive benefits.
                     </p>
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-blue-800 font-medium">
-                        📱 <strong>Manual Backup:</strong> If automatic detection doesn't work, 
-                        simply type <code className="bg-blue-100 px-1 rounded font-mono">{referralCode}</code> in 
-                        any Discord channel after joining!
-                      </p>
-                    </div>
                   </div>
                 </div>
               </CardContent>

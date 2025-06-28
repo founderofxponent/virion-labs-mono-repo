@@ -8,106 +8,56 @@ const supabase = createClient(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ code: string }> }
+  { params }: { params: { code: string } }
 ) {
   try {
-    const { code } = await params;
+    const inviteCode = params.code;
 
-    if (!code) {
-      return NextResponse.json(
-        { error: 'Discord invite code is required' },
-        { status: 400 }
-      );
+    if (!inviteCode) {
+      return NextResponse.json({ error: 'Invite code is required' }, { status: 400 });
     }
 
-    // Find the Discord invite link in our database
-    const { data: inviteLink, error: inviteError } = await supabase
+    const { data, error } = await supabase
       .from('discord_invite_links')
-      .select('*')
-      .eq('discord_invite_code', code)
-      .eq('is_active', true)
+      .select(`
+        referral_link_id,
+        campaign_id,
+        referral_links:referral_links!inner(
+            referral_code
+        )
+      `)
+      .eq('discord_invite_code', inviteCode)
       .single();
 
-    if (inviteError || !inviteLink) {
-      return NextResponse.json(
-        { error: 'Discord invite not found or not associated with a referral campaign' },
-        { status: 404 }
-      );
+    if (error || !data) {
+      if (error && error.code === 'PGRST116') { // Not found
+        return NextResponse.json({ error: 'Managed invite not found' }, { status: 404 });
+      }
+      console.error('Error fetching managed invite context:', error);
+      return NextResponse.json({ error: 'Failed to fetch invite context' }, { status: 500 });
     }
-
-    // Get referral link details
+    
+    // Get the referral code from the parent table
     const { data: referralLink, error: referralError } = await supabase
-      .from('referral_links')
-      .select('id, referral_code, title, influencer_id, campaign_id')
-      .eq('id', inviteLink.referral_link_id)
-      .single();
+        .from('referral_links')
+        .select('referral_code')
+        .eq('id', data.referral_link_id)
+        .single();
 
     if (referralError || !referralLink) {
-      return NextResponse.json(
-        { error: 'Associated referral link not found' },
-        { status: 404 }
-      );
+        return NextResponse.json({ error: 'Could not find parent referral link.' }, { status: 500 });
     }
 
-    // Get campaign details
-    const { data: campaign, error: campaignError } = await supabase
-      .from('discord_guild_campaigns')
-      .select('id, campaign_name, campaign_type, guild_id, welcome_message, brand_color, metadata, client_id')
-      .eq('id', referralLink.campaign_id)
-      .single();
-
-    if (campaignError || !campaign) {
-      return NextResponse.json(
-        { error: 'Associated campaign not found' },
-        { status: 404 }
-      );
-    }
-
-    // Get client details
-    const { data: client } = await supabase
-      .from('clients')
-      .select('name, industry')
-      .eq('id', campaign.client_id)
-      .single();
-
-    // Get influencer details
-    const { data: influencer } = await supabase
-      .from('user_profiles')
-      .select('full_name')
-      .eq('id', referralLink.influencer_id)
-      .single();
-
-    return NextResponse.json({
-      success: true,
-      invite_context: {
-        discord_invite_code: code,
-        discord_invite_url: inviteLink.discord_invite_url,
-        guild_id: inviteLink.guild_id,
+    const responseData = {
+        referral_link_id: data.referral_link_id,
+        campaign_id: data.campaign_id,
         referral_code: referralLink.referral_code,
-        campaign: {
-          id: campaign.id,
-          name: campaign.campaign_name,
-          type: campaign.campaign_type,
-          welcome_message: campaign.welcome_message,
-          brand_color: campaign.brand_color,
-          metadata: campaign.metadata
-        },
-        client: {
-          name: client?.name,
-          industry: client?.industry
-        },
-        influencer: {
-          id: referralLink.influencer_id,
-          name: influencer?.full_name
-        }
-      }
-    });
+    };
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
-    console.error('Error fetching Discord invite context:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Error in invite context route:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 
