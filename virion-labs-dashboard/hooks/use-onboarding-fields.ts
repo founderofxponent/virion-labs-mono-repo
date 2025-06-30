@@ -96,7 +96,12 @@ export function useOnboardingFields(campaignId?: string) {
   const [error, setError] = useState<string | null>(null)
 
   const fetchFields = async (campaign_id?: string) => {
-    if (!campaign_id) return
+    if (!campaign_id) {
+      setLoading(false)
+      setFields([])
+      setError(null)
+      return
+    }
 
     try {
       setLoading(true)
@@ -262,6 +267,11 @@ export function useOnboardingFields(campaignId?: string) {
   useEffect(() => {
     if (campaignId) {
       fetchFields(campaignId)
+    } else {
+      // No campaignId provided, set loading to false with empty fields
+      setLoading(false)
+      setFields([])
+      setError(null)
     }
   }, [campaignId])
 

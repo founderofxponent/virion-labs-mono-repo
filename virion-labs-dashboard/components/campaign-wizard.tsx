@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,6 +43,7 @@ import { useClients } from "@/hooks/use-clients"
 import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
 import { useOnboardingFields } from "@/hooks/use-onboarding-fields"
 import RoleIdsInput from "@/components/role-ids-input"
+import { ManageQuestionsDialog, type OnboardingQuestion } from './onboarding-questions-dialog';
 
 interface CampaignWizardProps {
   mode: "create" | "edit"
@@ -105,6 +106,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const [applyingTemplate, setApplyingTemplate] = useState(false)
   const [userExplicitlyChangedTemplate, setUserExplicitlyChangedTemplate] = useState(false)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+  const [isManageQuestionsOpen, setIsManageQuestionsOpen] = useState(false);
+  const [localOnboardingQuestions, setLocalOnboardingQuestions] = useState<OnboardingQuestion[]>([]);
   
   // Hooks
   const { clients, loading: clientsLoading } = useClients()
@@ -122,8 +125,65 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     fields: onboardingFields,
     loading: onboardingFieldsLoading,
     applyTemplate: applyOnboardingTemplate,
+    createField,
+    updateField,
+    deleteField,
     fetchFields
   } = useOnboardingFields(campaignId)
+
+  // Sync db fields to local state
+  useEffect(() => {
+    if (onboardingFields && onboardingFields.length > 0) {
+      setLocalOnboardingQuestions(onboardingFields.map(f => ({...f})));
+    }
+  }, [onboardingFields]);
+
+  // Unified onboarding fields - single source of truth
+  const effectiveOnboardingFields = React.useMemo(() => {
+    // Use local state if it has questions
+    if (localOnboardingQuestions.length > 0) {
+      return {
+        fields: localOnboardingQuestions,
+        source: 'local' as const,
+        isTemplate: false
+      }
+    }
+
+    // In edit mode or when database fields exist, use database fields
+    if (onboardingFields && onboardingFields.length > 0) {
+      return {
+        fields: onboardingFields,
+        source: 'database' as const,
+        isTemplate: false
+      }
+    }
+    
+    // In create mode with template selected, use template fields
+    if (mode === 'create' && templateWithLandingPage?.onboarding_fields && templateWithLandingPage.onboarding_fields.length > 0) {
+      return {
+        fields: templateWithLandingPage.onboarding_fields.map((field, index) => ({
+          id: `template-${field.id}`,
+          field_label: field.question,
+          field_type: field.type,
+          sort_order: index,
+          is_required: field.required,
+          is_enabled: true,
+          field_options: [],
+          validation_rules: {},
+          field_key: field.question.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '')
+        })),
+        source: 'template' as const,
+        isTemplate: true
+      }
+    }
+
+    // No fields available
+    return {
+      fields: [],
+      source: 'none' as const,
+      isTemplate: false
+    }
+  }, [onboardingFields, mode, templateWithLandingPage])
 
   const [formData, setFormData] = useState<CampaignFormData>({
     campaign_template: '',
@@ -237,6 +297,22 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           moderation_enabled: templateWithLandingPage.bot_config.features.moderation,
         }))
         
+        // Also update local onboarding questions from the template in create mode
+        if (mode === 'create' && templateWithLandingPage.onboarding_fields) {
+            const templateQuestions = templateWithLandingPage.onboarding_fields.map((field, index) => ({
+                id: `template-${field.id}`,
+                field_label: field.question,
+                field_type: field.type,
+                sort_order: index,
+                is_required: field.required,
+                is_enabled: true,
+                field_options: [],
+                validation_rules: {},
+                field_key: field.question.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '')
+            }));
+            setLocalOnboardingQuestions(templateQuestions);
+        }
+        
         // Reset the flag after applying template overrides
         if (userExplicitlyChangedTemplate) {
           setUserExplicitlyChangedTemplate(false)
@@ -280,6 +356,11 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     }
   }
 
+  // Handle saving of onboarding questions from dialog
+  const handleSaveOnboardingQuestions = (questions: OnboardingQuestion[]) => {
+    setLocalOnboardingQuestions(questions);
+  };
+
   // Apply template onboarding fields
   const applyTemplateOnboardingFields = async (templateId: string, targetCampaignId: string) => {
     if (!templateId || !targetCampaignId) return
@@ -289,7 +370,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       const result = await applyOnboardingTemplate(targetCampaignId, templateId)
       if (result.success) {
         toast.success('Template onboarding fields applied successfully')
-        // Refresh onboarding fields
+        // Refresh onboarding fields which will also update local state
         await fetchFields(targetCampaignId)
       } else {
         // Check if template has no onboarding fields
@@ -354,20 +435,55 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       const data = await response.json()
 
       if (response.ok) {
-        // Handle template onboarding fields for both create and edit modes
-        if (templateWithLandingPage?.onboarding_fields && templateWithLandingPage.onboarding_fields.length > 0) {
-          try {
-            const targetCampaignId = mode === 'create' ? data.campaign.id : campaignId
-            await fetch('/api/campaign-onboarding-fields/apply-template', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                campaign_id: targetCampaignId,
-                template_id: templateWithLandingPage.id
-              })
-            })
-          } catch (templateError) {
-            console.warn('Failed to apply template onboarding fields:', templateError)
+        const targetCampaignId = mode === 'create' ? data.campaign.id : campaignId!;
+
+        // Sync onboarding questions
+        let questionsToSync = localOnboardingQuestions;
+        
+        // If no local questions, but in create mode with a template, use template questions
+        if (questionsToSync.length === 0 && mode === 'create' && templateWithLandingPage?.onboarding_fields) {
+            questionsToSync = templateWithLandingPage.onboarding_fields.map((field, index) => ({
+                id: `template-${field.id}`,
+                field_label: field.question,
+                field_type: field.type,
+                sort_order: index,
+                is_required: field.required,
+                is_enabled: true,
+                field_options: [],
+                validation_rules: {},
+                field_key: field.question.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '')
+            }));
+        }
+
+        if (questionsToSync.length > 0) {
+          const existingIds = onboardingFields.map(f => f.id);
+          const currentIds = questionsToSync.map(q => q.id).filter(id => id);
+
+          // Delete removed questions
+          const toDelete = existingIds.filter(id => !currentIds.includes(id));
+          for (const id of toDelete) {
+            await deleteField(id);
+          }
+
+          // Create or update questions
+          for (const [index, question] of questionsToSync.entries()) {
+            const fieldData = {
+              ...question,
+              sort_order: index,
+              field_key: question.field_key || question.field_label.toLowerCase().replace(/\s/g, '_'),
+            };
+
+            if (question.id && !question.id.startsWith('template-')) { // Existing question
+              await updateField({ id: question.id, ...fieldData });
+            } else { // New question or template question
+              const { id, ...newFieldData } = fieldData;
+              await createField({ campaign_id: targetCampaignId, ...newFieldData });
+            }
+          }
+        } else if (mode === 'edit' && onboardingFields.length > 0) {
+          // If all questions were removed, delete them
+          for (const field of onboardingFields) {
+            await deleteField(field.id);
           }
         }
         
@@ -919,30 +1035,36 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
                 <div className="border rounded-lg p-4 space-y-3">
                   {onboardingFieldsLoading ? (
                     <div className="text-sm text-muted-foreground">Loading onboarding questions...</div>
-                  ) : onboardingFields && onboardingFields.length > 0 ? (
+                  ) : effectiveOnboardingFields.fields.length > 0 ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium">
-                          {onboardingFields.length} question{onboardingFields.length !== 1 ? 's' : ''} configured
+                          {effectiveOnboardingFields.fields.length} {effectiveOnboardingFields.isTemplate ? 'template ' : ''}question{effectiveOnboardingFields.fields.length !== 1 ? 's' : ''} {effectiveOnboardingFields.isTemplate ? 'available' : 'configured'}
                         </span>
-                        <Badge variant="outline">
+                        <Badge variant={effectiveOnboardingFields.isTemplate ? "secondary" : "outline"}>
                           <MessageSquare className="h-3 w-3 mr-1" />
-                          Active
+                          {effectiveOnboardingFields.isTemplate ? 'Template' : 'Active'}
                         </Badge>
                       </div>
                       
                       <div className="space-y-1">
-                        {onboardingFields.slice(0, 3).map((field, index) => (
+                        {effectiveOnboardingFields.fields.slice(0, 3).map((field, index) => (
                           <div key={field.id} className="text-sm text-muted-foreground">
                             {index + 1}. {field.field_label}
                           </div>
                         ))}
-                        {onboardingFields.length > 3 && (
+                        {effectiveOnboardingFields.fields.length > 3 && (
                           <div className="text-sm text-muted-foreground">
-                            ...and {onboardingFields.length - 3} more question{onboardingFields.length - 3 !== 1 ? 's' : ''}
+                            ...and {effectiveOnboardingFields.fields.length - 3} more question{effectiveOnboardingFields.fields.length - 3 !== 1 ? 's' : ''}
                           </div>
                         )}
                       </div>
+                      
+                      {effectiveOnboardingFields.isTemplate && (
+                        <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded">
+                          These questions will be automatically added when you create the campaign.
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-sm text-muted-foreground">
@@ -951,29 +1073,11 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
                   )}
                   
                   <div className="flex items-center gap-2 pt-2 border-t">
-                    {templateWithLandingPage?.onboarding_fields && templateWithLandingPage.onboarding_fields.length > 0 && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => campaignId && applyTemplateOnboardingFields(selectedTemplateId!, campaignId)}
-                        disabled={applyingTemplate || !campaignId}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        {applyingTemplate ? 'Applying...' : `Apply Template Questions (${templateWithLandingPage.onboarding_fields.length})`}
-                      </Button>
-                    )}
-                    
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        if (campaignId) {
-                          window.open(`/onboarding-fields?campaign=${campaignId}`, '_blank')
-                        }
-                      }}
-                      disabled={!campaignId}
+                      onClick={() => setIsManageQuestionsOpen(true)}
                     >
                       <ExternalLink className="h-3 w-3 mr-1" />
                       Manage Questions
@@ -1010,6 +1114,14 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           )}
         </CardContent>
       </Card>
+
+      <ManageQuestionsDialog
+        isOpen={isManageQuestionsOpen}
+        onClose={() => setIsManageQuestionsOpen(false)}
+        onSave={handleSaveOnboardingQuestions}
+        initialQuestions={effectiveOnboardingFields.fields}
+        campaignId={campaignId}
+      />
 
       {/* Navigation */}
       <div className="flex justify-between">
