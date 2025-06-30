@@ -440,70 +440,76 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           {mode === 'create' ? 'Create New Campaign' : 'Edit Campaign'}
         </h1>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <nav className="lg:col-span-1">
-          <ol className="space-y-4">
-            {TABS.map((tab) => (
-              <li key={tab.id}>
-                <button
-                  onClick={() => setCurrentStep(tab.id)}
-                  disabled={tab.id > currentStep && !validateStep(currentStep)}
-                  className="w-full text-left"
-                >
-                  <div className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${
-                      currentStep === tab.id
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-muted"
-                    }`}>
-                    <div className={`flex items-center justify-center h-8 w-8 rounded-full ${
+      <div className="flex gap-8 h-[calc(100vh-200px)]">
+        {/* Fixed Left Sidebar */}
+        <nav className="flex-shrink-0 w-80">
+          <div className="sticky top-0">
+            <ol className="space-y-4">
+              {TABS.map((tab) => (
+                <li key={tab.id}>
+                  <button
+                    onClick={() => setCurrentStep(tab.id)}
+                    disabled={tab.id > currentStep && !validateStep(currentStep)}
+                    className="w-full text-left"
+                  >
+                    <div className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${
                         currentStep === tab.id
-                          ? "bg-primary-foreground text-primary"
-                          : "bg-muted text-muted-foreground"
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-muted"
                       }`}>
-                      <tab.icon className="h-5 w-5" />
+                      <div className={`flex items-center justify-center h-8 w-8 rounded-full ${
+                          currentStep === tab.id
+                            ? "bg-primary-foreground text-primary"
+                            : "bg-muted text-muted-foreground"
+                        }`}>
+                        <tab.icon className="h-5 w-5" />
+                      </div>
+                      <span className="font-medium">{tab.title}</span>
                     </div>
-                    <span className="font-medium">{tab.title}</span>
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ol>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
         </nav>
 
-        <div className="lg:col-span-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>{TABS[currentStep - 1].title}</CardTitle>
-              <CardDescription>
-                Step {currentStep} of {TABS.length}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {renderContent()}
-            </CardContent>
-          </Card>
+        {/* Scrollable Right Content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="pb-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{TABS[currentStep - 1].title}</CardTitle>
+                <CardDescription>
+                  Step {currentStep} of {TABS.length}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderContent()}
+              </CardContent>
+            </Card>
 
-          <div className="mt-6 flex justify-between">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStep === 1 || isSaving}
-            >
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-            
-            {currentStep < TABS.length ? (
-              <Button onClick={handleNext} disabled={isSaving}>
-                Next
-                <ChevronRight className="ml-2 h-4 w-4" />
+            <div className="mt-6 flex justify-between">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={currentStep === 1 || isSaving}
+              >
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Back
               </Button>
-            ) : (
-              <Button onClick={handleSave} disabled={isSaving}>
-                <Save className="mr-2 h-4 w-4" />
-                {isSaving ? 'Saving...' : 'Save Campaign'}
-              </Button>
-            )}
+              
+              {currentStep < TABS.length ? (
+                <Button onClick={handleNext} disabled={isSaving}>
+                  Next
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button onClick={handleSave} disabled={isSaving}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSaving ? 'Saving...' : 'Save Campaign'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
