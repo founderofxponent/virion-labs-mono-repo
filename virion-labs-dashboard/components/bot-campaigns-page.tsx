@@ -180,12 +180,23 @@ export default function BotCampaignsPage() {
           description: "Campaign deleted successfully"
         })
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : `Failed to ${action} campaign`,
-        variant: "destructive"
-      })
+    } catch (error: any) {
+      // Handle referral links conflict (check for relatedRecords regardless of status)
+      if (error.relatedRecords && Array.isArray(error.relatedRecords)) {
+        const linkTitles = error.relatedRecords.map((link: any) => link.title).join(', ')
+        toast({
+          title: "Cannot Delete Campaign",
+          description: `This campaign has ${error.relatedRecords.length} active referral link${error.relatedRecords.length === 1 ? '' : 's'}: ${linkTitles}. Please deactivate or reassign these links first.`,
+          variant: "destructive",
+          duration: 8000,
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : `Failed to ${action} campaign`,
+          variant: "destructive"
+        })
+      }
     }
   }
 

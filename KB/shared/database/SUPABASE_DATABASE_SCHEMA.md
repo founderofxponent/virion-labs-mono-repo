@@ -949,10 +949,16 @@ Manages Discord invite links for campaigns.
 - `updated_at` (timestamptz, default: now()) - Last update timestamp
 
 **Constraints:**
-- Foreign keys to discord_guild_campaigns(id), referral_links(id) ON DELETE SET NULL
+- Foreign key to discord_guild_campaigns(id) ON DELETE CASCADE (since campaign_id is NOT NULL)
+- Foreign key to referral_links(id) ON DELETE SET NULL
 
 **Recent Fixes:**
 - Fixed foreign key constraint issue preventing referral link deletion by updating `referral_link_id` foreign key to use `ON DELETE SET NULL` instead of preventing deletion
+- **CRITICAL FIX**: Fixed `discord_invite_links_campaign_id_fkey` constraint to use `ON DELETE CASCADE` instead of `ON DELETE RESTRICT` to prevent campaign deletion failures (Error 23503, 23502)
+- Updated bot campaign deletion API to properly handle cascade deletion of all related records in `discord_invite_links`, `campaign_influencer_access`, and `discord_referral_interactions` tables
+- **Schema Fix**: Changed from `ON DELETE SET NULL` to `ON DELETE CASCADE` for campaign_id since the column has NOT NULL constraint
+- **UI Enhancement**: Added simple toast notification feedback for campaign deletion conflicts, showing active referral links that need to be handled
+- **UI Fix**: Fixed toast system by correcting Toaster component import from Sonner to shadcn/ui toaster in layout
 
 ### discord_activities
 Discord activity and embedded app configurations.

@@ -326,6 +326,14 @@ export function useBotCampaigns(filters?: BotCampaignsFilters) {
 
     if (!response.ok) {
       const errorData = await response.json()
+      
+      // Handle any error with relatedRecords (usually 409 conflicts)
+      if (errorData.relatedRecords && Array.isArray(errorData.relatedRecords)) {
+        const error = new Error(errorData.error || 'Failed to delete campaign')
+        ;(error as any).relatedRecords = errorData.relatedRecords
+        ;(error as any).status = response.status
+        throw error
+      }
       throw new Error(errorData.error || 'Failed to delete campaign')
     }
 
@@ -341,6 +349,14 @@ export function useBotCampaigns(filters?: BotCampaignsFilters) {
 
     if (!response.ok) {
       const errorData = await response.json()
+      
+      // Handle any error with relatedRecords (usually 409 conflicts)
+      if (errorData.relatedRecords && Array.isArray(errorData.relatedRecords)) {
+        const error = new Error(errorData.error || 'Failed to permanently delete campaign')
+        ;(error as any).relatedRecords = errorData.relatedRecords
+        ;(error as any).status = response.status
+        throw error
+      }
       throw new Error(errorData.error || 'Failed to permanently delete campaign')
     }
 

@@ -238,37 +238,67 @@ export async function DELETE(
       // Hard delete: Handle foreign key constraints first
       console.log('Performing hard delete with cascade handling...')
       
-      // Check for related records
-      const { data: relatedRecords, error: checkError } = await supabase
+      // Step 1: Check for related records in referral_links
+      const { data: relatedReferralLinks, error: checkReferralError } = await supabase
         .from('referral_links')
         .select('id, title')
         .eq('campaign_id', id)
         .eq('is_active', true)
 
-      if (checkError) {
-        console.error('Error checking related records:', checkError)
-        return NextResponse.json({ error: checkError.message }, { status: 500 })
+      if (checkReferralError) {
+        console.error('Error checking referral links:', checkReferralError)
+        return NextResponse.json({ error: checkReferralError.message }, { status: 500 })
       }
 
-      if (relatedRecords && relatedRecords.length > 0) {
+      if (relatedReferralLinks && relatedReferralLinks.length > 0) {
         return NextResponse.json({ 
-          error: `Cannot delete campaign. ${relatedRecords.length} active referral links are still connected to this campaign.`,
-          relatedRecords: relatedRecords.map(r => ({ id: r.id, title: r.title }))
+          error: `Cannot delete campaign. ${relatedReferralLinks.length} active referral links are still connected to this campaign.`,
+          relatedRecords: relatedReferralLinks.map(r => ({ id: r.id, title: r.title }))
         }, { status: 409 })
       }
 
-      // Set referral_links.campaign_id to null for any remaining links
-      const { error: unlinkError } = await supabase
+      // Step 2: Handle other related tables that don't cascade automatically
+      // Note: discord_invite_links will be automatically deleted via CASCADE constraint
+      // campaign_landing_pages, campaign_onboarding_fields, campaign_onboarding_responses will also cascade
+
+      // Step 3: Set referral_links.campaign_id to null for any remaining links
+      console.log('Unlinking referral links...')
+      const { error: unlinkReferralError } = await supabase
         .from('referral_links')
         .update({ campaign_id: null })
         .eq('campaign_id', id)
 
-      if (unlinkError) {
-        console.error('Error unlinking referral links:', unlinkError)
-        return NextResponse.json({ error: 'Failed to unlink related records' }, { status: 500 })
+      if (unlinkReferralError) {
+        console.error('Error unlinking referral links:', unlinkReferralError)
+        return NextResponse.json({ error: 'Failed to unlink referral links' }, { status: 500 })
       }
 
-      // Now perform hard delete
+      // Step 4: Handle campaign_influencer_access - these should be deleted
+      console.log('Deleting campaign influencer access records...')
+      const { error: deleteAccessError } = await supabase
+        .from('campaign_influencer_access')
+        .delete()
+        .eq('campaign_id', id)
+
+      if (deleteAccessError) {
+        console.error('Error deleting campaign access records:', deleteAccessError)
+        return NextResponse.json({ error: 'Failed to delete campaign access records' }, { status: 500 })
+      }
+
+      // Step 5: Handle discord_referral_interactions - these should be deleted
+      console.log('Deleting discord referral interactions...')
+      const { error: deleteInteractionsError } = await supabase
+        .from('discord_referral_interactions')
+        .delete()
+        .eq('guild_campaign_id', id)
+
+      if (deleteInteractionsError) {
+        console.error('Error deleting discord interactions:', deleteInteractionsError)
+        return NextResponse.json({ error: 'Failed to delete discord interactions' }, { status: 500 })
+      }
+
+      // Step 6: Now perform hard delete on the campaign
+      console.log('Performing final campaign deletion...')
       const { data, error } = await supabase
         .from('discord_guild_campaigns')
         .delete()
