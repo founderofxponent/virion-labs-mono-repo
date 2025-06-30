@@ -94,6 +94,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [isManageQuestionsOpen, setIsManageQuestionsOpen] = useState(false);
   const [localOnboardingQuestions, setLocalOnboardingQuestions] = useState<OnboardingQuestion[]>([]);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
   
   const { clients, loading: clientsLoading } = useClients()
   const { campaigns, loading: campaignsLoading } = useBotCampaigns()
@@ -253,7 +254,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     }
   }, [inheritedLandingPageTemplate, mode])
 
-  const handleFieldChange = (field: keyof CampaignFormData, value: any) => {
+  const handleFieldChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -348,12 +349,20 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           for (const id of toDelete) { await deleteField(id); }
 
           for (const [index, question] of questionsToSync.entries()) {
-            const fieldData = { ...question, sort_order: index, field_key: question.field_key || question.field_label.toLowerCase().replace(/\s/g, '_'), };
+            const fieldData = { 
+              ...question, 
+              sort_order: index, 
+              field_key: question.field_key || question.field_label.toLowerCase().replace(/\s/g, '_'),
+            };
             if (question.id && !question.id.startsWith('template-')) {
               await updateField({ id: question.id, ...fieldData });
             } else {
               const { id, ...newFieldData } = fieldData;
-              await createField({ campaign_id: targetCampaignId, ...newFieldData });
+              await createField({ 
+                campaign_id: targetCampaignId, 
+                ...newFieldData,
+                is_enabled: true // Explicitly set new questions to be enabled
+              });
             }
           }
         } else if (mode === 'edit' && onboardingFields.length > 0) {
@@ -369,6 +378,25 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
               ...formData.landing_page_data
             })
           });
+        }
+        
+        // After all saves are successful, invalidate bot cache
+        if (formData.guild_id && targetCampaignId) {
+          try {
+            await fetch('/api/discord-bot/cache', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'invalidate',
+                guild_id: formData.guild_id,
+                campaign_id: targetCampaignId
+              })
+            });
+            toast.info("Bot cache refresh requested. Changes should appear in Discord shortly.");
+          } catch (cacheError) {
+            console.error("Failed to invalidate bot cache:", cacheError);
+            toast.warning("Campaign saved, but failed to refresh bot cache. Changes may be delayed in Discord.");
+          }
         }
         
         toast.success(`Campaign ${mode === 'create' ? 'created' : 'updated'} successfully!`)
@@ -485,7 +513,6 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         onClose={() => setIsManageQuestionsOpen(false)}
         onSave={handleSaveOnboardingQuestions}
         initialQuestions={effectiveOnboardingFields.fields}
-        isTemplate={effectiveOnboardingFields.isTemplate}
       />
     </>
   )

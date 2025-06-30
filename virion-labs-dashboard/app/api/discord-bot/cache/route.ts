@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { action, guild_id } = body
+    const { action, guild_id, campaign_id } = body
 
     // Validate the request
     if (!action || !['invalidate', 'clear_all'].includes(action)) {
@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           type: 'cache_invalidation',
           action,
-          guild_id
+          guild_id,
+          campaign_id
         })
       })
 

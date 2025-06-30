@@ -64,6 +64,11 @@ class WebhookServer {
       await this.handlePublishCampaigns(req, res);
     });
 
+    // Webhook endpoint for cache invalidation from the dashboard
+    this.app.post('/api/cache-invalidation', async (req, res) => {
+      await this.handleCacheInvalidation(req, res);
+    });
+
     // Future: Add more webhook endpoints here
     // this.app.post('/api/onboarding-webhook', async (req, res) => {
     //   await this.handleOnboardingWebhook(req, res);
@@ -144,6 +149,44 @@ class WebhookServer {
         success: false,
         error: 'Internal server error'
       });
+    }
+  }
+
+  /**
+   * Handle cache invalidation webhook
+   * @param {express.Request} req 
+   * @param {express.Response} res 
+   */
+  async handleCacheInvalidation(req, res) {
+    try {
+      const { action, campaignId, guildId } = req.body;
+      this.logger.info(`📡 Received cache invalidation request: action=${action}, campaignId=${campaignId}, guildId=${guildId}`);
+
+      if (!action || !['invalidate', 'clear_all'].includes(action)) {
+        return res.status(400).json({ success: false, error: 'Invalid action' });
+      }
+
+      if (action === 'invalidate' && !campaignId) {
+        return res.status(400).json({ success: false, error: 'campaignId is required for invalidate action' });
+      }
+      
+      const interactionHandler = this.botClient.getInteractionHandler();
+      if (!interactionHandler || !interactionHandler.onboardingHandler) {
+          this.logger.error('❌ Onboarding handler not available on interaction handler.');
+          return res.status(500).json({ success: false, error: 'Internal server error: Onboarding handler not found' });
+      }
+      
+      // Clear the in-memory session cache in OnboardingHandler
+      interactionHandler.onboardingHandler.clearSessionsByCampaignId(campaignId);
+      
+      // Note: CampaignService does not have a cache, so no action needed there.
+      // The dashboard-side cache is what matters for it.
+
+      res.json({ success: true, message: `Cache invalidated for campaign ${campaignId}` });
+
+    } catch (error) {
+      this.logger.error('❌ Error in cache invalidation webhook:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 

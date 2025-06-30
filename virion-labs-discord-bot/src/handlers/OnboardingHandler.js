@@ -1147,6 +1147,30 @@ class OnboardingHandler {
       return null;
     }
   }
+
+  /**
+   * Clears all in-memory onboarding sessions for a specific campaign.
+   * This is crucial for ensuring configuration changes are reflected immediately.
+   * @param {string} campaignId - The ID of the campaign to clear sessions for.
+   */
+  clearSessionsByCampaignId(campaignId) {
+    if (!campaignId) {
+      this.logger.warn('⚠️ clearSessionsByCampaignId called without a campaignId.');
+      return;
+    }
+
+    let clearedCount = 0;
+    for (const sessionKey of this.modalSessions.keys()) {
+      if (sessionKey.startsWith(`${campaignId}:`)) {
+        this.modalSessions.delete(sessionKey);
+        clearedCount++;
+      }
+    }
+
+    if (clearedCount > 0) {
+      this.logger.info(`🧹 Cleared ${clearedCount} in-memory sessions for campaign ${campaignId}.`);
+    }
+  }
 }
 
 module.exports = { OnboardingHandler }; 

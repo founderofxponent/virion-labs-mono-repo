@@ -344,6 +344,13 @@ class BotClient {
   }
 
   /**
+   * Get the InteractionHandler instance
+   */
+  getInteractionHandler() {
+    return this.interactionHandler;
+  }
+
+  /**
    * Shutdown the bot gracefully
    */
   async shutdown() {

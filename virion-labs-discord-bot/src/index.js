@@ -46,7 +46,7 @@ async function main() {
     // Initialize bot client
     const botClient = new BotClient(config, logger);
     
-    // Initialize webhook server
+    // Initialize webhook server, passing the bot client
     const webhookServer = new WebhookServer(config, logger, botClient);
     
     // Start the bot
