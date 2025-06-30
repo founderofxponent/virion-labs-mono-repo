@@ -22,8 +22,8 @@ import { type CampaignTemplate } from "@/lib/campaign-templates"
 import { useCampaignTemplateComplete } from "@/hooks/use-campaign-template-complete"
 import { useClients } from "@/hooks/use-clients"
 import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
-import { useOnboardingFields } from "@/hooks/use-onboarding-fields"
-import { ManageQuestionsDialog, type OnboardingQuestion } from '../onboarding-questions-dialog';
+import { useOnboardingFields, type OnboardingField } from "@/hooks/use-onboarding-fields"
+import { OnboardingQuestionsForm } from "./OnboardingQuestionsForm"
 
 // Import Tab Components
 import { VitalsTab } from "./VitalsTab"
@@ -38,36 +38,30 @@ interface CampaignWizardProps {
   campaignId?: string
 }
 
+export type OnboardingQuestion = Omit<OnboardingField, 'id' | 'campaign_id' | 'created_at' | 'updated_at' | 'field_key'> & {
+  id?: string;
+  field_key?: string;
+};
+
 interface CampaignFormData {
-  // Tab 1: Vitals
   campaign_template: string
   client_id: string
   campaign_name: string
   description: string
-
-  // Tab 2: Placement & Schedule
   guild_id: string
   channel_id: string
   campaign_start_date: string
   campaign_end_date: string
-
-  // Tab 3: Bot Identity
   bot_name: string
   bot_personality: string
   bot_response_style: string
   brand_color: string
   brand_logo_url: string
-  
-  // Tab 4: Onboarding Flow
   welcome_message: string
-
-  // Tab 5: Access & Moderation
   auto_role_assignment: boolean
   target_role_ids: string[]
   moderation_enabled: boolean
   rate_limit_per_user: number
-
-  // Tab 6: Advanced
   referral_tracking_enabled: boolean
   webhook_url: string
   landing_page_data?: any
@@ -92,7 +86,6 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [userExplicitlyChangedTemplate, setUserExplicitlyChangedTemplate] = useState(false)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
-  const [isManageQuestionsOpen, setIsManageQuestionsOpen] = useState(false);
   const [localOnboardingQuestions, setLocalOnboardingQuestions] = useState<OnboardingQuestion[]>([]);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   
@@ -268,6 +261,10 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     }
   }
 
+  const handleQuestionsChange = (questions: OnboardingQuestion[]) => {
+    setLocalOnboardingQuestions(questions);
+  };
+
   const handleSaveOnboardingQuestions = (questions: OnboardingQuestion[]) => {
     setLocalOnboardingQuestions(questions);
   };
@@ -342,6 +339,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
             questionsToSync = effectiveOnboardingFields.fields.map(f => ({...f}));
         }
 
+        console.log('[DEBUG] Questions to sync:', JSON.stringify(questionsToSync, null, 2));
+
         if (questionsToSync.length > 0) {
           const existingIds = onboardingFields.map(f => f.id);
           const currentIds = questionsToSync.map(q => q.id).filter(id => id && !id.startsWith('template-'));
@@ -353,15 +352,16 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
               ...question, 
               sort_order: index, 
               field_key: question.field_key || question.field_label.toLowerCase().replace(/\s/g, '_'),
+              is_enabled: question.is_enabled === true,
             };
+
             if (question.id && !question.id.startsWith('template-')) {
               await updateField({ id: question.id, ...fieldData });
             } else {
               const { id, ...newFieldData } = fieldData;
               await createField({ 
                 campaign_id: targetCampaignId, 
-                ...newFieldData,
-                is_enabled: true // Explicitly set new questions to be enabled
+                ...newFieldData
               });
             }
           }
@@ -418,7 +418,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} handleTemplateSelect={handleTemplateSelect} clients={clients} templates={templates} clientsLoading={clientsLoading} templatesLoading={templatesLoading} />;
       case 2: return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 3: return <BotIdentityTab formData={formData} handleFieldChange={handleFieldChange} />;
-      case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} openManageQuestions={() => setIsManageQuestionsOpen(true)} questionCount={effectiveOnboardingFields.fields.length} />;
+      case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={localOnboardingQuestions} onQuestionsChange={handleQuestionsChange} />;
       case 5: return <AccessAndModerationTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 6: return <AdvancedTab formData={formData} handleFieldChange={handleFieldChange} inheritedLandingPageTemplate={inheritedLandingPageTemplate} mode={mode} campaignId={campaignId} />;
       default: return null;
@@ -507,13 +507,6 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           </div>
         </div>
       </div>
-      
-      <ManageQuestionsDialog
-        isOpen={isManageQuestionsOpen}
-        onClose={() => setIsManageQuestionsOpen(false)}
-        onSave={handleSaveOnboardingQuestions}
-        initialQuestions={effectiveOnboardingFields.fields}
-      />
     </>
   )
 }

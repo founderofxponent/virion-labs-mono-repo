@@ -1,23 +1,23 @@
 import React from "react"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Button } from "@/components/ui/button"
-import { MessageSquare, Plus } from "lucide-react"
+import { OnboardingQuestionsForm } from "./OnboardingQuestionsForm"
+import { type OnboardingQuestion } from "./CampaignWizard"
 
 interface OnboardingFlowTabProps {
   formData: {
     welcome_message: string
   }
   handleFieldChange: (field: string, value: any) => void
-  openManageQuestions: () => void
-  questionCount: number
+  questions: OnboardingQuestion[]
+  onQuestionsChange: (questions: OnboardingQuestion[]) => void
 }
 
 export function OnboardingFlowTab({
   formData,
   handleFieldChange,
-  openManageQuestions,
-  questionCount,
+  questions,
+  onQuestionsChange,
 }: OnboardingFlowTabProps) {
   return (
     <div className="space-y-6">
@@ -35,12 +35,12 @@ export function OnboardingFlowTab({
         <h3 className="text-lg font-medium mb-2">Onboarding Questions</h3>
         <p className="text-sm text-muted-foreground mb-4">
           Define the questions the bot will ask users to collect information
-          during onboarding.
+          during onboarding. Changes are saved when you save the campaign.
         </p>
-        <Button onClick={openManageQuestions}>
-          <MessageSquare className="mr-2 h-4 w-4" />
-          Manage Questions ({questionCount})
-        </Button>
+        <OnboardingQuestionsForm
+          questions={questions}
+          onQuestionsChange={onQuestionsChange}
+        />
       </div>
     </div>
   )

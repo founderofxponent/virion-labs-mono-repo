@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log('[DEBUG] Received request to create onboarding field. Body:', JSON.stringify(body, null, 2));
+
     const {
       campaign_id,
       field_key,
@@ -62,32 +64,39 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const insertPayload = {
+      campaign_id,
+      field_key,
+      field_label,
+      field_type,
+      field_placeholder,
+      field_description,
+      field_options: field_options || [],
+      is_required: is_required !== false,
+      is_enabled: is_enabled === true,
+      sort_order: sort_order || 0,
+      validation_rules: validation_rules || {},
+      discord_integration: body.discord_integration || {
+        collect_in_dm: true,
+        show_in_embed: true
+      }
+    };
+
+    console.log('[DEBUG] Preparing to insert into Supabase with payload:', JSON.stringify(insertPayload, null, 2));
+
     // Insert new field
     const { data: field, error } = await supabase
       .from('campaign_onboarding_fields')
-      .insert({
-        campaign_id,
-        field_key,
-        field_label,
-        field_type,
-        field_placeholder,
-        field_description,
-        field_options: field_options || [],
-        is_required: is_required !== false,
-        is_enabled: is_enabled !== false,
-        sort_order: sort_order || 0,
-        validation_rules: validation_rules || {},
-        discord_integration: body.discord_integration || {
-          collect_in_dm: true,
-          show_in_embed: true
-        }
-      })
+      .insert(insertPayload)
       .select()
       .single()
 
     if (error) {
+      console.error('[DEBUG] Supabase insert error:', JSON.stringify(error, null, 2));
       throw error
     }
+
+    console.log('[DEBUG] Supabase insert successful. Result:', JSON.stringify(field, null, 2));
 
     return NextResponse.json({ field })
   } catch (error) {

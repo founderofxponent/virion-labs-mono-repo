@@ -104,8 +104,8 @@ class OnboardingHandler {
 
       // Check if no fields to fill
       if (!session.fields || session.fields.length === 0) {
-        await this.completeOnboarding(interaction, campaign);
-        return;
+        await interaction.deferReply({ ephemeral: true });
+        return await this.completeOnboarding(interaction, campaign);
       }
 
       // Show onboarding modal (this must be the immediate response, no deferring)
@@ -130,8 +130,9 @@ class OnboardingHandler {
    */
   async handleModalSubmission(interaction) {
     try {
-      await InteractionUtils.safeDefer(interaction, { ephemeral: true });
-      
+      // Defer the reply immediately to avoid the 3-second timeout
+      await interaction.deferReply({ ephemeral: true });
+
       const userInfo = InteractionUtils.getUserInfo(interaction);
       const guildInfo = InteractionUtils.getGuildInfo(interaction);
       
@@ -193,15 +194,16 @@ class OnboardingHandler {
       if (saveResult.is_completed) {
         await this.completeOnboarding(interaction, campaign);
       } else {
-        // More fields to fill (shouldn't happen with current modal system, but just in case)
+        // This case should ideally not be hit if the frontend limits questions to 5.
+        // It provides feedback that the submission was received.
         await interaction.editReply({
-          content: '✅ Responses saved! Please continue with the remaining fields.'
+          content: '✅ Your responses have been saved. Please use the /join command again to see the next questions.'
         });
       }
       
     } catch (error) {
       this.logger.error('❌ Error handling modal submission:', error);
-      await InteractionUtils.sendError(interaction, 'An error occurred while processing your submission. Please try again.');
+      await InteractionUtils.sendError(interaction, 'An error occurred while processing your submission.');
     }
   }
 
@@ -350,12 +352,12 @@ class OnboardingHandler {
 
       const retryRow = new ActionRowBuilder().addComponents(retryButton);
 
-      await interaction.editReply({
-        content: `❌ **Please correct the following errors and click "Retry Form" below:**\n\n${errorMessage}\n\n👇 **Click the button below to retry:**`,
-        components: [retryRow]
+      await InteractionUtils.safeReply(interaction, {
+        content: `❌ **Please correct the following errors:**\n\n${errorMessage}`,
+        components: [retryRow],
+        ephemeral: true,
       });
 
-      // Store the modal data for the retry button
       this.storeModalSession(campaign.id, userInfo.id, {
         ...modalSession,
         previousResponses,
@@ -365,9 +367,6 @@ class OnboardingHandler {
 
     } catch (error) {
       this.logger.error('❌ Error showing validation errors and re-prompting:', error);
-      await interaction.editReply({
-        content: '❌ There were validation errors in your submission. Please try again.'
-      });
     }
   }
 
@@ -387,15 +386,10 @@ class OnboardingHandler {
       if (errors.length > 0) {
         await this.showValidationErrorsAndReprompt(interaction, campaign, modalSession, errors, previousResponses);
       } else {
-        await interaction.editReply({
-          content: `❌ ${errorMessage}\n\nPlease try again.`
-        });
+        await InteractionUtils.safeReply(interaction, { content: `❌ ${errorMessage}`, ephemeral: true });
       }
     } catch (error) {
       this.logger.error('❌ Error handling backend validation errors:', error);
-      await interaction.editReply({
-        content: '❌ Failed to save your responses. Please try again.'
-      });
     }
   }
 
@@ -663,8 +657,8 @@ class OnboardingHandler {
       const incompleteFields = this.getIncompleteFields(session).slice(0, 5);
       
       if (incompleteFields.length === 0) {
-        await this.completeOnboarding(interaction, campaign);
-        return;
+        await interaction.deferReply({ ephemeral: true });
+        return await this.completeOnboarding(interaction, campaign);
       }
 
       // Add fields to modal with enhanced validation hints
@@ -807,8 +801,9 @@ class OnboardingHandler {
    * Complete onboarding process
    * @param {import('discord.js').Interaction} interaction 
    * @param {Object} campaign 
+   * @param {boolean} fromModalSubmission - Indicates if we need to reply to an interaction
    */
-  async completeOnboarding(interaction, campaign) {
+  async completeOnboarding(interaction, campaign, fromModalSubmission = false) {
     const userInfo = InteractionUtils.getUserInfo(interaction);
     const guildInfo = InteractionUtils.getGuildInfo(interaction);
     
@@ -839,17 +834,16 @@ class OnboardingHandler {
         inline: false
       }]);
     }
-
+    
+    // This is the one and only initial reply to the interaction.
     await InteractionUtils.safeReply(interaction, { embeds: [embed], ephemeral: true });
 
-    // Handle role assignment
+    // Handle role assignment (now correctly uses followUp)
     this.logger.debug(`🔍 Checking role assignment: auto_role_assignment=${campaign.auto_role_assignment}, target_role_ids=${JSON.stringify(campaign.target_role_ids)}`);
     
     if (campaign.auto_role_assignment && campaign.target_role_ids && campaign.target_role_ids.length > 0) {
       this.logger.info(`🎖️ Starting role assignment for ${userInfo.tag}: ${campaign.target_role_ids.length} roles`);
       await this.assignRoles(interaction, campaign.target_role_ids);
-    } else {
-      this.logger.warn(`⚠️ Role assignment skipped: auto_role_assignment=${campaign.auto_role_assignment}, target_role_ids=${JSON.stringify(campaign.target_role_ids)}`);
     }
 
     // Track completion
@@ -866,6 +860,7 @@ class OnboardingHandler {
    * Show completion message for already completed onboarding
    * @param {import('discord.js').Interaction} interaction 
    * @param {Object} campaign 
+   * @param {boolean} isFinalReply - Whether this is the reply to the last modal submission
    */
   async showCompletionMessage(interaction, campaign) {
     const embed = new EmbedBuilder()
@@ -917,7 +912,7 @@ class OnboardingHandler {
         }
       }
       
-      // Send feedback about role assignment
+      // Send feedback about role assignment using a follow-up message
       if (successfulRoles.length > 0) {
         const roleEmbed = new EmbedBuilder()
           .setTitle('🎖️ Roles Assigned!')
