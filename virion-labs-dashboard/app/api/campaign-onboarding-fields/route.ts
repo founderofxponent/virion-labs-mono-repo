@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
         field_placeholder,
         field_description,
         field_options: field_options || [],
-        is_required: true, // All fields are now required
+        is_required: is_required !== false,
         is_enabled: is_enabled !== false,
         sort_order: sort_order || 0,
         validation_rules: validation_rules || {},
