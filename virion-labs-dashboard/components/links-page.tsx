@@ -42,12 +42,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { useReferralLinks } from "@/hooks/use-referral-links"
 import { type ReferralLinkWithAnalytics } from "@/lib/supabase"
-import { toast } from "sonner"
+import { useToast } from "@/hooks/use-toast"
 import { ReferralLinkSuccessModal } from "./referral-link-success-modal"
 import { QRCodeSVG } from "qrcode.react"
 
 export function LinksPage() {
   const { profile } = useAuth()
+  const { toast } = useToast()
   const {
     links,
     loading,
@@ -123,18 +124,32 @@ export function LinksPage() {
   const handleCopyLink = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url)
-      toast.success("Link copied to clipboard!")
+      toast({
+        title: "Success",
+        description: "Link copied to clipboard!"
+      })
     } catch (error) {
-      toast.error("Failed to copy link")
+      toast({
+        title: "Error",
+        description: "Failed to copy link",
+        variant: "destructive"
+      })
     }
   }
 
   const handleDeleteLink = async (link: ReferralLinkWithAnalytics) => {
     const result = await deleteLink(link.id)
     if (result.error) {
-      toast.error(result.error)
+      toast({
+        title: "Error",
+        description: result.error,
+        variant: "destructive"
+      })
     } else {
-      toast.success("Link deleted successfully!")
+      toast({
+        title: "Success",
+        description: "Link deleted successfully!"
+      })
       setDeletingLink(null)
     }
   }
@@ -142,9 +157,16 @@ export function LinksPage() {
   const handleToggleStatus = async (link: ReferralLinkWithAnalytics) => {
     const result = await toggleLinkStatus(link.id)
     if (result.error) {
-      toast.error(result.error)
+      toast({
+        title: "Error",
+        description: result.error,
+        variant: "destructive"
+      })
     } else {
-      toast.success(`Link ${link.is_active ? 'deactivated' : 'activated'} successfully!`)
+      toast({
+        title: "Success",
+        description: `Link ${link.is_active ? 'deactivated' : 'activated'} successfully!`
+      })
     }
   }
 
@@ -152,6 +174,10 @@ export function LinksPage() {
     setCreatedLink(link)
     setShowLinkForm(false)
     setShowSuccessModal(true)
+    toast({
+      title: "Success",
+      description: "Referral link created successfully!"
+    })
     fetchLinks()
   }
 
@@ -221,7 +247,21 @@ export function LinksPage() {
           <p className="text-muted-foreground">Manage and track all your referral links</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchLinks} title="Refresh data">
+          <Button variant="outline" onClick={async () => {
+            try {
+              await fetchLinks()
+              toast({
+                title: "Success",
+                description: "Links refreshed successfully!"
+              })
+            } catch (error) {
+              toast({
+                title: "Error",
+                description: "Failed to refresh links. Please try again.",
+                variant: "destructive"
+              })
+            }
+          }} title="Refresh data">
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
@@ -516,28 +556,57 @@ interface LinkCardProps {
 }
 
 function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }: LinkCardProps) {
+  const { toast } = useToast()
+  
   const handleDownloadQR = () => {
-    const svg = document.getElementById(`qr-code-svg-${link.id}`)
-    if (!svg) return
-
-    const svgData = new XMLSerializer().serializeToString(svg)
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    const img = new Image()
-    
-    img.onload = () => {
-      canvas.width = img.width
-      canvas.height = img.height
-      if (ctx) {
-        ctx.drawImage(img, 0, 0)
-        const downloadLink = document.createElement('a')
-        downloadLink.download = `qr-code-${link.referral_code || 'referral'}.png`
-        downloadLink.href = canvas.toDataURL()
-        downloadLink.click()
+    try {
+      const svg = document.getElementById(`qr-code-svg-${link.id}`)
+      if (!svg) {
+        toast({
+          title: "Error",
+          description: "QR code not found. Please try again.",
+          variant: "destructive"
+        })
+        return
       }
+
+      const svgData = new XMLSerializer().serializeToString(svg)
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const img = new Image()
+      
+      img.onload = () => {
+        canvas.width = img.width
+        canvas.height = img.height
+        if (ctx) {
+          ctx.drawImage(img, 0, 0)
+          const downloadLink = document.createElement('a')
+          downloadLink.download = `qr-code-${link.referral_code || 'referral'}.png`
+          downloadLink.href = canvas.toDataURL()
+          downloadLink.click()
+          toast({
+            title: "Success",
+            description: "QR code downloaded successfully!"
+          })
+        }
+      }
+      
+      img.onerror = () => {
+        toast({
+          title: "Error",
+          description: "Failed to generate QR code download. Please try again.",
+          variant: "destructive"
+        })
+      }
+      
+      img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download QR code. Please try again.",
+        variant: "destructive"
+      })
     }
-    
-    img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
   }
 
   return (
