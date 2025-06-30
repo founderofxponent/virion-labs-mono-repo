@@ -8,7 +8,9 @@ This directory contains all testing resources and documentation for the Virion L
 tests/
 ├── README.md                    # This file - testing overview
 ├── manual/                      # Manual testing guides and checklists
-│   ├── MANUAL_TESTING_GUIDE.md  # Complete step-by-step testing guide
+│   ├── MANUAL_TESTING_GUIDE.md  # Basic feature testing guide (45-60 mins)
+│   ├── CAMPAIGN_REFERRAL_FLOW_TESTING.md  # Complete campaign/referral flow (2-3 hours)
+│   ├── discord-bot-testing-guide.md  # Discord bot isolated testing
 │   ├── feature-checklists/      # Individual feature testing checklists
 │   └── test-scenarios/          # Specific test scenarios and edge cases
 ├── automated/                   # Automated test scripts (future)
@@ -41,7 +43,13 @@ tests/
 
 ## 🚀 Getting Started
 
-1. **Read the manual testing guide**: `manual/MANUAL_TESTING_GUIDE.md`
+### For Complete Campaign & Referral Testing (Recommended)
+1. **Use the comprehensive guide**: `manual/CAMPAIGN_REFERRAL_FLOW_TESTING.md` (2-3 hours)
+2. **This tests the core business value** from admin setup → influencer links → user conversion
+3. **Covers end-to-end attribution** and analytics tracking
+
+### For Basic Feature Testing
+1. **Use the manual testing guide**: `manual/MANUAL_TESTING_GUIDE.md` (45-60 mins)
 2. **Get test credentials**: `credentials/TEST_CREDENTIALS.md`
 3. **Follow the step-by-step process** documented in the guide
 4. **Document results** in the `reports/` directory
@@ -49,6 +57,11 @@ tests/
 
 ## 📊 Test Coverage Areas
 
+### Core Business Flow Testing
+- ✅ **Campaign & Referral Flow** (End-to-end user journey) - `CAMPAIGN_REFERRAL_FLOW_TESTING.md`
+- ✅ **Discord Bot Integration** (Campaign-specific behavior) - `discord-bot-testing-guide.md`
+
+### Individual Feature Testing
 - ✅ **Authentication System** (Login/Logout/Registration)
 - ✅ **Influencer Dashboard** (Links, Analytics, Settings)
 - ✅ **Admin Dashboard** (Clients, Campaigns, Analytics)

@@ -1,5 +1,7 @@
 # 👥 Influencer Features Testing Checklist
 
+> **🎯 IMPORTANT**: For complete **Campaign & Referral Flow Testing**, use the dedicated guide: `../CAMPAIGN_REFERRAL_FLOW_TESTING.md` (2-3 hours). This checklist covers individual feature testing only.
+
 ## 🔐 Authentication & Access
 - [ ] Login with influencer credentials works
 - [ ] Correct dashboard loads (influencer-specific navigation)

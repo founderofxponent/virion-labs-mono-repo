@@ -13,6 +13,8 @@
 
 ## 📋 Test Phases
 
+> **🎯 IMPORTANT**: For complete **Campaign & Referral Flow Testing**, use the dedicated guide: `CAMPAIGN_REFERRAL_FLOW_TESTING.md` (2-3 hours). This guide covers basic feature testing only.
+
 ### 🔐 Phase 1: Authentication (10 mins)
 
 #### 1.1 Influencer Login

@@ -2,9 +2,11 @@
 
 **Version:** 1.0 | **Test Duration:** 90-120 minutes | **Priority:** CRITICAL
 
+> **🎯 IMPORTANT**: For complete **End-to-End Campaign & Referral Flow Testing**, use the dedicated guide: `CAMPAIGN_REFERRAL_FLOW_TESTING.md` (2-3 hours). This guide covers Discord bot functionality in isolation.
+
 ## 🎯 Overview
 
-This guide covers testing the most important Discord bot functionality - campaigns, referrals, onboarding modals, and analytics tracking. These are the core features that users interact with and must work flawlessly.
+This guide covers testing Discord bot functionality in isolation - campaigns, referrals, onboarding modals, and analytics tracking. For complete user journey testing including dashboard integration, use the comprehensive campaign flow guide.
 
 ---
 

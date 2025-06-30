@@ -198,6 +198,65 @@ const supabase = createClient(
 **Impact:**
 - ✅ **Fixed Referral Landing Pages**: No more 404 errors when loading referral pages
 - ✅ **Improved System Reliability**: Consistent database access patterns across the application
+
+## Testing & Quality Assurance
+
+### Campaign & Referral Flow Testing Requirements
+**Date:** January 2025
+
+**Critical Testing Coverage:** The database schema supports comprehensive end-to-end testing of the core business flow:
+
+**Primary Test Flow:** `tests/manual/CAMPAIGN_REFERRAL_FLOW_TESTING.md`
+- ✅ **Admin Campaign Creation** → `discord_guild_campaigns` table
+- ✅ **Influencer Link Creation** → `referral_links` table  
+- ✅ **User Click Tracking** → `referral_analytics` table
+- ✅ **Discord Bot Integration** → `campaign_onboarding_*` tables
+- ✅ **Conversion Attribution** → `referrals` table
+
+**Key Database Validation Queries:**
+```sql
+-- Test complete attribution chain
+SELECT 
+    dgc.campaign_name,
+    rl.title as referral_title,
+    r.discord_username,
+    ra.event_type,
+    ra.created_at
+FROM discord_guild_campaigns dgc
+JOIN referral_links rl ON dgc.id = rl.campaign_id
+JOIN referrals r ON rl.id = r.referral_link_id
+JOIN referral_analytics ra ON rl.id = ra.link_id
+WHERE dgc.campaign_name LIKE '%Test Campaign%'
+ORDER BY ra.created_at;
+
+-- Verify campaign performance metrics
+SELECT 
+    campaign_name,
+    total_interactions,
+    successful_onboardings,
+    referral_conversions,
+    CASE 
+        WHEN total_interactions > 0 
+        THEN ROUND((successful_onboardings::decimal / total_interactions) * 100, 2)
+        ELSE 0 
+    END as completion_rate
+FROM discord_guild_campaigns 
+WHERE campaign_name LIKE '%Test%';
+```
+
+**Data Integrity Requirements:**
+- ✅ **Foreign Key Constraints**: All referrals properly linked to campaigns and links
+- ✅ **Cascading Updates**: Campaign status changes automatically update referral links  
+- ✅ **Analytics Accuracy**: Click counts match between frontend displays and database
+- ✅ **No Data Loss**: Complete funnel tracking from click to conversion
+- ✅ **Audit Trail**: All user actions logged with timestamps and metadata
+
+**Testing Database Updates:**
+When running comprehensive tests, ensure the database schema documentation is updated to reflect:
+1. **New Campaign Types**: Any additional campaign templates or configurations
+2. **Analytics Fields**: New tracking fields or event types added
+3. **Performance Optimizations**: Index changes or query improvements
+4. **Edge Case Handling**: New constraint validations or error handling
 - ✅ **Better Debugging**: Easier to identify and fix database-related issues
 - ✅ **Maintainability**: Single pattern for Supabase client configuration
 
