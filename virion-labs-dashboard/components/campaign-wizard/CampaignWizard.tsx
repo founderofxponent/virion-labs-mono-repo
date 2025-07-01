@@ -32,6 +32,7 @@ import { BotIdentityTab } from "./BotIdentityTab"
 import { OnboardingFlowTab } from "./OnboardingFlowTab"
 import { AccessAndModerationTab } from "./AccessAndModerationTab"
 import { AdvancedTab } from "./AdvancedTab"
+import { CampaignWizardSkeleton } from "./CampaignWizardSkeleton"
 
 interface CampaignWizardProps {
   mode: "create" | "edit"
@@ -426,7 +427,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   }
   
   if (!initialLoadComplete || (mode === 'edit' && campaignsLoading)) {
-    return <div>Loading campaign configuration...</div>;
+    return <CampaignWizardSkeleton />;
   }
 
   return (
