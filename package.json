@@ -1,0 +1,40 @@
+{
+  "name": "virion-labs-monorepo",
+  "version": "1.0.0",
+  "description": "Virion Labs Monorepo - Dashboard and Discord Bot",
+  "private": true,
+  "workspaces": [
+    "virion-labs-dashboard",
+    "virion-labs-discord-bot"
+  ],
+  "scripts": {
+    "env": "node scripts/switch-all-environments.js",
+    "env:dev": "node scripts/switch-all-environments.js dev",
+    "env:prod": "node scripts/switch-all-environments.js prod",
+    "env:status": "node scripts/switch-all-environments.js status",
+    "dashboard:dev": "cd virion-labs-dashboard && npm run dev",
+    "dashboard:build": "cd virion-labs-dashboard && npm run build",
+    "bot:start": "cd virion-labs-discord-bot && npm start",
+    "bot:dev": "cd virion-labs-discord-bot && npm run dev",
+    "install:all": "npm install && cd virion-labs-dashboard && npm install && cd ../virion-labs-discord-bot && npm install",
+    "start:all": "concurrently \"npm run dashboard:dev\" \"npm run bot:start\"",
+    "test:all": "cd virion-labs-dashboard && npm test && cd ../virion-labs-discord-bot && npm test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "virion-labs",
+    "dashboard",
+    "discord-bot",
+    "monorepo",
+    "supabase",
+    "campaign-management"
+  ],
+  "author": "Virion Labs",
+  "license": "MIT"
+}
