@@ -440,11 +440,11 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           {mode === 'create' ? 'Create New Campaign' : 'Edit Campaign'}
         </h1>
       </div>
-      <div className="flex gap-8 h-[calc(100vh-200px)]">
+      <div className="flex gap-6 h-[calc(100vh-200px)]">
         {/* Fixed Left Sidebar */}
-        <nav className="flex-shrink-0 w-80">
+        <nav className="flex-shrink-0 w-64">
           <div className="sticky top-0">
-            <ol className="space-y-4">
+            <ol className="space-y-2">
               {TABS.map((tab) => (
                 <li key={tab.id}>
                   <button
@@ -452,19 +452,19 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
                     disabled={tab.id > currentStep && !validateStep(currentStep)}
                     className="w-full text-left"
                   >
-                    <div className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${
+                    <div className={`flex items-center gap-3 p-2.5 rounded-lg transition-colors ${
                         currentStep === tab.id
                           ? "bg-primary text-primary-foreground"
                           : "hover:bg-muted"
                       }`}>
-                      <div className={`flex items-center justify-center h-8 w-8 rounded-full ${
+                      <div className={`flex items-center justify-center h-7 w-7 rounded-full ${
                           currentStep === tab.id
                             ? "bg-primary-foreground text-primary"
                             : "bg-muted text-muted-foreground"
                         }`}>
-                        <tab.icon className="h-5 w-5" />
+                        <tab.icon className="h-4 w-4" />
                       </div>
-                      <span className="font-medium">{tab.title}</span>
+                      <span className="font-medium text-sm">{tab.title}</span>
                     </div>
                   </button>
                 </li>

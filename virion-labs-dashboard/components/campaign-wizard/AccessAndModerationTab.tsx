@@ -38,7 +38,7 @@ export function AccessAndModerationTab({
         />
       </div>
       {formData.auto_role_assignment && (
-        <div className="space-y-2 pl-4 border-l-2 ml-6">
+        <div className="space-y-2 ml-4">
           <Label htmlFor="target_role_ids">Target Role IDs</Label>
           <RoleIdsInput
             value={formData.target_role_ids}
@@ -64,7 +64,7 @@ export function AccessAndModerationTab({
         />
       </div>
       {formData.moderation_enabled && (
-        <div className="space-y-2 pl-4 border-l-2 ml-6">
+        <div className="space-y-2 ml-4">
           <Label htmlFor="rate_limit_per_user">
             Interactions per User (per hour)
           </Label>

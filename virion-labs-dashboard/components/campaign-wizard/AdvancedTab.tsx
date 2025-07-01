@@ -26,9 +26,6 @@ export function AdvancedTab({
   mode,
   campaignId,
 }: AdvancedTabProps) {
-  const [isLandingPageConfigVisible, setIsLandingPageConfigVisible] =
-    React.useState(false)
-
   const handleLandingPageDataChange = (data: any) => {
     handleFieldChange("landing_page_data", {
       ...formData.landing_page_data,
@@ -57,30 +54,22 @@ export function AdvancedTab({
       </div>
 
       {formData.referral_tracking_enabled && (
-        <div className="pl-4 border-l-2 ml-6">
-          <Button
-            variant="outline"
-            onClick={() => setIsLandingPageConfigVisible(prev => !prev)}
-          >
-            <ExternalLink className="mr-2 h-4 w-4" />
-            {isLandingPageConfigVisible
-              ? "Hide Landing Page Config"
-              : "Show Landing Page Config"}
-          </Button>
-
-          {isLandingPageConfigVisible && (
-            <div className="mt-4">
-              <LandingPageConfig
-                initialData={
-                  formData.landing_page_data ||
-                  inheritedLandingPageTemplate?.fields
-                }
-                onChange={handleLandingPageDataChange}
-                campaignId={campaignId || null}
-                campaignType={formData.campaign_template}
-              />
-            </div>
-          )}
+        <div className="space-y-4">
+          <div className="pl-4">
+            <h3 className="text-lg font-semibold mb-2">Landing Page Configuration</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Configure how your referral landing pages will look and what content they'll display.
+            </p>
+            <LandingPageConfig
+              initialData={
+                formData.landing_page_data ||
+                inheritedLandingPageTemplate?.fields
+              }
+              onChange={handleLandingPageDataChange}
+              campaignId={campaignId || null}
+              campaignType={formData.campaign_template}
+            />
+          </div>
         </div>
       )}
 

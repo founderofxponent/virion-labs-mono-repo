@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -21,7 +22,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { CalendarIcon, Plus, X, Eye, Wand2, Image } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CalendarIcon, Plus, X, Eye, Wand2, Image, FileText, Video } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { getTemplateById, type LandingPageTemplate } from "@/lib/landing-page-templates"
@@ -62,6 +64,9 @@ export function LandingPageConfig({
 }: LandingPageConfigProps) {
   const { landingPage, loading, createOrUpdateLandingPage, refresh } = useCampaignLandingPage(campaignId)
   const { templates: availableTemplates, loading: templatesLoading } = useLandingPageTemplates(campaignType)
+  
+  // State for active tab
+  const [activeTab, setActiveTab] = useState("template")
   
   const [data, setData] = useState<LandingPageConfigData>({
     landing_page_template_id: '',
@@ -154,6 +159,14 @@ export function LandingPageConfig({
   }
 
   const handleTemplateSelect = async (templateId: string) => {
+    if (templateId === "blank") {
+      // Clear template data but keep existing form data
+      updateData({
+        landing_page_template_id: ""
+      })
+      return
+    }
+
     try {
       const template = await getTemplateById(templateId)
       if (template) {
@@ -203,11 +216,66 @@ export function LandingPageConfig({
     updateData({ product_images: images })
   }
 
-
-
-  // Only show loading if we're waiting for existing campaign data or if templates are loading in a critical way
+  // Only show loading if we're waiting for existing campaign data in edit mode
   if (loading && campaignId) {
-    return <div>Loading landing page configuration...</div>
+    return (
+      <div className="space-y-6">
+        {/* Tabs Skeleton */}
+        <div className="w-full">
+          <div className="grid w-full grid-cols-4 gap-1 rounded-md bg-muted p-1">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-10 rounded-sm" />
+            ))}
+          </div>
+        </div>
+
+        {/* Card Skeleton */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-5 w-5" />
+              <Skeleton className="h-6 w-48" />
+            </div>
+            <Skeleton className="h-4 w-80" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Form Fields Skeleton */}
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+            
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-28" />
+              <div className="flex gap-2">
+                <Skeleton className="h-10 flex-1" />
+                <Skeleton className="h-10 w-10" />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-36" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Preview Button Skeleton */}
+        <div className="flex justify-start">
+          <Skeleton className="h-10 w-40" />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -245,316 +313,322 @@ export function LandingPageConfig({
         </Card>
       )}
 
-      {/* Template Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5" />
-            Landing Page Template
-          </CardTitle>
-          <CardDescription>
-            Choose a pre-designed template or start with a blank canvas
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {templatesLoading ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              Loading templates...
-            </div>
-          ) : availableTemplates.length === 0 && !data.landing_page_template_id ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <div className="text-center">
-                <p>No templates available for this campaign type.</p>
-                <p className="text-sm mt-1">You can still configure your landing page manually below.</p>
-              </div>
-            </div>
-          ) : availableTemplates.length === 0 && data.landing_page_template_id && !campaignId ? (
-            <div className="flex items-center justify-center py-8 text-blue-600">
-              <div className="text-center">
-                <p className="font-medium">Using inherited template from campaign</p>
-                <p className="text-sm mt-1">Your landing page is configured using the template from your selected campaign template.</p>
-              </div>
-            </div>
-          ) : availableTemplates.length === 0 ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <div className="text-center">
-                <p>No additional templates available.</p>
-                <p className="text-sm mt-1">Continue configuring your landing page manually below.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {availableTemplates.map((template) => (
-              <div
-                key={template.id}
-                className={cn(
-                  "border rounded-lg p-4 cursor-pointer transition-colors",
-                  data.landing_page_template_id === template.id
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300"
-                )}
-                onClick={() => handleTemplateSelect(template.id)}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-medium">{template.name}</h4>
-                    <p className="text-sm text-gray-600 mt-1">{template.description}</p>
-                    <div className="flex gap-1 mt-2">
-                      {template.campaign_types.map((type) => (
-                        <Badge key={type} variant="secondary" className="text-xs">
-                          {type.replace('_', ' ')}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Tabbed Interface */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="template" className="flex items-center gap-2">
+            <Wand2 className="h-4 w-4" />
+            Template
+          </TabsTrigger>
+          <TabsTrigger value="content" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Content
+          </TabsTrigger>
+          <TabsTrigger value="media" className="flex items-center gap-2">
+            <Image className="h-4 w-4" />
+            Media
+          </TabsTrigger>
+          <TabsTrigger value="details" className="flex items-center gap-2">
+            <Video className="h-4 w-4" />
+            Details
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Offer Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Offer Details</CardTitle>
-          <CardDescription>
-            Main information about your product or offer
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="offer-title">Offer Title *</Label>
-            <Input
-              id="offer-title"
-              placeholder="e.g., Get 30 Days Free Access"
-              value={data.offer_title || ""}
-              onChange={(e) => updateData({ offer_title: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="offer-description">Offer Description *</Label>
-            <Textarea
-              id="offer-description"
-              placeholder="Detailed description of what you're offering..."
-              rows={3}
-              value={data.offer_description || ""}
-              onChange={(e) => updateData({ offer_description: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="offer-value">Offer Value</Label>
-            <Input
-              id="offer-value"
-              placeholder="e.g., Worth $99/month - Yours FREE"
-              value={data.offer_value || ""}
-              onChange={(e) => updateData({ offer_value: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Offer Highlights</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Add a key selling point..."
-                value={data.offer_highlights?.find((_, i) => i === 0) || ""}
-                onChange={(e) => updateHighlight(0, e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && addHighlight()}
-              />
-              <Button type="button" onClick={addHighlight} size="sm">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {data.offer_highlights && data.offer_highlights.length > 0 && (
+        {/* Template Selection Tab */}
+        <TabsContent value="template" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wand2 className="h-5 w-5" />
+                Landing Page Template
+              </CardTitle>
+              <CardDescription>
+                Choose a pre-designed template or start with a blank canvas
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="space-y-2">
-                {data.offer_highlights.map((highlight, index) => (
-                  <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
-                    <span className="flex-1 text-sm">{highlight}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeHighlight(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Expiry Date (Optional)</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !data.offer_expiry_date && "text-muted-foreground"
-                  )}
+                <Label htmlFor="template-select">Select Template</Label>
+                <Select
+                  value={data.landing_page_template_id || "blank"}
+                  onValueChange={handleTemplateSelect}
+                  disabled={templatesLoading}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {data.offer_expiry_date ? (
-                    format(data.offer_expiry_date, "PPP")
-                  ) : (
-                    <span>No expiry date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={data.offer_expiry_date || undefined}
-                  onSelect={(date) => updateData({ offer_expiry_date: date })}
-                  disabled={(date) => date < new Date()}
-                  initialFocus
+                  <SelectTrigger id="template-select">
+                    <SelectValue placeholder={
+                      templatesLoading 
+                        ? "Loading templates..." 
+                        : availableTemplates.length === 0
+                        ? "No templates available"
+                        : "Choose a template or start blank"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="blank">Start from blank</SelectItem>
+                    {availableTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.name} - {template.description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {data.landing_page_template_id && availableTemplates.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Selected: {availableTemplates.find(t => t.id === data.landing_page_template_id)?.description}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Content Tab */}
+        <TabsContent value="content" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Offer Details</CardTitle>
+              <CardDescription>
+                Main information about your product or offer
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="offer-title">Offer Title *</Label>
+                <Input
+                  id="offer-title"
+                  placeholder="e.g., Get 30 Days Free Access"
+                  value={data.offer_title || ""}
+                  onChange={(e) => updateData({ offer_title: e.target.value })}
                 />
-                <div className="p-3 border-t">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => updateData({ offer_expiry_date: null })}
-                  >
-                    Clear Expiry
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="offer-description">Offer Description *</Label>
+                <Textarea
+                  id="offer-description"
+                  placeholder="Detailed description of what you're offering..."
+                  rows={3}
+                  value={data.offer_description || ""}
+                  onChange={(e) => updateData({ offer_description: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="offer-value">Offer Value</Label>
+                <Input
+                  id="offer-value"
+                  placeholder="e.g., Worth $99/month - Yours FREE"
+                  value={data.offer_value || ""}
+                  onChange={(e) => updateData({ offer_value: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Offer Highlights</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add a key selling point..."
+                    value={data.offer_highlights?.find((_, i) => i === 0) || ""}
+                    onChange={(e) => updateHighlight(0, e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && addHighlight()}
+                  />
+                  <Button type="button" onClick={addHighlight} size="sm">
+                    <Plus className="h-4 w-4" />
                   </Button>
                 </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Visual Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Image className="h-5 w-5" />
-            Visual Content
-          </CardTitle>
-          <CardDescription>
-            Add images and videos to make your landing page more engaging
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="hero-image">Hero Image URL</Label>
-            <Input
-              id="hero-image"
-              type="url"
-              placeholder="https://example.com/hero-image.jpg"
-              value={data.hero_image_url || ""}
-              onChange={(e) => updateData({ hero_image_url: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="video-url">Demo Video URL</Label>
-            <Input
-              id="video-url"
-              type="url"
-              placeholder="https://youtube.com/watch?v=... or Vimeo, Wistia, Loom URL"
-              value={data.video_url || ""}
-              onChange={(e) => updateData({ video_url: e.target.value })}
-            />
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p><strong>Supported providers:</strong> YouTube, Vimeo, Wistia, Loom, TikTok, Twitch, Dailymotion</p>
-              <p><strong>💡 Tip:</strong> Some YouTube videos may show "Open in YouTube" overlay due to creator settings. For seamless embedding, consider Vimeo or Wistia.</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Product Images</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="https://example.com/product-image.jpg"
-                value={data.product_images?.find((_, i) => i === 0) || ""}
-                onChange={(e) => updateProductImage(0, e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && addProductImage()}
-              />
-              <Button type="button" onClick={addProductImage} size="sm">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {data.product_images && data.product_images.length > 0 && (
-              <div className="space-y-2">
-                {data.product_images.map((image, index) => (
-                  <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
-                    <span className="flex-1 text-sm font-mono">{image}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeProductImage(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                {data.offer_highlights && data.offer_highlights.length > 0 && (
+                  <div className="space-y-2">
+                    {data.offer_highlights.map((highlight, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                        <span className="flex-1 text-sm">{highlight}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeHighlight(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Detailed Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Detailed Information</CardTitle>
-          <CardDescription>
-            Additional details to help users understand your offer
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="what-you-get">What You Get</Label>
-            <Textarea
-              id="what-you-get"
-              placeholder="Detailed explanation of what's included in the offer..."
-              rows={3}
-              value={data.what_you_get || ""}
-              onChange={(e) => updateData({ what_you_get: e.target.value })}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label>Expiry Date (Optional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !data.offer_expiry_date && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {data.offer_expiry_date ? (
+                        format(data.offer_expiry_date, "PPP")
+                      ) : (
+                        <span>No expiry date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={data.offer_expiry_date || undefined}
+                      onSelect={(date) => updateData({ offer_expiry_date: date })}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                    />
+                    <div className="p-3 border-t">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => updateData({ offer_expiry_date: null })}
+                      >
+                        Clear Expiry
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <div className="space-y-2">
-            <Label htmlFor="how-it-works">How It Works</Label>
-            <Textarea
-              id="how-it-works"
-              placeholder="Step-by-step process (use numbered list)..."
-              rows={4}
-              value={data.how_it_works || ""}
-              onChange={(e) => updateData({ how_it_works: e.target.value })}
-            />
-          </div>
+        {/* Media Tab */}
+        <TabsContent value="media" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Image className="h-5 w-5" />
+                Visual Content
+              </CardTitle>
+              <CardDescription>
+                Add images and videos to make your landing page more engaging
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="hero-image">Hero Image URL</Label>
+                <Input
+                  id="hero-image"
+                  type="url"
+                  placeholder="https://example.com/hero-image.jpg"
+                  value={data.hero_image_url || ""}
+                  onChange={(e) => updateData({ hero_image_url: e.target.value })}
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="requirements">Requirements</Label>
-            <Textarea
-              id="requirements"
-              placeholder="Any requirements or conditions for the offer..."
-              rows={2}
-              value={data.requirements || ""}
-              onChange={(e) => updateData({ requirements: e.target.value })}
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="video-url">Demo Video URL</Label>
+                <Input
+                  id="video-url"
+                  type="url"
+                  placeholder="https://youtube.com/watch?v=... or Vimeo, Wistia, Loom URL"
+                  value={data.video_url || ""}
+                  onChange={(e) => updateData({ video_url: e.target.value })}
+                />
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><strong>Supported providers:</strong> YouTube, Vimeo, Wistia, Loom, TikTok, Twitch, Dailymotion</p>
+                  <p><strong>💡 Tip:</strong> Some YouTube videos may show "Open in YouTube" overlay due to creator settings. For seamless embedding, consider Vimeo or Wistia.</p>
+                </div>
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="support-info">Support Information</Label>
-            <Textarea
-              id="support-info"
-              placeholder="How users can get help or contact support..."
-              rows={2}
-              value={data.support_info || ""}
-              onChange={(e) => updateData({ support_info: e.target.value })}
-            />
-          </div>
-        </CardContent>
-      </Card>
+              <div className="space-y-2">
+                <Label>Product Images</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://example.com/product-image.jpg"
+                    value={data.product_images?.find((_, i) => i === 0) || ""}
+                    onChange={(e) => updateProductImage(0, e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && addProductImage()}
+                  />
+                  <Button type="button" onClick={addProductImage} size="sm">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {data.product_images && data.product_images.length > 0 && (
+                  <div className="space-y-2">
+                    {data.product_images.map((image, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
+                        <span className="flex-1 text-sm font-mono">{image}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeProductImage(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Details Tab */}
+        <TabsContent value="details" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Detailed Information</CardTitle>
+              <CardDescription>
+                Additional details to help users understand your offer
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="what-you-get">What You Get</Label>
+                <Textarea
+                  id="what-you-get"
+                  placeholder="Detailed explanation of what's included in the offer..."
+                  rows={3}
+                  value={data.what_you_get || ""}
+                  onChange={(e) => updateData({ what_you_get: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="how-it-works">How It Works</Label>
+                <Textarea
+                  id="how-it-works"
+                  placeholder="Step-by-step process (use numbered list)..."
+                  rows={4}
+                  value={data.how_it_works || ""}
+                  onChange={(e) => updateData({ how_it_works: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="requirements">Requirements</Label>
+                <Textarea
+                  id="requirements"
+                  placeholder="Any requirements or conditions for the offer..."
+                  rows={2}
+                  value={data.requirements || ""}
+                  onChange={(e) => updateData({ requirements: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="support-info">Support Information</Label>
+                <Textarea
+                  id="support-info"
+                  placeholder="How users can get help or contact support..."
+                  rows={2}
+                  value={data.support_info || ""}
+                  onChange={(e) => updateData({ support_info: e.target.value })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Preview Button (if provided) */}
       {onPreview && (
