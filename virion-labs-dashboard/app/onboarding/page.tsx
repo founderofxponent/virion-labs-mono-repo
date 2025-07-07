@@ -1,12 +1,19 @@
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { OnboardingFieldsPage } from "@/components/onboarding-fields-page"
+import { ClientOnboarding } from "@/components/client-onboarding"
 import { ProtectedRoute } from "@/components/protected-route"
 
-export default function OnboardingFields() {
+export default function ClientOnboardingPage() {
+  // In a real implementation, these would come from URL params or user session
+  const clientId = "demo-client-id"
+  const clientName = "Demo Client"
+  
   return (
-    <ProtectedRoute allowedRoles={["admin"]}>
+    <ProtectedRoute allowedRoles={["client", "admin"]}>
       <DashboardLayout>
-        <OnboardingFieldsPage />
+        <ClientOnboarding 
+          clientId={clientId}
+          clientName={clientName}
+        />
       </DashboardLayout>
     </ProtectedRoute>
   )

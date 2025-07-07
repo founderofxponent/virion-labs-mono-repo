@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "script:add-admin": "ts-node scripts/add-admin.ts",
+    "script:add-admin": "node scripts/add-admin.js",
     "switch-env": "node scripts/switch-environment.js",
     "env:dev": "node scripts/switch-environment.js dev",
     "env:prod": "node scripts/switch-environment.js prod",
