@@ -10,12 +10,26 @@
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
+import 'dotenv/config';
 
-// Environment configuration
-const DEV_URL = process.env.DEV_SUPABASE_URL || 'https://xhfrxwyggplhytlopixb.supabase.co';
-const DEV_KEY = process.env.DEV_SUPABASE_SERVICE_ROLE_KEY!;
-const PROD_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mcynacktfmtzkkohctps.supabase.co';
-const PROD_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// --- Environment Configuration ---
+// This script requires the following environment variables to be set.
+const DEV_URL = process.env.DEV_SUPABASE_URL;
+const DEV_KEY = process.env.DEV_SUPABASE_SERVICE_ROLE_KEY;
+const PROD_URL = process.env.PROD_SUPABASE_URL;
+const PROD_KEY = process.env.PROD_SUPABASE_SERVICE_ROLE_KEY;
+
+// --- Validation ---
+if (!DEV_URL || !DEV_KEY || !PROD_URL || !PROD_KEY) {
+  console.error(`❌ Error: Missing required environment variables for migration.
+Please ensure the following are set in your environment or a .env file:
+  - DEV_SUPABASE_URL: URL for the development Supabase project.
+  - DEV_SUPABASE_SERVICE_ROLE_KEY: Service role key for the development project.
+  - PROD_SUPABASE_URL: URL for the production Supabase project.
+  - PROD_SUPABASE_SERVICE_ROLE_KEY: Service role key for the production project.
+`);
+  process.exit(1);
+}
 
 const devSupabase = createClient(DEV_URL, DEV_KEY);
 const prodSupabase = createClient(PROD_URL, PROD_KEY);

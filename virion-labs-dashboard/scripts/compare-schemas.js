@@ -4,24 +4,40 @@
  * Schema Comparison Tool
  * Compares development and production database schemas
  */
-
+require('dotenv').config({ path: path.resolve(process.cwd(), '.env.local') });
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
-// Database connections
-const DEV_PROJECT_ID = 'xhfrxwyggplhytlopixb';
-const PROD_PROJECT_ID = 'mcynacktfmtzkkohctps';
+// --- Configuration ---
+// The script requires these environment variables to be set.
+// They can be in an .env file or in the shell environment.
+const DEV_PROJECT_ID = process.env.DEV_PROJECT_ID;
+const PROD_PROJECT_ID = process.env.PROD_PROJECT_ID;
+const API_ENDPOINT = process.env.INTERNAL_API_ENDPOINT || 'http://localhost:3000/api/internal/supabase-query';
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// --- Validation ---
+if (!DEV_PROJECT_ID || !PROD_PROJECT_ID || !SERVICE_KEY) {
+  console.error(`❌ Error: Missing required environment variables.
+Please ensure the following are set in your environment or a .env file:
+  - DEV_PROJECT_ID: The project ID for the development database.
+  - PROD_PROJECT_ID: The project ID for the production database.
+  - SUPABASE_SERVICE_ROLE_KEY: A service role key with admin privileges.
+`);
+  process.exit(1);
+}
+
 
 async function getTablesInfo(projectId) {
   console.log(`📊 Fetching table information for project: ${projectId}`);
   
   try {
     // Use MCP tool simulation - in practice, you'd call the actual MCP tool
-    const response = await fetch(`http://localhost:3000/api/internal/supabase-query`, {
+    const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        'Authorization': `Bearer ${SERVICE_KEY}`
       },
       body: JSON.stringify({
         projectId,
@@ -56,11 +72,11 @@ async function getConstraintsInfo(projectId) {
   console.log(`🔗 Fetching constraints for project: ${projectId}`);
   
   try {
-    const response = await fetch(`http://localhost:3000/api/internal/supabase-query`, {
+    const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        'Authorization': `Bearer ${SERVICE_KEY}`
       },
       body: JSON.stringify({
         projectId,

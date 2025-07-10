@@ -68,7 +68,7 @@ ID: 1495f405-29d7-466e-a952-b3b5d7c82f6d
 **Supabase Project Details:**
 ```
 Production Project ID: mcynacktfmtzkkohctps
-Development Project ID: jirrgkvnnyfmgqmxoevl
+Development Project ID: xhfrxwyggplhytlopixb
 ```
 
 **Key Tables Verified:**

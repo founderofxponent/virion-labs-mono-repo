@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://mcynacktfmtzkkohctps.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jeW5hY2t0Zm10emtrb2hjdHBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0MjUwNTMsImV4cCI6MjA2NDAwMTA1M30.8RwxTIucQndsJ2e_q53p5TRNVM3xdhIfQuD2YxzQy70'
-
 // Initialize Supabase client with service role key for admin operations
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,7 +47,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Create a temporary client with anon key to verify password
-    const anonSupabase = createClient(supabaseUrl, supabaseAnonKey)
+    const anonSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
     // Verify password by attempting to sign in
     const { error: verifyError } = await anonSupabase.auth.signInWithPassword({
