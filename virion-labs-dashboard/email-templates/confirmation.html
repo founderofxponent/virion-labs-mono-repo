@@ -195,10 +195,9 @@
             </a>
             
             <div class="alternative">
-                <div class="alternative-title">Can't click the button? Use this code instead:</div>
-                <div class="code-display">{{ .Token }}</div>
-                <p style="font-size: 14px; color: #718096; margin-top: 12px; margin-bottom: 0;">
-                    Enter this 6-digit code in the verification screen to confirm your account.
+                <div class="alternative-title">Can't click the button? Copy this link instead:</div>
+                <p style="font-size: 14px; color: #718096; margin-top: 12px; margin-bottom: 0; word-break: break-all;">
+                    {{ .ConfirmationURL }}
                 </p>
             </div>
             
