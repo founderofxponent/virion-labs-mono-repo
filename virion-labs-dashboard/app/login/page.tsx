@@ -32,18 +32,9 @@ export default function LoginPage() {
   const { signIn, user, loading } = useAuth()
   const router = useRouter()
 
-  console.log('🚨 LoginPage: Render with state', { 
-    loading, 
-    forceNoLoading, 
-    hasUser: !!user,
-    showLoading: loading && !forceNoLoading 
-  })
-
   // EMERGENCY: Force loading to stop after 2 seconds no matter what
   useEffect(() => {
-    console.log('🚨 LoginPage: Setting emergency timeout')
     const emergencyTimeout = setTimeout(() => {
-      console.log('🚨 LoginPage: EMERGENCY TIMEOUT - Force stopping loading')
       setForceNoLoading(true)
     }, 2000)
 
@@ -52,35 +43,14 @@ export default function LoginPage() {
 
   // Redirect authenticated users to dashboard
   useEffect(() => {
-    console.log('🔐 LoginPage: Auth state check', { 
-      loading, 
-      hasUser: !!user,
-      shouldRedirect: !loading && user 
-    })
-    
     if (!loading && user) {
-      console.log('🔐 LoginPage: User authenticated, redirecting to dashboard')
       router.replace("/")
     }
   }, [user, loading, router])
 
   // Debug auth states
   useEffect(() => {
-    console.log('🔐 LoginPage: Auth state changed', { 
-      authLoading: loading, 
-      hasUser: !!user, 
-      formLoading: isLoading,
-      userEmail: user?.email 
-    })
   }, [loading, user, isLoading])
-
-  console.log('🚨 LoginPage: Before rendering decision', {
-    loading,
-    forceNoLoading, 
-    hasUser: !!user,
-    willShowLoading: loading && !forceNoLoading,
-    willShowForm: !loading || forceNoLoading
-  })
 
   const {
     register,
@@ -98,7 +68,6 @@ export default function LoginPage() {
       const { error } = await signIn(data.email, data.password)
       
       if (error) {
-        console.error('🔐 LoginPage: Login error:', error)
         
         // Handle specific error cases with user-friendly messages
         let errorMessage = "Failed to sign in"
@@ -131,13 +100,10 @@ export default function LoginPage() {
         toast.error(errorMessage)
         
       } else {
-        console.log('🔐 LoginPage: Login successful!')
         toast.success("Welcome back!")
         // The AuthProvider will handle setting the user state and triggering redirect via useEffect
-        console.log('🔐 LoginPage: Waiting for AuthProvider to update auth state...')
       }
     } catch (error: any) {
-      console.error('🔐 LoginPage: Unexpected error:', error)
       
       const errorMessage = "An unexpected error occurred. Please try again."
       setFormError(errorMessage)
@@ -150,7 +116,6 @@ export default function LoginPage() {
 
   // Show loading state ONLY when we don't know the user state yet
   if (loading && !forceNoLoading && !user) {
-    console.log('🚨 LoginPage: SHOWING LOADING SCREEN (checking auth state)')
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-center">
@@ -163,11 +128,8 @@ export default function LoginPage() {
 
   // Don't render login form if user is already authenticated (redirect will happen via useEffect)
   if (user) {
-    console.log('🚨 LoginPage: User authenticated, returning null (should redirect)')
     return null
   }
-
-  console.log('🚨 LoginPage: SHOWING LOGIN FORM')
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

@@ -34,11 +34,8 @@ export default function SignupPage() {
   const [userEmail, setUserEmail] = useState("")
   const { signUp, user, loading, confirmationPending, resendConfirmation } = useAuth()
 
-  console.log('🔐 SignupPage: Auth state check', { loading, user: !!user, confirmationPending })
-
   useEffect(() => {
     if (!loading && user) {
-      console.log('🔐 SignupPage: User authenticated, redirecting to dashboard')
       router.replace('/dashboard')
     }
   }, [user, loading, router])
@@ -52,7 +49,6 @@ export default function SignupPage() {
   })
 
   const onSubmit = async (data: SignupForm) => {
-    console.log('🔐 SignupPage: Starting signup process...')
     setIsSubmitting(true)
     setError("")
     setShowConfirmation(false)
@@ -62,7 +58,6 @@ export default function SignupPage() {
       const { error, confirmationPending } = await signUp(data.email, data.password, data.fullName, "influencer")
       
       if (error) {
-        console.error('🔐 SignupPage: Signup error:', error)
         
         // Handle different types of errors
         let errorMessage = "Failed to create account. Please try again."
@@ -93,16 +88,13 @@ export default function SignupPage() {
       }
       
       if (confirmationPending) {
-        console.log('🔐 SignupPage: Email confirmation required!')
         setUserEmail(data.email)
         setShowConfirmation(true)
       } else {
-        console.log('🔐 SignupPage: Signup successful with immediate access!')
         // User will be redirected by the useEffect above
       }
       
     } catch (error: any) {
-      console.error('🔐 SignupPage: Unexpected error caught:', error)
       setError("An unexpected error occurred. Please try again.")
     } finally {
       setIsSubmitting(false)

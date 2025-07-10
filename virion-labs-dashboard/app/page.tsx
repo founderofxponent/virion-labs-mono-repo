@@ -7,8 +7,6 @@ import { useAuth } from "@/components/auth-provider"
 import { useUnifiedData } from "@/hooks/use-unified-data"
 
 export default function Home() {
-  console.log('🏠 Home: Component rendering...')
-  
   return (
     <ProtectedRoute>
       <DashboardContent />
@@ -17,25 +15,18 @@ export default function Home() {
 }
 
 function DashboardContent() {
-  console.log('📊 DashboardContent: Component rendering...')
   const { profile, loading: authLoading } = useAuth() 
   const { loading: dataLoading, error: dataError, data } = useUnifiedData()
 
-  console.log('📊 DashboardContent: Auth state', { authLoading, hasProfile: !!profile });
-  console.log('📊 DashboardContent: Unified data state', { dataLoading, dataError, hasData: !!data })
-
   if (!authLoading && !profile) {
-    console.warn('📊 DashboardContent: Auth loaded, but no profile. This should have been handled by ProtectedRoute redirect.');
     return null;
   }
   
   if (!profile) {
-      console.log('📊 DashboardContent: Waiting for profile to be available after auth. Not rendering main content yet.');
       return null; 
   }
 
   if (dataLoading) {
-    console.log('📊 DashboardContent: Profile available, data is loading for UnifiedDashboard. Rendering skeleton via UnifiedDashboard.');
     return (
       <DashboardLayout>
         <UnifiedDashboard />
@@ -44,7 +35,6 @@ function DashboardContent() {
   }
   
   if (dataError) {
-     console.log('📊 DashboardContent: Profile available, data error for UnifiedDashboard.');
      return (
       <DashboardLayout>
         <UnifiedDashboard />
@@ -53,7 +43,6 @@ function DashboardContent() {
   }
 
   if (data) {
-    console.log('📊 DashboardContent: Profile and data available. Rendering main UnifiedDashboard.');
     return (
       <DashboardLayout>
         <UnifiedDashboard />
@@ -61,7 +50,6 @@ function DashboardContent() {
     );
   }
   
-  console.log('📊 DashboardContent: Profile available, but no data from useUnifiedData (and not loading/error). Showing no data available message.');
   return (
     <DashboardLayout>
       <div className="flex items-center justify-center h-64">
