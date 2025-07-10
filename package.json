@@ -21,6 +21,7 @@
     "test:all": "cd virion-labs-dashboard && npm test && cd ../virion-labs-discord-bot && npm test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.0",
     "concurrently": "^8.2.2"
   },
   "engines": {
