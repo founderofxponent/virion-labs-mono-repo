@@ -7,6 +7,7 @@
     "start": "node src/index.js",
     "dev": "node src/index.js",
     "test": "echo \"No tests specified\"",
+    "deploy:gcloud": "dotenv -e .env.production -- gcloud run deploy virion-discord-bot --image=gcr.io/$PROJECT_ID/virion-discord-bot:latest --region=us-central1 --platform=managed --memory=512Mi --cpu=1 --max-instances=10 --min-instances=1 --timeout=300 --set-env-vars=\"NODE_ENV=$NODE_ENV,DISCORD_BOT_TOKEN=$DISCORD_BOT_TOKEN,DISCORD_CLIENT_ID=$DISCORD_CLIENT_ID,DISCORD_CLIENT_SECRET=$DISCORD_CLIENT_SECRET,DISCORD_GUILD_ID=$DISCORD_GUILD_ID,DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID=$DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID,DISCORD_REQUEST_ACCESS_CHANNEL_ID=$DISCORD_REQUEST_ACCESS_CHANNEL_ID,DISCORD_VERIFIED_ROLE_ID=$DISCORD_VERIFIED_ROLE_ID,DASHBOARD_API_URL=$DASHBOARD_API_URL,WEBHOOK_PORT=$WEBHOOK_PORT,DEBUG=$DEBUG\"",
     "pm2:start": "pm2 start src/index.js --name virion-discord-bot",
     "pm2:stop": "pm2 stop virion-discord-bot",
     "pm2:restart": "pm2 restart virion-discord-bot",
@@ -38,6 +39,7 @@
     "cors": "^2.8.5"
   },
   "devDependencies": {
+    "dotenv-cli": "^7.4.2",
     "nodemon": "^3.0.2"
   },
   "engines": {

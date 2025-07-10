@@ -197,9 +197,10 @@ class WebhookServer {
     return new Promise((resolve, reject) => {
       try {
         const port = this.config.api.port;
+        const host = '0.0.0.0'; // Bind to all interfaces for Cloud Run compatibility
         
-        this.server = this.app.listen(port, () => {
-          this.logger.success(`🌐 Webhook server started on port ${port}`);
+        this.server = this.app.listen(port, host, () => {
+          this.logger.success(`🌐 Webhook server started on ${host}:${port}`);
           resolve();
         });
         

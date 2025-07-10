@@ -20,7 +20,7 @@ const config = {
   },
   api: {
     dashboardUrl: process.env.DASHBOARD_API_URL || 'http://localhost:3000/api',
-    port: process.env.WEBHOOK_PORT || 3001
+    port: process.env.PORT || process.env.WEBHOOK_PORT || 3001
   },
   discord_server: {
     defaultGuildId: process.env.DISCORD_GUILD_ID,
