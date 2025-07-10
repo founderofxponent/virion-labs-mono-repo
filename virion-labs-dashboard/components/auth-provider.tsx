@@ -10,8 +10,9 @@ type AuthContextType = {
   user: User | null
   profile: UserProfile | null
   loading: boolean
+  confirmationPending: boolean
   signIn: (email: string, password: string) => Promise<{ error: any }>
-  signUp: (email: string, password: string, fullName: string, role: UserRole) => Promise<{ error: any }>
+  signUp: (email: string, password: string, fullName: string, role: UserRole) => Promise<{ error: any; confirmationPending?: boolean }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
   resendConfirmation: (email: string) => Promise<{ error: any }>
@@ -26,8 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true) // Start with true, but with aggressive timeouts
   const [initialized, setInitialized] = useState(false)
+  const [confirmationPending, setConfirmationPending] = useState(false)
 
-  console.log('🔐 AuthProvider: Current state', { hasUser: !!user, hasProfile: !!profile, loading, initialized })
+  console.log('🔐 AuthProvider: Current state', { hasUser: !!user, hasProfile: !!profile, loading, initialized, confirmationPending })
 
   // EMERGENCY: Force loading to false after very short time
   useEffect(() => {
@@ -257,6 +259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, password: string, fullName: string, role: UserRole) => {
     console.log('🔐 AuthProvider: Starting signup...')
     setLoading(true)
+    setConfirmationPending(false)
     
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -273,15 +276,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasUser: !!data?.user, 
       hasSession: !!data?.session,
       error: !!error,
-      userEmail: data?.user?.email
+      userEmail: data?.user?.email,
+      emailConfirmed: data?.user?.email_confirmed_at
     })
     
-    // If signup was successful and we have a session (email confirmation disabled)
+    // If signup was successful and we have a session (email already confirmed or confirmation disabled)
     if (!error && data?.session?.user) {
       console.log('🔐 AuthProvider: ✅ Signup successful with immediate session - updating state immediately')
       setUser(data.session.user)
       setLoading(false)
       setInitialized(true)
+      setConfirmationPending(false)
       
       // Create profile from user metadata
       const userProfile = createProfileFromUser(data.session.user)
@@ -296,16 +301,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }).catch(err => {
         console.error('🔐 AuthProvider: Database profile fetch failed after signup (non-critical):', err)
       })
+      
+      return { error: null, confirmationPending: false }
     } else if (!error && data?.user && !data?.session) {
-      console.log('🔐 AuthProvider: ⚠️ User created but no session - this should not happen with email confirmation disabled')
-      // Wait a bit for auth state change listener to catch up
-      setTimeout(() => {
-        console.log('🔐 AuthProvider: Timeout after signup with no session - setting loading false')
-        setLoading(false)
-      }, 2000)
+      console.log('🔐 AuthProvider: ✅ User created but no session - email confirmation required')
+      setLoading(false)
+      setConfirmationPending(true)
+      return { error: null, confirmationPending: true }
     } else if (error) {
       console.error('🔐 AuthProvider: ❌ Signup failed:', error)
       setLoading(false)
+      setConfirmationPending(false)
+      return { error, confirmationPending: false }
     }
     
     return { error }
@@ -331,7 +338,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, refreshProfile, resendConfirmation }}>
+    <AuthContext.Provider value={{ user, profile, loading, confirmationPending, signIn, signUp, signOut, refreshProfile, resendConfirmation }}>
       {children}
     </AuthContext.Provider>
   )

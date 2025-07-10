@@ -1,26 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import Image from "next/image"
-import { Eye, EyeOff } from "lucide-react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useAuth } from "@/components/auth-provider"
-import { UserRole } from "@/lib/supabase"
-import { toast } from "sonner"
+import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm } from 'react-hook-form'
+import * as z from 'zod'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { CheckCircle, Mail, AlertCircle } from 'lucide-react'
+import { useAuth } from '@/components/auth-provider'
 
 const signupSchema = z.object({
-  fullName: z.string().min(2, "Full name must be at least 2 characters"),
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -30,31 +27,21 @@ const signupSchema = z.object({
 type SignupForm = z.infer<typeof signupSchema>
 
 export default function SignupPage() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [formError, setFormError] = useState<string | null>(null)
-  const { signUp, user, loading } = useAuth()
   const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string>("")
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [userEmail, setUserEmail] = useState("")
+  const { signUp, user, loading, confirmationPending, resendConfirmation } = useAuth()
 
-  // Redirect authenticated users to dashboard
+  console.log('🔐 SignupPage: Auth state check', { loading, user: !!user, confirmationPending })
+
   useEffect(() => {
-    console.log('🔐 SignupPage: Auth state check', { loading, user: !!user })
     if (!loading && user) {
       console.log('🔐 SignupPage: User authenticated, redirecting to dashboard')
-      router.replace("/")
+      router.replace('/dashboard')
     }
   }, [user, loading, router])
-
-  // Debug auth states
-  useEffect(() => {
-    console.log('🔐 SignupPage: Auth state changed', { 
-      authLoading: loading, 
-      hasUser: !!user, 
-      formLoading: isLoading,
-      userEmail: user?.email 
-    })
-  }, [loading, user, isLoading])
 
   const {
     register,
@@ -66,228 +53,241 @@ export default function SignupPage() {
 
   const onSubmit = async (data: SignupForm) => {
     console.log('🔐 SignupPage: Starting signup process...')
-    setIsLoading(true)
-    setFormError(null) // Clear any previous errors
+    setIsSubmitting(true)
+    setError("")
+    setShowConfirmation(false)
     
     try {
       // All signups are for influencers only
-      const { error } = await signUp(data.email, data.password, data.fullName, "influencer")
+      const { error, confirmationPending } = await signUp(data.email, data.password, data.fullName, "influencer")
       
       if (error) {
         console.error('🔐 SignupPage: Signup error:', error)
         
-        // Handle specific error cases with user-friendly messages
-        let errorMessage = "Failed to create account"
+        // Handle different types of errors
+        let errorMessage = "Failed to create account. Please try again."
         
-        if (error.message) {
-          const message = error.message.toLowerCase()
-          
-          if (message.includes("user already registered") || message.includes("already exists") || message.includes("already registered")) {
-            errorMessage = "An account with this email already exists. Please sign in instead."
-          } else if (message.includes("invalid email")) {
-            errorMessage = "Please enter a valid email address."
-          } else if (message.includes("password")) {
-            if (message.includes("too short") || message.includes("minimum")) {
-              errorMessage = "Password must be at least 6 characters long."
-            } else if (message.includes("too weak")) {
-              errorMessage = "Password is too weak. Please choose a stronger password."
-            } else {
-              errorMessage = "Password does not meet requirements. Please try a different password."
-            }
-          } else if (message.includes("rate limit") || message.includes("too many")) {
-            errorMessage = "Too many signup attempts. Please wait a moment and try again."
-          } else if (message.includes("network") || message.includes("connection")) {
-            errorMessage = "Network error. Please check your connection and try again."
-          } else {
-            // Use the original error message if it's user-friendly
-            errorMessage = error.message.length < 100 ? error.message : "Failed to create account"
-          }
+        if (error.message?.includes("User already registered")) {
+          errorMessage = "An account with this email already exists. Please sign in instead."
+        } else if (error.message?.includes("Invalid email")) {
+          errorMessage = "Please enter a valid email address."
+        } else if (error.message?.includes("Password should be at least")) {
+          errorMessage = "Password should be at least 6 characters long."
+        } else if (error.message?.includes("signup is disabled")) {
+          errorMessage = "New signups are currently disabled. Please contact support."
+        } else if (error.message?.includes("rate limit")) {
+          errorMessage = "Too many signup attempts. Please wait a moment and try again."
+        } else if (error.message?.includes("network")) {
+          errorMessage = "Network error. Please check your connection and try again."
+        } else if (error.message?.includes("duplicate")) {
+          errorMessage = "An account with this email already exists. Please sign in instead."
+        } else if (error.status === 422) {
+          errorMessage = "Invalid email or password format. Please check your details."
+        } else if (error.message) {
+          // Use the actual error message if it's user-friendly
+          errorMessage = error.message
         }
         
-        // Set form error for display in the form
-        setFormError(errorMessage)
-        
-        // Show toast notification
-        toast.error(errorMessage)
-        
-      } else {
-        console.log('🔐 SignupPage: Signup successful!')
-        // Clear form error on success
-        setFormError(null)
-        
-        // Show success toast
-        toast.success("Account created successfully!", {
-          description: "Welcome to Virion Labs! You're now logged in.",
-        })
-        
-        // The AuthProvider will handle setting the user state and triggering redirect
-        console.log('🔐 SignupPage: Waiting for AuthProvider to handle user state...')
-        
-        // Fallback redirect if AuthProvider doesn't handle it within 2 seconds
-        setTimeout(() => {
-          console.log('🔐 SignupPage: Fallback redirect check...')
-          if (!user) {
-            console.log('🔐 SignupPage: AuthProvider didnt set user, manually redirecting to dashboard')
-            router.replace("/")
-          } else {
-            console.log('🔐 SignupPage: User is set, no manual redirect needed')
-          }
-        }, 2000)
+        setError(errorMessage)
+        return
       }
+      
+      if (confirmationPending) {
+        console.log('🔐 SignupPage: Email confirmation required!')
+        setUserEmail(data.email)
+        setShowConfirmation(true)
+      } else {
+        console.log('🔐 SignupPage: Signup successful with immediate access!')
+        // User will be redirected by the useEffect above
+      }
+      
     } catch (error: any) {
       console.error('🔐 SignupPage: Unexpected error caught:', error)
-      
-      const errorMessage = "An unexpected error occurred. Please try again."
-      setFormError(errorMessage)
-      
-      toast.error(errorMessage)
+      setError("An unexpected error occurred. Please try again.")
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
-  // Show loading state while checking authentication
-  if (loading) {
+  const handleResendConfirmation = async () => {
+    if (!userEmail) return
+    
+    setIsSubmitting(true)
+    setError("")
+    
+    try {
+      const { error } = await resendConfirmation(userEmail)
+      
+      if (error) {
+        setError("Failed to resend confirmation email. Please try again.")
+      } else {
+        setError("") // Clear any previous errors
+        // The confirmation message will remain visible
+      }
+    } catch (error) {
+      setError("An error occurred. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Don't render signup form if user is already authenticated (redirect will happen via useEffect)
+  if (!loading && user) {
+    return null
+  }
+
+  // Show email confirmation screen
+  if (showConfirmation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-pulse text-center">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full space-y-8">
+          <Card>
+            <CardHeader className="text-center">
+              <div className="mx-auto flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 mb-4">
+                <Mail className="h-8 w-8 text-blue-600" />
+              </div>
+              <CardTitle className="text-2xl font-bold">Check Your Email</CardTitle>
+              <CardDescription>
+                We've sent a confirmation link to your email address
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <CheckCircle className="h-4 w-4" />
+                <AlertTitle>Confirmation Email Sent!</AlertTitle>
+                <AlertDescription>
+                  Please check your email inbox for <strong>{userEmail}</strong> and click the confirmation link to activate your account.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="text-sm text-gray-600 space-y-2">
+                <p>Didn't receive the email?</p>
+                <ul className="list-disc list-inside space-y-1 text-gray-500">
+                  <li>Check your spam/junk folder</li>
+                  <li>Make sure the email address is correct</li>
+                  <li>Wait a few minutes for the email to arrive</li>
+                </ul>
+              </div>
+
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-3">
+                <Button 
+                  onClick={handleResendConfirmation}
+                  disabled={isSubmitting}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isSubmitting ? "Sending..." : "Resend Confirmation Email"}
+                </Button>
+                
+                <Button 
+                  onClick={() => {
+                    setShowConfirmation(false)
+                    setError("")
+                  }}
+                  variant="ghost"
+                  className="w-full"
+                >
+                  Back to Signup
+                </Button>
+              </div>
+              
+              <div className="text-center text-sm">
+                <span className="text-muted-foreground">Already have an account? </span>
+                <Link href="/login" className="font-medium text-primary hover:underline">
+                  Sign in
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     )
   }
 
-  // Don't render signup form if user is already authenticated (redirect will happen via useEffect)
-  if (user) {
-    return null
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6">
-        {/* Logo and Header */}
-        <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center gap-2 font-semibold text-2xl">
-            <Image 
-              src="/virion-labs-logo-black.png" 
-              alt="Virion Labs" 
-              width={32} 
-              height={32}
-              className="h-8 w-8 object-contain"
-            />
-            <span>Virion Labs</span>
-          </Link>
-          <p className="text-muted-foreground">
-            Join as an influencer to get started
-          </p>
-        </div>
-
-        {/* Signup Form */}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle>Create account</CardTitle>
-            <CardDescription>
-              Join our influencer referral platform
+            <CardTitle className="text-2xl font-bold text-center">Create Your Account</CardTitle>
+            <CardDescription className="text-center">
+              Join Virion Labs as an influencer and start earning from your content
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="fullName">Full Name</Label>
                 <Input
                   id="fullName"
                   type="text"
                   placeholder="Enter your full name"
                   {...register("fullName")}
-                  className={errors.fullName ? "border-destructive" : ""}
+                  className="mt-1"
                 />
                 {errors.fullName && (
-                  <p className="text-sm text-destructive">{errors.fullName.message}</p>
+                  <p className="text-sm text-red-600 mt-1">{errors.fullName.message}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="Enter your email"
                   {...register("email")}
-                  className={errors.email ? "border-destructive" : ""}
+                  className="mt-1"
                 />
                 {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email.message}</p>
+                  <p className="text-sm text-red-600 mt-1">{errors.email.message}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a password"
-                    {...register("password")}
-                    className={errors.password ? "border-destructive pr-10" : "pr-10"}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Create a password (min. 6 characters)"
+                  {...register("password")}
+                  className="mt-1"
+                />
                 {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password.message}</p>
+                  <p className="text-sm text-red-600 mt-1">{errors.password.message}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
-                    {...register("confirmPassword")}
-                    className={errors.confirmPassword ? "border-destructive pr-10" : "pr-10"}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirm your password"
+                  {...register("confirmPassword")}
+                  className="mt-1"
+                />
                 {errors.confirmPassword && (
-                  <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
+                  <p className="text-sm text-red-600 mt-1">{errors.confirmPassword.message}</p>
                 )}
               </div>
 
-              {/* Form Error Display */}
-              {formError && (
-                <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20">
-                  <p className="text-sm text-destructive font-medium">{formError}</p>
-                </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               )}
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating account..." : "Create account"}
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Creating Account..." : "Create Account"}
               </Button>
             </form>
 
@@ -299,11 +299,6 @@ export default function SignupPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Footer */}
-        <div className="text-center text-sm text-muted-foreground">
-          <p>© 2024 Virion Labs. All rights reserved.</p>
-        </div>
       </div>
     </div>
   )
