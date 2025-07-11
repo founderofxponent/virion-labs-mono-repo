@@ -9,7 +9,7 @@ This file tracks the progress of manual and automated testing based on the compr
 - [ ] ~~CRUD operations for clients~~ (Skipped: Handled via backend scripts)
 - [x] Create a new campaign from a template or scratch
 - [x] Configure campaign details, link to Discord, and define bot behavior
-- [ ] Activate, pause, and archive campaigns
+- [x] Activate, pause, and archive campaigns
 - [ ] Manage campaign onboarding and landing page templates
 - [ ] View platform-wide aggregated analytics and export data
 - [ ] Check system health status and access debugging tools
