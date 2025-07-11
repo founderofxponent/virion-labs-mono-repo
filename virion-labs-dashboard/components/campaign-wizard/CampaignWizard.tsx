@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react"
-import { toast } from "sonner"
+import { useToast } from "@/hooks/use-toast"
 import { type CampaignTemplate } from "@/lib/campaign-templates"
 import { useCampaignTemplateComplete } from "@/hooks/use-campaign-template-complete"
 import { useClients } from "@/hooks/use-clients"
@@ -79,6 +79,7 @@ const TABS = [
 
 export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -153,7 +154,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         }
       } catch (error) {
         console.error('Error loading templates:', error)
-        toast.error('Failed to load campaign templates')
+        toast({ variant: "destructive", title: "Error", description: "Failed to load campaign templates" })
       } finally {
         setTemplatesLoading(false)
       }
@@ -276,14 +277,14 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     try {
       const result = await applyOnboardingTemplate(targetCampaignId, templateId)
       if (result.success) {
-        toast.success('Template onboarding fields applied successfully')
+        toast({ title: 'Success', description: 'Template onboarding fields applied successfully' })
         await fetchFields(targetCampaignId)
       } else {
-        toast.error(`Failed to apply template: ${result.error || 'Unknown error'}`)
+        toast({ variant: "destructive", title: 'Error', description: `Failed to apply template: ${result.error || 'Unknown error'}` })
       }
     } catch (error) {
       console.error('Error applying template onboarding fields:', error)
-      toast.error('Failed to apply template onboarding fields')
+      toast({ variant: "destructive", title: 'Error', description: 'Failed to apply template onboarding fields' })
     } finally {
       setApplyingTemplate(false)
     }
@@ -302,7 +303,11 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     if (validateStep(currentStep)) {
       setCurrentStep(prev => Math.min(prev + 1, TABS.length))
     } else {
-      toast.error('Please fill in all required fields on this tab before continuing.')
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please fill in all required fields on this tab before continuing.",
+      })
     }
   }
 
@@ -314,7 +319,11 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     for (let i = 1; i <= TABS.length; i++) {
         if (!validateStep(i)) {
             setCurrentStep(i);
-            toast.error(`Please complete all required fields on the "${TABS[i-1].title}" tab.`);
+            toast({
+              variant: "destructive",
+              title: "Validation Error",
+              description: `Please complete all required fields on the "${TABS[i-1].title}" tab.`,
+            });
             return;
         }
     }
@@ -393,22 +402,33 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
                 campaign_id: targetCampaignId
               })
             });
-            toast.info("Bot cache refresh requested. Changes should appear in Discord shortly.");
+            toast({ title: "Info", description: "Bot cache refresh requested. Changes should appear in Discord shortly."});
           } catch (cacheError) {
             console.error("Failed to invalidate bot cache:", cacheError);
-            toast.warning("Campaign saved, but failed to refresh bot cache. Changes may be delayed in Discord.");
+            toast({ title: "Warning", description: "Campaign saved, but failed to refresh bot cache. Changes may be delayed in Discord."});
           }
         }
         
-        toast.success(`Campaign ${mode === 'create' ? 'created' : 'updated'} successfully!`)
+        toast({
+          title: "Success!",
+          description: `Campaign ${mode === 'create' ? 'created' : 'updated'} successfully!`,
+        })
         router.push('/bot-campaigns')
         router.refresh()
       } else {
-        toast.error(`Failed to ${mode} campaign: ${data.error || 'An unexpected error occurred.'}`)
+        toast({
+          variant: "destructive",
+          title: `Failed to ${mode} campaign`,
+          description: data.error || 'An unexpected error occurred.',
+        })
       }
     } catch (error) {
       console.error(`Error saving campaign:`, error)
-      toast.error('An unexpected error occurred while saving.')
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "An unexpected error occurred while saving.",
+      })
     } finally {
       setIsSaving(false)
     }

@@ -10,7 +10,7 @@ This file tracks the progress of manual and automated testing based on the compr
 - [x] Create a new campaign from a template or scratch
 - [x] Configure campaign details, link to Discord, and define bot behavior
 - [x] Activate, pause, and archive campaigns
-- [ ] Manage campaign onboarding and landing page templates
+- [x] Manage campaign onboarding and landing page templates
 - [ ] View platform-wide aggregated analytics and export data
 - [ ] Check system health status and access debugging tools
 - [ ] View and approve/deny influencer access requests

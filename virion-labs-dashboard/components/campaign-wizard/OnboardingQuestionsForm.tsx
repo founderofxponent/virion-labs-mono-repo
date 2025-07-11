@@ -80,8 +80,9 @@ export function OnboardingQuestionsForm({ questions, onQuestionsChange }: Onboar
               <div className="flex-1 space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                  <Label>Question Label</Label>
+                  <Label htmlFor={`question-label-${index}`}>Question Label</Label>
                   <Input
+                      id={`question-label-${index}`}
                       value={q.field_label}
                       onChange={(e) => handleFieldChange(index, 'field_label', e.target.value)}
                       placeholder="e.g., What is your email?"
@@ -130,7 +131,7 @@ export function OnboardingQuestionsForm({ questions, onQuestionsChange }: Onboar
                   <Button variant="ghost" size="icon" onClick={() => handleMoveField(index, 'down')} disabled={index === questions.length - 1}>
                       <ArrowDown className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleRemoveField(index)}>
+                  <Button variant="ghost" size="icon" onClick={() => handleRemoveField(index)} aria-label="Delete question">
                       <X className="h-4 w-4" />
                   </Button>
               </div>
