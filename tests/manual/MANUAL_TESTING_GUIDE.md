@@ -175,3 +175,75 @@ UPDATE user_settings SET bio = NULL, twitter_handle = NULL WHERE user_id = '9194
 ```
 
 **Expected Results:** All features functional, data persistent, no critical errors. 
+
+---
+
+## 🤖 Playwright: Automated Testing Best Practices
+
+After extensive debugging of the automated test suite, several key principles have emerged for creating reliable and resilient tests. Follow these guidelines to avoid common pitfalls.
+
+### 1. Handle Asynchronous UI and Data Loading Gracefully
+
+**Problem:** Tests fail because they try to interact with UI elements (like a list or table) before the data has been loaded from the backend. The UI often shows a temporary "skeleton" loader.
+
+**Best Practice:** Wait for content to **appear**, not for a loader to **disappear**. This is more robust because it confirms the data has successfully loaded.
+
+**Good Example (Reliable):**
+```typescript
+// Wait for the first row in the table body to become visible.
+await expect(page.locator('table > tbody > tr').first()).toBeVisible();
+```
+
+**Bad Example (Flaky):**
+```typescript
+// This can fail if the selector for the skeleton is not unique or changes.
+await expect(page.locator('div.animate-pulse')).not.toBeVisible();
+```
+
+### 2. Write Stable and Specific Selectors
+
+**Problem:** Tests fail because selectors are too generic (matching multiple elements) or are tied to fragile implementation details like CSS classes or icon names.
+
+**Best Practice:**
+1.  **Start with User-Facing Attributes:** Prefer `getByRole`, `getByText`, and `getByLabel`, as these reflect how a user interacts with the page.
+2.  **Use Structural Selectors for Ambiguity:** When user-facing selectors fail or are not unique, use a stable part of the component's HTML structure to create a specific selector.
+3.  **(Proactive) Add `data-testid` Attributes:** For critical elements, the best long-term solution is to add a `data-testid` attribute in the component's code. This decouples the test from UI text and structure.
+
+**Good Example (Specific Structural Selector):**
+```typescript
+// This specifically finds the "Next" button within its parent container,
+// avoiding conflicts with other "Next" buttons from dev tools.
+const nextButton = page.locator('div.mt-6.flex.justify-between button', { hasText: 'Next' });
+await nextButton.click();
+```
+
+### 3. Manage Navigation and Actions Correctly
+
+**Problem:** Client-side navigation (common in Next.js) or slow backend operations can create race conditions where the test gets ahead of the application. The test clicks "Save" and immediately fails because the app hasn't redirected yet.
+
+**Best Practice:** Wait for navigation to complete *at the same time* as you trigger the action. The `Promise.all` pattern is the most reliable way to handle this.
+
+**Good Example (Robust Navigation):**
+```typescript
+await Promise.all([
+    // Start waiting for the URL to change BEFORE the click
+    page.waitForURL('**/some-new-page', { timeout: 30000 }), 
+    // Click the button that triggers the navigation
+    saveButton.click()
+]);
+```
+
+### 4. Accurately Simulate the User Flow
+
+**Problem:** A test attempts an action that isn't possible for a user at that moment, such as clicking a "Save" button that only appears on the final step of a wizard.
+
+**Best Practice:** The test must follow the UI's rules and logic. Do not take shortcuts that a real user cannot. If a wizard has multiple steps, the test must click "Next" through each step to reach the end.
+
+**Good Example (Following Wizard Steps):**
+```typescript
+// Don't jump to the end. Click through each step.
+await nextButton.click(); // To Step 2
+await nextButton.click(); // To Step 3
+await nextButton.click(); // To Step 4
+await saveButton.click(); // Now save on the final step.
+``` 
