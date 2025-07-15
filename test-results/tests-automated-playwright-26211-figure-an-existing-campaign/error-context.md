@@ -1,0 +1,110 @@
+# Page snapshot
+
+```yaml
+- img "Virion Labs"
+- text: Virion Labs
+- navigation:
+  - list:
+    - listitem:
+      - link "Dashboard":
+        - /url: /
+        - img
+        - text: Dashboard
+    - listitem:
+      - link "Clients":
+        - /url: /clients
+        - img
+        - text: Clients
+    - listitem:
+      - link "Campaigns":
+        - /url: /bot-campaigns
+        - img
+        - text: Campaigns
+    - listitem:
+      - link "Analytics":
+        - /url: /analytics
+        - img
+        - text: Analytics
+    - listitem:
+      - link "Access Requests":
+        - /url: /admin/access-requests
+        - img
+        - text: Access Requests
+    - listitem:
+      - link "Settings":
+        - /url: /settings
+        - img
+        - text: Settings
+- text: JA John Admin admin
+- banner:
+  - text: Admin Dashboard
+  - button "JA"
+- main:
+  - button "Back to Campaigns":
+    - img
+    - text: Back to Campaigns
+  - heading "Edit Campaign" [level=1]
+  - navigation:
+    - list:
+      - listitem:
+        - button "Vitals":
+          - img
+          - text: Vitals
+      - listitem:
+        - button "Placement & Schedule":
+          - img
+          - text: Placement & Schedule
+      - listitem:
+        - button "Bot Identity":
+          - img
+          - text: Bot Identity
+      - listitem:
+        - button "Onboarding Flow":
+          - img
+          - text: Onboarding Flow
+      - listitem:
+        - button "Access & Moderation":
+          - img
+          - text: Access & Moderation
+      - listitem:
+        - button "Advanced":
+          - img
+          - text: Advanced
+  - text: Advanced Step 6 of 6 Enable Referral System
+  - paragraph: Turn on referral tracking and landing pages for this campaign.
+  - switch "Enable Referral System" [checked]
+  - heading "Landing Page Configuration" [level=3]
+  - paragraph: Configure how your referral landing pages will look and what content they'll display.
+  - tablist:
+    - tab "Template" [selected]:
+      - img
+      - text: Template
+    - tab "Content":
+      - img
+      - text: Content
+    - tab "Media":
+      - img
+      - text: Media
+    - tab "Details":
+      - img
+      - text: Details
+  - tabpanel "Template":
+    - img
+    - text: Landing Page Template Choose a pre-designed template or start with a blank canvas Select Template
+    - combobox "Select Template": Tech Startup Beta Access - Ideal for tech startups offering beta access to new products
+    - paragraph: "Selected: Ideal for tech startups offering beta access to new products"
+  - text: Webhook URL
+  - textbox "Webhook URL"
+  - paragraph: Send campaign events to an external URL.
+  - button "Back":
+    - img
+    - text: Back
+  - button "Save Campaign":
+    - img
+    - text: Save Campaign
+- region "Notifications (F8)":
+  - list
+- button "Open Next.js Dev Tools":
+  - img
+- alert
+```

@@ -9,6 +9,7 @@ test.describe('Admin Campaign Onboarding Fields Management in Campaign Wizard', 
     await page.getByLabel('Email').fill('vercilliusjrmila+johnadmin@gmail.com');
     await page.getByLabel('Password').fill('johnadmin');
     await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForSelector('h1:has-text("Admin Dashboard")');
     await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible({ timeout: 20000 });
     
     // Navigate to bot campaigns page by clicking the link

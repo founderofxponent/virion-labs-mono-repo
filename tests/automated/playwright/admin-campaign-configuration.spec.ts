@@ -8,6 +8,7 @@ test.describe('Admin Campaign Configuration', () => {
     await page.getByLabel('Email').fill('vercilliusjrmila+johnadmin@gmail.com');
     await page.getByLabel('Password').fill('johnadmin');
     await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForSelector('h1:has-text("Admin Dashboard")');
     await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible({ timeout: 20000 });
   });
 
@@ -48,6 +49,8 @@ test.describe('Admin Campaign Configuration', () => {
         page.waitForURL('**/bot-campaigns', { timeout: 30000 }), // Increased timeout
         saveButton.click()
     ]);
+
+    console.log(`Current URL: ${page.url()}`);
 
     await expect(page.getByRole('heading', { name: 'Bot Campaigns' })).toBeVisible();
     

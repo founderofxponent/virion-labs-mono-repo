@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "playwright test",
     "script:add-admin": "node scripts/add-admin.js",
     "switch-env": "node scripts/switch-environment.js",
     "env:dev": "node scripts/switch-environment.js dev",

@@ -18,7 +18,8 @@
     "bot:dev": "cd virion-labs-discord-bot && npm run dev",
     "install:all": "npm install && cd virion-labs-dashboard && npm install && cd ../virion-labs-discord-bot && npm install",
     "start:all": "concurrently \"npm run dashboard:dev\" \"npm run bot:start\"",
-    "test:all": "cd virion-labs-dashboard && npm test && cd ../virion-labs-discord-bot && npm test"
+    "test:dashboard": "npx playwright test --debug",
+    "test:all": "npm run test:dashboard && cd virion-labs-discord-bot && npm test"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.0",

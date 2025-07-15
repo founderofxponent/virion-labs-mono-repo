@@ -10,6 +10,7 @@ test.describe('Admin Campaign Management', () => {
     await page.getByLabel('Email').fill('vercilliusjrmila+johnadmin@gmail.com');
     await page.getByLabel('Password').fill('johnadmin');
     await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForSelector('h1:has-text("Admin Dashboard")');
     await expect(page.getByRole('heading', { name: 'Admin Dashboard' })).toBeVisible({ timeout: 20000 });
   });
 
@@ -20,6 +21,7 @@ test.describe('Admin Campaign Management', () => {
 
     // Click the "Create Campaign" button and wait for the wizard to load
     await page.getByRole('button', { name: 'Create Campaign' }).click();
+    await page.waitForSelector('h1:has-text("Create New Campaign")');
     await expect(page.getByRole('heading', { name: 'Create New Campaign' })).toBeVisible({ timeout: 20000 });
 
     const campaignName = `Test Campaign ${Date.now()}`;
