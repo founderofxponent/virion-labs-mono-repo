@@ -11,10 +11,9 @@ This document provides a step-by-step guide for manually testing the admin featu
 2.  [Create a New Campaign](#2-create-a-new-campaign)
 3.  [Configure Campaign Details](#3-configure-campaign-details)
 4.  [Activate, Pause, and Archive Campaigns](#4-activate-pause-and-archive-campaigns)
-5.  [Manage Campaign Templates](#5-manage-campaign-templates)
-6.  [View Analytics and Export Data](#6-view-analytics-and-export-data)
-7.  [System Health and Debugging](#7-system-health-and-debugging)
-8.  [Manage Access Requests](#8-manage-access-requests)
+5.  [View Analytics and Export Data](#5-view-analytics-and-export-data)
+6.  [System Health and Debugging](#6-system-health-and-debugging)
+7.  [Manage Access Requests](#7-manage-access-requests)
 
 ---
 
@@ -115,6 +114,7 @@ Ensure that an admin can create a new campaign using the campaign wizard with de
 
     #### **Tab 6: Advanced**
     -   **Enable Referral System:** Enabled
+        -   **Note:** Enabling the referral system will automatically apply the landing page configuration associated with the selected campaign template. There are no additional fields to configure here.
     -   **Webhook URL:** `https://your-test-api.com/webhook/summer-festival`
 
 5.  Click the "Save Campaign" button.
@@ -160,38 +160,12 @@ Verify that an admin can change the status of a campaign.
 
 ---
 
-## 5. Manage Campaign Templates
+## 5. View Analytics and Export Data
 
 ### 5.1 Objective
-Ensure that an admin can create, edit, and apply a campaign template.
-
-### 5.2 Test Steps
-
-#### 5.2.1 Create a New Template
-1.  Navigate to "Settings" > "Campaign Templates".
-2.  Click "Create New Template".
-3.  Fill in the details:
-    -   **Template Name:** `Q4 Tech Launch Template`
-    -   **Description:** `Standard template for all Q4 tech product launches.`
-    -   **Onboarding Questions:**
-        1. `Which product are you most excited about?` (Multiple Choice: `Product X`, `Product Y`)
-        2. `What is your primary use case?` (Text)
-4.  Save the template.
-5.  **Expected Result:** The `Q4 Tech Launch Template` is now listed on the templates page.
-
-#### 5.2.2 Apply the Template
-1. Go to "Bot Campaigns" and create a new campaign.
-2. On the **Vitals** tab, select `Q4 Tech Launch Template` from the **Campaign Template** dropdown.
-3. **Expected Result:** The **Onboarding Flow** tab should be pre-filled with the questions from the template.
-
----
-
-## 6. View Analytics and Export Data
-
-### 6.1 Objective
 Verify that the admin can view analytics and export data.
 
-### 6.2 Test Steps
+### 5.2 Test Steps
 1. Navigate to the "Analytics" page.
 2. **Expected Result:** The dashboard displays key metrics. You should see at least one onboarding response from your previous test activities.
 3. Find the "Export Data" section, select "CSV", and choose "All Time".
@@ -200,12 +174,12 @@ Verify that the admin can view analytics and export data.
 
 ---
 
-## 7. System Health and Debugging
+## 6. System Health and Debugging
 
-### 7.1 Objective
+### 6.1 Objective
 Confirm the admin can check system health.
 
-### 7.2 Test Steps
+### 6.2 Test Steps
 1.  Go to "Settings" > "System Health".
 2.  **Expected Result:** The page shows the status of all services:
     -   **Database:** `Connected`
@@ -214,12 +188,12 @@ Confirm the admin can check system health.
 
 ---
 
-## 8. Manage Access Requests
+## 7. Manage Access Requests
 
-### 8.1 Objective
+### 7.1 Objective
 Ensure the admin can approve or deny access requests.
 
-### 8.2 Test Steps
+### 7.2 Test Steps
 1.  **Prerequisite:** Using a separate (non-admin) account, navigate to a campaign landing page that requires access approval and submit a request. Use the `Summer Festival Giveaway - 2024` campaign for this.
 2.  Log in as the admin.
 3.  Go to the "Access Requests" page.
