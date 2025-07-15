@@ -118,7 +118,7 @@ Ensure that an admin can create a new campaign using the campaign wizard with de
     -   **Webhook URL:** `https://your-test-api.com/webhook/summer-festival`
 
 5.  Click the "Save Campaign" button.
-6.  **Expected Result:** The user is redirected to the "Bot Campaigns" page, and the new campaign, "Summer Festival Giveaway - 2024", is visible at the top of the campaign list with a "Draft" status.
+6.  **Expected Result:** The user is redirected to the "Bot Campaigns" page, and the new campaign, "Summer Festival Giveaway - 2024", is visible at the top of the campaign list with an "Active" status.
 
 ---
 
