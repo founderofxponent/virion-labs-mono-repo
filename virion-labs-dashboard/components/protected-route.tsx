@@ -19,6 +19,11 @@ export function ProtectedRoute({
   const router = useRouter()
 
   useEffect(() => {
+    // Wait until loading is finished before checking for user
+    if (loading) {
+      return
+    }
+
     // Redirect unauthenticated users to login
     if (!user) {
       router.replace('/login')
@@ -26,7 +31,7 @@ export function ProtectedRoute({
     }
 
     // User is authenticated, allow access
-  }, [user, router])
+  }, [user, loading, router])
 
   // Show loading state while authentication is being checked
   if (loading) {
