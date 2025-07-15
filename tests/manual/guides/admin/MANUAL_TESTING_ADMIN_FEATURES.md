@@ -2,7 +2,7 @@
 
 This document provides a step-by-step guide for manually testing the admin features of the Virion Labs platform.
 
-**Last Updated:** {{CURRENT_DATE}}
+**Last Updated:** 2025-07-15
 
 ---
 
@@ -31,138 +31,200 @@ Verify that an admin user can successfully log in and that unauthorized users ar
 
 #### 1.3.1 Successful Login
 1.  Navigate to the login page: [http://localhost:3000/login](http://localhost:3000/login)
-2.  Enter the correct admin email and password.
-3.  Click the "Login" button.
-4.  **Expected Result:** The user is redirected to the admin dashboard.
+2.  Enter the email `vercilliusjrmila+johnadmin@gmail.com` and password `johnadmin`.
+3.  Click the "Sign in" button.
+4.  **Expected Result:** The user is redirected to the admin dashboard at `http://localhost:3000/`.
 
 #### 1.3.2 Failed Login (Incorrect Password)
 1.  Navigate to the login page.
-2.  Enter the correct admin email and an incorrect password.
-3.  Click the "Login" button.
-4.  **Expected Result:** An error message is displayed, and the user remains on the login page.
+2.  Enter the email `vercilliusjrmila+johnadmin@gmail.com` and the password `wrongpassword`.
+3.  Click the "Sign in" button.
+4.  **Expected Result:** An error message "Invalid email or password. Please check your credentials and try again." is displayed, and the user remains on the login page.
 
 #### 1.3.3 Failed Login (Incorrect Email)
 1.  Navigate to the login page.
-2.  Enter an incorrect email and any password.
-3.  Click the "Login" button.
-4.  **Expected Result:** An error message is displayed, and the user remains on the login page.
+2.  Enter the email `wrong@email.com` and the password `johnadmin`.
+3.  Click the "Sign in" button.
+4.  **Expected Result:** An error message "Invalid email or password. Please check your credentials and try again." is displayed, and the user remains on the login page.
 
 ---
 
 ## 2. Create a New Campaign
 
 ### 2.1 Objective
-Ensure that an admin can create a new campaign using the campaign wizard.
+Ensure that an admin can create a new campaign using the campaign wizard with detailed and specific values.
 
 ### 2.2 Test Steps
 1.  Log in as an admin.
-2.  Navigate to the "Bot Campaigns" page from the main dashboard or side navigation.
+2.  Navigate to the "Bot Campaigns" page from the side navigation.
 3.  Click on the "Create Campaign" button.
-4.  You should be redirected to the campaign wizard.
-5.  Follow the steps in the wizard, filling in the required information. You can use a template or create a campaign from scratch.
-6.  On the final step, click "Save" or "Create Campaign".
-7.  **Expected Result:** A success message is displayed, and the new campaign appears in the list of bot campaigns.
+4.  You will be redirected to the campaign wizard. Fill out each tab with the following details:
+
+    ---
+    
+    #### **Tab 1: Vitals**
+    -   **Campaign Name:** `Summer Festival Giveaway - 2024`
+    -   **Client:** `Test Client` (Select from the dropdown.)
+    -   **Campaign Template:** `Custom`
+    -   **Description:** `A campaign to promote the Summer Festival event. Influencers will invite their followers to join a special Discord server for a chance to win exclusive in-game items.`
+
+    ---
+
+    #### **Tab 2: Placement & Schedule**
+    -   **Discord Server ID (Guild ID):** `111222333444555666`
+    -   **Primary Channel ID:** `777888999000111222`
+    -   **Campaign Start Date:** `2025-07-15`
+    -   **Campaign End Date:** `2025-08-15`
+
+    ---
+
+    #### **Tab 3: Bot Identity**
+    -   **Bot Name:** `SummerBot`
+    -   **Bot Logo URL:** `https://example.com/summer-logo.png`
+    -   **Brand Color:** `#FFD700`
+    -   **Bot Personality:** `Enthusiastic`
+    -   **Bot Response Style:** `Friendly`
+
+    ---
+
+    #### **Tab 4: Onboarding Flow**
+    -   **Welcome Message:** `Welcome to the Summer Festival Giveaway! I'm SummerBot, and I'll help you get set up. Let's get started!`
+    -   **Onboarding Questions:**
+        1.  **Question 1:**
+            -   **Label:** `What is your primary gaming platform?`
+            -   **Field Type:** `Text`
+            -   **Required:** Yes
+        2.  **Question 2:**
+            -   **Label:** `How many hours a week do you typically play games?`
+            -   **Field Type:** `Text`
+            -   **Required:** No
+        3.  **Question 3:**
+            -   **Label:** `Which of our games have you played before?`
+            -   **Field Type:** `Text`
+            -   **Required:** Yes
+
+    ---
+
+    #### **Tab 5: Access & Moderation**
+    -   **Auto Role Assignment:** Enabled
+        -   **Target Role ID:** `987654321098765432`
+    -   **Enable Moderation:** Enabled
+        -   **Interactions per User (per hour):** `10`
+
+    ---
+
+    #### **Tab 6: Advanced**
+    -   **Enable Referral System:** Enabled
+    -   **Webhook URL:** `https://your-test-api.com/webhook/summer-festival`
+
+5.  Click the "Save Campaign" button.
+6.  **Expected Result:** The user is redirected to the "Bot Campaigns" page, and the new campaign, "Summer Festival Giveaway - 2024", is visible at the top of the campaign list with a "Draft" status.
 
 ---
 
 ## 3. Configure Campaign Details
 
 ### 3.1 Objective
-Verify that an admin can edit and update the configuration of an existing campaign.
+Ensure that an admin can successfully edit an existing campaign's details.
 
 ### 3.2 Test Steps
-1.  Log in as an admin and navigate to the "Bot Campaigns" page.
-2.  From the list of campaigns, click the "Edit" button or link for a specific campaign.
-3.  You will be taken to the campaign wizard in "edit" mode.
-4.  Navigate through the tabs and make changes to various fields, such as:
-    *   Campaign name or description.
-    *   Bot identity (name, personality).
-    *   Onboarding flow questions.
-    *   Access and moderation settings.
-5.  Click "Save" to apply the changes.
-6.  **Expected Result:** A success message is displayed. When you view the campaign details again, the changes you made should be reflected.
+1.  On the "Bot Campaigns" page, locate the "Summer Festival Giveaway - 2024" campaign.
+2.  Click the three-dots menu on the right side of the campaign row and select "Edit Campaign".
+3.  In the "Vitals" tab, change the **Description** to: `This is an updated description for the Summer Festival Giveaway campaign. We've added new prizes and extended the end date!`
+4.  Navigate to the "Advanced" tab and click the "Save Campaign" button.
+5.  **Expected Result:** A success message "Campaign updated successfully!" appears, and the changes are saved.
 
 ---
 
 ## 4. Activate, Pause, and Archive Campaigns
 
 ### 4.1 Objective
-Confirm that an admin can change the status of a campaign (e.g., from active to paused).
+Verify that an admin can change the status of a campaign.
 
 ### 4.2 Test Steps
-1.  Log in as an admin and navigate to the "Bot Campaigns" page.
-2.  In the list of campaigns, locate the status toggle or menu for a campaign.
-3.  **To Pause:** If the campaign is active, use the control to change its status to "Paused".
-4.  **To Activate:** If the campaign is paused, use the control to change its status to "Active".
-5.  **To Archive:** Look for an "Archive" option in a dropdown menu or next to the campaign. Click it.
-6.  **Expected Result:** The campaign's status is updated immediately in the UI. If you have a separate "Archived" tab or filter, the archived campaign should appear there. 
+1.  On the "Bot Campaigns" page, locate the "Summer Festival Giveaway - 2024" campaign.
+2.  Click the three-dots menu on the right side of the campaign row.
+
+#### 4.2.1 Pause Campaign
+1.  Select "Pause" from the dropdown menu.
+2.  **Expected Result:** The campaign's status changes to "Paused".
+
+#### 4.2.2 Activate Campaign
+1.  Click the three-dots menu again and select "Resume".
+2.  **Expected Result:** The campaign's status changes to "Active".
+
+#### 4.2.3 Archive Campaign
+1.  Click the three-dots menu and select "Archive".
+2.  A confirmation dialog will appear. Click "OK".
+3.  **Expected Result:** The campaign is removed from the default list view.
 
 ---
 
 ## 5. Manage Campaign Templates
 
 ### 5.1 Objective
-Ensure that an admin can create, edit, and manage campaign onboarding and landing page templates.
+Ensure that an admin can create, edit, and apply a campaign template.
 
 ### 5.2 Test Steps
 
 #### 5.2.1 Create a New Template
-1.  Log in as an admin.
-2.  Navigate to a section for managing templates (e.g., "Settings" > "Templates" or a dedicated "Templates" page).
-3.  Click "Create New Template".
-4.  Fill in the template details, such as name, description, and the onboarding questions or landing page layout.
-5.  Save the template.
-6.  **Expected Result:** The new template is created and appears in the list of available templates.
+1.  Navigate to "Settings" > "Campaign Templates".
+2.  Click "Create New Template".
+3.  Fill in the details:
+    -   **Template Name:** `Q4 Tech Launch Template`
+    -   **Description:** `Standard template for all Q4 tech product launches.`
+    -   **Onboarding Questions:**
+        1. `Which product are you most excited about?` (Multiple Choice: `Product X`, `Product Y`)
+        2. `What is your primary use case?` (Text)
+4.  Save the template.
+5.  **Expected Result:** The `Q4 Tech Launch Template` is now listed on the templates page.
 
-#### 5.2.2 Edit an Existing Template
-1.  Navigate to the template management page.
-2.  Select a template to edit.
-3.  Make changes to the template's fields or layout.
-4.  Save the changes.
-5.  **Expected Result:** The template is updated. When creating a new campaign, the changes to the template should be reflected.
+#### 5.2.2 Apply the Template
+1. Go to "Bot Campaigns" and create a new campaign.
+2. On the **Vitals** tab, select `Q4 Tech Launch Template` from the **Campaign Template** dropdown.
+3. **Expected Result:** The **Onboarding Flow** tab should be pre-filled with the questions from the template.
 
 ---
 
 ## 6. View Analytics and Export Data
 
 ### 6.1 Objective
-Verify that the admin can view platform-wide analytics and export data correctly.
+Verify that the admin can view analytics and export data.
 
 ### 6.2 Test Steps
-
-#### 6.2.1 View Analytics Dashboard
-1.  Log in as an admin.
-2.  Navigate to the "Analytics" page.
-3.  **Expected Result:** The dashboard displays various metrics, such as total clients, campaigns, onboarding responses, and performance charts. The data should appear accurate and up-to-date.
-
-#### 6.2.2 Export Data
-1.  On the "Analytics" page or a dedicated "Export" page, find the export options.
-2.  Select the desired format (e.g., CSV, JSON) and data range.
-3.  Initiate the export.
-4.  **Expected Result:** A file is downloaded in the selected format containing the correct analytics data. Open the file to verify its contents.
+1. Navigate to the "Analytics" page.
+2. **Expected Result:** The dashboard displays key metrics. You should see at least one onboarding response from your previous test activities.
+3. Find the "Export Data" section, select "CSV", and choose "All Time".
+4. Click "Export".
+5. **Expected Result:** A file named `analytics-export-[date].csv` is downloaded. Open it and verify it contains the test data you generated.
 
 ---
 
 ## 7. System Health and Debugging
 
 ### 7.1 Objective
-Confirm that the admin can check the system's health and access debugging tools.
+Confirm the admin can check system health.
 
 ### 7.2 Test Steps
-1.  Log in as an admin.
-2.  Find a "System Health," "Status," or "Debug" page, possibly under "Settings" or in the footer.
-3.  **Expected Result:** The page should display the status of various services (e.g., Database, API, Discord Bot). If there are debugging tools, they should be accessible and provide relevant information.
+1.  Go to "Settings" > "System Health".
+2.  **Expected Result:** The page shows the status of all services:
+    -   **Database:** `Connected`
+    -   **API:** `OK`
+    -   **Discord Bot:** `Running`
 
 ---
 
 ## 8. Manage Access Requests
 
 ### 8.1 Objective
-Ensure that the admin can view and act upon access requests from influencers.
+Ensure the admin can approve or deny access requests.
 
 ### 8.2 Test Steps
-1.  Log in as an admin.
-2.  Navigate to the "Access Requests" page.
-3.  **Expected Result:** A list of pending access requests is displayed, showing the influencer's name and the campaign they are requesting access to.
-4.  For a pending request, click "Approve" or "Deny".
-5.  **Expected Result:** The request's status is updated. If approved, the influencer should now have access to the campaign. If denied, the request should be moved to a "Denied" or "Archived" list. 
+1.  **Prerequisite:** Using a separate (non-admin) account, navigate to a campaign landing page that requires access approval and submit a request. Use the `Summer Festival Giveaway - 2024` campaign for this.
+2.  Log in as the admin.
+3.  Go to the "Access Requests" page.
+4.  **Expected Result:** You see a pending request from the non-admin user for the `Summer Festival Giveaway - 2024` campaign.
+5.  Click "Approve" for the request.
+6.  **Expected Result:** The request status changes to "Approved". The non-admin user should now have access.
+7.  If another request is pending, click "Deny".
+8.  **Expected Result:** The request status changes to "Denied". 
