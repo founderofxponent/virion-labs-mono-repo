@@ -20,13 +20,26 @@ class ServerConfig:
 
 @dataclass
 class DatabaseConfig:
-    """Database configuration settings."""
+    """Database configuration settings (legacy, kept for backward compatibility)."""
     url: str = os.getenv("SUPABASE_URL", "")
     service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     
     def __post_init__(self):
-        if not self.url or not self.service_role_key:
-            raise ValueError("Database configuration is incomplete. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.")
+        # Make database config optional since we're moving to API-based communication
+        pass
+
+
+@dataclass
+class APIConfig:
+    """API configuration settings."""
+    base_url: str = os.getenv("API_BASE_URL", "http://localhost:8000")
+    api_key: str = os.getenv("API_KEY", "")
+    
+    def __post_init__(self):
+        if not self.base_url:
+            raise ValueError("API_BASE_URL is required")
+        if not self.api_key:
+            raise ValueError("API_KEY is required")
 
 
 @dataclass
@@ -34,11 +47,13 @@ class AppConfig:
     """Application configuration."""
     server: ServerConfig
     database: DatabaseConfig
+    api: APIConfig
     
     @classmethod
     def from_env(cls) -> "AppConfig":
         """Create configuration from environment variables."""
         return cls(
             server=ServerConfig(),
-            database=DatabaseConfig()
+            database=DatabaseConfig(),
+            api=APIConfig()
         )

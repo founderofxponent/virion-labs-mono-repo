@@ -1,128 +1,167 @@
 """Campaign management functions."""
 
+import asyncio
 from datetime import datetime
 from typing import List
-from functions.base import supabase, logger, CampaignType
+from functions.base import api_client, logger, CampaignType
 from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-def create_campaign(params: dict) -> dict:
+async def create_campaign(params: dict) -> dict:
     """Creates a new campaign in the Virion Labs platform."""
     try:
-        client_response = supabase.table("clients").select("id").eq("name", params["client"]).limit(1).execute()
-        if not client_response.data:
-            return {"error": f"Client '{params['client']}' not found."}
-        client_id = client_response.data[0]['id']
-        
         campaign_data = {
-            "client_id": client_id,
-            "guild_id": params["discord_server_id"],
-            "channel_id": params["primary_channel_id"],
-            "campaign_name": params["name"],
-            "campaign_type": params["campaign_type"],
-            "description": params["description"],
-            "campaign_start_date": params["start_date"],
-            "campaign_end_date": params["end_date"],
-            "bot_name": params["bot_name"],
-            "bot_avatar_url": params["bot_logo_url"],
-            "brand_color": params["brand_color"],
-            "bot_personality": params["bot_personality"],
-            "bot_response_style": params["bot_response_style"],
-            "welcome_message": params["welcome_message"],
-            "onboarding_flow": params["onboarding_questions"],
-            "auto_role_assignment": params["auto_role_assignment"],
-            "target_role_ids": [params["target_role_id"]] if params["target_role_id"] else [],
-            "moderation_enabled": params["enable_moderation"],
-            "rate_limit_per_user": params["interactions_per_user"],
-            "referral_tracking_enabled": params["enable_referral_system"],
-            "webhook_url": params["webhook_url"],
-            "is_active": True
+            "name": params["name"],
+            "description": params.get("description"),
+            "discord_guild_id": params["discord_server_id"],
+            "discord_channel_id": params.get("primary_channel_id"),
+            "is_active": True,
+            "onboarding_config": {
+                "bot_name": params.get("bot_name"),
+                "bot_avatar_url": params.get("bot_logo_url"),
+                "brand_color": params.get("brand_color"),
+                "bot_personality": params.get("bot_personality"),
+                "bot_response_style": params.get("bot_response_style"),
+                "welcome_message": params.get("welcome_message"),
+                "onboarding_questions": params.get("onboarding_questions", []),
+                "auto_role_assignment": params.get("auto_role_assignment", False),
+                "target_role_id": params.get("target_role_id"),
+                "moderation_enabled": params.get("enable_moderation", False),
+                "rate_limit_per_user": params.get("interactions_per_user", 10),
+                "referral_tracking_enabled": params.get("enable_referral_system", False),
+                "webhook_url": params.get("webhook_url")
+            },
+            "landing_page_config": {
+                "campaign_type": params.get("campaign_type"),
+                "start_date": params.get("start_date"),
+                "end_date": params.get("end_date")
+            }
         }
-        response = supabase.table("discord_guild_campaigns").insert(campaign_data).execute()
-        return response.data[0]
+        
+        result = await api_client.create_campaign(campaign_data)
+        return result
     except Exception as e:
         logger.error(f"Error creating campaign: {e}")
         return {"error": str(e)}
 
 
-def update_campaign(params: dict) -> dict:
+async def update_campaign(params: dict) -> dict:
     """Updates an existing campaign in the Virion Labs platform."""
     try:
         campaign_id = params["campaign_id"]
         updates = params["updates"]
         
-        if 'id' in updates:
-            return {"error": "Cannot change the campaign ID."}
+        # Map old field names to new API field names
+        mapped_updates = {}
+        if "name" in updates:
+            mapped_updates["name"] = updates["name"]
+        if "description" in updates:
+            mapped_updates["description"] = updates["description"]
+        if "discord_channel_id" in updates:
+            mapped_updates["discord_channel_id"] = updates["discord_channel_id"]
+        if "is_active" in updates:
+            mapped_updates["is_active"] = updates["is_active"]
         
-        if 'campaign_type' in updates:
-            try:
-                CampaignType(updates['campaign_type'])
-            except ValueError:
-                allowed_types = [e.value for e in CampaignType]
-                return {"error": f"Invalid campaign_type. Must be one of: {allowed_types}"}
-
-        updates["updated_at"] = datetime.now().isoformat()
-        response = supabase.table("discord_guild_campaigns").update(updates).eq("id", campaign_id).execute()
-        return response.data[0] if response.data else {"error": "Campaign not found"}
+        # Handle onboarding config updates
+        onboarding_updates = {}
+        if any(key in updates for key in ["bot_name", "bot_logo_url", "brand_color", "bot_personality", "bot_response_style", "welcome_message", "onboarding_questions", "auto_role_assignment", "target_role_id", "enable_moderation", "interactions_per_user", "enable_referral_system", "webhook_url"]):
+            onboarding_updates = {
+                "bot_name": updates.get("bot_name"),
+                "bot_avatar_url": updates.get("bot_logo_url"),
+                "brand_color": updates.get("brand_color"),
+                "bot_personality": updates.get("bot_personality"),
+                "bot_response_style": updates.get("bot_response_style"),
+                "welcome_message": updates.get("welcome_message"),
+                "onboarding_questions": updates.get("onboarding_questions"),
+                "auto_role_assignment": updates.get("auto_role_assignment"),
+                "target_role_id": updates.get("target_role_id"),
+                "moderation_enabled": updates.get("enable_moderation"),
+                "rate_limit_per_user": updates.get("interactions_per_user"),
+                "referral_tracking_enabled": updates.get("enable_referral_system"),
+                "webhook_url": updates.get("webhook_url")
+            }
+            mapped_updates["onboarding_config"] = onboarding_updates
+        
+        # Handle landing page config updates
+        landing_updates = {}
+        if any(key in updates for key in ["campaign_type", "start_date", "end_date"]):
+            landing_updates = {
+                "campaign_type": updates.get("campaign_type"),
+                "start_date": updates.get("start_date"),
+                "end_date": updates.get("end_date")
+            }
+            mapped_updates["landing_page_config"] = landing_updates
+        
+        result = await api_client.update_campaign(campaign_id, mapped_updates)
+        return result
     except Exception as e:
         logger.error(f"Error updating campaign: {e}")
         return {"error": str(e)}
 
 
-def delete_campaign(params: dict) -> dict:
-    """Deletes a campaign by marking it as inactive and deleted (soft delete)."""
+async def delete_campaign(params: dict) -> dict:
+    """Deletes a campaign by marking it as inactive."""
     try:
         campaign_id = params["campaign_id"]
-        update_data = {
-            "is_active": False,
-            "is_deleted": True,
-            "deleted_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
-        }
-        response = supabase.table("discord_guild_campaigns").update(update_data).eq("id", campaign_id).execute()
-        return response.data[0] if response.data else {"error": "Campaign not found"}
+        result = await api_client.delete_campaign(campaign_id)
+        return result
     except Exception as e:
         logger.error(f"Error deleting campaign: {e}")
         return {"error": str(e)}
 
 
-def set_campaign_status(params: dict) -> dict:
+async def set_campaign_status(params: dict) -> dict:
     """Sets the status of a campaign."""
-    campaign_id = params["campaign_id"]
-    status = params["status"]
-    
-    if status not in ["active", "paused", "archived"]:
-        return {"error": "Invalid status. Must be one of 'active', 'paused', or 'archived'."}
-    
     try:
-        update_data = {
-            "is_active": status == "active",
-            "updated_at": datetime.now().isoformat()
-        }
-        if status == "paused":
-            update_data["paused_at"] = datetime.now().isoformat()
-        else:
-            update_data["paused_at"] = None
-
-        if status == "archived":
-            update_data["is_deleted"] = True
-            update_data["deleted_at"] = datetime.now().isoformat()
+        campaign_id = params["campaign_id"]
+        status = params["status"]
         
-        response = supabase.table("discord_guild_campaigns").update(update_data).eq("id", campaign_id).execute()
-        return response.data[0] if response.data else {"error": "Campaign not found"}
+        if status not in ["active", "paused", "archived"]:
+            return {"error": "Invalid status. Must be one of 'active', 'paused', or 'archived'."}
+        
+        updates = {"is_active": status == "active"}
+        result = await api_client.update_campaign(campaign_id, updates)
+        return result
     except Exception as e:
         logger.error(f"Error setting campaign status: {e}")
         return {"error": str(e)}
 
 
-def list_available_campaigns(_params: dict) -> dict:
+async def list_available_campaigns(_params: dict) -> dict:
     """Retrieves a list of all active campaigns available to influencers."""
     try:
-        response = supabase.table("discord_guild_campaigns").select("*").eq("is_active", True).execute()
-        return {"campaigns": response.data}
+        campaigns = await api_client.list_campaigns()
+        return {"campaigns": campaigns}
     except Exception as e:
         logger.error(f"Error listing available campaigns: {e}")
+        return {"error": str(e)}
+
+
+async def get_campaign(params: dict) -> dict:
+    """Gets a specific campaign by ID."""
+    try:
+        campaign_id = params["campaign_id"]
+        result = await api_client.get_campaign(campaign_id)
+        return result
+    except Exception as e:
+        logger.error(f"Error getting campaign: {e}")
+        return {"error": str(e)}
+
+
+async def update_campaign_stats(params: dict) -> dict:
+    """Updates campaign statistics."""
+    try:
+        campaign_id = params["campaign_id"]
+        stats = {
+            "view_count": params.get("view_count"),
+            "join_count": params.get("join_count"),
+            "additional_stats": params.get("additional_stats")
+        }
+        result = await api_client.update_campaign_stats(campaign_id, stats)
+        return result
+    except Exception as e:
+        logger.error(f"Error updating campaign stats: {e}")
         return {"error": str(e)}
 
 
@@ -138,19 +177,18 @@ class CampaignPlugin(PluginBase):
             FunctionSpec(
                 name="create_campaign",
                 func=apply_middleware(create_campaign, [
-                    validation_middleware(["client", "discord_server_id", "name"])
+                    validation_middleware(["name", "discord_server_id"])
                 ]),
                 category=self.category,
                 description="Creates a new campaign in the Virion Labs platform",
                 schema={
                     "type": "object",
                     "properties": {
-                        "client": {"type": "string", "description": "Client company name"},
+                        "name": {"type": "string", "description": "Campaign name"},
                         "discord_server_id": {"type": "string", "description": "Discord server ID"},
                         "primary_channel_id": {"type": "string", "description": "Primary Discord channel ID"},
-                        "name": {"type": "string", "description": "Campaign name"},
-                        "campaign_type": {"type": "string", "enum": ["influencer_marketing", "brand_awareness", "product_launch"], "description": "Type of campaign"},
                         "description": {"type": "string", "description": "Campaign description"},
+                        "campaign_type": {"type": "string", "enum": ["influencer_marketing", "brand_awareness", "product_launch"], "description": "Type of campaign"},
                         "start_date": {"type": "string", "format": "date", "description": "Campaign start date (YYYY-MM-DD)"},
                         "end_date": {"type": "string", "format": "date", "description": "Campaign end date (YYYY-MM-DD)"},
                         "bot_name": {"type": "string", "description": "Bot display name"},
@@ -167,7 +205,7 @@ class CampaignPlugin(PluginBase):
                         "enable_referral_system": {"type": "boolean", "description": "Enable referral tracking"},
                         "webhook_url": {"type": "string", "format": "uri", "description": "Webhook URL for notifications"}
                     },
-                    "required": ["client", "discord_server_id", "name"]
+                    "required": ["name", "discord_server_id"]
                 }
             ),
             FunctionSpec(
@@ -199,7 +237,7 @@ class CampaignPlugin(PluginBase):
                                 "auto_role_assignment": {"type": "boolean"},
                                 "target_role_id": {"type": "string"},
                                 "enable_moderation": {"type": "boolean"},
-                                "interactions_per_user": {"type": "integer", "minimum": 1},
+                                "interactions_per_user": {"type": "integer"},
                                 "enable_referral_system": {"type": "boolean"},
                                 "webhook_url": {"type": "string", "format": "uri"}
                             },
@@ -215,11 +253,11 @@ class CampaignPlugin(PluginBase):
                     validation_middleware(["campaign_id"])
                 ]),
                 category=self.category,
-                description="Deletes a campaign (soft delete)",
+                description="Deletes a campaign",
                 schema={
                     "type": "object",
                     "properties": {
-                        "campaign_id": {"type": "string", "description": "Campaign UUID to delete"}
+                        "campaign_id": {"type": "string", "description": "Campaign UUID"}
                     },
                     "required": ["campaign_id"]
                 }
@@ -230,12 +268,12 @@ class CampaignPlugin(PluginBase):
                     validation_middleware(["campaign_id", "status"])
                 ]),
                 category=self.category,
-                description="Sets campaign status (active/paused/archived)",
+                description="Sets the status of a campaign",
                 schema={
                     "type": "object",
                     "properties": {
                         "campaign_id": {"type": "string", "description": "Campaign UUID"},
-                        "status": {"type": "string", "enum": ["active", "paused", "archived"], "description": "New campaign status"}
+                        "status": {"type": "string", "enum": ["active", "paused", "archived"], "description": "Campaign status"}
                     },
                     "required": ["campaign_id", "status"]
                 }
@@ -244,11 +282,44 @@ class CampaignPlugin(PluginBase):
                 name="list_available_campaigns",
                 func=apply_middleware(list_available_campaigns),
                 category=self.category,
-                description="Lists all active campaigns",
+                description="Lists all available campaigns",
                 schema={
                     "type": "object",
                     "properties": {},
                     "description": "No parameters required"
+                }
+            ),
+            FunctionSpec(
+                name="get_campaign",
+                func=apply_middleware(get_campaign, [
+                    validation_middleware(["campaign_id"])
+                ]),
+                category=self.category,
+                description="Gets a specific campaign",
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "campaign_id": {"type": "string", "description": "Campaign UUID"}
+                    },
+                    "required": ["campaign_id"]
+                }
+            ),
+            FunctionSpec(
+                name="update_campaign_stats",
+                func=apply_middleware(update_campaign_stats, [
+                    validation_middleware(["campaign_id"])
+                ]),
+                category=self.category,
+                description="Updates campaign statistics",
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "campaign_id": {"type": "string", "description": "Campaign UUID"},
+                        "view_count": {"type": "integer", "description": "Number of views"},
+                        "join_count": {"type": "integer", "description": "Number of joins"},
+                        "additional_stats": {"type": "object", "description": "Additional statistics"}
+                    },
+                    "required": ["campaign_id"]
                 }
             )
         ]

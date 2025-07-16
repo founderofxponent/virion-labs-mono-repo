@@ -8,8 +8,9 @@ import logging
 from fastmcp import FastMCP
 
 from core.config import AppConfig
-from core.database import DatabaseClient
+from core.api_client import APIClient
 from core.plugin import registry
+from functions.base import set_api_client
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,8 +22,11 @@ class VirionLabsMCPServer:
     
     def __init__(self, config: AppConfig):
         self.config = config
-        self.db = DatabaseClient(config.database)
+        self.api_client = APIClient(config.api)
         self.mcp = FastMCP("virion_labs_mcp_server")
+        
+        # Set the global API client for functions to use
+        set_api_client(self.api_client)
         
         # Auto-discover and register plugins
         registry.auto_discover_plugins()
@@ -30,13 +34,13 @@ class VirionLabsMCPServer:
         # Register the universal tool
         self._register_universal_tool()
         
-        logger.info("MCP Server initialized with plugin-based architecture")
+        logger.info("MCP Server initialized with API-based architecture")
     
     def _register_universal_tool(self):
         """Register the universal tool that dispatches to plugins."""
         
         @self.mcp.tool()
-        def execute_function(function_name: str, parameters: dict = None) -> dict:
+        async def execute_function(function_name: str, parameters: dict = None) -> dict:
             """
             Universal tool that executes functions from registered plugins.
             
@@ -57,8 +61,15 @@ class VirionLabsMCPServer:
                 func = registry.get_function(function_name)
                 params = parameters or {}
                 
-                # Function already has middleware applied during registration
-                return func(params)
+                # Check if function is async
+                import inspect
+                if inspect.iscoroutinefunction(func):
+                    result = await func(params)
+                else:
+                    # For sync functions, run them in the event loop
+                    result = await asyncio.get_event_loop().run_in_executor(None, func, params)
+                
+                return result
                 
             except Exception as e:
                 logger.error(f"Error executing function {function_name}: {e}")
@@ -143,9 +154,14 @@ class VirionLabsMCPServer:
     
     async def run(self):
         """Run the MCP server."""
-        # Health check
-        if not self.db.health_check():
-            raise RuntimeError("Database connection failed")
+        # Test API connection
+        try:
+            # Simple health check to test API connection
+            await self.api_client._make_request("GET", "/status/health")
+            logger.info("API connection successful")
+        except Exception as e:
+            logger.error(f"API connection failed: {e}")
+            raise RuntimeError("API connection failed")
         
         logger.info(f"Starting server on {self.config.server.transport}:{self.config.server.port}")
         logger.info(f"Registered {len(registry.functions)} functions from {len(registry.plugins)} plugins")
@@ -159,10 +175,15 @@ class VirionLabsMCPServer:
                 port=self.config.server.port,
                 path=self.config.server.path
             )
+    
+    async def cleanup(self):
+        """Cleanup resources."""
+        await self.api_client.close()
 
 
 async def main():
     """Main entry point."""
+    server = None
     try:
         config = AppConfig.from_env()
         server = VirionLabsMCPServer(config)
@@ -170,6 +191,9 @@ async def main():
     except Exception as e:
         logger.error(f"Server startup failed: {e}")
         raise
+    finally:
+        if server:
+            await server.cleanup()
 
 
 if __name__ == "__main__":
