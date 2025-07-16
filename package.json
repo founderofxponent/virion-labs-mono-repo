@@ -4,30 +4,22 @@
   "description": "Virion Labs Monorepo - Dashboard and Discord Bot",
   "private": true,
   "workspaces": [
-    "virion-labs-dashboard",
-    "virion-labs-discord-bot"
+    "packages/*"
   ],
   "scripts": {
-    "env": "node scripts/switch-all-environments.js",
-    "env:dev": "node scripts/switch-all-environments.js dev",
-    "env:prod": "node scripts/switch-all-environments.js prod",
-    "env:status": "node scripts/switch-all-environments.js status",
-    "dashboard:dev": "cd virion-labs-dashboard && npm run dev",
-    "dashboard:build": "cd virion-labs-dashboard && npm run build",
-    "bot:start": "cd virion-labs-discord-bot && npm start",
-    "bot:dev": "cd virion-labs-discord-bot && npm run dev",
-    "install:all": "npm install && cd virion-labs-dashboard && npm install && cd ../virion-labs-discord-bot && npm install",
-    "start:all": "concurrently \"npm run dashboard:dev\" \"npm run bot:start\"",
-    "test:dashboard": "npx playwright test --debug",
-    "test:all": "npm run test:dashboard && cd virion-labs-discord-bot && npm test"
+    "dashboard:build": "yarn workspace virion-labs-dashboard build",
+    "dashboard:dev": "yarn workspace virion-labs-dashboard dev",
+    "bot:dev": "yarn workspace virion-labs-discord-bot dev",
+    "bot:start": "yarn workspace virion-labs-discord-bot start",
+    "start:all": "concurrently \"yarn dashboard:dev\" \"yarn bot:start\"",
+    "test:dashboard": "yarn workspace virion-labs-dashboard test"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.0",
     "concurrently": "^8.2.2"
   },
   "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.0.0"
+    "node": ">=16.0.0"
   },
   "keywords": [
     "virion-labs",
