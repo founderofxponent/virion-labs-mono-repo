@@ -15,7 +15,6 @@
     "test:dashboard": "yarn workspace virion-labs-dashboard test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.0",
     "concurrently": "^8.2.2"
   },
   "engines": {
