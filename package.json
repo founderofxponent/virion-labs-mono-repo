@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "py:install": "uv venv && source .venv/bin/activate && uv pip sync packages/api/pyproject.toml && uv pip sync packages/mcp-server/pyproject.toml",
     "dashboard:build": "yarn workspace virion-labs-dashboard build",
     "dashboard:dev": "yarn workspace virion-labs-dashboard dev",
     "bot:dev": "yarn workspace virion-labs-discord-bot dev",
@@ -15,7 +16,8 @@
     "test:dashboard": "yarn workspace virion-labs-dashboard test"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "uv": "^0.1.41"
   },
   "engines": {
     "node": ">=16.0.0"
