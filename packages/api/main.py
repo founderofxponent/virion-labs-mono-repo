@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from routers import status, admin
 
 app = FastAPI(
     title="Virion Labs Unified API",
@@ -6,9 +7,5 @@ app = FastAPI(
     version="0.1.0",
 )
 
-@app.get("/health", tags=["Status"])
-async def health_check():
-    """
-    Health check endpoint to confirm the API is running.
-    """
-    return {"status": "ok"}
+app.include_router(status.router)
+app.include_router(admin.router)
