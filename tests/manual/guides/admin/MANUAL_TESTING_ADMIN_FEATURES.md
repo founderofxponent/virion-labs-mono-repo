@@ -174,12 +174,41 @@ Verify that the admin can view analytics and export data.
 
 ---
 
-## 6. System Health and Debugging
+## 6. Verify Landing Page Updates
 
 ### 6.1 Objective
-Confirm the admin can check system health.
+Ensure that changing a campaign's template correctly updates the public-facing landing page using existing assets.
 
 ### 6.2 Test Steps
+
+#### 6.2.1 Initial State Verification
+1.  Navigate to **Bot Campaigns**.
+2.  Find the "Summer Festival Giveaway - 2024" campaign and click the three-dots menu.
+3.  Select **Edit Campaign**.
+4.  In the **Vitals** tab, ensure the **Campaign Template** is set to `Custom`.
+5.  Navigate to the **Advanced** tab.
+6.  **Expected Result:** The "Landing Page Configuration" section is not visible, as the "Custom" template has no associated landing page.
+7.  Save the campaign and return to the **Bot Campaigns** list.
+8.  Select **Preview Landing Page**.
+9.  **Expected Result:** A blank landing page is displayed, or a page with a default "Custom" title.
+
+#### 6.2.2 Update and Re-verify
+1.  From the **Bot Campaigns** list, edit the "Summer Festival Giveaway - 2024" campaign again.
+2.  In the **Vitals** tab, change the **Campaign Template** to `Product Promotion`.
+3.  Navigate to the **Advanced** tab and wait for the "Landing Page Configuration" section to load.
+4.  **Expected Result:** The "Landing Page Configuration" section is now visible, and the "Nike Sneaker Drop" template is automatically selected.
+5.  Save the campaign.
+6.  Return to the **Bot Campaigns** list, find the campaign again, and select **Preview Landing Page**.
+7.  **Expected Result:** The landing page now displays the title "Early Access to Nike Zoom Collection".
+
+---
+
+## 7. System Health and Debugging
+
+### 7.1 Objective
+Confirm the admin can check system health.
+
+### 7.2 Test Steps
 1.  Go to "Settings" > "System Health".
 2.  **Expected Result:** The page shows the status of all services:
     -   **Database:** `Connected`
