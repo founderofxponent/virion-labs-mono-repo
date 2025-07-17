@@ -32,7 +32,7 @@ async def get_bot_campaigns(
         user_id = auth_context.user_id if auth_context.is_user_auth else None
         return bot_campaign_service.get_bot_campaigns(db, user_id)
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to retrieve bot campaigns")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve bot campaigns: {e}")
 
 @router.post("/", response_model=BotCampaign)
 async def create_bot_campaign(
@@ -51,7 +51,7 @@ async def create_bot_campaign(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to create bot campaign")
+        raise HTTPException(status_code=500, detail=f"Failed to create bot campaign: {e}")
 
 @router.get("/{campaign_id}", response_model=BotCampaign)
 async def get_bot_campaign(
@@ -69,7 +69,7 @@ async def get_bot_campaign(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to retrieve bot campaign")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve bot campaign: {e}")
 
 @router.patch("/{campaign_id}", response_model=BotCampaign)
 async def update_bot_campaign(
@@ -88,7 +88,7 @@ async def update_bot_campaign(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to update bot campaign")
+        raise HTTPException(status_code=500, detail=f"Failed to update bot campaign: {e}")
 
 @router.delete("/{campaign_id}")
 async def delete_bot_campaign(
@@ -107,7 +107,7 @@ async def delete_bot_campaign(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to delete bot campaign")
+        raise HTTPException(status_code=500, detail=f"Failed to delete bot campaign: {e}")
 
 @router.patch("/{campaign_id}/stats")
 async def update_campaign_stats(
@@ -126,4 +126,4 @@ async def update_campaign_stats(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to update campaign stats")
+        raise HTTPException(status_code=500, detail=f"Failed to update campaign stats: {e}")

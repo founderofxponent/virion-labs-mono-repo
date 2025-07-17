@@ -12,34 +12,16 @@ async def create_campaign(params: dict) -> dict:
     """Creates a new campaign in the Virion Labs platform."""
     try:
         campaign_data = {
-            "name": params["name"],
+            "client_id": params["client_id"],
+            "guild_id": params["guild_id"],
+            "campaign_name": params["campaign_name"],
+            "campaign_type": params.get("campaign_type"),
             "description": params.get("description"),
-            "discord_guild_id": params["discord_server_id"],
-            "discord_channel_id": params.get("primary_channel_id"),
-            "is_active": True,
-            "onboarding_config": {
-                "bot_name": params.get("bot_name"),
-                "bot_avatar_url": params.get("bot_logo_url"),
-                "brand_color": params.get("brand_color"),
-                "bot_personality": params.get("bot_personality"),
-                "bot_response_style": params.get("bot_response_style"),
-                "welcome_message": params.get("welcome_message"),
-                "onboarding_questions": params.get("onboarding_questions", []),
-                "auto_role_assignment": params.get("auto_role_assignment", False),
-                "target_role_id": params.get("target_role_id"),
-                "moderation_enabled": params.get("enable_moderation", False),
-                "rate_limit_per_user": params.get("interactions_per_user", 10),
-                "referral_tracking_enabled": params.get("enable_referral_system", False),
-                "webhook_url": params.get("webhook_url")
-            },
-            "landing_page_config": {
-                "campaign_type": params.get("campaign_type"),
-                "start_date": params.get("start_date"),
-                "end_date": params.get("end_date")
-            }
+            "welcome_message": params.get("welcome_message"),
+            "webhook_url": params.get("webhook_url"),
         }
         
-        result = await api_client.create_campaign(campaign_data)
+        result = await api_client._make_request("POST", "/api/bot-campaigns/", data=campaign_data)
         return result
     except Exception as e:
         logger.error(f"Error creating campaign: {e}")
@@ -177,35 +159,22 @@ class CampaignPlugin(PluginBase):
             FunctionSpec(
                 name="create_campaign",
                 func=apply_middleware(create_campaign, [
-                    validation_middleware(["name", "discord_server_id"])
+                    validation_middleware(["client_id", "guild_id", "campaign_name"])
                 ]),
                 category=self.category,
                 description="Creates a new campaign in the Virion Labs platform",
                 schema={
                     "type": "object",
                     "properties": {
-                        "name": {"type": "string", "description": "Campaign name"},
-                        "discord_server_id": {"type": "string", "description": "Discord server ID"},
-                        "primary_channel_id": {"type": "string", "description": "Primary Discord channel ID"},
+                        "client_id": {"type": "string", "description": "Client UUID"},
+                        "guild_id": {"type": "string", "description": "Discord Guild ID"},
+                        "campaign_name": {"type": "string", "description": "Campaign name"},
+                        "campaign_type": {"type": "string", "enum": ["referral_onboarding", "product_promotion", "community_engagement", "support", "custom", "vip_support"], "description": "Type of campaign"},
                         "description": {"type": "string", "description": "Campaign description"},
-                        "campaign_type": {"type": "string", "enum": ["influencer_marketing", "brand_awareness", "product_launch"], "description": "Type of campaign"},
-                        "start_date": {"type": "string", "format": "date", "description": "Campaign start date (YYYY-MM-DD)"},
-                        "end_date": {"type": "string", "format": "date", "description": "Campaign end date (YYYY-MM-DD)"},
-                        "bot_name": {"type": "string", "description": "Bot display name"},
-                        "bot_logo_url": {"type": "string", "format": "uri", "description": "Bot avatar URL"},
-                        "brand_color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$", "description": "Brand color in hex format"},
-                        "bot_personality": {"type": "string", "description": "Bot personality description"},
-                        "bot_response_style": {"type": "string", "description": "Bot response style"},
                         "welcome_message": {"type": "string", "description": "Welcome message for new users"},
-                        "onboarding_questions": {"type": "array", "items": {"type": "string"}, "description": "List of onboarding questions"},
-                        "auto_role_assignment": {"type": "boolean", "description": "Enable automatic role assignment"},
-                        "target_role_id": {"type": "string", "description": "Target role ID for assignment"},
-                        "enable_moderation": {"type": "boolean", "description": "Enable moderation features"},
-                        "interactions_per_user": {"type": "integer", "minimum": 1, "description": "Rate limit per user"},
-                        "enable_referral_system": {"type": "boolean", "description": "Enable referral tracking"},
                         "webhook_url": {"type": "string", "format": "uri", "description": "Webhook URL for notifications"}
                     },
-                    "required": ["name", "discord_server_id"]
+                    "required": ["client_id", "guild_id", "campaign_name"]
                 }
             ),
             FunctionSpec(

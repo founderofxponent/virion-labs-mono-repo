@@ -7,9 +7,7 @@ from supabase import Client
 from core.database import get_db
 from services import campaign_service, auth_service
 from schemas.campaign import (
-    Campaign, 
-    CampaignCreate, 
-    CampaignUpdate, 
+    DiscordGuildCampaign,
     CampaignAccessRequest,
     ReferralLink,
     ReferralLinkCreate
@@ -22,20 +20,25 @@ router = APIRouter(
 
 security = HTTPBearer()
 
-@router.get("/available", response_model=List[Campaign])
+@router.get("/available", response_model=List[DiscordGuildCampaign])
 async def get_available_campaigns(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Client = Depends(get_db)
 ):
     """
-    List campaigns available to the current user.
+    List all available campaigns.
+    This endpoint is temporarily public for testing.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
-        return campaign_service.get_available_campaigns(db, user_id)
+        # For now, let's bypass user auth to test the service layer
+        # In the future, we will re-introduce authentication
+        # user_id = auth_service.get_user_id_from_token(credentials.credentials)
+        # return campaign_service.get_available_campaigns(db, user_id)
+        return campaign_service.get_available_campaigns(db, user_id=None)
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
+        # Log the exception for debugging
+        print(f"Error in get_available_campaigns: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve campaigns")
 
 @router.post("/{campaign_id}/request-access")

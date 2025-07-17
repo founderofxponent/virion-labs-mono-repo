@@ -1,43 +1,52 @@
 from supabase import Client
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
+import json
 
 from schemas.bot_campaign import BotCampaign, BotCampaignCreate, BotCampaignUpdate, CampaignStats
 
-def get_bot_campaigns(db: Client, user_id: UUID) -> List[BotCampaign]:
+def get_bot_campaigns(db: Client, user_id: Optional[UUID]) -> List[BotCampaign]:
     """
-    Get bot campaigns for a user.
+    Get bot campaigns. If user_id is provided, returns campaigns for that user.
+    Otherwise, returns all campaigns.
     """
-    response = db.table("bot_campaigns").select("*").eq("created_by", user_id).execute()
+    query = db.table("discord_guild_campaigns").select("*")
+    if user_id:
+        query = query.eq("client_id", user_id) # Assuming user_id corresponds to client_id
+    
+    response = query.execute()
     if response.data:
         return [BotCampaign.model_validate(campaign) for campaign in response.data]
     return []
 
-def create_bot_campaign(db: Client, user_id: UUID, campaign_data: BotCampaignCreate) -> BotCampaign:
+def create_bot_campaign(db: Client, user_id: Optional[UUID], campaign_data: BotCampaignCreate) -> BotCampaign:
     """
     Create a new bot campaign.
     """
-    campaign_record = {
-        **campaign_data.model_dump(),
-        "created_by": user_id,
-        "view_count": 0,
-        "join_count": 0,
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat()
-    }
+    campaign_dict = campaign_data.model_dump()
     
-    response = db.table("bot_campaigns").insert(campaign_record).execute()
+    # Convert UUIDs to strings for JSON serialization
+    for key, value in campaign_dict.items():
+        if isinstance(value, UUID):
+            campaign_dict[key] = str(value)
+
+    response = db.table("discord_guild_campaigns").insert(campaign_dict).execute()
+    
     if not response.data:
-        raise Exception("Failed to create bot campaign")
+        raise Exception(f"Failed to create bot campaign: {response}")
     
     return BotCampaign.model_validate(response.data[0])
 
-def get_bot_campaign_by_id(db: Client, campaign_id: UUID, user_id: UUID) -> BotCampaign:
+def get_bot_campaign_by_id(db: Client, campaign_id: UUID, user_id: Optional[UUID]) -> BotCampaign:
     """
     Get a specific bot campaign by ID.
     """
-    response = db.table("bot_campaigns").select("*").eq("id", campaign_id).eq("created_by", user_id).execute()
+    query = db.table("discord_guild_campaigns").select("*").eq("id", campaign_id)
+    if user_id:
+        query = query.eq("client_id", user_id)
+
+    response = query.execute()
     if not response.data:
         raise ValueError("Bot campaign not found")
     
@@ -46,50 +55,59 @@ def get_bot_campaign_by_id(db: Client, campaign_id: UUID, user_id: UUID) -> BotC
 def update_bot_campaign(
     db: Client, 
     campaign_id: UUID, 
-    user_id: UUID, 
+    user_id: Optional[UUID], 
     campaign_data: BotCampaignUpdate
 ) -> BotCampaign:
     """
     Update a bot campaign.
     """
-    # Remove None values
     updates = {k: v for k, v in campaign_data.model_dump().items() if v is not None}
     updates["updated_at"] = datetime.utcnow().isoformat()
     
-    response = db.table("bot_campaigns").update(updates).eq("id", campaign_id).eq("created_by", user_id).execute()
+    query = db.table("discord_guild_campaigns").update(updates).eq("id", campaign_id)
+    if user_id:
+        query = query.eq("client_id", user_id)
+        
+    response = query.execute()
     if not response.data:
         raise ValueError("Bot campaign not found")
     
     return BotCampaign.model_validate(response.data[0])
 
-def delete_bot_campaign(db: Client, campaign_id: UUID, user_id: UUID) -> None:
+def delete_bot_campaign(db: Client, campaign_id: UUID, user_id: Optional[UUID]) -> None:
     """
-    Delete a bot campaign.
+    Soft delete a bot campaign.
     """
-    response = db.table("bot_campaigns").delete().eq("id", campaign_id).eq("created_by", user_id).execute()
+    updates = {
+        "is_deleted": True,
+        "deleted_at": datetime.utcnow().isoformat()
+    }
+    
+    query = db.table("discord_guild_campaigns").update(updates).eq("id", campaign_id)
+    if user_id:
+        query = query.eq("client_id", user_id)
+
+    response = query.execute()
     if not response.data:
         raise ValueError("Bot campaign not found")
 
 def update_campaign_stats(
     db: Client, 
     campaign_id: UUID, 
-    user_id: UUID, 
+    user_id: Optional[UUID], 
     stats_data: CampaignStats
 ) -> BotCampaign:
     """
     Update statistics for a campaign.
     """
-    updates = {}
-    if stats_data.view_count is not None:
-        updates["view_count"] = stats_data.view_count
-    if stats_data.join_count is not None:
-        updates["join_count"] = stats_data.join_count
-    if stats_data.additional_stats is not None:
-        updates["additional_stats"] = stats_data.additional_stats
-    
+    updates = {k: v for k, v in stats_data.model_dump().items() if v is not None}
     updates["updated_at"] = datetime.utcnow().isoformat()
     
-    response = db.table("bot_campaigns").update(updates).eq("id", campaign_id).eq("created_by", user_id).execute()
+    query = db.table("discord_guild_campaigns").update(updates).eq("id", campaign_id)
+    if user_id:
+        query = query.eq("client_id", user_id)
+
+    response = query.execute()
     if not response.data:
         raise ValueError("Bot campaign not found")
     

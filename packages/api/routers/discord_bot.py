@@ -10,7 +10,6 @@ from schemas.discord_bot import (
     OnboardingModal,
     OnboardingSession,
     OnboardingComplete,
-    AccessRequestCreate,
     DiscordConfig,
     DiscordInviteContext,
     DiscordRoleAssignment
@@ -54,13 +53,14 @@ async def submit_onboarding_modal(
 @router.get("/onboarding/session", response_model=OnboardingSession)
 async def get_onboarding_session(
     discord_user_id: str,
+    campaign_id: UUID,
     db: Client = Depends(get_db)
 ):
     """
     Get user's onboarding session state.
     """
     try:
-        return discord_bot_service.get_onboarding_session(db, discord_user_id)
+        return discord_bot_service.get_onboarding_session(db, discord_user_id, campaign_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -84,13 +84,14 @@ async def complete_onboarding(
 @router.get("/config", response_model=DiscordConfig)
 async def get_discord_config(
     guild_id: str,
+    campaign_id: UUID,
     db: Client = Depends(get_db)
 ):
     """
     Get guild-specific configuration for the bot.
     """
     try:
-        return discord_bot_service.get_discord_config(db, guild_id)
+        return discord_bot_service.get_discord_config(db, guild_id, campaign_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

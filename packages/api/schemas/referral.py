@@ -25,6 +25,5 @@ class ReferralSignup(BaseModel):
     additional_data: Optional[dict] = None
 
 class ReferralComplete(BaseModel):
-    referral_code: str
-    user_id: UUID
+    referral_id: UUID
     conversion_data: Optional[dict] = None

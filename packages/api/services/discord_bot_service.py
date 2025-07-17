@@ -16,150 +16,119 @@ from schemas.discord_bot import (
 
 def start_onboarding(db: Client, onboarding_data: OnboardingStart) -> dict:
     """
-    Start the onboarding flow.
+    Start the onboarding flow for a user in a specific campaign.
     """
-    # Check if onboarding session already exists
-    existing_session = db.table("onboarding_sessions").select("*").eq("discord_user_id", onboarding_data.discord_user_id).execute()
-    if existing_session.data:
-        raise ValueError("Onboarding session already exists")
-    
-    # Create onboarding session
-    session_record = {
+    start_record = {
+        "campaign_id": onboarding_data.campaign_id,
         "discord_user_id": onboarding_data.discord_user_id,
         "discord_username": onboarding_data.discord_username,
-        "discord_guild_id": onboarding_data.discord_guild_id,
-        "campaign_id": onboarding_data.campaign_id,
-        "status": "started",
-        "current_step": "initial",
-        "data": {},
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat()
+        "guild_id": onboarding_data.guild_id,
+        "started_at": datetime.utcnow().isoformat()
     }
-    
-    response = db.table("onboarding_sessions").insert(session_record).execute()
-    if not response.data:
-        raise Exception("Failed to create onboarding session")
-    
-    return {"message": "Onboarding started", "session_id": response.data[0]["id"]}
+    db.table("campaign_onboarding_starts").insert(start_record).execute()
+    return {"message": "Onboarding started successfully."}
 
 def submit_onboarding_modal(db: Client, modal_data: OnboardingModal) -> dict:
     """
-    Submit an onboarding modal.
+    Submit responses from an onboarding modal.
     """
-    # Get existing session
-    response = db.table("onboarding_sessions").select("*").eq("discord_user_id", modal_data.discord_user_id).execute()
-    if not response.data:
-        raise ValueError("Onboarding session not found")
-    
-    session = response.data[0]
-    
-    # Update session with modal data
-    updated_data = session.get("data", {})
-    updated_data.update({
-        "full_name": modal_data.full_name,
-        "email": modal_data.email,
-        **(modal_data.additional_data or {})
-    })
-    
-    db.table("onboarding_sessions").update({
-        "status": "modal_submitted",
-        "current_step": "verification",
-        "data": updated_data,
-        "updated_at": datetime.utcnow().isoformat()
-    }).eq("id", session["id"]).execute()
-    
-    return {"message": "Modal submitted successfully"}
+    for field_key, field_value in modal_data.responses.items():
+        response_record = {
+            "campaign_id": modal_data.campaign_id,
+            "discord_user_id": modal_data.discord_user_id,
+            "field_key": field_key,
+            "field_value": field_value,
+        }
+        db.table("campaign_onboarding_responses").insert(response_record).execute()
+    return {"message": "Modal responses submitted successfully."}
 
-def get_onboarding_session(db: Client, discord_user_id: str) -> OnboardingSession:
+def get_onboarding_session(db: Client, discord_user_id: str, campaign_id: UUID) -> OnboardingSession:
     """
-    Get user's onboarding session state.
+    Get a user's onboarding session state for a specific campaign.
     """
-    response = db.table("onboarding_sessions").select("*").eq("discord_user_id", discord_user_id).execute()
-    if not response.data:
-        raise ValueError("Onboarding session not found")
+    responses = db.table("campaign_onboarding_responses").select("*").eq("discord_user_id", discord_user_id).eq("campaign_id", campaign_id).execute().data
     
-    return OnboardingSession.model_validate(response.data[0])
+    # This is a simplified representation. A real implementation would be more complex.
+    return OnboardingSession(
+        discord_user_id=discord_user_id,
+        campaign_id=campaign_id,
+        status="in_progress" if responses else "not_started",
+        current_step=len(responses),
+        responses={r["field_key"]: r["field_value"] for r in responses},
+        created_at=min(r["created_at"] for r in responses) if responses else None,
+        updated_at=max(r["updated_at"] for r in responses) if responses else None
+    )
 
 def complete_onboarding(db: Client, completion_data: OnboardingComplete) -> dict:
     """
-    Finalize onboarding.
+    Mark a user's onboarding as complete for a campaign.
     """
-    # Get existing session
-    response = db.table("onboarding_sessions").select("*").eq("discord_user_id", completion_data.discord_user_id).execute()
-    if not response.data:
-        raise ValueError("Onboarding session not found")
-    
-    session = response.data[0]
-    
-    # Update session to completed
-    db.table("onboarding_sessions").update({
-        "status": "completed",
-        "current_step": "completed",
-        "data": {**session.get("data", {}), **(completion_data.final_data or {})},
-        "updated_at": datetime.utcnow().isoformat()
-    }).eq("id", session["id"]).execute()
-    
-    return {"message": "Onboarding completed successfully"}
+    completion_record = {
+        "campaign_id": completion_data.campaign_id,
+        "discord_user_id": completion_data.discord_user_id,
+        "completed_at": datetime.utcnow().isoformat()
+    }
+    db.table("campaign_onboarding_completions").insert(completion_record).execute()
+    return {"message": "Onboarding completed successfully."}
 
-def get_discord_config(db: Client, guild_id: str) -> DiscordConfig:
+def get_discord_config(db: Client, guild_id: str, campaign_id: UUID) -> DiscordConfig:
     """
-    Get guild-specific configuration for the bot.
+    Get guild-specific bot configuration for a campaign.
     """
-    response = db.table("discord_configs").select("*").eq("guild_id", guild_id).execute()
+    response = db.table("discord_guild_campaigns").select("*").eq("guild_id", guild_id).eq("id", campaign_id).execute()
     if not response.data:
-        raise ValueError("Discord config not found")
+        raise ValueError("Campaign config not found for the given guild and campaign ID.")
     
-    return DiscordConfig.model_validate(response.data[0])
+    campaign = response.data[0]
+    onboarding_fields = db.table("campaign_onboarding_fields").select("*").eq("campaign_id", campaign_id).execute().data
+
+    return DiscordConfig(
+        guild_id=guild_id,
+        campaign_name=campaign["campaign_name"],
+        welcome_message=campaign.get("welcome_message"),
+        onboarding_flow=[{"key": f["field_key"], "label": f["field_label"], "type": f["field_type"]} for f in onboarding_fields]
+    )
 
 def get_discord_invite_context(db: Client, code: str) -> DiscordInviteContext:
     """
     Get context for a managed Discord invite.
     """
-    response = db.table("discord_invites").select("*").eq("invite_code", code).execute()
+    response = db.table("discord_invite_links").select("*, discord_guild_campaigns(id, campaign_name, guild_id)").eq("discord_invite_code", code).execute()
     if not response.data:
         raise ValueError("Discord invite not found")
-    
+        
     invite = response.data[0]
-    
-    # Get campaign info if available
-    campaign_name = None
-    if invite.get("campaign_id"):
-        campaign_response = db.table("campaigns").select("name").eq("id", invite["campaign_id"]).execute()
-        if campaign_response.data:
-            campaign_name = campaign_response.data[0]["name"]
-    
+    campaign = invite["discord_guild_campaigns"]
+
     return DiscordInviteContext(
         invite_code=code,
-        campaign_id=invite.get("campaign_id"),
-        campaign_name=campaign_name,
-        guild_id=invite["guild_id"],
-        guild_name=invite.get("guild_name"),
-        context_data=invite.get("context_data")
+        campaign_id=campaign["id"],
+        campaign_name=campaign["campaign_name"],
+        guild_id=campaign["guild_id"]
     )
 
 def assign_discord_role(db: Client, guild_id: str, member_id: str, role_data: DiscordRoleAssignment) -> dict:
     """
-    Assign a role to a guild member.
+    This is a placeholder. In a real application, this would interact with the Discord API.
+    For now, we'll just log the request to the access_requests table.
     """
-    # Record role assignment
-    assignment_record = {
-        "guild_id": guild_id,
-        "member_id": member_id,
-        "role_id": role_data.role_id,
-        "reason": role_data.reason,
-        "metadata": role_data.metadata or {},
-        "assigned_at": datetime.utcnow().isoformat()
+    request_record = {
+        "discord_user_id": member_id,
+        "discord_guild_id": guild_id,
+        "verified_role_id": role_data.role_id,
+        "full_name": "N/A",  # Or retrieve from user profile
+        "email": "N/A", # Or retrieve from user profile
+        "status": "approved",
+        "role_assigned_at": datetime.utcnow().isoformat(),
+        "reason": role_data.reason
     }
-    
-    db.table("discord_role_assignments").insert(assignment_record).execute()
-    
-    return {"message": "Role assigned successfully"}
+    db.table("access_requests").insert(request_record).execute()
+    return {"message": f"Role assignment for {member_id} logged."}
 
 def get_member_roles(db: Client, guild_id: str, member_id: str) -> List[Dict[str, Any]]:
     """
-    Get a member's roles.
+    This is a placeholder. In a real application, this would interact with the Discord API.
+    For now, we'll return logged role assignments.
     """
-    response = db.table("discord_role_assignments").select("*").eq("guild_id", guild_id).eq("member_id", member_id).execute()
-    if response.data:
-        return response.data
-    return []
+    response = db.table("access_requests").select("verified_role_id, role_assigned_at, reason").eq("guild_id", guild_id).eq("discord_user_id", member_id).eq("status", "approved").execute()
+    return response.data if response.data else []
