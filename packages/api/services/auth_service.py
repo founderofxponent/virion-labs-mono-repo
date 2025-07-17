@@ -3,14 +3,17 @@ from typing import Optional
 from uuid import UUID
 import bcrypt
 import jwt
+from jwt.exceptions import PyJWTError, ExpiredSignatureError
 from datetime import datetime, timedelta
 import secrets
 
 from core.config import settings
 from schemas.auth import UserSignup, UserLogin, UserProfile, AuthResponse
 
-# In a production environment, these should be in environment variables
-JWT_SECRET = "your-secret-key-change-in-production"
+import os
+
+# JWT configuration from environment variables
+JWT_SECRET = settings.JWT_SECRET
 JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -91,9 +94,9 @@ def get_user_id_from_token(token: str) -> UUID:
         if user_id is None:
             raise ValueError("Invalid token")
         return UUID(user_id)
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         raise ValueError("Token has expired")
-    except jwt.JWTError:
+    except PyJWTError:
         raise ValueError("Invalid token")
 
 def logout_user(token: str) -> None:

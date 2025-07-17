@@ -1,15 +1,5 @@
 from fastapi import FastAPI
-from routers import (
-    status, 
-    admin, 
-    auth, 
-    clients, 
-    campaigns, 
-    bot_campaigns, 
-    referral, 
-    discord_bot, 
-    access_requests
-)
+from routers import admin, bot_campaigns, clients, status, referral
 
 app = FastAPI(
     title="Virion Labs Unified API",
@@ -17,13 +7,13 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Include all routers
-app.include_router(status.router)
+# Include routers
 app.include_router(admin.router)
-app.include_router(auth.router)
-app.include_router(clients.router)
-app.include_router(campaigns.router)
 app.include_router(bot_campaigns.router)
+app.include_router(clients.router)
+app.include_router(status.router)
 app.include_router(referral.router)
-app.include_router(discord_bot.router)
-app.include_router(access_requests.router)
+
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the Virion-Labs API"}

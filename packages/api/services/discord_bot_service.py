@@ -58,7 +58,7 @@ def submit_onboarding_modal(db: Client, modal_data: OnboardingModal) -> dict:
     updated_data.update({
         "full_name": modal_data.full_name,
         "email": modal_data.email,
-        **modal_data.additional_data or {}
+        **(modal_data.additional_data or {})
     })
     
     db.table("onboarding_sessions").update({
@@ -95,7 +95,7 @@ def complete_onboarding(db: Client, completion_data: OnboardingComplete) -> dict
     db.table("onboarding_sessions").update({
         "status": "completed",
         "current_step": "completed",
-        "data": {**session.get("data", {}), **completion_data.final_data or {}},
+        "data": {**session.get("data", {}), **(completion_data.final_data or {})},
         "updated_at": datetime.utcnow().isoformat()
     }).eq("id", session["id"]).execute()
     

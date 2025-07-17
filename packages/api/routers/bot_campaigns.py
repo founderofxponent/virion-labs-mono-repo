@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List
 from uuid import UUID
 from supabase import Client
 
 from core.database import get_db
-from services import bot_campaign_service, auth_service
+from services import bot_campaign_service
+from middleware.auth_middleware import require_any_auth, AuthContext
 from schemas.bot_campaign import (
     BotCampaign, 
     BotCampaignCreate, 
@@ -18,35 +18,35 @@ router = APIRouter(
     tags=["Bot Campaigns"],
 )
 
-security = HTTPBearer()
-
 @router.get("/", response_model=List[BotCampaign])
 async def get_bot_campaigns(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Get campaigns for the bot.
+    Get campaigns for the bot. Supports both JWT and API key authentication.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
+        auth_context = require_any_auth(request)
+        # For service auth, return all campaigns; for user auth, return user-specific campaigns
+        user_id = auth_context.user_id if auth_context.is_user_auth else None
         return bot_campaign_service.get_bot_campaigns(db, user_id)
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to retrieve bot campaigns")
 
 @router.post("/", response_model=BotCampaign)
 async def create_bot_campaign(
     campaign_data: BotCampaignCreate,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Create a new bot campaign.
+    Create a new bot campaign. Supports both JWT and API key authentication.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
+        auth_context = require_any_auth(request)
+        # For service auth, user_id can be None; for user auth, use actual user_id
+        user_id = auth_context.user_id if auth_context.is_user_auth else None
         return bot_campaign_service.create_bot_campaign(db, user_id, campaign_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -56,14 +56,15 @@ async def create_bot_campaign(
 @router.get("/{campaign_id}", response_model=BotCampaign)
 async def get_bot_campaign(
     campaign_id: UUID,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Get a specific bot campaign.
+    Get a specific bot campaign. Supports both JWT and API key authentication.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
+        auth_context = require_any_auth(request)
+        user_id = auth_context.user_id if auth_context.is_user_auth else None
         return bot_campaign_service.get_bot_campaign_by_id(db, campaign_id, user_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -74,14 +75,15 @@ async def get_bot_campaign(
 async def update_bot_campaign(
     campaign_id: UUID,
     campaign_data: BotCampaignUpdate,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Update a bot campaign.
+    Update a bot campaign. Supports both JWT and API key authentication.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
+        auth_context = require_any_auth(request)
+        user_id = auth_context.user_id if auth_context.is_user_auth else None
         return bot_campaign_service.update_bot_campaign(db, campaign_id, user_id, campaign_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -91,14 +93,15 @@ async def update_bot_campaign(
 @router.delete("/{campaign_id}")
 async def delete_bot_campaign(
     campaign_id: UUID,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Delete a bot campaign.
+    Delete a bot campaign. Supports both JWT and API key authentication.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
+        auth_context = require_any_auth(request)
+        user_id = auth_context.user_id if auth_context.is_user_auth else None
         bot_campaign_service.delete_bot_campaign(db, campaign_id, user_id)
         return {"message": "Bot campaign deleted successfully"}
     except ValueError as e:
@@ -110,14 +113,15 @@ async def delete_bot_campaign(
 async def update_campaign_stats(
     campaign_id: UUID,
     stats_data: CampaignStats,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Update statistics for a campaign.
+    Update statistics for a campaign. Supports both JWT and API key authentication.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
+        auth_context = require_any_auth(request)
+        user_id = auth_context.user_id if auth_context.is_user_auth else None
         return bot_campaign_service.update_campaign_stats(db, campaign_id, user_id, stats_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

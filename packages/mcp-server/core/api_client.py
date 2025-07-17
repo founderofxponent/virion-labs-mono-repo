@@ -69,6 +69,9 @@ class APIClient:
     async def list_clients(self) -> List[Dict[str, Any]]:
         """List all clients."""
         response = await self._make_request("GET", "/api/clients/")
+        # API returns a direct list, not wrapped in an object
+        if isinstance(response, list):
+            return response
         return response.get("clients", [])
     
     async def get_client(self, client_id: str) -> Dict[str, Any]:
@@ -91,6 +94,9 @@ class APIClient:
     async def list_campaigns(self) -> List[Dict[str, Any]]:
         """List all campaigns."""
         response = await self._make_request("GET", "/api/bot-campaigns/")
+        # API returns a direct list, not wrapped in an object
+        if isinstance(response, list):
+            return response
         return response.get("campaigns", [])
     
     async def get_campaign(self, campaign_id: str) -> Dict[str, Any]:
@@ -130,6 +136,9 @@ class APIClient:
     async def list_access_requests(self) -> List[Dict[str, Any]]:
         """List all access requests."""
         response = await self._make_request("GET", "/api/admin/access-requests")
+        # API returns a direct list, not wrapped in an object
+        if isinstance(response, list):
+            return response
         return response.get("access_requests", [])
     
     async def update_access_request(self, request_id: str, action: str) -> Dict[str, Any]:

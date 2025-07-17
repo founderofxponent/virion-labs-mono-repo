@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import List
 from uuid import UUID
 from supabase import Client
 
 from core.database import get_db
-from services import client_service, auth_service
+from services import client_service
+from middleware.auth_middleware import require_any_auth, AuthContext
 from schemas.client import Client, ClientCreate, ClientUpdate
 
 router = APIRouter(
@@ -13,37 +13,30 @@ router = APIRouter(
     tags=["Clients"],
 )
 
-security = HTTPBearer()
-
 @router.get("/", response_model=List[Client])
 async def list_clients(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    List all clients.
+    List all clients. Supports both JWT and API key authentication.
     """
-    try:
-        # Verify user is authenticated
-        auth_service.get_user_id_from_token(credentials.credentials)
-        return client_service.get_all_clients(db)
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to retrieve clients")
+    # Authenticate request (JWT or API key)
+    auth_context = require_any_auth(request)
+    return client_service.get_all_clients(db)
 
 @router.post("/", response_model=Client)
 async def create_client(
     client_data: ClientCreate,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Create a new client.
+    Create a new client. Supports both JWT and API key authentication.
     """
     try:
-        # Verify user is authenticated
-        auth_service.get_user_id_from_token(credentials.credentials)
+        # Authenticate request (JWT or API key)
+        auth_context = require_any_auth(request)
         return client_service.create_client(db, client_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -53,15 +46,15 @@ async def create_client(
 @router.get("/{client_id}", response_model=Client)
 async def get_client(
     client_id: UUID,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Get client details by ID.
+    Get client details by ID. Supports both JWT and API key authentication.
     """
     try:
-        # Verify user is authenticated
-        auth_service.get_user_id_from_token(credentials.credentials)
+        # Authenticate request (JWT or API key)
+        auth_context = require_any_auth(request)
         return client_service.get_client_by_id(db, client_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -72,15 +65,15 @@ async def get_client(
 async def update_client(
     client_id: UUID,
     client_data: ClientUpdate,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Update client details.
+    Update client details. Supports both JWT and API key authentication.
     """
     try:
-        # Verify user is authenticated
-        auth_service.get_user_id_from_token(credentials.credentials)
+        # Authenticate request (JWT or API key)
+        auth_context = require_any_auth(request)
         return client_service.update_client(db, client_id, client_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -90,15 +83,15 @@ async def update_client(
 @router.delete("/{client_id}")
 async def delete_client(
     client_id: UUID,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Delete a client.
+    Delete a client. Supports both JWT and API key authentication.
     """
     try:
-        # Verify user is authenticated
-        auth_service.get_user_id_from_token(credentials.credentials)
+        # Authenticate request (JWT or API key)
+        auth_context = require_any_auth(request)
         client_service.delete_client(db, client_id)
         return {"message": "Client deleted successfully"}
     except ValueError as e:
