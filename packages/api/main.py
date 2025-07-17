@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import admin, bot_campaigns, clients, status, referral, campaigns, health, auth, discord_bot, access_requests
+from routers import admin, bot_campaigns, clients, status, referral, campaigns, health, auth, discord_bot, access_requests, analytics
 
 app = FastAPI(
     title="Virion Labs Unified API",
@@ -18,6 +18,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(discord_bot.router)
 app.include_router(access_requests.router)
+app.include_router(analytics.router)
 
 @app.get("/")
 def read_root():
