@@ -74,7 +74,8 @@ class PluginRegistry:
     def auto_discover_plugins(self, package_name: str = "functions"):
         """Auto-discover and register plugins from a package."""
         plugin_modules = [
-            "campaign", "client", "referral", "access", "analytics"
+            "campaign", "client", "referral", "access", "analytics", 
+            "discord_bot", "templates", "auth", "health"
         ]
         
         for module_name in plugin_modules:

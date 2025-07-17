@@ -120,31 +120,54 @@ class VirionLabsMCPServer:
                 
                 func_spec = registry.functions[function_name]
                 
-                # Get function signature information
-                import inspect
-                sig = inspect.signature(func_spec.func)
+                # Use JSON schema as primary source of truth
+                schema = func_spec.schema if func_spec.schema else {"type": "object", "properties": {}}
                 
-                parameters = {}
-                for param_name, param in sig.parameters.items():
+                # Extract parameter information from schema
+                parameters_info = {}
+                required_params = schema.get("required", [])
+                properties = schema.get("properties", {})
+                
+                for param_name, param_schema in properties.items():
                     param_info = {
-                        "required": param.default == inspect.Parameter.empty,
-                        "type": str(param.annotation) if param.annotation != inspect.Parameter.empty else "Any"
+                        "type": param_schema.get("type", "unknown"),
+                        "description": param_schema.get("description", ""),
+                        "required": param_name in required_params
                     }
-                    if param.default != inspect.Parameter.empty:
-                        param_info["default"] = param.default
-                    parameters[param_name] = param_info
+                    
+                    # Add additional schema constraints
+                    if "enum" in param_schema:
+                        param_info["enum"] = param_schema["enum"]
+                    if "format" in param_schema:
+                        param_info["format"] = param_schema["format"]
+                    if "pattern" in param_schema:
+                        param_info["pattern"] = param_schema["pattern"]
+                    if "items" in param_schema:
+                        param_info["items"] = param_schema["items"]
+                    if "properties" in param_schema:
+                        param_info["properties"] = param_schema["properties"]
+                    if "default" in param_schema:
+                        param_info["default"] = param_schema["default"]
+                    
+                    parameters_info[param_name] = param_info
                 
-                # Get docstring for additional parameter info
+                # Get docstring for additional context
+                import inspect
                 docstring = inspect.getdoc(func_spec.func) or "No documentation available"
                 
                 return {
                     "name": func_spec.name,
                     "description": func_spec.description,
                     "category": func_spec.category,
-                    "parameters": parameters,
+                    "parameters": parameters_info,
+                    "schema": schema,
                     "docstring": docstring,
-                    "return_type": str(sig.return_annotation) if sig.return_annotation != inspect.Parameter.empty else "Any",
-                    "schema": func_spec.schema if func_spec.schema else {"type": "object", "properties": {}}
+                    "usage_notes": [
+                        "Pass parameters as a dictionary matching the schema structure",
+                        "All required parameters must be provided",
+                        "Optional parameters can be omitted or set to null",
+                        "Follow the specified types and formats exactly"
+                    ]
                 }
                 
             except Exception as e:

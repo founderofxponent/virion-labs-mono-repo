@@ -1,51 +1,90 @@
 """Referral link management functions."""
 
+import asyncio
 from typing import List
-from functions.base import supabase, logger
+from functions.base import api_client, logger
 from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-def create_referral_link(params: dict) -> dict:
+async def create_referral_link(params: dict) -> dict:
     """Creates a new referral link for a campaign."""
     try:
         campaign_id = params["campaign_id"]
-        link_title = params["link_title"]
-        influencer_email = params["influencer_email"]
-        
-        influencer_response = supabase.table("user_profiles").select("id").eq("email", influencer_email).limit(1).execute()
-        if not influencer_response.data:
-            return {"error": f"Influencer with email '{influencer_email}' not found."}
-        influencer_id = influencer_response.data[0]['id']
-
-        referral_code = f"{campaign_id[:8]}-{influencer_id[:8]}-{link_title.replace(' ', '-').lower()}"
-        referral_link_data = {
-            "campaign_id": campaign_id,
-            "influencer_id": influencer_id,
-            "title": link_title,
-            "platform": "Other",
-            "original_url": f"https://virion-labs.com/campaigns/{campaign_id}",
-            "referral_code": referral_code,
-            "referral_url": f"https://virion-labs.com/r/{referral_code}",
-            "clicks": 0,
-            "conversions": 0,
-            "earnings": 0,
-            "is_active": True
+        data = {
+            "title": params.get("title", "Default Link"),
+            "platform": params.get("platform", "Other")
         }
-        response = supabase.table("referral_links").insert(referral_link_data).execute()
-        return response.data[0]
+        
+        result = await api_client._make_request("POST", f"/api/campaigns/{campaign_id}/referral-links", data=data)
+        return result
     except Exception as e:
         logger.error(f"Error creating referral link: {e}")
         return {"error": str(e)}
 
 
-def get_my_referral_links(_params: dict) -> dict:
-    """Retrieves a list of all referral links."""
+async def get_my_referral_links(params: dict) -> dict:
+    """Retrieves a list of all referral links for a campaign."""
     try:
-        response = supabase.table("referral_links").select("*").execute()
-        return {"referral_links": response.data}
+        campaign_id = params["campaign_id"]
+        result = await api_client._make_request("GET", f"/api/campaigns/{campaign_id}/referral-links")
+        return result
     except Exception as e:
         logger.error(f"Error getting referral links: {e}")
+        return {"error": str(e)}
+
+
+async def validate_referral_code(params: dict) -> dict:
+    """Validates a referral code."""
+    try:
+        referral_code = params["referral_code"]
+        result = await api_client._make_request("GET", f"/api/referral/{referral_code}/validate")
+        return result
+    except Exception as e:
+        logger.error(f"Error validating referral code: {e}")
+        return {"error": str(e)}
+
+
+async def get_referral_campaign_info(params: dict) -> dict:
+    """Gets campaign information for a referral code."""
+    try:
+        referral_code = params["referral_code"]
+        result = await api_client._make_request("GET", f"/api/referral/{referral_code}/campaign")
+        return result
+    except Exception as e:
+        logger.error(f"Error getting referral campaign info: {e}")
+        return {"error": str(e)}
+
+
+async def process_referral_signup(params: dict) -> dict:
+    """Processes a referral signup."""
+    try:
+        data = {
+            "referral_code": params["referral_code"],
+            "user_email": params["user_email"],
+            "user_data": params.get("user_data", {})
+        }
+        
+        result = await api_client._make_request("POST", "/api/referral/signup", data=data)
+        return result
+    except Exception as e:
+        logger.error(f"Error processing referral signup: {e}")
+        return {"error": str(e)}
+
+
+async def complete_referral(params: dict) -> dict:
+    """Completes a referral process."""
+    try:
+        data = {
+            "referral_code": params["referral_code"],
+            "user_id": params["user_id"],
+            "completion_data": params.get("completion_data", {})
+        }
+        
+        result = await api_client._make_request("POST", "/api/referral/complete", data=data)
+        return result
+    except Exception as e:
+        logger.error(f"Error completing referral: {e}")
         return {"error": str(e)}
 
 
@@ -61,7 +100,7 @@ class ReferralPlugin(PluginBase):
             FunctionSpec(
                 name="create_referral_link",
                 func=apply_middleware(create_referral_link, [
-                    validation_middleware(["campaign_id", "link_title", "influencer_email"])
+                    validation_middleware(["campaign_id"])
                 ]),
                 category=self.category,
                 description="Creates a new referral link",
@@ -69,21 +108,89 @@ class ReferralPlugin(PluginBase):
                     "type": "object",
                     "properties": {
                         "campaign_id": {"type": "string", "description": "Campaign UUID"},
-                        "link_title": {"type": "string", "description": "Title for the referral link"},
-                        "influencer_email": {"type": "string", "format": "email", "description": "Influencer email address"}
+                        "title": {"type": "string", "description": "Title for the referral link"},
+                        "platform": {"type": "string", "description": "Platform for the referral link"}
                     },
-                    "required": ["campaign_id", "link_title", "influencer_email"]
+                    "required": ["campaign_id"]
                 }
             ),
             FunctionSpec(
                 name="get_my_referral_links",
-                func=apply_middleware(get_my_referral_links),
+                func=apply_middleware(get_my_referral_links, [
+                    validation_middleware(["campaign_id"])
+                ]),
                 category=self.category,
-                description="Gets all referral links",
+                description="Gets all referral links for a campaign",
                 schema={
                     "type": "object",
-                    "properties": {},
-                    "description": "No parameters required"
+                    "properties": {
+                        "campaign_id": {"type": "string", "description": "Campaign UUID"}
+                    },
+                    "required": ["campaign_id"]
+                }
+            ),
+            FunctionSpec(
+                name="validate_referral_code",
+                func=apply_middleware(validate_referral_code, [
+                    validation_middleware(["referral_code"])
+                ]),
+                category=self.category,
+                description="Validates a referral code",
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "referral_code": {"type": "string", "description": "Referral code to validate"}
+                    },
+                    "required": ["referral_code"]
+                }
+            ),
+            FunctionSpec(
+                name="get_referral_campaign_info",
+                func=apply_middleware(get_referral_campaign_info, [
+                    validation_middleware(["referral_code"])
+                ]),
+                category=self.category,
+                description="Gets campaign information for a referral code",
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "referral_code": {"type": "string", "description": "Referral code"}
+                    },
+                    "required": ["referral_code"]
+                }
+            ),
+            FunctionSpec(
+                name="process_referral_signup",
+                func=apply_middleware(process_referral_signup, [
+                    validation_middleware(["referral_code", "user_email"])
+                ]),
+                category=self.category,
+                description="Processes a referral signup",
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "referral_code": {"type": "string", "description": "Referral code"},
+                        "user_email": {"type": "string", "format": "email", "description": "User email"},
+                        "user_data": {"type": "object", "description": "Additional user data"}
+                    },
+                    "required": ["referral_code", "user_email"]
+                }
+            ),
+            FunctionSpec(
+                name="complete_referral",
+                func=apply_middleware(complete_referral, [
+                    validation_middleware(["referral_code", "user_id"])
+                ]),
+                category=self.category,
+                description="Completes a referral process",
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "referral_code": {"type": "string", "description": "Referral code"},
+                        "user_id": {"type": "string", "description": "User ID"},
+                        "completion_data": {"type": "object", "description": "Completion data"}
+                    },
+                    "required": ["referral_code", "user_id"]
                 }
             )
         ]

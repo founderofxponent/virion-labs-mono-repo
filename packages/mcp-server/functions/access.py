@@ -1,23 +1,24 @@
 """Access request management functions."""
 
+import asyncio
 from datetime import datetime
 from typing import List
-from functions.base import supabase, logger
+from functions.base import api_client, logger
 from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-def list_access_requests(_params: dict) -> dict:
+async def list_access_requests(_params: dict) -> dict:
     """Retrieves a list of all access requests."""
     try:
-        response = supabase.table("access_requests").select("*").execute()
-        return {"access_requests": response.data}
+        result = await api_client._make_request("GET", "/api/access-requests/")
+        return result
     except Exception as e:
         logger.error(f"Error listing access requests: {e}")
         return {"error": str(e)}
 
 
-def approve_access_request(params: dict) -> dict:
+async def approve_access_request(params: dict) -> dict:
     """Approves a pending access request."""
     try:
         request_id = params["request_id"]
@@ -26,14 +27,14 @@ def approve_access_request(params: dict) -> dict:
             "role_assigned_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat()
         }
-        response = supabase.table("access_requests").update(update_data).eq("id", request_id).execute()
-        return response.data[0] if response.data else {"error": "Access request not found"}
+        result = await api_client._make_request("PATCH", f"/api/access-requests/{request_id}/approve", data=update_data)
+        return result
     except Exception as e:
         logger.error(f"Error approving access request: {e}")
         return {"error": str(e)}
 
 
-def deny_access_request(params: dict) -> dict:
+async def deny_access_request(params: dict) -> dict:
     """Denies a pending access request by marking it as updated."""
     try:
         request_id = params["request_id"]
@@ -41,8 +42,8 @@ def deny_access_request(params: dict) -> dict:
             "status": "denied",
             "updated_at": datetime.now().isoformat()
         }
-        response = supabase.table("access_requests").update(update_data).eq("id", request_id).execute()
-        return response.data[0] if response.data else {"error": "Access request not found"}
+        result = await api_client._make_request("PATCH", f"/api/access-requests/{request_id}/deny", data=update_data)
+        return result
     except Exception as e:
         logger.error(f"Error denying access request: {e}")
         return {"error": str(e)}
