@@ -6,7 +6,7 @@ from supabase import Client
 from core.database import get_db
 from services import admin_service
 from middleware.auth_middleware import require_service_auth, AuthContext
-from schemas.admin import AccessRequest, AccessRequestUpdate
+from schemas.admin import AccessRequest, AccessRequestUpdate, AdminUserListResponse
 
 router = APIRouter(
     prefix="/api/admin",
@@ -42,4 +42,28 @@ async def handle_access_request(
         )
         return updated_request
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) 
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.get("/users", response_model=AdminUserListResponse)
+async def get_all_users(
+    request: Request,
+    db: Client = Depends(get_db)
+):
+    """
+    Get all users in the system with their access requests and campaign info.
+    Critical endpoint for Discord bot admin user management.
+    """
+    try:
+        # Require service authentication (API key only)
+        auth_context = require_service_auth(request)
+        result = admin_service.get_all_users(db)
+        
+        if not result.success:
+            raise HTTPException(status_code=500, detail=result.message)
+        
+        return result
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve users: {e}") 

@@ -1,8 +1,15 @@
 from supabase import Client
 from typing import List, Optional
-from uuid import UUID
-from datetime import datetime
+from uuid import UUID, uuid4
+from datetime import datetime, timedelta
 import secrets
+import json
+import csv
+import os
+
+# In-memory cache for export records (for demo purposes)
+# In production, this would be stored in a database table
+_export_cache = {}
 
 from schemas.campaign import (
     DiscordGuildCampaign, 
@@ -11,7 +18,12 @@ from schemas.campaign import (
     Campaign, 
     CampaignAccessRequest, 
     ReferralLink, 
-    ReferralLinkCreate
+    ReferralLinkCreate,
+    DataExportRequest,
+    DataExportResponse,
+    DataExport,
+    DataExportStatus,
+    ExportType
 )
 
 def get_available_campaigns(db: Client, user_id: Optional[UUID]) -> List[DiscordGuildCampaign]:
@@ -221,3 +233,214 @@ def get_referral_links_by_influencer(
     if response.data:
         return [ReferralLink.model_validate(link) for link in response.data]
     return []
+
+def initiate_data_export(db: Client, export_request: DataExportRequest) -> DataExportResponse:
+    """
+    Initiate a data export for campaigns.
+    """
+    try:
+        export_id = uuid4()
+        
+        # Calculate estimated completion time (simple heuristic)
+        estimated_time = datetime.utcnow() + timedelta(minutes=5)
+        
+        # For now, process the export immediately (simplified implementation)
+        # In production, this would be handled by a background job queue
+        export_data = _generate_export_data(db, export_request)
+        
+        # Create export file
+        file_path = f"/tmp/export_{export_id}.{export_request.format.value}"
+        record_count = _write_export_file(export_data, file_path, export_request.format.value)
+        
+        # Store export info in memory/cache for demo purposes
+        # In production, this would be stored in a database table
+        _export_cache[str(export_id)] = {
+            "id": str(export_id),
+            "export_type": export_request.export_type.value,
+            "format": export_request.format.value,
+            "status": DataExportStatus.COMPLETED.value,
+            "file_path": file_path,
+            "record_count": record_count,
+            "expires_at": (datetime.utcnow() + timedelta(hours=24)).isoformat(),
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        return DataExportResponse(
+            success=True,
+            message="Data export completed successfully",
+            export_id=export_id,
+            estimated_completion_time=estimated_time,
+            download_url=f"/api/campaigns/export-data/download?export_id={export_id}"
+        )
+    
+    except Exception as e:
+        return DataExportResponse(
+            success=False,
+            message=f"Failed to initiate data export: {str(e)}",
+            export_id=None
+        )
+
+
+def _generate_export_data(db: Client, export_request: DataExportRequest) -> List[dict]:
+    """
+    Generate the actual export data based on the request type.
+    """
+    data = []
+    
+    if export_request.export_type == ExportType.CAMPAIGN_DATA:
+        # Export campaign data
+        query = db.table("discord_guild_campaigns").select("*")
+        
+        if export_request.campaign_ids:
+            query = query.in_("id", [str(cid) for cid in export_request.campaign_ids])
+        
+        if export_request.guild_ids:
+            query = query.in_("guild_id", export_request.guild_ids)
+        
+        if export_request.date_range_start:
+            query = query.gte("created_at", export_request.date_range_start.isoformat())
+        
+        if export_request.date_range_end:
+            query = query.lte("created_at", export_request.date_range_end.isoformat())
+        
+        response = query.execute()
+        data = response.data or []
+    
+    elif export_request.export_type == ExportType.USER_DATA:
+        # Export user data (with PII considerations)
+        try:
+            query = db.table("users").select("*")
+            
+            if export_request.date_range_start:
+                query = query.gte("created_at", export_request.date_range_start.isoformat())
+            
+            if export_request.date_range_end:
+                query = query.lte("created_at", export_request.date_range_end.isoformat())
+            
+            response = query.execute()
+            raw_data = response.data or []
+        except:
+            # If users table doesn't exist, try access_requests
+            try:
+                query = db.table("access_requests").select("*")
+                
+                if export_request.date_range_start:
+                    query = query.gte("created_at", export_request.date_range_start.isoformat())
+                
+                if export_request.date_range_end:
+                    query = query.lte("created_at", export_request.date_range_end.isoformat())
+                
+                response = query.execute()
+                raw_data = response.data or []
+            except:
+                raw_data = []
+        
+        # Remove PII if not requested
+        if not export_request.include_pii:
+            for user in raw_data:
+                user.pop("email", None)
+                user.pop("full_name", None)
+        
+        data = raw_data
+    
+    elif export_request.export_type == ExportType.ANALYTICS_DATA:
+        # Export analytics data
+        query = db.table("referral_analytics").select("*")
+        
+        if export_request.campaign_ids:
+            query = query.in_("campaign_id", [str(cid) for cid in export_request.campaign_ids])
+        
+        if export_request.date_range_start:
+            query = query.gte("created_at", export_request.date_range_start.isoformat())
+        
+        if export_request.date_range_end:
+            query = query.lte("created_at", export_request.date_range_end.isoformat())
+        
+        response = query.execute()
+        data = response.data or []
+    
+    elif export_request.export_type == ExportType.REFERRAL_DATA:
+        # Export referral data
+        query = db.table("referral_links").select("*")
+        
+        if export_request.campaign_ids:
+            query = query.in_("campaign_id", [str(cid) for cid in export_request.campaign_ids])
+        
+        if export_request.date_range_start:
+            query = query.gte("created_at", export_request.date_range_start.isoformat())
+        
+        if export_request.date_range_end:
+            query = query.lte("created_at", export_request.date_range_end.isoformat())
+        
+        response = query.execute()
+        data = response.data or []
+    
+    elif export_request.export_type == ExportType.ONBOARDING_DATA:
+        # Export onboarding data
+        query = db.table("discord_referral_interactions").select("*")
+        
+        if export_request.guild_ids:
+            query = query.in_("guild_id", export_request.guild_ids)
+        
+        if export_request.date_range_start:
+            query = query.gte("created_at", export_request.date_range_start.isoformat())
+        
+        if export_request.date_range_end:
+            query = query.lte("created_at", export_request.date_range_end.isoformat())
+        
+        response = query.execute()
+        data = response.data or []
+    
+    return data
+
+def _write_export_file(data: List[dict], file_path: str, format: str) -> int:
+    """
+    Write export data to file in the specified format.
+    """
+    record_count = len(data)
+    
+    if format == "json":
+        with open(file_path, 'w') as f:
+            json.dump(data, f, indent=2, default=str)
+    
+    elif format == "csv":
+        if data:
+            with open(file_path, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=data[0].keys())
+                writer.writeheader()
+                writer.writerows(data)
+        else:
+            # Create empty CSV
+            with open(file_path, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(["No data available"])
+    
+    elif format == "excel":
+        # For Excel, we'll use CSV for now (would need pandas/openpyxl for true Excel)
+        if data:
+            with open(file_path, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=data[0].keys())
+                writer.writeheader()
+                writer.writerows(data)
+        else:
+            with open(file_path, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(["No data available"])
+    
+    return record_count
+
+def get_export_status(db: Client, export_id: UUID) -> Optional[DataExport]:
+    """
+    Get the status of a data export.
+    """
+    try:
+        export_data = _export_cache.get(str(export_id))
+        
+        if export_data:
+            return DataExport.model_validate(export_data)
+        
+        return None
+    
+    except Exception:
+        return None

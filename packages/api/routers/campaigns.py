@@ -1,16 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import List
+from fastapi.responses import FileResponse
+from typing import List, Optional
 from uuid import UUID
 from supabase import Client
+import os
 
 from core.database import get_db
 from services import campaign_service, auth_service
+from middleware.auth_middleware import require_any_auth
 from schemas.campaign import (
     DiscordGuildCampaign,
     CampaignAccessRequest,
     ReferralLink,
-    ReferralLinkCreate
+    ReferralLinkCreate,
+    DataExportRequest,
+    DataExportResponse
 )
 
 router = APIRouter(
@@ -93,3 +98,81 @@ async def get_campaign_referral_links(
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to retrieve referral links")
+
+@router.post("/export-data", response_model=DataExportResponse)
+async def initiate_data_export(
+    export_request: DataExportRequest,
+    request: Request,
+    db: Client = Depends(get_db)
+):
+    """
+    Initiate a data export for campaigns.
+    Critical endpoint for Discord bot data export functionality.
+    """
+    try:
+        # Require authentication
+        auth_context = require_any_auth(request)
+        
+        result = campaign_service.initiate_data_export(db, export_request)
+        
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.message)
+        
+        return result
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to initiate data export: {e}")
+
+@router.get("/export-data/download")
+async def download_export_data(
+    export_id: UUID = Query(..., description="The export ID to download"),
+    request: Request = None,
+    db: Client = Depends(get_db)
+):
+    """
+    Download exported campaign data.
+    Critical endpoint for Discord bot data export download functionality.
+    """
+    try:
+        # Require authentication
+        auth_context = require_any_auth(request)
+        
+        # Get export status
+        export_record = campaign_service.get_export_status(db, export_id)
+        
+        if not export_record:
+            raise HTTPException(status_code=404, detail="Export not found")
+        
+        if export_record.status.value != "completed":
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Export is not ready. Status: {export_record.status.value}"
+            )
+        
+        if not export_record.file_path or not os.path.exists(export_record.file_path):
+            raise HTTPException(status_code=404, detail="Export file not found")
+        
+        # Determine media type based on format
+        media_type = "application/octet-stream"
+        if export_record.format.value == "json":
+            media_type = "application/json"
+        elif export_record.format.value == "csv":
+            media_type = "text/csv"
+        elif export_record.format.value == "excel":
+            media_type = "application/vnd.ms-excel"
+        
+        # Generate filename
+        filename = f"export_{export_record.export_type.value}_{export_id}.{export_record.format.value}"
+        
+        return FileResponse(
+            export_record.file_path,
+            media_type=media_type,
+            filename=filename
+        )
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to download export: {e}")
