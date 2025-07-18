@@ -26,7 +26,7 @@ gcloud run deploy $SERVICE_NAME \
   --port=8080 \
   --cpu=1 \
   --memory=512Mi \
-  --min-instances=0 \
+  --min-instances=1 \
   --max-instances=10 \
   --timeout=300 \
   --concurrency=1000 \
