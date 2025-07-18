@@ -12,6 +12,7 @@ import uvicorn
 from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.responses import JSONResponse
+from starlette.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import mcp.types as types
 from mcp.server.lowlevel import Server
@@ -397,19 +398,33 @@ class VirionLabsMCPServer:
         # Create lifespan context manager
         @asynccontextmanager
         async def lifespan(_app):
-            logger.info("Starting MCP Streamable HTTP server...")
-            yield
-            logger.info("Shutting down MCP Streamable HTTP server...")
+            async with session_manager.run():
+                logger.info("Starting MCP Streamable HTTP server...")
+                yield
+                logger.info("Shutting down MCP Streamable HTTP server...")
         
-        # Handle streamable HTTP requests
-        async def handle_streamable_http(request):
-            return await session_manager.handle_request(request)
+        # Create ASGI app for handling MCP requests
+        async def mcp_app(scope, receive, send):
+            if scope["type"] == "http":
+                await session_manager.handle_request(scope, receive, send)
+            else:
+                # Handle WebSocket connections if needed
+                await session_manager.handle_websocket(scope, receive, send)
         
         # Create Starlette ASGI application
         starlette_app = Starlette(
             debug=True,
-            routes=[Mount(self.config.server.path, app=handle_streamable_http)],
+            routes=[Mount(self.config.server.path, app=mcp_app)],
             lifespan=lifespan
+        )
+        
+        # Add CORS middleware for browser-based MCP clients
+        starlette_app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
         )
         
         # Configure uvicorn

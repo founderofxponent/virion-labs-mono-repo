@@ -22,7 +22,7 @@ gcloud run deploy $SERVICE_NAME \
   --source . \
   --region=$REGION \
   --platform=managed \
-  --no-allow-unauthenticated \
+  --allow-unauthenticated \
   --port=8080 \
   --cpu=1 \
   --memory=512Mi \
@@ -30,7 +30,7 @@ gcloud run deploy $SERVICE_NAME \
   --max-instances=10 \
   --timeout=300 \
   --concurrency=1000 \
-  --set-env-vars="TRANSPORT=streamable-http,HOST=0.0.0.0,PORT=8080,MCP_PATH=/mcp" \
+  --set-env-vars="TRANSPORT=streamable-http,HOST=0.0.0.0,MCP_PATH=/mcp,API_BASE_URL=https://virion-labs-api-1089869749234.us-central1.run.app,INTERNAL_API_KEY=virion_internal_key_2024" \
   --execution-environment=gen2
 
 echo "Deployment complete!"
