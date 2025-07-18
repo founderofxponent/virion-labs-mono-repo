@@ -19,8 +19,13 @@ RUN uv pip install --system -r requirements.txt
 # Copy the project files into the container
 COPY . .
 
-# Expose the port the server will run on
-EXPOSE 8080
+# Set environment variables for Cloud Run
+ENV TRANSPORT=streamable-http
+ENV HOST=0.0.0.0
+ENV MCP_PATH=/mcp
 
-# Run the FastMCP server
+# Expose port (Cloud Run will set PORT env var)
+EXPOSE $PORT
+
+# Run the MCP server
 CMD ["python", "server.py"]

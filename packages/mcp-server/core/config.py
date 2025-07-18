@@ -11,11 +11,12 @@ load_dotenv()
 @dataclass
 class ServerConfig:
     """Server configuration settings."""
-    transport: str = os.getenv("TRANSPORT", "http")
+    transport: str = os.getenv("TRANSPORT", "stdio")  # Default to stdio for MCP compatibility
     port: int = int(os.getenv("PORT", 8080))
-    host: str = os.getenv("HOST", "0.0.0.0")
+    host: str = os.getenv("HOST", "127.0.0.1")
     path: str = os.getenv("MCP_PATH", "/mcp")
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    json_response: bool = os.getenv("JSON_RESPONSE", "false").lower() == "true"
 
 
 @dataclass
@@ -33,13 +34,13 @@ class DatabaseConfig:
 class APIConfig:
     """API configuration settings."""
     base_url: str = os.getenv("API_BASE_URL", "http://localhost:8000")
-    api_key: str = os.getenv("API_KEY", "")
+    api_key: str = os.getenv("INTERNAL_API_KEY", "")
     
     def __post_init__(self):
         if not self.base_url:
             raise ValueError("API_BASE_URL is required")
         if not self.api_key:
-            raise ValueError("API_KEY is required")
+            raise ValueError("INTERNAL_API_KEY is required")
 
 
 @dataclass

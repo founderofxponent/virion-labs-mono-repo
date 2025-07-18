@@ -7,6 +7,16 @@ import asyncio
 import logging
 from fastmcp import FastMCP
 
+# Streamable HTTP imports
+import uvicorn
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from starlette.responses import JSONResponse
+from contextlib import asynccontextmanager
+import mcp.types as types
+from mcp.server.lowlevel import Server
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+
 from core.config import AppConfig
 from core.api_client import APIClient
 from core.plugin import registry
@@ -23,7 +33,10 @@ class VirionLabsMCPServer:
     def __init__(self, config: AppConfig):
         self.config = config
         self.api_client = APIClient(config.api)
+        
+        # Initialize both FastMCP (for stdio) and low-level server (for streamable HTTP)
         self.mcp = FastMCP("virion_labs_mcp_server")
+        self.lowlevel_server = Server("virion_labs_mcp_server")
         
         # Set the global API client for functions to use
         set_api_client(self.api_client)
@@ -31,8 +44,9 @@ class VirionLabsMCPServer:
         # Auto-discover and register plugins
         registry.auto_discover_plugins()
         
-        # Register the universal tool
+        # Register tools on both servers
         self._register_universal_tool()
+        self._register_lowlevel_tools()
         
         logger.info("MCP Server initialized with API-based architecture")
     
@@ -174,30 +188,242 @@ class VirionLabsMCPServer:
                 logger.error(f"Error getting function details: {e}")
                 return {"error": f"Error getting function details: {str(e)}"}
     
+    def _register_lowlevel_tools(self):
+        """Register tools for the low-level server (streamable HTTP)."""
+        
+        @self.lowlevel_server.call_tool()
+        async def call_tool(name: str, arguments: dict | None = None) -> list[types.TextContent]:
+            """Handle tool calls for streamable HTTP."""
+            try:
+                if name == "execute_function":
+                    function_name = arguments.get("function_name") if arguments else None
+                    parameters = arguments.get("parameters") if arguments else None
+                    
+                    if not function_name:
+                        return [types.TextContent(
+                            type="text",
+                            text='{"error": "function_name is required"}'
+                        )]
+                    
+                    if function_name not in registry.functions:
+                        available_functions = registry.list_functions()
+                        return [types.TextContent(
+                            type="text",
+                            text=f'{{"error": "Unknown function \'{function_name}\'. Available: {available_functions}"}}'
+                        )]
+                    
+                    func = registry.get_function(function_name)
+                    params = parameters or {}
+                    
+                    import inspect
+                    if inspect.iscoroutinefunction(func):
+                        result = await func(params)
+                    else:
+                        result = await asyncio.get_event_loop().run_in_executor(None, func, params)
+                    
+                    import json
+                    return [types.TextContent(type="text", text=json.dumps(result))]
+                
+                elif name == "list_functions":
+                    functions_info = {}
+                    for func_name, func_spec in registry.functions.items():
+                        functions_info[func_name] = {
+                            "description": func_spec.description,
+                            "category": func_spec.category
+                        }
+                    
+                    result = {
+                        "functions": functions_info,
+                        "total_count": len(registry.functions)
+                    }
+                    import json
+                    return [types.TextContent(type="text", text=json.dumps(result))]
+                
+                elif name == "get_function_details":
+                    function_name = arguments.get("function_name") if arguments else None
+                    
+                    if not function_name:
+                        return [types.TextContent(
+                            type="text",
+                            text='{"error": "function_name is required"}'
+                        )]
+                    
+                    if function_name not in registry.functions:
+                        available_functions = registry.list_functions()
+                        return [types.TextContent(
+                            type="text",
+                            text=f'{{"error": "Function \'{function_name}\' not found. Available functions: {available_functions}"}}'
+                        )]
+                    
+                    func_spec = registry.functions[function_name]
+                    schema = func_spec.schema if func_spec.schema else {"type": "object", "properties": {}}
+                    
+                    parameters_info = {}
+                    required_params = schema.get("required", [])
+                    properties = schema.get("properties", {})
+                    
+                    for param_name, param_schema in properties.items():
+                        param_info = {
+                            "type": param_schema.get("type", "unknown"),
+                            "description": param_schema.get("description", ""),
+                            "required": param_name in required_params
+                        }
+                        
+                        for key in ["enum", "format", "pattern", "items", "properties", "default"]:
+                            if key in param_schema:
+                                param_info[key] = param_schema[key]
+                        
+                        parameters_info[param_name] = param_info
+                    
+                    import inspect
+                    docstring = inspect.getdoc(func_spec.func) or "No documentation available"
+                    
+                    result = {
+                        "name": func_spec.name,
+                        "description": func_spec.description,
+                        "category": func_spec.category,
+                        "parameters": parameters_info,
+                        "schema": schema,
+                        "docstring": docstring,
+                        "usage_notes": [
+                            "Pass parameters as a dictionary matching the schema structure",
+                            "All required parameters must be provided",
+                            "Optional parameters can be omitted or set to null",
+                            "Follow the specified types and formats exactly"
+                        ]
+                    }
+                    import json
+                    return [types.TextContent(type="text", text=json.dumps(result))]
+                
+                else:
+                    return [types.TextContent(
+                        type="text",
+                        text=f'{{"error": "Unknown tool: {name}"}}'
+                    )]
+                    
+            except Exception as e:
+                logger.error(f"Error in tool call {name}: {e}")
+                import json
+                return [types.TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Error in tool call {name}: {str(e)}"})
+                )]
+        
+        @self.lowlevel_server.list_tools()
+        async def list_tools() -> list[types.Tool]:
+            """List available tools for streamable HTTP."""
+            return [
+                types.Tool(
+                    name="execute_function",
+                    description="Universal tool that executes functions from registered plugins",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "function_name": {
+                                "type": "string",
+                                "description": "Name of the function to execute"
+                            },
+                            "parameters": {
+                                "type": "object",
+                                "description": "Function parameters",
+                                "additionalProperties": True
+                            }
+                        },
+                        "required": ["function_name"]
+                    }
+                ),
+                types.Tool(
+                    name="list_functions",
+                    description="Lists all available functions with their descriptions and required parameters",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
+                types.Tool(
+                    name="get_function_details",
+                    description="Gets detailed information about a specific function including parameters",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "function_name": {
+                                "type": "string",
+                                "description": "Name of the function to get details for"
+                            }
+                        },
+                        "required": ["function_name"]
+                    }
+                )
+            ]
     
     async def run(self):
         """Run the MCP server."""
-        # Test API connection
+        # Test API connection (allow failure for Cloud Run deployment)
         try:
             # Simple health check to test API connection
             await self.api_client._make_request("GET", "/status/health")
             logger.info("API connection successful")
         except Exception as e:
-            logger.error(f"API connection failed: {e}")
-            raise RuntimeError("API connection failed")
+            logger.warning(f"API connection failed during startup: {e}")
+            logger.info("Continuing startup - API connection will be retried on first request")
         
         logger.info(f"Starting server on {self.config.server.transport}:{self.config.server.port}")
         logger.info(f"Registered {len(registry.functions)} functions from {len(registry.plugins)} plugins")
         
         if self.config.server.transport == "stdio":
             await self.mcp.run_async(transport="stdio")
+        elif self.config.server.transport == "streamable-http":
+            await self._run_streamable_http()
         else:
+            # Default to FastMCP HTTP for backward compatibility
             await self.mcp.run_async(
                 transport="http",
                 host=self.config.server.host,
                 port=self.config.server.port,
                 path=self.config.server.path
             )
+    
+    async def _run_streamable_http(self):
+        """Run the server using Streamable HTTP protocol."""
+        
+        # Create session manager
+        session_manager = StreamableHTTPSessionManager(
+            app=self.lowlevel_server,
+            event_store=None,
+            json_response=self.config.server.json_response,
+            stateless=True
+        )
+        
+        # Create lifespan context manager
+        @asynccontextmanager
+        async def lifespan(_app):
+            logger.info("Starting MCP Streamable HTTP server...")
+            yield
+            logger.info("Shutting down MCP Streamable HTTP server...")
+        
+        # Handle streamable HTTP requests
+        async def handle_streamable_http(request):
+            return await session_manager.handle_request(request)
+        
+        # Create Starlette ASGI application
+        starlette_app = Starlette(
+            debug=True,
+            routes=[Mount(self.config.server.path, app=handle_streamable_http)],
+            lifespan=lifespan
+        )
+        
+        # Configure uvicorn
+        uvicorn_config = uvicorn.Config(
+            starlette_app,
+            host=self.config.server.host,
+            port=self.config.server.port,
+            log_level=self.config.server.log_level.lower(),
+            access_log=False
+        )
+        
+        # Run the server
+        server = uvicorn.Server(uvicorn_config)
+        await server.serve()
     
     async def cleanup(self):
         """Cleanup resources."""
