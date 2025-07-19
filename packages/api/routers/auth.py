@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request
+from starlette.responses import RedirectResponse
+from supabase import Client
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
-from supabase import Client
 from datetime import datetime, timedelta
 import jwt
 import bcrypt
 
-from core.database import get_db
+from core.database import get_supabase_client
 from core.config import settings
 from services import auth_service, user_service
 from schemas.auth import (
@@ -25,7 +26,7 @@ router = APIRouter(
 security = HTTPBearer()
 
 @router.post("/signup", response_model=AuthResponse)
-async def signup(user_data: UserSignup, db: Client = Depends(get_db)):
+async def signup(user_data: UserSignup, db: Client = Depends(get_supabase_client)):
     """
     Register a new user account.
     """
@@ -37,7 +38,7 @@ async def signup(user_data: UserSignup, db: Client = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Failed to create user")
 
 @router.post("/login", response_model=AuthResponse)
-async def login(credentials: UserLogin, db: Client = Depends(get_db)):
+async def login(credentials: UserLogin, db: Client = Depends(get_supabase_client)):
     """
     Authenticate a user and return access token.
     """
@@ -62,7 +63,7 @@ async def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
 @router.post("/send-confirmation")
 async def send_confirmation_email(
     email: str, 
-    db: Client = Depends(get_db)
+    db: Client = Depends(get_supabase_client)
 ):
     """
     Resend confirmation email to user.
@@ -78,7 +79,7 @@ async def send_confirmation_email(
 @router.post("/confirm")
 async def confirm_email(
     confirmation: EmailConfirmation, 
-    db: Client = Depends(get_db)
+    db: Client = Depends(get_supabase_client)
 ):
     """
     Confirm user email with token.
@@ -94,7 +95,7 @@ async def confirm_email(
 @router.get("/user", response_model=UserProfile)
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Client = Depends(get_db)
+    db: Client = Depends(get_supabase_client)
 ):
     """
     Get the current user's profile.
@@ -110,7 +111,7 @@ async def get_current_user(
 @router.delete("/user/delete")
 async def delete_user_account(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Client = Depends(get_db)
+    db: Client = Depends(get_supabase_client)
 ):
     """
     Delete the current user's account.
@@ -123,3 +124,35 @@ async def delete_user_account(
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to delete account")
+
+@router.get("/google/login", tags=["Authentication"])
+async def google_login(supabase: Client = Depends(get_supabase_client)):
+    """
+    Redirects the user to Google for authentication.
+    """
+    data = await supabase.auth.sign_in_with_oauth(
+        provider="google",
+        options={"redirect_to": "http://localhost:8000/api/auth/google/callback"}
+    )
+    return RedirectResponse(data.url)
+
+@router.get("/google/callback", tags=["Authentication"])
+async def google_callback(request: Request, supabase: Client = Depends(get_supabase_client)):
+    """
+    Handles the callback from Google after authentication.
+    Exchanges the authorization code for a session.
+    """
+    code = request.query_params.get("code")
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+
+    try:
+        session = await supabase.auth.exchange_code_for_session(code)
+        
+        # In a real application, you would set a secure, HttpOnly cookie
+        # and redirect the user to the dashboard or original URL.
+        # For now, returning the token directly for the MCP server to use.
+        return {"access_token": session.session.access_token, "refresh_token": session.session.refresh_token}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

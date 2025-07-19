@@ -1,129 +1,127 @@
-"""Authentication middleware supporting both JWT and API key authentication."""
-
-from fastapi import HTTPException, Request
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+from core.database import supabase_client # Direct import for middleware
+from fastapi import HTTPException
 from typing import Optional
-from uuid import UUID
+import jwt
+import os
 
-from services.auth_service import get_user_id_from_token
-from services.api_key_service import is_valid_api_key_request, extract_api_key_from_header
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        # These paths can be accessed without authentication
+        unprotected_paths = [
+            "/docs", 
+            "/openapi.json", 
+            "/api/auth/google/login", 
+            "/api/auth/google/callback", 
+            "/api/health",
+            "/api/auth/login", # Also allow basic login
+            "/api/auth/signup", # Also allow basic signup
+            "/status/health", # Health check endpoint
+            "/health" # Alternative health check endpoint
+        ]
+        
+        # Allow root path for health checks or welcome messages
+        if request.url.path == "/":
+            return await call_next(request)
+
+        # Check for unprotected paths more robustly
+        for path in unprotected_paths:
+            if request.url.path.startswith(path):
+                return await call_next(request)
+
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Authentication credentials were not provided."},
+            )
+
+        try:
+            scheme, token = auth_header.split()
+            if scheme.lower() != "bearer":
+                raise ValueError("Invalid authentication scheme")
+        except ValueError:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid authentication credentials"},
+            )
+
+        try:
+            user_response = await supabase_client.auth.get_user(token)
+            
+            if not user_response.user:
+                 return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid token or user not found"},
+                )
+
+            request.state.user = user_response.user
+        except Exception as e:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": f"Invalid token or expired token: {e}"},
+            )
+
+        return await call_next(request)
+
 
 class AuthContext:
-    """Context object containing authentication information."""
-    
-    def __init__(self, auth_type: str, user_id: Optional[UUID] = None, api_key: Optional[str] = None):
-        self.auth_type = auth_type  # "jwt" or "api_key"
+    def __init__(self, user_id: str, is_service: bool = False):
         self.user_id = user_id
-        self.api_key = api_key
-    
-    @property
-    def is_user_auth(self) -> bool:
-        """Check if this is user authentication (JWT)."""
-        return self.auth_type == "jwt"
-    
-    @property
-    def is_service_auth(self) -> bool:
-        """Check if this is service authentication (API key)."""
-        return self.auth_type == "api_key"
+        self.is_service = is_service
 
-def get_authorization_header(request: Request) -> Optional[str]:
-    """Extract Authorization header from request."""
-    return request.headers.get("Authorization")
-
-def authenticate_request(request: Request, require_auth: bool = True) -> Optional[AuthContext]:
-    """
-    Authenticate a request using either JWT or API key.
-    
-    Args:
-        request: The FastAPI request object
-        require_auth: Whether authentication is required
-        
-    Returns:
-        AuthContext if authenticated, None if not required and not provided
-        
-    Raises:
-        HTTPException: If authentication is required but invalid/missing
-    """
-    auth_header = get_authorization_header(request)
-    
-    if not auth_header:
-        if require_auth:
-            raise HTTPException(status_code=401, detail="Authorization header required")
-        return None
-    
-    # Try API key authentication first
-    if is_valid_api_key_request(auth_header):
-        api_key = extract_api_key_from_header(auth_header)
-        return AuthContext(auth_type="api_key", api_key=api_key)
-    
-    # Try JWT authentication
-    try:
-        # Extract token from "Bearer <token>"
-        parts = auth_header.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            if require_auth:
-                raise HTTPException(status_code=401, detail="Invalid authorization header format")
-            return None
-        
-        token = parts[1]
-        user_id = get_user_id_from_token(token)
-        return AuthContext(auth_type="jwt", user_id=user_id)
-        
-    except ValueError as e:
-        if require_auth:
-            raise HTTPException(status_code=401, detail=str(e))
-        return None
-
-def require_user_auth(request: Request) -> AuthContext:
-    """
-    Require user authentication (JWT only).
-    
-    Args:
-        request: The FastAPI request object
-        
-    Returns:
-        AuthContext with user information
-        
-    Raises:
-        HTTPException: If not authenticated or not a user
-    """
-    auth_context = authenticate_request(request, require_auth=True)
-    
-    if not auth_context.is_user_auth:
-        raise HTTPException(status_code=403, detail="User authentication required")
-    
-    return auth_context
 
 def require_service_auth(request: Request) -> AuthContext:
     """
-    Require service authentication (API key only).
-    
-    Args:
-        request: The FastAPI request object
-        
-    Returns:
-        AuthContext with service information
-        
-    Raises:
-        HTTPException: If not authenticated or not a service
+    Require service authentication via API key.
+    Returns AuthContext if valid, raises HTTPException if not.
     """
-    auth_context = authenticate_request(request, require_auth=True)
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="API key required for this endpoint"
+        )
     
-    if not auth_context.is_service_auth:
-        raise HTTPException(status_code=403, detail="Service authentication required")
+    # Check against environment variable or configured API key
+    expected_api_key = os.getenv("API_KEY")
+    if not expected_api_key or api_key != expected_api_key:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
+        )
     
-    return auth_context
+    return AuthContext(user_id="service", is_service=True)
+
 
 def require_any_auth(request: Request) -> AuthContext:
     """
-    Require any authentication (JWT or API key).
-    
-    Args:
-        request: The FastAPI request object
-        
-    Returns:
-        AuthContext with authentication information
-        
-    Raises:
-        HTTPException: If not authenticated
+    Require either user authentication (Bearer token) or service authentication (API key).
+    Returns AuthContext if valid, raises HTTPException if not.
     """
-    return authenticate_request(request, require_auth=True)
+    # Try API key first
+    api_key = request.headers.get("X-API-Key")
+    if api_key:
+        expected_api_key = os.getenv("API_KEY")
+        if expected_api_key and api_key == expected_api_key:
+            return AuthContext(user_id="service", is_service=True)
+    
+    # Try Bearer token
+    auth_header = request.headers.get("Authorization")
+    if auth_header:
+        try:
+            scheme, token = auth_header.split()
+            if scheme.lower() == "bearer":
+                # Validate token with Supabase
+                user_response = supabase_client.auth.get_user(token)
+                if user_response.user:
+                    return AuthContext(user_id=user_response.user.id, is_service=False)
+        except Exception:
+            pass
+    
+    raise HTTPException(
+        status_code=401,
+        detail="Authentication required (Bearer token or API key)"
+    ) 

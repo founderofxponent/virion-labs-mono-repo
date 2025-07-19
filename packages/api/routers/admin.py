@@ -3,7 +3,7 @@ from typing import List
 from uuid import UUID
 from supabase import Client
 
-from core.database import get_db
+from core.database import get_supabase_client
 from services import admin_service
 from middleware.auth_middleware import require_service_auth, AuthContext
 from schemas.admin import AccessRequest, AccessRequestUpdate, AdminUserListResponse
@@ -16,7 +16,7 @@ router = APIRouter(
 @router.get("/access-requests", response_model=List[AccessRequest])
 async def list_access_requests(
     request: Request,
-    db: Client = Depends(get_db)
+    db: Client = Depends(get_supabase_client)
 ):
     """
     Retrieves a list of all access requests. Requires API key authentication.
@@ -29,7 +29,7 @@ async def list_access_requests(
 async def handle_access_request(
     update: AccessRequestUpdate,
     request: Request,
-    db: Client = Depends(get_db)
+    db: Client = Depends(get_supabase_client)
 ):
     """
     Approve or deny an access request. Requires API key authentication.
@@ -47,7 +47,7 @@ async def handle_access_request(
 @router.get("/users", response_model=AdminUserListResponse)
 async def get_all_users(
     request: Request,
-    db: Client = Depends(get_db)
+    db: Client = Depends(get_supabase_client)
 ):
     """
     Get all users in the system with their access requests and campaign info.
