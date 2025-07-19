@@ -30,6 +30,11 @@ from functions.base import set_api_client
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Debug environment variables
+print(f"MCP DEBUG: OAUTH_REDIRECT_URI = {os.getenv('OAUTH_REDIRECT_URI')}")
+print(f"MCP DEBUG: SITE_URL = {os.getenv('SITE_URL')}")
+print(f"MCP DEBUG: API_BASE_URL = {os.getenv('API_BASE_URL')}")
+
 
 class VirionLabsMCPServer:
     """Main MCP server class with dependency injection."""
@@ -280,7 +285,7 @@ class VirionLabsMCPServer:
                 types.Tool(
                     name="execute_function",
                     description="Executes a function from registered plugins.",
-                    input_schema={
+                    inputSchema={
                         "type": "object",
                         "properties": {
                             "function_name": {"type": "string", "description": "Name of the function"},
@@ -292,12 +297,12 @@ class VirionLabsMCPServer:
                 types.Tool(
                     name="list_functions",
                     description="Lists all available functions.",
-                    input_schema={"type": "object"}
+                    inputSchema={"type": "object"}
                 ),
                 types.Tool(
                     name="get_function_details",
                     description="Gets details for a specific function.",
-                    input_schema={
+                    inputSchema={
                         "type": "object",
                         "properties": {
                             "function_name": {"type": "string", "description": "Name of the function"}
@@ -337,23 +342,108 @@ class VirionLabsMCPServer:
     async def _run_streamable_http(self):
         """Run the streamable HTTP server with Starlette."""
 
+        # Create session manager for streamable HTTP
+        session_manager = StreamableHTTPSessionManager(
+            app=self.lowlevel_server,
+            event_store=None,
+            json_response=False,
+            stateless=True
+        )
+
         @asynccontextmanager
         async def lifespan(_app):
-            # No startup tasks needed for now
-            yield
+            # Initialize session manager
+            async with session_manager.run():
+                logger.info("StreamableHTTP session manager started!")
+                yield
             # Cleanup tasks can go here
             await self.cleanup()
 
         async def mcp_app(scope, receive, send):
-            # Normalize the path to remove the /mcp prefix for the session manager
-            scope['path'] = scope['path'].replace('/mcp', '', 1)
-            await self.lowlevel_server.get_session_manager().app(scope, receive, send)
+            # Handle MCP requests using the session manager
+            await session_manager.handle_request(scope, receive, send)
+
+        async def oauth_protected_resource_metadata(request):
+            """OAuth 2.0 Protected Resource Metadata per RFC 9728."""
+            # Use the request's base URL for Cloud Run deployment
+            base_url = str(request.base_url).rstrip('/')
+            # Ensure HTTPS for Cloud Run
+            if base_url.startswith('http://') and 'run.app' in base_url:
+                base_url = base_url.replace('http://', 'https://')
+            server_url = f"{base_url}/mcp"
+            return JSONResponse({
+                "resource": server_url,
+                "authorization_servers": [self.config.api.base_url],
+                "scopes_supported": ["mcp"],
+                "bearer_methods_supported": ["header"],
+                "resource_documentation": f"{base_url}/docs"
+            })
+
+        class AuthMiddleware(BaseHTTPMiddleware):
+            def __init__(self, app, api_client):
+                super().__init__(app)
+                self.api_client = api_client
+
+            async def dispatch(self, request, call_next):
+                # Skip auth for metadata endpoints
+                if request.url.path == "/.well-known/oauth-protected-resource":
+                    return await call_next(request)
+                
+                # Check for Authorization header
+                auth_header = request.headers.get("Authorization")
+                if not auth_header or not auth_header.startswith("Bearer "):
+                    return JSONResponse(
+                        status_code=401,
+                        content={"error": "unauthorized", "error_description": "Access token required"},
+                        headers={
+                            "WWW-Authenticate": f'Bearer realm="{self.api_client.config.base_url}", '
+                                              f'authorization_uri="{self.api_client.config.base_url}/api/oauth/authorize", '
+                                              f'resource="{request.base_url}"'
+                        }
+                    )
+                
+                # Extract and validate token
+                token = auth_header[7:]  # Remove "Bearer " prefix
+                try:
+                    # Validate token directly with Supabase (same as auth middleware)
+                    from supabase import create_client
+                    supabase_url = os.getenv("SUPABASE_URL")
+                    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+                    if not supabase_url or not supabase_key:
+                        raise ValueError("Missing Supabase configuration")
+                    
+                    supabase = create_client(supabase_url, supabase_key)
+                    user_response = supabase.auth.get_user(token)
+                    
+                    if not user_response.user:
+                        raise ValueError("Invalid token or user not found")
+                    
+                    # Store user info in request state
+                    request.state.user = user_response.user
+                        
+                except Exception:
+                    return JSONResponse(
+                        status_code=401,
+                        content={"error": "invalid_token", "error_description": "The access token is invalid"},
+                        headers={
+                            "WWW-Authenticate": f'Bearer realm="{self.api_client.config.base_url}", '
+                                              f'authorization_uri="{self.api_client.config.base_url}/api/oauth/authorize", '
+                                              f'resource="{request.base_url}", '
+                                              f'error="invalid_token"'
+                        }
+                    )
+                
+                return await call_next(request)
 
         routes = [
             Mount("/mcp", app=mcp_app),
+            Route("/.well-known/oauth-protected-resource", oauth_protected_resource_metadata, methods=["GET"]),
         ]
         
         app = Starlette(routes=routes, lifespan=lifespan)
+        
+        # Add auth middleware
+        app.add_middleware(AuthMiddleware, api_client=self.api_client)
         
         # Add CORS middleware
         app.add_middleware(

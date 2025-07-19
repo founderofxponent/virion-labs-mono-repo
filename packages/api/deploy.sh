@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# Deploy MCP Server to Google Cloud Run
+# Deploy API Server to Google Cloud Run
 # Usage: ./deploy.sh [PROJECT_ID] [REGION]
 
 set -e
 
 PROJECT_ID=${1:-virion-labs}
 REGION=${2:-us-central1}
-SERVICE_NAME="virion-labs-mcp-server"
+SERVICE_NAME="virion-labs-api"
 
-echo "Deploying MCP Server to Cloud Run..."
+echo "Deploying API Server to Cloud Run..."
 echo "Project: $PROJECT_ID"
 echo "Region: $REGION"
 echo "Service: $SERVICE_NAME"
@@ -31,18 +31,18 @@ gcloud run deploy $SERVICE_NAME \
   --region=$REGION \
   --platform=managed \
   --allow-unauthenticated \
-  --port=8080 \
+  --port=8000 \
   --cpu=1 \
-  --memory=512Mi \
+  --memory=1Gi \
   --min-instances=1 \
   --max-instances=10 \
   --timeout=300 \
   --concurrency=1000 \
-  --set-env-vars="TRANSPORT=${TRANSPORT},HOST=0.0.0.0,MCP_PATH=/mcp,API_BASE_URL=${API_BASE_URL},INTERNAL_API_KEY=${INTERNAL_API_KEY},OAUTH_REDIRECT_URI=${OAUTH_REDIRECT_URI},SITE_URL=${SITE_URL}" \
+  --set-env-vars="FASTAPI_ENV=production,SUPABASE_URL=${SUPABASE_URL},SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY},INTERNAL_API_KEY=${INTERNAL_API_KEY},JWT_SECRET=${JWT_SECRET},SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY},API_BASE_URL=${API_BASE_URL},OAUTH_REDIRECT_URI=${OAUTH_REDIRECT_URI},SITE_URL=${SITE_URL}" \
   --execution-environment=gen2
 
 echo "Deployment complete!"
 echo "Service URL: $(gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)')"
 echo ""
 echo "To test the service:"
-echo "gcloud run services proxy $SERVICE_NAME --port=8080 --region=$REGION"
+echo "curl $(gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)')/health"

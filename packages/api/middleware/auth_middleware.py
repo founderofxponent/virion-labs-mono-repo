@@ -19,7 +19,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/api/auth/login", # Also allow basic login
             "/api/auth/signup", # Also allow basic signup
             "/status/health", # Health check endpoint
-            "/health" # Alternative health check endpoint
+            "/health", # Alternative health check endpoint
+            "/oauth", # OAuth endpoints for MCP Inspector (legacy)
+            "/api/oauth", # OAuth endpoints for MCP Inspector (new path)
+            "/.well-known", # OAuth discovery endpoints
         ]
         
         # Allow root path for health checks or welcome messages

@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
+from fastapi.middleware.cors import CORSMiddleware
 from middleware.auth_middleware import AuthMiddleware
 from routers import (
     admin,
@@ -12,12 +13,23 @@ from routers import (
     discord_bot,
     access_requests,
     analytics,
-    templates
+    templates,
+    oauth
 )
 import logging
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Debug environment variables at startup
+print(f"DEBUG: OAUTH_REDIRECT_URI = {os.getenv('OAUTH_REDIRECT_URI')}")
+print(f"DEBUG: SITE_URL = {os.getenv('SITE_URL')}")
+print(f"DEBUG: JWT_SECRET = {os.getenv('JWT_SECRET')}")
 
 app = FastAPI(
     title="Virion Labs Unified API",
@@ -27,6 +39,15 @@ app = FastAPI(
 
 # Add middleware
 app.add_middleware(AuthMiddleware)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # Include routers
@@ -42,8 +63,42 @@ app.include_router(discord_bot.router)
 app.include_router(access_requests.router)
 app.include_router(analytics.router)
 app.include_router(templates.router)
+app.include_router(oauth.router)
 
 
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Virion-Labs API"}
+
+@app.get("/.well-known/oauth-authorization-server")
+@app.options("/.well-known/oauth-authorization-server")
+async def oauth_authorization_server_metadata(request: Request):
+    """OAuth 2.0 Authorization Server Metadata at root level."""
+    # Use environment variable if available, otherwise construct from headers
+    api_base_url = os.getenv("API_BASE_URL")
+    print(f"DEBUG: API_BASE_URL env var = {api_base_url}")
+    print(f"DEBUG: request.base_url = {request.base_url}")
+    print(f"DEBUG: x-forwarded-proto = {request.headers.get('x-forwarded-proto')}")
+    print(f"DEBUG: x-forwarded-host = {request.headers.get('x-forwarded-host')}")
+    print(f"DEBUG: host = {request.headers.get('host')}")
+    
+    if api_base_url:
+        base_url = api_base_url
+        print(f"DEBUG: Using API_BASE_URL: {base_url}")
+    else:
+        # Use X-Forwarded headers for Cloud Run
+        scheme = request.headers.get("x-forwarded-proto", "https")
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host", "localhost:8000")
+        base_url = f"{scheme}://{host}"
+        print(f"DEBUG: Constructed from headers: {base_url}")
+    
+    return {
+        "issuer": f"{base_url}",
+        "authorization_endpoint": f"{base_url}/api/oauth/authorize",
+        "token_endpoint": f"{base_url}/api/oauth/token",
+        "registration_endpoint": f"{base_url}/api/oauth/register",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code"],
+        "code_challenge_methods_supported": ["S256"],
+        "scopes_supported": ["mcp", "read", "write"]
+    }
