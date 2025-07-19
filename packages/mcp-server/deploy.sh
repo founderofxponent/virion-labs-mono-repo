@@ -38,7 +38,7 @@ gcloud run deploy $SERVICE_NAME \
   --max-instances=10 \
   --timeout=300 \
   --concurrency=1000 \
-  --set-env-vars="TRANSPORT=${TRANSPORT},HOST=0.0.0.0,MCP_PATH=/mcp,API_BASE_URL=${API_BASE_URL},INTERNAL_API_KEY=${INTERNAL_API_KEY},OAUTH_REDIRECT_URI=${OAUTH_REDIRECT_URI},SITE_URL=${SITE_URL}" \
+  --set-env-vars="TRANSPORT=${TRANSPORT},HOST=0.0.0.0,MCP_PATH=/mcp,API_BASE_URL=${API_BASE_URL},INTERNAL_API_KEY=${INTERNAL_API_KEY},OAUTH_REDIRECT_URI=${OAUTH_REDIRECT_URI},SITE_URL=${SITE_URL},JWT_SECRET=${JWT_SECRET}" \
   --execution-environment=gen2
 
 echo "Deployment complete!"
