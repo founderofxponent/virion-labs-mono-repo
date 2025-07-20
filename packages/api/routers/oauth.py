@@ -78,6 +78,9 @@ async def oauth_authorize(
         print(f"DEBUG: Using env var redirect URI = {google_redirect_uri}")
     else:
         base_url = str(request.base_url).rstrip("/")
+        # Ensure HTTPS if X-Forwarded-Proto is https
+        if request.headers.get("x-forwarded-proto") == "https":
+            base_url = base_url.replace("http://", "https://")
         google_redirect_uri = f"{base_url}/api/oauth/callback"
         print(f"DEBUG: Using derived redirect URI = {google_redirect_uri}")
     

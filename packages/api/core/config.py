@@ -5,7 +5,7 @@ import os
 class Settings(BaseSettings):
     FASTAPI_ENV: str = "development"
     SUPABASE_URL: str
-    SUPABASE_SERVICE_KEY: str
+    SUPABASE_SERVICE_ROLE_KEY: str
     INTERNAL_API_KEY: str
     JWT_SECRET: str
 

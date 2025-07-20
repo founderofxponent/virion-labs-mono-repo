@@ -123,7 +123,7 @@ pip install -r requirements.txt
 ```bash
 # Required
 SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_KEY=your_supabase_service_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 API_KEY=your_api_key_for_service_authentication
 
 # Optional

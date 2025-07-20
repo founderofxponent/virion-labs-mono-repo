@@ -11,7 +11,7 @@ from fastmcp import FastMCP
 import uvicorn
 from starlette.applications import Starlette
 from starlette.routing import Mount, Route
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, RedirectResponse
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
@@ -370,7 +370,7 @@ class VirionLabsMCPServer:
             # Ensure HTTPS for Cloud Run
             if base_url.startswith('http://') and 'run.app' in base_url:
                 base_url = base_url.replace('http://', 'https://')
-            server_url = f"{base_url}/mcp"
+            server_url = f"{base_url}/mcp/"
             return JSONResponse({
                 "resource": server_url,
                 "authorization_servers": [self.config.api.base_url],
@@ -379,14 +379,42 @@ class VirionLabsMCPServer:
                 "resource_documentation": f"{base_url}/docs"
             })
 
+        async def oauth_authorization_server_metadata(request: Request):
+            """OAuth 2.0 Authorization Server Metadata."""
+            base_url = self.config.api.base_url
+            return JSONResponse({
+                "issuer": f"{base_url}",
+                "authorization_endpoint": f"{base_url}/api/oauth/authorize",
+                "token_endpoint": f"{base_url}/api/oauth/token",
+                "registration_endpoint": f"{base_url}/api/oauth/register",
+                "response_types_supported": ["code"],
+                "grant_types_supported": ["authorization_code"],
+                "code_challenge_methods_supported": ["S256"],
+                "scopes_supported": ["mcp", "read", "write"]
+            })
+
+        async def redirect_to_metadata(request: Request):
+            return RedirectResponse(url="/.well-known/oauth-protected-resource")
+
+        async def redirect_to_auth_server_metadata(request: Request):
+            return RedirectResponse(url="/.well-known/oauth-authorization-server")
+
         class AuthMiddleware(BaseHTTPMiddleware):
             def __init__(self, app, api_client):
                 super().__init__(app)
                 self.api_client = api_client
 
             async def dispatch(self, request, call_next):
+                # Log all request headers for debugging
+                logger.info(f"Request headers: {request.headers}")
+
                 # Skip auth for metadata endpoints
-                if request.url.path == "/.well-known/oauth-protected-resource":
+                if request.url.path in [
+                    "/.well-known/oauth-protected-resource",
+                    "/.well-known/oauth-authorization-server",
+                    "/.well-known/oauth-protected-resource/mcp",
+                    "/.well-known/oauth-authorization-server/mcp",
+                ]:
                     return await call_next(request)
                 
                 # Check for Authorization header
@@ -403,19 +431,26 @@ class VirionLabsMCPServer:
                     )
                 
                 # Extract and validate token
-                token = auth_header[7:]  # Remove "Bearer " prefix
+                token = auth_header[7:]
+                logger.info(f"Full Authorization header: {auth_header}")
+                logger.info(f"Extracted token: {token}")
                 try:
                     # Validate token directly with Supabase (same as auth middleware)
                     from supabase import create_client
                     supabase_url = os.getenv("SUPABASE_URL")
                     supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+                    logger.info(f"Supabase URL from env: {supabase_url}")
                     if not supabase_url or not supabase_key:
+                        logger.error("Missing Supabase configuration")
                         raise ValueError("Missing Supabase configuration")
                     
                     supabase = create_client(supabase_url, supabase_key)
+                    logger.info("Supabase client created. Validating token...")
                     user_response = supabase.auth.get_user(token)
+                    logger.info(f"Supabase user response: {user_response}")
                     
                     if not user_response.user:
+                        logger.warning("Token validation failed: Invalid token or user not found")
                         raise ValueError("Invalid token or user not found")
                     
                     # Store user info in request state
@@ -433,11 +468,27 @@ class VirionLabsMCPServer:
                         }
                     )
                 
-                return await call_next(request)
+                response = await call_next(request)
+                # Log all response headers for debugging
+                logger.info(f"Response headers: {response.headers}")
+
+                # Ensure redirects use HTTPS in Cloud Run
+                if response.status_code == 307 and "location" in response.headers:
+                    location = response.headers["location"]
+                    if location.startswith("http://") and "run.app" in location:
+                        response.headers["location"] = location.replace("http://", "https://")
+                        logger.info(f"Rewrote redirect location to HTTPS: {response.headers['location']}")
+
+                return response
 
         routes = [
-            Mount("/mcp", app=mcp_app),
+            # Mount the MCP application with a trailing slash to enforce consistent URL handling.
+            # Starlette will automatically redirect requests to /mcp to /mcp/.
+            Mount("/mcp/", app=mcp_app),
             Route("/.well-known/oauth-protected-resource", oauth_protected_resource_metadata, methods=["GET"]),
+            Route("/.well-known/oauth-authorization-server", oauth_authorization_server_metadata, methods=["GET"]),
+            Route("/.well-known/oauth-protected-resource/mcp", redirect_to_metadata, methods=["GET"]),
+            Route("/.well-known/oauth-authorization-server/mcp", redirect_to_auth_server_metadata, methods=["GET"]),
         ]
         
         app = Starlette(routes=routes, lifespan=lifespan)
