@@ -34,46 +34,27 @@ class AuthMiddleware(BaseHTTPMiddleware):
             if request.url.path.startswith(path):
                 return await call_next(request)
 
-        auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Authentication credentials were not provided."},
-            )
-
+        # Try to authenticate with either Bearer token or API key
         try:
-            scheme, token = auth_header.split()
-            if scheme.lower() != "bearer":
-                raise ValueError("Invalid authentication scheme")
-        except ValueError:
+            auth_context = require_any_auth(request)
+            request.state.auth = auth_context
+            return await call_next(request)
+        except HTTPException as e:
+            # If require_any_auth fails, it raises an HTTPException.
+            # We return a standard 401 response.
             return JSONResponse(
-                status_code=401,
-                content={"detail": "Invalid authentication credentials"},
+                status_code=e.status_code,
+                content={"detail": e.detail}
             )
-
-        try:
-            user_response = await supabase_client.auth.get_user(token)
-            
-            if not user_response.user:
-                 return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Invalid token or user not found"},
-                )
-
-            request.state.user = user_response.user
-        except Exception as e:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": f"Invalid token or expired token: {e}"},
-            )
-
-        return await call_next(request)
 
 
 class AuthContext:
-    def __init__(self, user_id: str, is_service: bool = False):
+    def __init__(self, user_id: Optional[str] = None, is_user_auth: bool = False, is_service_auth: bool = False):
+        if not user_id:
+            raise ValueError("user_id must be provided for AuthContext")
         self.user_id = user_id
-        self.is_service = is_service
+        self.is_user_auth = is_user_auth
+        self.is_service_auth = is_service_auth
 
 
 def require_service_auth(request: Request) -> AuthContext:
@@ -96,7 +77,7 @@ def require_service_auth(request: Request) -> AuthContext:
             detail="Invalid API key"
         )
     
-    return AuthContext(user_id="service", is_service=True)
+    return AuthContext(user_id="service", is_service_auth=True)
 
 
 def require_any_auth(request: Request) -> AuthContext:
@@ -109,7 +90,7 @@ def require_any_auth(request: Request) -> AuthContext:
     if api_key:
         expected_api_key = os.getenv("API_KEY")
         if expected_api_key and api_key == expected_api_key:
-            return AuthContext(user_id="service", is_service=True)
+            return AuthContext(user_id="service", is_service_auth=True)
     
     # Try Bearer token
     auth_header = request.headers.get("Authorization")
@@ -120,7 +101,7 @@ def require_any_auth(request: Request) -> AuthContext:
                 # Validate token with Supabase
                 user_response = supabase_client.auth.get_user(token)
                 if user_response.user:
-                    return AuthContext(user_id=user_response.user.id, is_service=False)
+                    return AuthContext(user_id=str(user_response.user.id), is_user_auth=True)
         except Exception:
             pass
     

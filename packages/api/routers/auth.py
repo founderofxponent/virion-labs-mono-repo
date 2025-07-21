@@ -6,6 +6,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 import jwt
 import bcrypt
+from uuid import UUID
 
 from core.database import get_supabase_client
 from core.config import settings
@@ -17,6 +18,7 @@ from schemas.auth import (
     EmailConfirmation,
     AuthResponse
 )
+from core.auth import AuthContext
 
 router = APIRouter(
     prefix="/api/auth",
@@ -38,38 +40,44 @@ async def signup(user_data: UserSignup, db: Client = Depends(get_supabase_client
         raise HTTPException(status_code=500, detail="Failed to create user")
 
 @router.post("/login", response_model=AuthResponse)
-async def login(credentials: UserLogin, db: Client = Depends(get_supabase_client)):
+async def login(user_data: UserLogin, db: Client = Depends(get_supabase_client)):
     """
     Authenticate a user and return access token.
     """
     try:
-        return auth_service.authenticate_user(db, credentials)
+        return auth_service.authenticate_user(db, user_data)
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Authentication failed")
+        raise HTTPException(status_code=500, detail="Failed to authenticate user")
 
 @router.post("/logout")
-async def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def logout(request: Request):
     """
-    Logout a user (invalidate token).
+    Logout the current user. This is a placeholder and may not be needed
+    depending on the client-side token management.
     """
     try:
-        auth_service.logout_user(credentials.credentials)
+        # The token is already validated by the middleware.
+        # We can add token blacklisting logic here if needed.
+        auth_context: AuthContext = request.state.auth
+        if not auth_context.is_user_auth:
+            raise HTTPException(status_code=403, detail="User authentication required")
+        
         return {"message": "Successfully logged out"}
     except Exception as e:
         raise HTTPException(status_code=500, detail="Logout failed")
 
 @router.post("/send-confirmation")
-async def send_confirmation_email(
-    email: str, 
+async def resend_confirmation_email(
+    request_data: EmailConfirmation, 
     db: Client = Depends(get_supabase_client)
 ):
     """
     Resend confirmation email to user.
     """
     try:
-        auth_service.send_confirmation_email(db, email)
+        auth_service.send_confirmation_email(db, request_data.email)
         return {"message": "Confirmation email sent"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -94,15 +102,19 @@ async def confirm_email(
 
 @router.get("/user", response_model=UserProfile)
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_supabase_client)
 ):
     """
     Get the current user's profile.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
-        return user_service.get_user_profile(db, user_id)
+        auth_context: AuthContext = request.state.auth
+        if not auth_context.is_user_auth:
+            raise HTTPException(status_code=403, detail="User authentication required")
+        
+        user_id = auth_context.user_id
+        return user_service.get_user_profile(db, UUID(user_id))
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
@@ -110,20 +122,24 @@ async def get_current_user(
 
 @router.delete("/user/delete")
 async def delete_user_account(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_supabase_client)
 ):
     """
     Delete the current user's account.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
-        user_service.delete_user(db, user_id)
-        return {"message": "Account deleted successfully"}
+        auth_context: AuthContext = request.state.auth
+        if not auth_context.is_user_auth:
+            raise HTTPException(status_code=403, detail="User authentication required")
+            
+        user_id = auth_context.user_id
+        result = auth_service.delete_user_account(db, UUID(user_id))
+        return result
     except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Failed to delete account")
+        raise HTTPException(status_code=500, detail="Failed to delete user account")
 
 @router.get("/google/login", tags=["Authentication"])
 async def google_login(supabase: Client = Depends(get_supabase_client)):
@@ -136,8 +152,9 @@ async def google_login(supabase: Client = Depends(get_supabase_client)):
     )
     return RedirectResponse(data.url)
 
+# This will be called by Google
 @router.get("/google/callback", tags=["Authentication"])
-async def google_callback(request: Request, supabase: Client = Depends(get_supabase_client)):
+async def google_callback(request: Request, db: Client = Depends(get_supabase_client)):
     """
     Handles the callback from Google after authentication.
     Exchanges the authorization code for a session.
@@ -147,7 +164,7 @@ async def google_callback(request: Request, supabase: Client = Depends(get_supab
         raise HTTPException(status_code=400, detail="Missing authorization code")
 
     try:
-        session = await supabase.auth.exchange_code_for_session(code)
+        session = await db.auth.exchange_code_for_session(code)
         
         # In a real application, you would set a secure, HttpOnly cookie
         # and redirect the user to the dashboard or original URL.

@@ -5,7 +5,7 @@ from supabase import Client
 
 from core.database import get_db
 from services import template_service
-from middleware.auth_middleware import require_any_auth, AuthContext
+from middleware.auth_middleware import AuthContext
 from schemas.template import (
     CampaignTemplate,
     CampaignTemplateCreate,
@@ -37,7 +37,7 @@ async def get_campaign_templates(
     Critical endpoint for Discord bot template management.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         
         if include_landing_page:
             result = template_service.get_campaign_templates(db, include_landing_page=True)
@@ -69,7 +69,7 @@ async def get_campaign_template(
     Get a specific campaign template by ID.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         
         if include_landing_page:
             result = template_service.get_campaign_template_by_id(db, template_id, include_landing_page=True)
@@ -102,7 +102,7 @@ async def create_campaign_template(
     Create a new campaign template.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         result = template_service.create_campaign_template(db, template_data)
         
         if not result.success:
@@ -126,7 +126,7 @@ async def update_campaign_template(
     Update an existing campaign template.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         result = template_service.update_campaign_template(db, template_id, template_data)
         
         if not result.success:
@@ -150,7 +150,7 @@ async def delete_campaign_template(
     Delete a campaign template.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         result = template_service.delete_campaign_template(db, template_id)
         
         if not result.success:
@@ -173,7 +173,7 @@ async def get_landing_page_templates(
     List all landing page templates.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         return template_service.get_landing_page_templates(db)
     
     except ValueError as e:
@@ -192,7 +192,7 @@ async def apply_template_to_campaign(
     Critical endpoint for Discord bot template application.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         result = template_service.apply_template_to_campaign(db, request_data)
         
         if not result.success:
@@ -217,7 +217,7 @@ async def get_campaign_templates_by_category(
     Get campaign templates filtered by category.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         
         response = db.table("campaign_templates").select("*").eq("category", category).order("created_at", desc=True).execute()
         
@@ -252,7 +252,7 @@ async def get_campaign_template_by_type(
     Useful for Discord bot when it knows the campaign type.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         
         response = db.table("campaign_templates").select("*").eq("campaign_type", campaign_type).execute()
         
@@ -279,7 +279,7 @@ async def get_default_templates(
     Get all default templates (both campaign and landing page).
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         
         # Get default campaign templates
         campaign_response = db.table("campaign_templates").select("*").eq("is_default", True).execute()

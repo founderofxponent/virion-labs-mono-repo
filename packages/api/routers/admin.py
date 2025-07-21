@@ -5,7 +5,7 @@ from supabase import Client
 
 from core.database import get_supabase_client
 from services import admin_service
-from middleware.auth_middleware import require_service_auth, AuthContext
+from middleware.auth_middleware import AuthContext
 from schemas.admin import AccessRequest, AccessRequestUpdate, AdminUserListResponse
 
 router = APIRouter(
@@ -21,8 +21,10 @@ async def list_access_requests(
     """
     Retrieves a list of all access requests. Requires API key authentication.
     """
-    # Require service authentication (API key only)
-    auth_context = require_service_auth(request)
+    auth_context: AuthContext = request.state.auth
+    if not auth_context.is_service_auth:
+        raise HTTPException(status_code=403, detail="Service authentication required")
+        
     return admin_service.get_access_requests(db)
 
 @router.post("/access-requests", response_model=AccessRequest)
@@ -35,8 +37,10 @@ async def handle_access_request(
     Approve or deny an access request. Requires API key authentication.
     """
     try:
-        # Require service authentication (API key only)
-        auth_context = require_service_auth(request)
+        auth_context: AuthContext = request.state.auth
+        if not auth_context.is_service_auth:
+            raise HTTPException(status_code=403, detail="Service authentication required")
+            
         updated_request = admin_service.update_access_request_status(
             db, request_id=update.request_id, status=update.action
         )
@@ -54,8 +58,10 @@ async def get_all_users(
     Critical endpoint for Discord bot admin user management.
     """
     try:
-        # Require service authentication (API key only)
-        auth_context = require_service_auth(request)
+        auth_context: AuthContext = request.state.auth
+        if not auth_context.is_service_auth:
+            raise HTTPException(status_code=403, detail="Service authentication required")
+
         result = admin_service.get_all_users(db)
         
         if not result.success:

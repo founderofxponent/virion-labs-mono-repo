@@ -5,7 +5,7 @@ from supabase import Client
 
 from core.database import get_db
 from services import client_service
-from middleware.auth_middleware import require_any_auth, AuthContext
+from middleware.auth_middleware import AuthContext
 from schemas.client import Client, ClientCreate, ClientUpdate
 
 router = APIRouter(
@@ -21,8 +21,7 @@ async def list_clients(
     """
     List all clients. Supports both JWT and API key authentication.
     """
-    # Authenticate request (JWT or API key)
-    auth_context = require_any_auth(request)
+    auth_context: AuthContext = request.state.auth
     return client_service.get_all_clients(db)
 
 @router.post("/", response_model=Client)
@@ -35,8 +34,7 @@ async def create_client(
     Create a new client. Supports both JWT and API key authentication.
     """
     try:
-        # Authenticate request (JWT or API key)
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         return client_service.create_client(db, client_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -53,8 +51,7 @@ async def get_client(
     Get client details by ID. Supports both JWT and API key authentication.
     """
     try:
-        # Authenticate request (JWT or API key)
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         return client_service.get_client_by_id(db, client_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -72,8 +69,7 @@ async def update_client(
     Update client details. Supports both JWT and API key authentication.
     """
     try:
-        # Authenticate request (JWT or API key)
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         return client_service.update_client(db, client_id, client_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -90,8 +86,7 @@ async def delete_client(
     Delete a client. Supports both JWT and API key authentication.
     """
     try:
-        # Authenticate request (JWT or API key)
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         client_service.delete_client(db, client_id)
         return {"message": "Client deleted successfully"}
     except ValueError as e:

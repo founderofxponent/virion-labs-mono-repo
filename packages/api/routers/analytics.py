@@ -5,7 +5,7 @@ from supabase import Client
 
 from core.database import get_db
 from services import analytics_service
-from middleware.auth_middleware import require_any_auth, AuthContext
+from middleware.auth_middleware import AuthContext
 from schemas.analytics import (
     AnalyticsTrackRequest,
     AnalyticsTrackResponse,
@@ -30,7 +30,7 @@ async def track_analytics(
     Critical endpoint for Discord bot interaction tracking.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         return analytics_service.track_analytics_event(db, event_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -48,7 +48,7 @@ async def get_guild_analytics(
     Critical endpoint for Discord bot analytics retrieval.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         return analytics_service.get_guild_analytics(db, guild_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -64,7 +64,7 @@ async def get_campaign_overview(
     Get campaign performance overview across all campaigns.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         
         # Get all campaigns
         campaigns_response = db.table("discord_guild_campaigns").select("*").execute()
@@ -134,7 +134,7 @@ async def get_real_time_analytics(
     Get real-time activity data for the last hour.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         
         from datetime import datetime, timedelta
         
@@ -202,7 +202,7 @@ async def get_user_journey_analytics(
     Get user journey analytics with optional filtering.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         
         # Build query for user journey data
         query = db.table("discord_referral_interactions").select("*")

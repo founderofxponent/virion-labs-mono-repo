@@ -34,10 +34,13 @@ class APIClient:
         async with await self._get_client() as client:
             headers = {"Content-Type": "application/json"}
             
-            # Use dynamic token if provided, otherwise fall back to static API key
-            auth_token = token or self.api_key
-            if auth_token:
-                headers["Authorization"] = f"Bearer {auth_token}"
+            # Use the correct authentication method
+            if token:
+                # User authentication via JWT Bearer token
+                headers["Authorization"] = f"Bearer {token}"
+            elif self.api_key:
+                # Service authentication via API key
+                headers["X-API-Key"] = self.api_key
 
             try:
                 response = await client.request(

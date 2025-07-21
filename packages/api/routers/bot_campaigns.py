@@ -27,7 +27,7 @@ async def get_bot_campaigns(
     Get campaigns for the bot. Supports both JWT and API key authentication.
     """
     try:
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         # For service auth, return all campaigns; for user auth, return user-specific campaigns
         user_id = auth_context.user_id if auth_context.is_user_auth else None
         return bot_campaign_service.get_bot_campaigns(db, user_id)
@@ -112,17 +112,20 @@ async def delete_bot_campaign(
 @router.patch("/{campaign_id}/stats")
 async def update_campaign_stats(
     campaign_id: UUID,
-    stats_data: CampaignStats,
+    stats: CampaignStats,
     request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Update statistics for a campaign. Supports both JWT and API key authentication.
+    Update campaign statistics. Can be called by bot or other services.
     """
     try:
-        auth_context = require_any_auth(request)
-        user_id = auth_context.user_id if auth_context.is_user_auth else None
-        return bot_campaign_service.update_campaign_stats(db, campaign_id, user_id, stats_data)
+        # This endpoint can be called by any authenticated service or user
+        auth_context: AuthContext = request.state.auth
+        if not auth_context.is_user_auth and not auth_context.is_service_auth:
+            raise HTTPException(status_code=403, detail="Not authorized to update stats")
+            
+        return bot_campaign_service.update_campaign_stats(db, campaign_id, stats)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

@@ -8,7 +8,7 @@ import os
 
 from core.database import get_db
 from services import campaign_service, auth_service
-from middleware.auth_middleware import require_any_auth
+from middleware.auth_middleware import AuthContext
 from schemas.campaign import (
     DiscordGuildCampaign,
     CampaignAccessRequest,
@@ -23,24 +23,22 @@ router = APIRouter(
     tags=["Campaigns"],
 )
 
-security = HTTPBearer()
 
 @router.get("/available", response_model=List[DiscordGuildCampaign])
 async def get_available_campaigns(
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
     List all available campaigns.
-    This endpoint is temporarily public for testing.
+    Requires authentication (either user or service).
     """
     try:
-        # For now, let's bypass user auth to test the service layer
-        # In the future, we will re-introduce authentication
-        # user_id = auth_service.get_user_id_from_token(credentials.credentials)
-        # return campaign_service.get_available_campaigns(db, user_id)
-        return campaign_service.get_available_campaigns(db, user_id=None)
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        auth_context: AuthContext = request.state.auth
+        # If it's a user, we might want to filter by what's available to them.
+        # For a service, we might show all. This logic can be in the service layer.
+        user_id = auth_context.user_id if auth_context.is_user_auth else None
+        return campaign_service.get_available_campaigns(db, user_id=user_id)
     except Exception as e:
         # Log the exception for debugging
         print(f"Error in get_available_campaigns: {e}")
@@ -50,14 +48,18 @@ async def get_available_campaigns(
 async def request_campaign_access(
     campaign_id: UUID,
     request_data: CampaignAccessRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Request access to a campaign.
+    Request access to a campaign. Requires user authentication.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
+        auth_context: AuthContext = request.state.auth
+        if not auth_context.is_user_auth:
+            raise HTTPException(status_code=403, detail="User authentication required")
+        
+        user_id = auth_context.user_id
         return campaign_service.request_campaign_access(db, campaign_id, user_id, request_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -68,15 +70,19 @@ async def request_campaign_access(
 async def create_referral_link(
     campaign_id: UUID,
     link_data: ReferralLinkCreate,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    Create a referral link for a campaign.
+    Create a referral link for a campaign. Requires user authentication.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
-        return campaign_service.create_referral_link(db, campaign_id, user_id, link_data)
+        auth_context: AuthContext = request.state.auth
+        if not auth_context.is_user_auth:
+            raise HTTPException(status_code=403, detail="User authentication required")
+            
+        user_id = auth_context.user_id
+        return campaign_service.create_referral_link(db, campaign_id, UUID(user_id), link_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -85,15 +91,19 @@ async def create_referral_link(
 @router.get("/{campaign_id}/referral-links", response_model=List[ReferralLink])
 async def get_campaign_referral_links(
     campaign_id: UUID,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
     db: Client = Depends(get_db)
 ):
     """
-    List referral links for a campaign.
+    List referral links for a campaign. Requires user authentication.
     """
     try:
-        user_id = auth_service.get_user_id_from_token(credentials.credentials)
-        return campaign_service.get_campaign_referral_links(db, campaign_id, user_id)
+        auth_context: AuthContext = request.state.auth
+        if not auth_context.is_user_auth:
+            raise HTTPException(status_code=403, detail="User authentication required")
+        
+        user_id = auth_context.user_id
+        return campaign_service.get_campaign_referral_links(db, campaign_id, UUID(user_id))
     except ValueError as e:
         raise HTTPException(status_code=401, detail=str(e))
     except Exception as e:
@@ -111,7 +121,7 @@ async def initiate_data_export(
     """
     try:
         # Require authentication
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         
         result = campaign_service.initiate_data_export(db, export_request)
         
@@ -137,7 +147,7 @@ async def download_export_data(
     """
     try:
         # Require authentication
-        auth_context = require_any_auth(request)
+        auth_context: AuthContext = request.state.auth
         
         # Get export status
         export_record = campaign_service.get_export_status(db, export_id)
