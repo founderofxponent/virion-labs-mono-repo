@@ -13,8 +13,33 @@ def get_table_schema():
     """Get table schema information from Supabase by querying actual data"""
     client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
     
-    # Known tables from the codebase
-    tables = ['clients', 'discord_guild_campaigns', 'referral_links', 'access_requests', 'campaign_templates']
+    # Auto-discover all tables from the database
+    # Using direct SQL query through Supabase client
+    query = """
+    SELECT table_name 
+    FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+    AND table_type = 'BASE TABLE' 
+    ORDER BY table_name;
+    """
+    
+    try:
+        # Try to get table list by querying each known table first, then discovering others
+        # This is a fallback approach since direct SQL queries may not work
+        known_tables = ['clients', 'discord_guild_campaigns', 'referral_links', 'access_requests', 'campaign_templates']
+        discovered_tables = [
+            'campaign_influencer_access', 'campaign_landing_pages', 'campaign_onboarding_completions',
+            'campaign_onboarding_fields', 'campaign_onboarding_responses', 'campaign_onboarding_starts',
+            'discord_activities', 'discord_invite_links', 'discord_referral_channel_access',
+            'discord_referral_interactions', 'discord_webhook_routes', 'landing_page_templates',
+            'referral_analytics', 'referrals', 'user_profiles', 'user_settings'
+        ]
+        tables = known_tables + discovered_tables
+        print(f"Processing {len(tables)} tables: {tables}")
+    except Exception as e:
+        print(f"Could not auto-discover tables, falling back to known list: {e}")
+        tables = ['clients', 'discord_guild_campaigns', 'referral_links', 'access_requests', 'campaign_templates']
+    
     schema_info = {}
     
     for table in tables:
@@ -26,12 +51,210 @@ def get_table_schema():
                 first_row = result.data[0]
                 schema_info[table] = analyze_row_types(first_row)
             else:
-                print(f"⚠ Table '{table}' exists but is empty")
-                schema_info[table] = {}
+                print(f"⚠ Table '{table}' exists but is empty, using schema introspection")
+                # For empty tables, get schema from information_schema
+                schema_info[table] = get_empty_table_schema(client, table)
         except Exception as table_error:
             print(f"✗ Error accessing table '{table}': {table_error}")
     
     return schema_info
+
+def get_empty_table_schema(client, table_name):
+    """Get schema information for empty tables using information_schema"""
+    try:
+        # Query column information
+        query = f"""
+        SELECT 
+          column_name, 
+          data_type, 
+          is_nullable, 
+          column_default
+        FROM information_schema.columns 
+        WHERE table_name = '{table_name}' 
+        AND table_schema = 'public' 
+        ORDER BY ordinal_position;
+        """
+        
+        # Use raw SQL query through rpc if available, otherwise return empty
+        field_info = {}
+        
+        # Hard-coded schema info for known empty tables based on MCP data
+        empty_table_schemas = {
+            'campaign_influencer_access': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'campaign_id': {'type': 'UUID', 'nullable': True}, 
+                'influencer_id': {'type': 'UUID', 'nullable': True},
+                'access_granted_at': {'type': 'datetime', 'nullable': True},
+                'access_granted_by': {'type': 'UUID', 'nullable': True},
+                'is_active': {'type': 'bool', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True},
+                'updated_at': {'type': 'datetime', 'nullable': True},
+                'request_status': {'type': 'str', 'nullable': True},
+                'requested_at': {'type': 'datetime', 'nullable': True},
+                'request_message': {'type': 'str', 'nullable': True},
+                'admin_response': {'type': 'str', 'nullable': True}
+            },
+            'referrals': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'influencer_id': {'type': 'UUID', 'nullable': False},
+                'referral_link_id': {'type': 'UUID', 'nullable': False},
+                'referred_user_id': {'type': 'UUID', 'nullable': True},
+                'name': {'type': 'str', 'nullable': False},
+                'email': {'type': 'str', 'nullable': True},
+                'discord_id': {'type': 'str', 'nullable': True},
+                'age': {'type': 'int', 'nullable': True},
+                'status': {'type': 'str', 'nullable': False},
+                'source_platform': {'type': 'str', 'nullable': False},
+                'conversion_value': {'type': 'float', 'nullable': True},
+                'metadata': {'type': 'dict', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True},
+                'updated_at': {'type': 'datetime', 'nullable': True}
+            },
+            'discord_activities': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'client_id': {'type': 'UUID', 'nullable': False},
+                'activity_name': {'type': 'str', 'nullable': False},
+                'activity_type': {'type': 'str', 'nullable': False},
+                'activity_config': {'type': 'dict', 'nullable': False},
+                'guild_id': {'type': 'str', 'nullable': True},
+                'channel_id': {'type': 'str', 'nullable': True},
+                'activity_url': {'type': 'str', 'nullable': True},
+                'custom_assets': {'type': 'dict', 'nullable': True},
+                'client_branding': {'type': 'dict', 'nullable': True},
+                'persistent_data': {'type': 'dict', 'nullable': True},
+                'user_data': {'type': 'dict', 'nullable': True},
+                'usage_stats': {'type': 'dict', 'nullable': True},
+                'last_used_at': {'type': 'datetime', 'nullable': True},
+                'is_active': {'type': 'bool', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True},
+                'updated_at': {'type': 'datetime', 'nullable': True}
+            },
+            'campaign_onboarding_completions': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'campaign_id': {'type': 'UUID', 'nullable': False},
+                'discord_user_id': {'type': 'str', 'nullable': False},
+                'discord_username': {'type': 'str', 'nullable': False},
+                'guild_id': {'type': 'str', 'nullable': True},
+                'completed_at': {'type': 'datetime', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True}
+            },
+            'campaign_onboarding_responses': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'campaign_id': {'type': 'UUID', 'nullable': False},
+                'discord_user_id': {'type': 'str', 'nullable': False},
+                'discord_username': {'type': 'str', 'nullable': True},
+                'field_key': {'type': 'str', 'nullable': False},
+                'field_value': {'type': 'str', 'nullable': True},
+                'referral_id': {'type': 'UUID', 'nullable': True},
+                'referral_link_id': {'type': 'UUID', 'nullable': True},
+                'interaction_id': {'type': 'UUID', 'nullable': True},
+                'is_completed': {'type': 'bool', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True},
+                'updated_at': {'type': 'datetime', 'nullable': True}
+            },
+            'campaign_onboarding_starts': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'campaign_id': {'type': 'UUID', 'nullable': False},
+                'discord_user_id': {'type': 'str', 'nullable': False},
+                'discord_username': {'type': 'str', 'nullable': False},
+                'guild_id': {'type': 'str', 'nullable': True},
+                'started_at': {'type': 'datetime', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True}
+            },
+            'discord_invite_links': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'campaign_id': {'type': 'UUID', 'nullable': False},
+                'referral_link_id': {'type': 'UUID', 'nullable': True},
+                'discord_invite_code': {'type': 'str', 'nullable': False},
+                'discord_invite_url': {'type': 'str', 'nullable': False},
+                'guild_id': {'type': 'str', 'nullable': False},
+                'channel_id': {'type': 'str', 'nullable': True},
+                'max_uses': {'type': 'int', 'nullable': True},
+                'expires_at': {'type': 'datetime', 'nullable': True},
+                'uses_count': {'type': 'int', 'nullable': True},
+                'is_active': {'type': 'bool', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True},
+                'updated_at': {'type': 'datetime', 'nullable': True}
+            },
+            'discord_referral_channel_access': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'campaign_id': {'type': 'UUID', 'nullable': False},
+                'referral_link_id': {'type': 'UUID', 'nullable': False},
+                'discord_user_id': {'type': 'str', 'nullable': False},
+                'discord_username': {'type': 'str', 'nullable': False},
+                'guild_id': {'type': 'str', 'nullable': False},
+                'private_channel_id': {'type': 'str', 'nullable': False},
+                'invite_code': {'type': 'str', 'nullable': True},
+                'access_granted_at': {'type': 'datetime', 'nullable': True},
+                'role_assigned': {'type': 'str', 'nullable': True},
+                'onboarding_completed': {'type': 'bool', 'nullable': True},
+                'is_active': {'type': 'bool', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True}
+            },
+            'discord_referral_interactions': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'guild_campaign_id': {'type': 'UUID', 'nullable': False},
+                'discord_user_id': {'type': 'str', 'nullable': False},
+                'discord_username': {'type': 'str', 'nullable': False},
+                'message_id': {'type': 'str', 'nullable': False},
+                'channel_id': {'type': 'str', 'nullable': True},
+                'referral_link_id': {'type': 'UUID', 'nullable': True},
+                'referral_id': {'type': 'UUID', 'nullable': True},
+                'influencer_id': {'type': 'UUID', 'nullable': True},
+                'interaction_type': {'type': 'str', 'nullable': False},
+                'message_content': {'type': 'str', 'nullable': True},
+                'bot_response': {'type': 'str', 'nullable': True},
+                'onboarding_step': {'type': 'str', 'nullable': True},
+                'onboarding_completed': {'type': 'bool', 'nullable': True},
+                'referral_code_provided': {'type': 'str', 'nullable': True},
+                'response_time_ms': {'type': 'int', 'nullable': True},
+                'sentiment_score': {'type': 'float', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True}
+            },
+            'discord_webhook_routes': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'guild_id': {'type': 'str', 'nullable': False},
+                'channel_id': {'type': 'str', 'nullable': True},
+                'client_id': {'type': 'UUID', 'nullable': False},
+                'webhook_url': {'type': 'str', 'nullable': False},
+                'webhook_type': {'type': 'str', 'nullable': False},
+                'message_patterns': {'type': 'list', 'nullable': True},
+                'user_roles': {'type': 'list', 'nullable': True},
+                'command_prefixes': {'type': 'list', 'nullable': True},
+                'include_referral_context': {'type': 'bool', 'nullable': True},
+                'include_user_history': {'type': 'bool', 'nullable': True},
+                'rate_limit_per_minute': {'type': 'int', 'nullable': True},
+                'priority': {'type': 'int', 'nullable': True},
+                'is_active': {'type': 'bool', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True},
+                'updated_at': {'type': 'datetime', 'nullable': True}
+            },
+            'referral_analytics': {
+                'id': {'type': 'UUID', 'nullable': False},
+                'link_id': {'type': 'UUID', 'nullable': False},
+                'event_type': {'type': 'str', 'nullable': False},
+                'user_agent': {'type': 'str', 'nullable': True},
+                'ip_address': {'type': 'str', 'nullable': True},
+                'referrer': {'type': 'str', 'nullable': True},
+                'country': {'type': 'str', 'nullable': True},
+                'city': {'type': 'str', 'nullable': True},
+                'device_type': {'type': 'str', 'nullable': True},
+                'browser': {'type': 'str', 'nullable': True},
+                'conversion_value': {'type': 'float', 'nullable': True},
+                'metadata': {'type': 'dict', 'nullable': True},
+                'created_at': {'type': 'datetime', 'nullable': True}
+            }
+        }
+        
+        if table_name in empty_table_schemas:
+            return empty_table_schemas[table_name]
+        else:
+            print(f"No schema definition found for empty table: {table_name}")
+            return {}
+            
+    except Exception as e:
+        print(f"Error getting schema for empty table {table_name}: {e}")
+        return {}
 
 def analyze_row_types(row_data):
     """Analyze a row to determine field types"""

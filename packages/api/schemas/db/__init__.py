@@ -1,6 +1,22 @@
 # Generated Pydantic models
-from .clients import Client, ClientCreate, ClientUpdate
-from .discord_guild_campaigns import DiscordGuildCampaign, DiscordGuildCampaignCreate, DiscordGuildCampaignUpdate
-from .referral_links import ReferralLink, ReferralLinkCreate, ReferralLinkUpdate
-from .access_requests import AccessRequest, AccessRequestCreate, AccessRequestUpdate
-from .campaign_templates import CampaignTemplate, CampaignTemplateCreate, CampaignTemplateUpdate
+from .clients import Clients
+from .discord_guild_campaigns import DiscordGuildCampaigns
+from .referral_links import ReferralLinks
+from .access_requests import AccessRequests
+from .campaign_templates import CampaignTemplates
+from .campaign_influencer_access import CampaignInfluencerAccess
+from .campaign_landing_pages import CampaignLandingPages
+from .campaign_onboarding_completions import CampaignOnboardingCompletions
+from .campaign_onboarding_fields import CampaignOnboardingFields
+from .campaign_onboarding_responses import CampaignOnboardingResponses
+from .campaign_onboarding_starts import CampaignOnboardingStarts
+from .discord_activities import DiscordActivities
+from .discord_invite_links import DiscordInviteLinks
+from .discord_referral_channel_access import DiscordReferralChannelAccess
+from .discord_referral_interactions import DiscordReferralInteractions
+from .discord_webhook_routes import DiscordWebhookRoutes
+from .landing_page_templates import LandingPageTemplates
+from .referral_analytics import ReferralAnalytics
+from .referrals import Referrals
+from .user_profiles import UserProfiles
+from .user_settings import UserSettings
