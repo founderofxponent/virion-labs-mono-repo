@@ -69,8 +69,8 @@ def require_service_auth(request: Request) -> AuthContext:
             detail="API key required for this endpoint"
         )
     
-    # Check against environment variable or configured API key
-    expected_api_key = os.getenv("API_KEY")
+    # Check against the dedicated MCP API token
+    expected_api_key = os.getenv("MCP_API_TOKEN")
     if not expected_api_key or api_key != expected_api_key:
         raise HTTPException(
             status_code=401,
@@ -88,7 +88,7 @@ def require_any_auth(request: Request) -> AuthContext:
     # Try API key first
     api_key = request.headers.get("X-API-Key")
     if api_key:
-        expected_api_key = os.getenv("API_KEY")
+        expected_api_key = os.getenv("MCP_API_TOKEN")
         if expected_api_key and api_key == expected_api_key:
             return AuthContext(user_id="service", is_service_auth=True)
     

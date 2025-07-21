@@ -34,13 +34,13 @@ class DatabaseConfig:
 class APIConfig:
     """API configuration settings."""
     base_url: str = os.getenv("API_BASE_URL", "http://localhost:8000")
-    api_key: str = os.getenv("INTERNAL_API_KEY", "")
+    mcp_api_token: str = os.getenv("MCP_API_TOKEN", "")
     
     def __post_init__(self):
         if not self.base_url:
             raise ValueError("API_BASE_URL is required")
-        if not self.api_key:
-            raise ValueError("INTERNAL_API_KEY is required")
+        if not self.mcp_api_token:
+            raise ValueError("MCP_API_TOKEN is required for service-to-service authentication")
 
 
 @dataclass

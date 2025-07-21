@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     FASTAPI_ENV: str = "development"
     SUPABASE_URL: str
     SUPABASE_SERVICE_ROLE_KEY: str
-    INTERNAL_API_KEY: str
+    MCP_API_TOKEN: str
     JWT_SECRET: str
 
     class Config:

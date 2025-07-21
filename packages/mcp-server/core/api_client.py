@@ -14,7 +14,7 @@ class APIClient:
     def __init__(self, config: APIConfig):
         self.config = config
         self.base_url = config.base_url
-        self.api_key = config.api_key  # Keep for internal/unauthenticated routes
+        self.service_api_key = config.mcp_api_token  # Use the dedicated token for service-to-service auth
         self._client: Optional[httpx.AsyncClient] = None
     
     async def _get_client(self) -> httpx.AsyncClient:
@@ -38,9 +38,9 @@ class APIClient:
             if token:
                 # User authentication via JWT Bearer token
                 headers["Authorization"] = f"Bearer {token}"
-            elif self.api_key:
+            elif self.service_api_key:
                 # Service authentication via API key
-                headers["X-API-Key"] = self.api_key
+                headers["X-API-Key"] = self.service_api_key
 
             try:
                 response = await client.request(
