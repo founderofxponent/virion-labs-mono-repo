@@ -8,41 +8,32 @@ from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-async def list_access_requests(_params: dict) -> dict:
+async def list_access_requests(_params: dict, token: str = None) -> dict:
     """Retrieves a list of all access requests."""
     try:
-        result = await api_client._make_request("GET", "/api/access-requests/")
+        result = await api_client.list_access_requests(token=token)
         return result
     except Exception as e:
         logger.error(f"Error listing access requests: {e}")
         return {"error": str(e)}
 
 
-async def approve_access_request(params: dict) -> dict:
+async def approve_access_request(params: dict, token: str = None) -> dict:
     """Approves a pending access request."""
     try:
         request_id = params["request_id"]
-        update_data = {
-            "status": "approved",
-            "role_assigned_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat()
-        }
-        result = await api_client._make_request("PATCH", f"/api/access-requests/{request_id}/approve", data=update_data)
+        result = await api_client.update_access_request(request_id, "approve", token=token)
         return result
     except Exception as e:
         logger.error(f"Error approving access request: {e}")
         return {"error": str(e)}
 
 
-async def deny_access_request(params: dict) -> dict:
+async def deny_access_request(params: dict, token: str = None) -> dict:
     """Denies a pending access request by marking it as updated."""
     try:
         request_id = params["request_id"]
-        update_data = {
-            "status": "denied",
-            "updated_at": datetime.now().isoformat()
-        }
-        result = await api_client._make_request("PATCH", f"/api/access-requests/{request_id}/deny", data=update_data)
+        result = await api_client.update_access_request(request_id, "deny", token=token)
         return result
     except Exception as e:
         logger.error(f"Error denying access request: {e}")

@@ -7,28 +7,28 @@ from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-async def get_campaign_analytics(params: dict) -> dict:
+async def get_campaign_analytics(params: dict, token: str = None) -> dict:
     """Retrieves the performance metrics for a specific campaign."""
     try:
         campaign_id = params["campaign_id"]
-        result = await api_client._make_request("GET", f"/api/analytics/campaign/{campaign_id}")
+        result = await api_client._make_request("GET", f"/api/analytics/campaign/{campaign_id}", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting campaign analytics: {e}")
         return {"error": str(e)}
 
 
-async def get_my_analytics(_params: dict) -> dict:
+async def get_my_analytics(_params: dict, token: str = None) -> dict:
     """Retrieves the performance metrics for the current influencer."""
     try:
-        result = await api_client._make_request("GET", "/api/analytics/my-analytics")
+        result = await api_client._make_request("GET", "/api/analytics/my-analytics", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting analytics: {e}")
         return {"error": str(e)}
 
 
-async def track_analytics_event(params: dict) -> dict:
+async def track_analytics_event(params: dict, token: str = None) -> dict:
     """Tracks an analytics event."""
     try:
         data = {
@@ -40,35 +40,35 @@ async def track_analytics_event(params: dict) -> dict:
             "metadata": params.get("metadata", {})
         }
         
-        result = await api_client._make_request("POST", "/api/analytics/track", data=data)
+        result = await api_client._make_request("POST", "/api/analytics/track", data=data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error tracking analytics event: {e}")
         return {"error": str(e)}
 
 
-async def get_guild_analytics(params: dict) -> dict:
+async def get_guild_analytics(params: dict, token: str = None) -> dict:
     """Gets analytics for a specific Discord guild."""
     try:
         guild_id = params["guild_id"]
-        result = await api_client._make_request("GET", f"/api/analytics/guild/{guild_id}")
+        result = await api_client._make_request("GET", f"/api/analytics/guild/{guild_id}", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting guild analytics: {e}")
         return {"error": str(e)}
 
 
-async def get_campaign_overview(_params: dict) -> dict:
+async def get_campaign_overview(_params: dict, token: str = None) -> dict:
     """Gets campaign overview analytics."""
     try:
-        result = await api_client._make_request("GET", "/api/analytics/campaign-overview")
+        result = await api_client._make_request("GET", "/api/analytics/campaign-overview", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting campaign overview: {e}")
         return {"error": str(e)}
 
 
-async def get_real_time_analytics(params: dict) -> dict:
+async def get_real_time_analytics(params: dict, token: str = None) -> dict:
     """Gets real-time analytics data."""
     try:
         time_range = params.get("time_range", "1h")
@@ -79,14 +79,14 @@ async def get_real_time_analytics(params: dict) -> dict:
             query_params.append(f"campaign_id={campaign_id}")
         
         query_string = "&".join(query_params)
-        result = await api_client._make_request("GET", f"/api/analytics/real-time?{query_string}")
+        result = await api_client._make_request("GET", f"/api/analytics/real-time?{query_string}", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting real-time analytics: {e}")
         return {"error": str(e)}
 
 
-async def get_user_journey_analytics(params: dict) -> dict:
+async def get_user_journey_analytics(params: dict, token: str = None) -> dict:
     """Gets user journey analytics data."""
     try:
         user_id = params.get("user_id")
@@ -103,7 +103,7 @@ async def get_user_journey_analytics(params: dict) -> dict:
         if query_string:
             endpoint += f"?{query_string}"
         
-        result = await api_client._make_request("GET", endpoint)
+        result = await api_client._make_request("GET", endpoint, token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting user journey analytics: {e}")

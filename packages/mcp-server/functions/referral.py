@@ -7,7 +7,7 @@ from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-async def create_referral_link(params: dict) -> dict:
+async def create_referral_link(params: dict, token: str = None) -> dict:
     """Creates a new referral link for a campaign."""
     try:
         campaign_id = params["campaign_id"]
@@ -16,47 +16,47 @@ async def create_referral_link(params: dict) -> dict:
             "platform": params.get("platform", "Other")
         }
         
-        result = await api_client._make_request("POST", f"/api/campaigns/{campaign_id}/referral-links", data=data)
+        result = await api_client._make_request("POST", f"/api/campaigns/{campaign_id}/referral-links", data=data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error creating referral link: {e}")
         return {"error": str(e)}
 
 
-async def get_my_referral_links(params: dict) -> dict:
+async def get_my_referral_links(params: dict, token: str = None) -> dict:
     """Retrieves a list of all referral links for a campaign."""
     try:
         campaign_id = params["campaign_id"]
-        result = await api_client._make_request("GET", f"/api/campaigns/{campaign_id}/referral-links")
+        result = await api_client._make_request("GET", f"/api/campaigns/{campaign_id}/referral-links", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting referral links: {e}")
         return {"error": str(e)}
 
 
-async def validate_referral_code(params: dict) -> dict:
+async def validate_referral_code(params: dict, token: str = None) -> dict:
     """Validates a referral code."""
     try:
         referral_code = params["referral_code"]
-        result = await api_client._make_request("GET", f"/api/referral/{referral_code}/validate")
+        result = await api_client.validate_referral_code(referral_code, token=token)
         return result
     except Exception as e:
         logger.error(f"Error validating referral code: {e}")
         return {"error": str(e)}
 
 
-async def get_referral_campaign_info(params: dict) -> dict:
+async def get_referral_campaign_info(params: dict, token: str = None) -> dict:
     """Gets campaign information for a referral code."""
     try:
         referral_code = params["referral_code"]
-        result = await api_client._make_request("GET", f"/api/referral/{referral_code}/campaign")
+        result = await api_client.get_referral_campaign_info(referral_code, token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting referral campaign info: {e}")
         return {"error": str(e)}
 
 
-async def process_referral_signup(params: dict) -> dict:
+async def process_referral_signup(params: dict, token: str = None) -> dict:
     """Processes a referral signup."""
     try:
         data = {
@@ -65,14 +65,14 @@ async def process_referral_signup(params: dict) -> dict:
             "user_data": params.get("user_data", {})
         }
         
-        result = await api_client._make_request("POST", "/api/referral/signup", data=data)
+        result = await api_client.process_referral_signup(data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error processing referral signup: {e}")
         return {"error": str(e)}
 
 
-async def complete_referral(params: dict) -> dict:
+async def complete_referral(params: dict, token: str = None) -> dict:
     """Completes a referral process."""
     try:
         data = {
@@ -81,7 +81,7 @@ async def complete_referral(params: dict) -> dict:
             "completion_data": params.get("completion_data", {})
         }
         
-        result = await api_client._make_request("POST", "/api/referral/complete", data=data)
+        result = await api_client.complete_referral(data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error completing referral: {e}")

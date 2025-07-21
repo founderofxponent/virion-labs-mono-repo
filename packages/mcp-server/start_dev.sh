@@ -11,6 +11,10 @@ cd "$(dirname "$0")"
 export $(grep -v '^#' .env.development | grep '=' | xargs)
 echo "Using development environment (.env.development)"
 
+echo "Loaded environment variables:"
+grep -v '^#' .env.development | grep '='
+echo "----------------------------------------"
+
 # Start the MCP server
 echo "Starting MCP server in development mode..."
 python3 server.py

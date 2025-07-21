@@ -8,7 +8,7 @@ from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-async def create_campaign(params: dict) -> dict:
+async def create_campaign(params: dict, token: str = None) -> dict:
     """Creates a new campaign in the Virion Labs platform."""
     try:
         campaign_data = {
@@ -21,14 +21,14 @@ async def create_campaign(params: dict) -> dict:
             "webhook_url": params.get("webhook_url"),
         }
         
-        result = await api_client._make_request("POST", "/api/bot-campaigns/", data=campaign_data)
+        result = await api_client.create_campaign(campaign_data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error creating campaign: {e}")
         return {"error": str(e)}
 
 
-async def update_campaign(params: dict) -> dict:
+async def update_campaign(params: dict, token: str = None) -> dict:
     """Updates an existing campaign in the Virion Labs platform."""
     try:
         campaign_id = params["campaign_id"]
@@ -75,25 +75,25 @@ async def update_campaign(params: dict) -> dict:
             }
             mapped_updates["landing_page_config"] = landing_updates
         
-        result = await api_client.update_campaign(campaign_id, mapped_updates)
+        result = await api_client.update_campaign(campaign_id, mapped_updates, token=token)
         return result
     except Exception as e:
         logger.error(f"Error updating campaign: {e}")
         return {"error": str(e)}
 
 
-async def delete_campaign(params: dict) -> dict:
+async def delete_campaign(params: dict, token: str = None) -> dict:
     """Deletes a campaign by marking it as inactive."""
     try:
         campaign_id = params["campaign_id"]
-        result = await api_client.delete_campaign(campaign_id)
+        result = await api_client.delete_campaign(campaign_id, token=token)
         return result
     except Exception as e:
         logger.error(f"Error deleting campaign: {e}")
         return {"error": str(e)}
 
 
-async def set_campaign_status(params: dict) -> dict:
+async def set_campaign_status(params: dict, token: str = None) -> dict:
     """Sets the status of a campaign."""
     try:
         campaign_id = params["campaign_id"]
@@ -103,35 +103,37 @@ async def set_campaign_status(params: dict) -> dict:
             return {"error": "Invalid status. Must be one of 'active', 'paused', or 'archived'."}
         
         updates = {"is_active": status == "active"}
-        result = await api_client.update_campaign(campaign_id, updates)
+        result = await api_client.update_campaign(campaign_id, updates, token=token)
         return result
     except Exception as e:
         logger.error(f"Error setting campaign status: {e}")
         return {"error": str(e)}
 
 
-async def list_available_campaigns(_params: dict) -> dict:
+async def list_available_campaigns(params: dict, token: str = None) -> dict:
     """Retrieves a list of all active campaigns available to influencers."""
     try:
-        campaigns = await api_client.list_campaigns()
+        # Pass optional client_id to the API client
+        client_id = params.get("client_id") if params else None
+        campaigns = await api_client.list_campaigns(client_id=client_id, token=token)
         return {"campaigns": campaigns}
     except Exception as e:
         logger.error(f"Error listing available campaigns: {e}")
         return {"error": str(e)}
 
 
-async def get_campaign(params: dict) -> dict:
+async def get_campaign(params: dict, token: str = None) -> dict:
     """Gets a specific campaign by ID."""
     try:
         campaign_id = params["campaign_id"]
-        result = await api_client.get_campaign(campaign_id)
+        result = await api_client.get_campaign(campaign_id, token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting campaign: {e}")
         return {"error": str(e)}
 
 
-async def update_campaign_stats(params: dict) -> dict:
+async def update_campaign_stats(params: dict, token: str = None) -> dict:
     """Updates campaign statistics."""
     try:
         campaign_id = params["campaign_id"]
@@ -140,7 +142,7 @@ async def update_campaign_stats(params: dict) -> dict:
             "join_count": params.get("join_count"),
             "additional_stats": params.get("additional_stats")
         }
-        result = await api_client.update_campaign_stats(campaign_id, stats)
+        result = await api_client.update_campaign_stats(campaign_id, stats, token=token)
         return result
     except Exception as e:
         logger.error(f"Error updating campaign stats: {e}")
@@ -251,12 +253,16 @@ class CampaignPlugin(PluginBase):
                 name="list_available_campaigns",
                 func=apply_middleware(list_available_campaigns),
                 category=self.category,
-                description="Lists all available campaigns",
+                description="Lists all available campaigns, optionally filtering by client.",
                 schema={
                     "type": "object",
-                    "properties": {},
-                    "description": "No parameters required"
-                }
+                    "properties": {
+                        "client_id": {
+                            "type": "string",
+                            "description": "Optional client UUID to filter campaigns.",
+                        }
+                    },
+                },
             ),
             FunctionSpec(
                 name="get_campaign",

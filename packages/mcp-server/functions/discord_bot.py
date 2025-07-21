@@ -7,7 +7,7 @@ from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-async def start_onboarding(params: dict) -> dict:
+async def start_onboarding(params: dict, token: str = None) -> dict:
     """Starts Discord bot onboarding process."""
     try:
         data = {
@@ -17,14 +17,14 @@ async def start_onboarding(params: dict) -> dict:
             "referral_code": params.get("referral_code")
         }
         
-        result = await api_client._make_request("POST", "/api/discord-bot/onboarding/start", data=data)
+        result = await api_client.start_onboarding(data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error starting onboarding: {e}")
         return {"error": str(e)}
 
 
-async def submit_onboarding_modal(params: dict) -> dict:
+async def submit_onboarding_modal(params: dict, token: str = None) -> dict:
     """Submits Discord bot onboarding modal data."""
     try:
         data = {
@@ -32,25 +32,25 @@ async def submit_onboarding_modal(params: dict) -> dict:
             "responses": params["responses"]
         }
         
-        result = await api_client._make_request("POST", "/api/discord-bot/onboarding/modal", data=data)
+        result = await api_client.submit_onboarding_modal(data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error submitting onboarding modal: {e}")
         return {"error": str(e)}
 
 
-async def get_onboarding_session(params: dict) -> dict:
+async def get_onboarding_session(params: dict, token: str = None) -> dict:
     """Gets Discord bot onboarding session data."""
     try:
         session_id = params["session_id"]
-        result = await api_client._make_request("GET", f"/api/discord-bot/onboarding/session?session_id={session_id}")
+        result = await api_client.get_onboarding_session(session_id, token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting onboarding session: {e}")
         return {"error": str(e)}
 
 
-async def complete_onboarding(params: dict) -> dict:
+async def complete_onboarding(params: dict, token: str = None) -> dict:
     """Completes Discord bot onboarding process."""
     try:
         data = {
@@ -59,14 +59,14 @@ async def complete_onboarding(params: dict) -> dict:
             "guild_id": params["guild_id"]
         }
         
-        result = await api_client._make_request("POST", "/api/discord-bot/onboarding/complete", data=data)
+        result = await api_client.complete_onboarding(data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error completing onboarding: {e}")
         return {"error": str(e)}
 
 
-async def get_discord_config(params: dict) -> dict:
+async def get_discord_config(params: dict, token: str = None) -> dict:
     """Gets Discord bot configuration."""
     try:
         guild_id = params.get("guild_id")
@@ -83,25 +83,25 @@ async def get_discord_config(params: dict) -> dict:
         if query_string:
             endpoint += f"?{query_string}"
         
-        result = await api_client._make_request("GET", endpoint)
+        result = await api_client.get_discord_config(guild_id, token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting Discord config: {e}")
         return {"error": str(e)}
 
 
-async def get_invite_context(params: dict) -> dict:
+async def get_invite_context(params: dict, token: str = None) -> dict:
     """Gets Discord invite context information."""
     try:
         invite_code = params["invite_code"]
-        result = await api_client._make_request("GET", f"/api/discord-bot/discord/invite/{invite_code}/context")
+        result = await api_client._make_request("GET", f"/api/discord-bot/discord/invite/{invite_code}/context", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting invite context: {e}")
         return {"error": str(e)}
 
 
-async def assign_member_role(params: dict) -> dict:
+async def assign_member_role(params: dict, token: str = None) -> dict:
     """Assigns a role to a Discord guild member."""
     try:
         guild_id = params["guild_id"]
@@ -111,27 +111,20 @@ async def assign_member_role(params: dict) -> dict:
             "reason": params.get("reason", "Role assigned via MCP")
         }
         
-        result = await api_client._make_request(
-            "POST", 
-            f"/api/discord-bot/discord/guilds/{guild_id}/members/{member_id}/roles", 
-            data=data
-        )
+        result = await api_client.assign_discord_role(guild_id, member_id, data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error assigning member role: {e}")
         return {"error": str(e)}
 
 
-async def get_member_roles(params: dict) -> dict:
+async def get_member_roles(params: dict, token: str = None) -> dict:
     """Gets roles for a Discord guild member."""
     try:
         guild_id = params["guild_id"]
         member_id = params["member_id"]
         
-        result = await api_client._make_request(
-            "GET", 
-            f"/api/discord-bot/discord/guilds/{guild_id}/members/{member_id}/roles"
-        )
+        result = await api_client.get_member_roles(guild_id, member_id, token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting member roles: {e}")

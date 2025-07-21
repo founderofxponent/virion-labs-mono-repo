@@ -7,7 +7,7 @@ from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-async def create_client(params: dict) -> dict:
+async def create_client(params: dict, token: str = None) -> dict:
     """Creates a new client."""
     try:
         client_data = {
@@ -17,14 +17,14 @@ async def create_client(params: dict) -> dict:
             "company": params.get("industry"),
             "notes": params.get("notes")
         }
-        result = await api_client.create_client(client_data)
+        result = await api_client.create_client(client_data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error creating client: {e}")
         return {"error": str(e)}
 
 
-async def update_client(params: dict) -> dict:
+async def update_client(params: dict, token: str = None) -> dict:
     """Updates an existing client."""
     try:
         client_id = params["client_id"]
@@ -43,39 +43,39 @@ async def update_client(params: dict) -> dict:
         if "notes" in updates:
             mapped_updates["notes"] = updates["notes"]
         
-        result = await api_client.update_client(client_id, mapped_updates)
+        result = await api_client.update_client(client_id, mapped_updates, token=token)
         return result
     except Exception as e:
         logger.error(f"Error updating client: {e}")
         return {"error": str(e)}
 
 
-async def list_clients(_params: dict) -> dict:
+async def list_clients(_params: dict, token: str = None) -> dict:
     """Lists all clients."""
     try:
-        clients = await api_client.list_clients()
+        clients = await api_client.list_clients(token=token)
         return {"clients": clients}
     except Exception as e:
         logger.error(f"Error listing clients: {e}")
         return {"error": str(e)}
 
 
-async def get_client(params: dict) -> dict:
+async def get_client(params: dict, token: str = None) -> dict:
     """Retrieves a single client by its ID."""
     try:
         client_id = params["client_id"]
-        result = await api_client.get_client(client_id)
+        result = await api_client.get_client(client_id, token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting client: {e}")
         return {"error": str(e)}
 
 
-async def delete_client(params: dict) -> dict:
+async def delete_client(params: dict, token: str = None) -> dict:
     """Deletes a client by its ID."""
     try:
         client_id = params["client_id"]
-        result = await api_client.delete_client(client_id)
+        result = await api_client.delete_client(client_id, token=token)
         return result
     except Exception as e:
         logger.error(f"Error deleting client: {e}")

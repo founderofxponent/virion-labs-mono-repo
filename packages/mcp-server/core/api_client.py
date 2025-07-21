@@ -14,102 +14,104 @@ class APIClient:
     def __init__(self, config: APIConfig):
         self.config = config
         self.base_url = config.base_url
-        self.api_key = config.api_key
+        self.api_key = config.api_key  # Keep for internal/unauthenticated routes
         self._client: Optional[httpx.AsyncClient] = None
     
     async def _get_client(self) -> httpx.AsyncClient:
-        """Get or create HTTP client."""
-        if self._client is None:
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-            self._client = httpx.AsyncClient(
-                base_url=self.base_url,
-                headers=headers,
-                timeout=30.0
-            )
-        return self._client
-    
+        """Get or create a short-lived HTTP client."""
+        # We create a new client for each request to ensure token is fresh
+        return httpx.AsyncClient(base_url=self.base_url, timeout=30.0)
+
     async def _make_request(
-        self, 
-        method: str, 
-        endpoint: str, 
+        self,
+        method: str,
+        endpoint: str,
         data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None
+        params: Optional[Dict[str, Any]] = None,
+        token: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Make HTTP request to API."""
-        client = await self._get_client()
-        
-        try:
-            response = await client.request(
-                method=method,
-                url=endpoint,
-                json=data,
-                params=params
-            )
-            response.raise_for_status()
-            return response.json()
-        except httpx.HTTPStatusError as e:
-            logger.error(f"API request failed: {e.response.status_code} - {e.response.text}")
-            raise ValueError(f"API request failed: {e.response.status_code}")
-        except Exception as e:
-            logger.error(f"API request error: {e}")
-            raise ValueError(f"API request error: {str(e)}")
+        """Make HTTP request to API with optional dynamic token."""
+        async with await self._get_client() as client:
+            headers = {"Content-Type": "application/json"}
+            
+            # Use dynamic token if provided, otherwise fall back to static API key
+            auth_token = token or self.api_key
+            if auth_token:
+                headers["Authorization"] = f"Bearer {auth_token}"
+
+            try:
+                response = await client.request(
+                    method=method,
+                    url=endpoint,
+                    json=data,
+                    params=params,
+                    headers=headers
+                )
+                response.raise_for_status()
+                # Handle cases where the response is empty (e.g., 204 No Content)
+                if not response.content:
+                    return {}
+                return response.json()
+            except httpx.HTTPStatusError as e:
+                logger.error(f"API request failed: {e.response.status_code} - {e.response.text}")
+                # Provide more context in the error message
+                error_details = {"status_code": e.response.status_code, "detail": e.response.text}
+                raise ValueError(f"API request failed: {error_details}")
+            except Exception as e:
+                logger.error(f"API request error: {e}")
+                raise ValueError(f"API request error: {str(e)}")
     
     # Client endpoints
-    async def create_client(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_client(self, client_data: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Create a new client."""
-        return await self._make_request("POST", "/api/clients/", data=client_data)
+        return await self._make_request("POST", "/api/clients/", data=client_data, token=token)
     
-    async def update_client(self, client_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_client(self, client_id: str, updates: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Update an existing client."""
-        return await self._make_request("PATCH", f"/api/clients/{client_id}", data=updates)
+        return await self._make_request("PATCH", f"/api/clients/{client_id}", data=updates, token=token)
     
-    async def list_clients(self) -> List[Dict[str, Any]]:
+    async def list_clients(self, token: Optional[str] = None) -> List[Dict[str, Any]]:
         """List all clients."""
-        response = await self._make_request("GET", "/api/clients/")
-        # API returns a direct list, not wrapped in an object
+        response = await self._make_request("GET", "/api/clients/", token=token)
         if isinstance(response, list):
             return response
         return response.get("clients", [])
     
-    async def get_client(self, client_id: str) -> Dict[str, Any]:
+    async def get_client(self, client_id: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Get a specific client."""
-        return await self._make_request("GET", f"/api/clients/{client_id}")
+        return await self._make_request("GET", f"/api/clients/{client_id}", token=token)
     
-    async def delete_client(self, client_id: str) -> Dict[str, Any]:
+    async def delete_client(self, client_id: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Delete a client."""
-        return await self._make_request("DELETE", f"/api/clients/{client_id}")
+        return await self._make_request("DELETE", f"/api/clients/{client_id}", token=token)
     
     # Campaign endpoints
-    async def create_campaign(self, campaign_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_campaign(self, campaign_data: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Create a new campaign."""
-        return await self._make_request("POST", "/api/bot-campaigns/", data=campaign_data)
+        return await self._make_request("POST", "/api/bot-campaigns/", data=campaign_data, token=token)
     
-    async def update_campaign(self, campaign_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_campaign(self, campaign_id: str, updates: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Update an existing campaign."""
-        return await self._make_request("PATCH", f"/api/bot-campaigns/{campaign_id}", data=updates)
+        return await self._make_request("PATCH", f"/api/bot-campaigns/{campaign_id}", data=updates, token=token)
     
-    async def list_campaigns(self) -> List[Dict[str, Any]]:
+    async def list_campaigns(self, token: Optional[str] = None) -> List[Dict[str, Any]]:
         """List all campaigns."""
-        response = await self._make_request("GET", "/api/bot-campaigns/")
-        # API returns a direct list, not wrapped in an object
+        response = await self._make_request("GET", "/api/bot-campaigns/", token=token)
         if isinstance(response, list):
             return response
         return response.get("campaigns", [])
     
-    async def get_campaign(self, campaign_id: str) -> Dict[str, Any]:
+    async def get_campaign(self, campaign_id: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Get a specific campaign."""
-        return await self._make_request("GET", f"/api/bot-campaigns/{campaign_id}")
+        return await self._make_request("GET", f"/api/bot-campaigns/{campaign_id}", token=token)
     
-    async def delete_campaign(self, campaign_id: str) -> Dict[str, Any]:
+    async def delete_campaign(self, campaign_id: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Delete a campaign."""
-        return await self._make_request("DELETE", f"/api/bot-campaigns/{campaign_id}")
+        return await self._make_request("DELETE", f"/api/bot-campaigns/{campaign_id}", token=token)
     
-    async def update_campaign_stats(self, campaign_id: str, stats: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_campaign_stats(self, campaign_id: str, stats: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Update campaign statistics."""
-        return await self._make_request("PATCH", f"/api/bot-campaigns/{campaign_id}/stats", data=stats)
+        return await self._make_request("PATCH", f"/api/bot-campaigns/{campaign_id}/stats", data=stats, token=token)
     
     # Referral endpoints
     async def validate_referral_code(self, code: str) -> Dict[str, Any]:
@@ -129,24 +131,23 @@ class APIClient:
         return await self._make_request("POST", "/api/referral/complete", data=completion_data)
     
     # Access request endpoints
-    async def create_access_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_access_request(self, request_data: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Create a new access request."""
-        return await self._make_request("POST", "/api/access-requests/", data=request_data)
+        return await self._make_request("POST", "/api/access-requests/", data=request_data, token=token)
     
-    async def list_access_requests(self) -> List[Dict[str, Any]]:
+    async def list_access_requests(self, token: Optional[str] = None) -> List[Dict[str, Any]]:
         """List all access requests."""
-        response = await self._make_request("GET", "/api/admin/access-requests")
-        # API returns a direct list, not wrapped in an object
+        response = await self._make_request("GET", "/api/admin/access-requests", token=token)
         if isinstance(response, list):
             return response
         return response.get("access_requests", [])
     
-    async def update_access_request(self, request_id: str, action: str) -> Dict[str, Any]:
+    async def update_access_request(self, request_id: str, action: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Update access request status."""
         return await self._make_request("POST", "/api/admin/access-requests", data={
             "request_id": request_id,
             "action": action
-        })
+        }, token=token)
     
     # Discord bot endpoints
     async def start_onboarding(self, onboarding_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -180,6 +181,5 @@ class APIClient:
     
     async def close(self):
         """Close the HTTP client."""
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        # Since we create clients per-request, this is now a no-op but kept for interface compatibility
+        pass

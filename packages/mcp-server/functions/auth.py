@@ -7,7 +7,7 @@ from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-async def signup_user(params: dict) -> dict:
+async def signup_user(params: dict, token: str = None) -> dict:
     """Registers a new user account."""
     try:
         data = {
@@ -17,14 +17,14 @@ async def signup_user(params: dict) -> dict:
             "username": params.get("username")
         }
         
-        result = await api_client._make_request("POST", "/api/auth/signup", data=data)
+        result = await api_client._make_request("POST", "/api/auth/signup", data=data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error during user signup: {e}")
         return {"error": str(e)}
 
 
-async def login_user(params: dict) -> dict:
+async def login_user(params: dict, token: str = None) -> dict:
     """Authenticates a user and returns access token."""
     try:
         data = {
@@ -32,38 +32,38 @@ async def login_user(params: dict) -> dict:
             "password": params["password"]
         }
         
-        result = await api_client._make_request("POST", "/api/auth/login", data=data)
+        result = await api_client._make_request("POST", "/api/auth/login", data=data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error during user login: {e}")
         return {"error": str(e)}
 
 
-async def logout_user(_params: dict) -> dict:
+async def logout_user(_params: dict, token: str = None) -> dict:
     """Logs out the current user."""
     try:
-        result = await api_client._make_request("POST", "/api/auth/logout")
+        result = await api_client._make_request("POST", "/api/auth/logout", token=token)
         return result
     except Exception as e:
         logger.error(f"Error during user logout: {e}")
         return {"error": str(e)}
 
 
-async def send_confirmation_email(params: dict) -> dict:
+async def send_confirmation_email(params: dict, token: str = None) -> dict:
     """Sends email confirmation to user."""
     try:
         data = {
             "email": params["email"]
         }
         
-        result = await api_client._make_request("POST", "/api/auth/send-confirmation", data=data)
+        result = await api_client._make_request("POST", "/api/auth/send-confirmation", data=data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error sending confirmation email: {e}")
         return {"error": str(e)}
 
 
-async def confirm_email(params: dict) -> dict:
+async def confirm_email(params: dict, token: str = None) -> dict:
     """Confirms user email with confirmation token."""
     try:
         data = {
@@ -71,27 +71,27 @@ async def confirm_email(params: dict) -> dict:
             "email": params.get("email")
         }
         
-        result = await api_client._make_request("POST", "/api/auth/confirm", data=data)
+        result = await api_client._make_request("POST", "/api/auth/confirm", data=data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error confirming email: {e}")
         return {"error": str(e)}
 
 
-async def get_current_user(_params: dict) -> dict:
+async def get_current_user(_params: dict, token: str = None) -> dict:
     """Gets current authenticated user information."""
     try:
-        result = await api_client._make_request("GET", "/api/auth/user")
+        result = await api_client._make_request("GET", "/api/auth/user", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting current user: {e}")
         return {"error": str(e)}
 
 
-async def delete_user_account(_params: dict) -> dict:
+async def delete_user_account(_params: dict, token: str = None) -> dict:
     """Deletes the current user account."""
     try:
-        result = await api_client._make_request("DELETE", "/api/auth/user/delete")
+        result = await api_client._make_request("DELETE", "/api/auth/user/delete", token=token)
         return result
     except Exception as e:
         logger.error(f"Error deleting user account: {e}")

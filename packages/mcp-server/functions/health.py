@@ -7,27 +7,27 @@ from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-async def get_health_status(_params: dict) -> dict:
+async def get_health_status(_params: dict, token: str = None) -> dict:
     """Gets the health status of the API server."""
     try:
-        result = await api_client._make_request("GET", "/health")
+        result = await api_client._make_request("GET", "/health", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting health status: {e}")
         return {"error": str(e)}
 
 
-async def get_status_health(_params: dict) -> dict:
+async def get_status_health(_params: dict, token: str = None) -> dict:
     """Gets the status health check of the API server."""
     try:
-        result = await api_client._make_request("GET", "/status/health")
+        result = await api_client._make_request("GET", "/status/health", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting status health: {e}")
         return {"error": str(e)}
 
 
-async def submit_access_request(params: dict) -> dict:
+async def submit_access_request(params: dict, token: str = None) -> dict:
     """Submits an access request to the system."""
     try:
         data = {
@@ -37,7 +37,7 @@ async def submit_access_request(params: dict) -> dict:
             "use_case": params.get("use_case")
         }
         
-        result = await api_client._make_request("POST", "/api/access-requests/", data=data)
+        result = await api_client.create_access_request(data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error submitting access request: {e}")

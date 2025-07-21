@@ -7,28 +7,28 @@ from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
 
 
-async def list_campaign_templates(_params: dict) -> dict:
+async def list_campaign_templates(_params: dict, token: str = None) -> dict:
     """Lists all campaign templates."""
     try:
-        result = await api_client._make_request("GET", "/api/campaign-templates")
+        result = await api_client._make_request("GET", "/api/campaign-templates", token=token)
         return result
     except Exception as e:
         logger.error(f"Error listing campaign templates: {e}")
         return {"error": str(e)}
 
 
-async def get_campaign_template(params: dict) -> dict:
+async def get_campaign_template(params: dict, token: str = None) -> dict:
     """Gets a specific campaign template by ID."""
     try:
         template_id = params["template_id"]
-        result = await api_client._make_request("GET", f"/api/campaign-templates/{template_id}")
+        result = await api_client._make_request("GET", f"/api/campaign-templates/{template_id}", token=token)
         return result
     except Exception as e:
         logger.error(f"Error getting campaign template: {e}")
         return {"error": str(e)}
 
 
-async def create_campaign_template(params: dict) -> dict:
+async def create_campaign_template(params: dict, token: str = None) -> dict:
     """Creates a new campaign template."""
     try:
         data = {
@@ -39,48 +39,48 @@ async def create_campaign_template(params: dict) -> dict:
             "is_public": params.get("is_public", False)
         }
         
-        result = await api_client._make_request("POST", "/api/campaign-templates", data=data)
+        result = await api_client._make_request("POST", "/api/campaign-templates", data=data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error creating campaign template: {e}")
         return {"error": str(e)}
 
 
-async def update_campaign_template(params: dict) -> dict:
+async def update_campaign_template(params: dict, token: str = None) -> dict:
     """Updates an existing campaign template."""
     try:
         template_id = params["template_id"]
         updates = params["updates"]
         
-        result = await api_client._make_request("PATCH", f"/api/campaign-templates/{template_id}", data=updates)
+        result = await api_client._make_request("PATCH", f"/api/campaign-templates/{template_id}", data=updates, token=token)
         return result
     except Exception as e:
         logger.error(f"Error updating campaign template: {e}")
         return {"error": str(e)}
 
 
-async def delete_campaign_template(params: dict) -> dict:
+async def delete_campaign_template(params: dict, token: str = None) -> dict:
     """Deletes a campaign template."""
     try:
         template_id = params["template_id"]
-        result = await api_client._make_request("DELETE", f"/api/campaign-templates/{template_id}")
+        result = await api_client._make_request("DELETE", f"/api/campaign-templates/{template_id}", token=token)
         return result
     except Exception as e:
         logger.error(f"Error deleting campaign template: {e}")
         return {"error": str(e)}
 
 
-async def list_landing_page_templates(_params: dict) -> dict:
+async def list_landing_page_templates(_params: dict, token: str = None) -> dict:
     """Lists all landing page templates."""
     try:
-        result = await api_client._make_request("GET", "/api/landing-page-templates")
+        result = await api_client._make_request("GET", "/api/landing-page-templates", token=token)
         return result
     except Exception as e:
         logger.error(f"Error listing landing page templates: {e}")
         return {"error": str(e)}
 
 
-async def apply_onboarding_template(params: dict) -> dict:
+async def apply_onboarding_template(params: dict, token: str = None) -> dict:
     """Applies a template to campaign onboarding fields."""
     try:
         data = {
@@ -89,7 +89,7 @@ async def apply_onboarding_template(params: dict) -> dict:
             "overrides": params.get("overrides", {})
         }
         
-        result = await api_client._make_request("POST", "/api/campaign-onboarding-fields/apply-template", data=data)
+        result = await api_client._make_request("POST", "/api/campaign-onboarding-fields/apply-template", data=data, token=token)
         return result
     except Exception as e:
         logger.error(f"Error applying onboarding template: {e}")

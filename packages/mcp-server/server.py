@@ -15,6 +15,7 @@ from starlette.responses import JSONResponse, RedirectResponse
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
+import contextvars
 from starlette.requests import Request
 import os
 import mcp.types as types
@@ -29,6 +30,9 @@ from functions.base import set_api_client
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Global context variable for the token
+token_context = contextvars.ContextVar("token_context", default=None)
 
 # Debug environment variables
 print(f"MCP DEBUG: OAUTH_REDIRECT_URI = {os.getenv('OAUTH_REDIRECT_URI')}")
@@ -59,6 +63,70 @@ class VirionLabsMCPServer:
         
         logger.info("MCP Server initialized with API-based architecture")
     
+    def _list_functions_impl(self) -> dict:
+        """Implementation for listing available functions."""
+        try:
+            functions_info = {}
+            for name, func_spec in registry.functions.items():
+                functions_info[name] = {
+                    "description": func_spec.description,
+                    "category": func_spec.category,
+                }
+            return {
+                "functions": functions_info,
+                "total_count": len(registry.functions),
+            }
+        except Exception as e:
+            logger.error(f"Error listing functions: {e}")
+            return {"error": f"Error listing functions: {str(e)}"}
+
+    def _get_function_details_impl(self, function_name: str) -> dict:
+        """Implementation for getting detailed function information."""
+        try:
+            if function_name not in registry.functions:
+                available_functions = registry.list_functions()
+                return {
+                    "error": f"Function '{function_name}' not found. Available functions: {available_functions}"
+                }
+
+            func_spec = registry.functions[function_name]
+            schema = func_spec.schema or {"type": "object", "properties": {}}
+            parameters_info = {}
+            required_params = schema.get("required", [])
+            properties = schema.get("properties", {})
+
+            for param_name, param_schema in properties.items():
+                param_info = {
+                    "type": param_schema.get("type", "unknown"),
+                    "description": param_schema.get("description", ""),
+                    "required": param_name in required_params,
+                }
+                for key in ["enum", "format", "pattern", "items", "properties", "default"]:
+                    if key in param_schema:
+                        param_info[key] = param_schema[key]
+                parameters_info[param_name] = param_info
+
+            import inspect
+            docstring = inspect.getdoc(func_spec.func) or "No documentation available"
+
+            return {
+                "name": func_spec.name,
+                "description": func_spec.description,
+                "category": func_spec.category,
+                "parameters": parameters_info,
+                "schema": schema,
+                "docstring": docstring,
+                "usage_notes": [
+                    "Pass parameters as a dictionary matching the schema structure",
+                    "All required parameters must be provided",
+                    "Optional parameters can be omitted or set to null",
+                    "Follow the specified types and formats exactly",
+                ],
+            }
+        except Exception as e:
+            logger.error(f"Error getting function details for {function_name}: {e}")
+            return {"error": f"Error getting function details: {str(e)}"}
+    
     def _register_universal_tool(self):
         """Register the universal tool that dispatches to plugins."""
         
@@ -84,7 +152,8 @@ class VirionLabsMCPServer:
                 func = registry.get_function(function_name)
                 params = parameters or {}
                 
-                # Check if function is async
+                # This tool handler is for stdio/basic http and does not have user context
+                # The token-aware logic is in `call_tool` for the streamable http server
                 import inspect
                 if inspect.iscoroutinefunction(func):
                     result = await func(params)
@@ -106,22 +175,7 @@ class VirionLabsMCPServer:
             Returns:
                 Dictionary containing all available functions with metadata
             """
-            try:
-                functions_info = {}
-                for name, func_spec in registry.functions.items():
-                    functions_info[name] = {
-                        "description": func_spec.description,
-                        "category": func_spec.category
-                    }
-                
-                return {
-                    "functions": functions_info,
-                    "total_count": len(registry.functions)
-                }
-                
-            except Exception as e:
-                logger.error(f"Error listing functions: {e}")
-                return {"error": f"Error listing functions: {str(e)}"}
+            return self._list_functions_impl()
         
         @self.mcp.tool()
         def get_function_details(function_name: str) -> dict:
@@ -134,68 +188,7 @@ class VirionLabsMCPServer:
             Returns:
                 Dictionary containing function details, parameters, and usage information
             """
-            try:
-                if function_name not in registry.functions:
-                    available_functions = registry.list_functions()
-                    return {
-                        "error": f"Function '{function_name}' not found. Available functions: {available_functions}"
-                    }
-                
-                func_spec = registry.functions[function_name]
-                
-                # Use JSON schema as primary source of truth
-                schema = func_spec.schema if func_spec.schema else {"type": "object", "properties": {}}
-                
-                # Extract parameter information from schema
-                parameters_info = {}
-                required_params = schema.get("required", [])
-                properties = schema.get("properties", {})
-                
-                for param_name, param_schema in properties.items():
-                    param_info = {
-                        "type": param_schema.get("type", "unknown"),
-                        "description": param_schema.get("description", ""),
-                        "required": param_name in required_params
-                    }
-                    
-                    # Add additional schema constraints
-                    if "enum" in param_schema:
-                        param_info["enum"] = param_schema["enum"]
-                    if "format" in param_schema:
-                        param_info["format"] = param_schema["format"]
-                    if "pattern" in param_schema:
-                        param_info["pattern"] = param_schema["pattern"]
-                    if "items" in param_schema:
-                        param_info["items"] = param_schema["items"]
-                    if "properties" in param_schema:
-                        param_info["properties"] = param_schema["properties"]
-                    if "default" in param_schema:
-                        param_info["default"] = param_schema["default"]
-                    
-                    parameters_info[param_name] = param_info
-                
-                # Get docstring for additional context
-                import inspect
-                docstring = inspect.getdoc(func_spec.func) or "No documentation available"
-                
-                return {
-                    "name": func_spec.name,
-                    "description": func_spec.description,
-                    "category": func_spec.category,
-                    "parameters": parameters_info,
-                    "schema": schema,
-                    "docstring": docstring,
-                    "usage_notes": [
-                        "Pass parameters as a dictionary matching the schema structure",
-                        "All required parameters must be provided",
-                        "Optional parameters can be omitted or set to null",
-                        "Follow the specified types and formats exactly"
-                    ]
-                }
-                
-            except Exception as e:
-                logger.error(f"Error getting function details: {e}")
-                return {"error": f"Error getting function details: {str(e)}"}
+            return self._get_function_details_impl(function_name)
     
     def _register_lowlevel_tools(self):
         """Register tools for the low-level server (streamable HTTP)."""
@@ -204,6 +197,9 @@ class VirionLabsMCPServer:
         async def call_tool(name: str, arguments: dict | None = None) -> list[types.TextContent]:
             """Handle tool calls for streamable HTTP."""
             try:
+                # Get token from context var, set by AuthMiddleware
+                token = token_context.get()
+
                 if name == "execute_function":
                     function_name = arguments.get("function_name") if arguments else None
                     parameters = arguments.get("parameters") if arguments else None
@@ -226,7 +222,12 @@ class VirionLabsMCPServer:
                     
                     import inspect
                     if inspect.iscoroutinefunction(func):
-                        result = await func(params)
+                        # Pass token to function if it accepts it
+                        sig = inspect.signature(func)
+                        if "token" in sig.parameters:
+                            result = await func(params, token=token)
+                        else:
+                            result = await func(params)
                     else:
                         result = await asyncio.get_event_loop().run_in_executor(None, func, params)
                     
@@ -234,17 +235,7 @@ class VirionLabsMCPServer:
                     return [types.TextContent(type="text", text=json.dumps(result))]
                 
                 elif name == "list_functions":
-                    functions_info = {}
-                    for func_name, func_spec in registry.functions.items():
-                        functions_info[func_name] = {
-                            "description": func_spec.description,
-                            "category": func_spec.category
-                        }
-                    
-                    result = {
-                        "functions": functions_info,
-                        "total_count": len(registry.functions)
-                    }
+                    result = self._list_functions_impl()
                     import json
                     return [types.TextContent(type="text", text=json.dumps(result))]
                 
@@ -258,7 +249,7 @@ class VirionLabsMCPServer:
                         )]
                     
                     # Detailed logic is in the universal tool, just call it
-                    details = await self.mcp.tools['get_function_details'].callable(function_name=function_name)
+                    details = self._get_function_details_impl(function_name)
                     import json
                     return [types.TextContent(
                         type="text",
@@ -416,7 +407,7 @@ class VirionLabsMCPServer:
                     "/.well-known/oauth-authorization-server/mcp",
                 ]:
                     return await call_next(request)
-                
+
                 # Check for Authorization header
                 auth_header = request.headers.get("Authorization")
                 if not auth_header or not auth_header.startswith("Bearer "):
@@ -453,8 +444,12 @@ class VirionLabsMCPServer:
                         logger.warning("Token validation failed: Invalid token or user not found")
                         raise ValueError("Invalid token or user not found")
                     
-                    # Store user info in request state
+                    # Store user info and token in request state
                     request.state.user = user_response.user
+                    request.state.token = token
+                    
+                    # Set token in context var for access in tool calls
+                    token_context.set(token)
                         
                 except Exception:
                     return JSONResponse(
