@@ -16,8 +16,7 @@
     "test:dashboard": "yarn workspace virion-labs-dashboard test"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "uv": "^0.1.41"
+    "concurrently": "^8.2.2"
   },
   "engines": {
     "node": ">=16.0.0"
