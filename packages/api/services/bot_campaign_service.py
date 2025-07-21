@@ -4,7 +4,8 @@ from uuid import UUID
 from datetime import datetime
 import json
 
-from schemas.bot_campaign import BotCampaign, BotCampaignCreate, BotCampaignUpdate, CampaignStats
+# Manual schemas (no generated equivalent yet)
+from schemas.api.bot_campaign import BotCampaign, BotCampaignCreate, BotCampaignUpdate, CampaignStats
 
 def get_bot_campaigns(db: Client, user_id: Optional[UUID]) -> List[BotCampaign]:
     """

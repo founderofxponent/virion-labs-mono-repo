@@ -3,7 +3,8 @@ from typing import List
 from uuid import UUID
 from datetime import datetime
 
-from schemas.auth import UserProfile
+# Manual schemas (no generated equivalent yet)
+from schemas.api.auth import UserProfile
 
 def get_user_profile(db: Client, user_id: UUID) -> UserProfile:
     """

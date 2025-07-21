@@ -11,7 +11,7 @@ from uuid import UUID
 from core.database import get_supabase_client
 from core.config import settings
 from services import auth_service, user_service
-from schemas.auth import (
+from schemas.api.auth import (
     UserSignup, 
     UserLogin, 
     UserProfile, 

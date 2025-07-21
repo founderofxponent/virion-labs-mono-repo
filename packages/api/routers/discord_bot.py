@@ -7,7 +7,7 @@ from starlette.requests import Request
 from core.database import get_db
 from services import discord_bot_service
 from middleware.auth_middleware import AuthContext
-from schemas.discord_bot import (
+from schemas.api.discord_bot import (
     OnboardingStart,
     OnboardingModal,
     OnboardingSession,

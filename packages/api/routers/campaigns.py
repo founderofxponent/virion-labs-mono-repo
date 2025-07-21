@@ -9,11 +9,10 @@ import os
 from core.database import get_db
 from services import campaign_service, auth_service
 from middleware.auth_middleware import AuthContext
-from schemas.campaign import (
-    DiscordGuildCampaign,
+from schemas.db.discord_guild_campaigns import DiscordGuildCampaign
+from schemas.db.referral_links import ReferralLink, ReferralLinkCreate
+from schemas.api.campaign import (
     CampaignAccessRequest,
-    ReferralLink,
-    ReferralLinkCreate,
     DataExportRequest,
     DataExportResponse
 )

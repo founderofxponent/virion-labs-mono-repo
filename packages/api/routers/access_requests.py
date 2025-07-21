@@ -3,7 +3,7 @@ from supabase import Client
 
 from core.database import get_db
 from services import access_request_service
-from schemas.access_request import AccessRequestCreate
+from schemas.db.access_requests import AccessRequestCreate
 from middleware.auth_middleware import AuthContext
 from starlette.requests import Request
 

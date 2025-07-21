@@ -1,11 +1,11 @@
-from supabase import Client
+from supabase import Client as SupabaseClient
 from typing import List
 from uuid import UUID
 from datetime import datetime
 
-from schemas.client import Client, ClientCreate, ClientUpdate
+from schemas.db.clients import Client, ClientCreate, ClientUpdate
 
-def get_all_clients(db: Client) -> List[Client]:
+def get_all_clients(db: SupabaseClient) -> List[Client]:
     """
     Get all clients.
     """
@@ -14,7 +14,7 @@ def get_all_clients(db: Client) -> List[Client]:
         return [Client.model_validate(client) for client in response.data]
     return []
 
-def get_client_by_id(db: Client, client_id: UUID) -> Client:
+def get_client_by_id(db: SupabaseClient, client_id: UUID) -> Client:
     """
     Get client by ID.
     """
@@ -24,7 +24,7 @@ def get_client_by_id(db: Client, client_id: UUID) -> Client:
     
     return Client.model_validate(response.data[0])
 
-def create_client(db: Client, client_data: ClientCreate) -> Client:
+def create_client(db: SupabaseClient, client_data: ClientCreate) -> Client:
     """
     Create a new client.
     """
@@ -40,7 +40,7 @@ def create_client(db: Client, client_data: ClientCreate) -> Client:
     
     return Client.model_validate(response.data[0])
 
-def update_client(db: Client, client_id: UUID, client_data: ClientUpdate) -> Client:
+def update_client(db: SupabaseClient, client_id: UUID, client_data: ClientUpdate) -> Client:
     """
     Update client details.
     """
@@ -54,7 +54,7 @@ def update_client(db: Client, client_id: UUID, client_data: ClientUpdate) -> Cli
     
     return Client.model_validate(response.data[0])
 
-def delete_client(db: Client, client_id: UUID) -> None:
+def delete_client(db: SupabaseClient, client_id: UUID) -> None:
     """
     Delete a client.
     """

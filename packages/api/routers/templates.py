@@ -6,10 +6,12 @@ from supabase import Client
 from core.database import get_db
 from services import template_service
 from middleware.auth_middleware import AuthContext
-from schemas.template import (
+from schemas.db.campaign_templates import (
     CampaignTemplate,
     CampaignTemplateCreate,
-    CampaignTemplateUpdate,
+    CampaignTemplateUpdate
+)
+from schemas.api.template import (
     CampaignTemplateResponse,
     CampaignTemplateListResponse,
     CampaignTemplateWithLandingPage,

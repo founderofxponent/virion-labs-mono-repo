@@ -3,8 +3,11 @@ from typing import Optional
 from uuid import UUID
 from datetime import datetime
 
-from schemas.referral import ReferralValidation, ReferralCampaignInfo, ReferralSignup, ReferralComplete
-from schemas.campaign import ReferralLink
+# Generated schemas
+from schemas.db.referral_links import ReferralLink
+
+# Manual schemas for types not yet generated
+from schemas.api.referral import ReferralValidation, ReferralCampaignInfo, ReferralSignup, ReferralComplete
 
 def validate_referral_code(db: Client, code: str) -> ReferralValidation:
     """

@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 import secrets
 
 from core.config import settings
-from schemas.auth import UserSignup, UserLogin, UserProfile, AuthResponse
+# Manual schemas (no generated equivalent yet)
+from schemas.api.auth import UserSignup, UserLogin, UserProfile, AuthResponse
 
 import os
 

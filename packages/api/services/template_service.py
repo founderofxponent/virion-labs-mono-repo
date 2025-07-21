@@ -4,10 +4,15 @@ from uuid import UUID, uuid4
 from datetime import datetime
 import json
 
-from schemas.template import (
+# Generated schemas
+from schemas.db.campaign_templates import (
     CampaignTemplate,
     CampaignTemplateCreate,
-    CampaignTemplateUpdate,
+    CampaignTemplateUpdate
+)
+
+# Manual schemas for types not yet generated
+from schemas.api.template import (
     CampaignTemplateResponse,
     CampaignTemplateListResponse,
     CampaignTemplateWithLandingPage,

@@ -3,7 +3,8 @@ from typing import Optional, Dict, Any, List
 from uuid import UUID
 from datetime import datetime
 
-from schemas.discord_bot import (
+# Manual schemas (no generated equivalent yet)
+from schemas.api.discord_bot import (
     OnboardingStart, 
     OnboardingModal, 
     OnboardingSession, 

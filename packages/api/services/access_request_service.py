@@ -1,9 +1,9 @@
-from supabase import Client
+from supabase import Client as SupabaseClient
 from datetime import datetime
 
-from schemas.access_request import AccessRequestCreate
+from schemas.db.access_requests import AccessRequestCreate
 
-def create_access_request(db: Client, request_data: AccessRequestCreate) -> dict:
+def create_access_request(db: SupabaseClient, request_data: AccessRequestCreate) -> dict:
     """
     Create a new access request.
     """

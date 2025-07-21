@@ -1,0 +1,1 @@
+# API schemas - business logic, response wrappers, complex types

@@ -11,14 +11,18 @@ import os
 # In production, this would be stored in a database table
 _export_cache = {}
 
-from schemas.campaign import (
+# Generated schemas
+from schemas.db.discord_guild_campaigns import (
     DiscordGuildCampaign, 
     DiscordGuildCampaignCreate, 
-    DiscordGuildCampaignUpdate,
+    DiscordGuildCampaignUpdate
+)
+from schemas.db.referral_links import ReferralLink, ReferralLinkCreate
+
+# Manual schemas for types not yet generated
+from schemas.api.campaign import (
     Campaign, 
     CampaignAccessRequest, 
-    ReferralLink, 
-    ReferralLinkCreate,
     DataExportRequest,
     DataExportResponse,
     DataExport,

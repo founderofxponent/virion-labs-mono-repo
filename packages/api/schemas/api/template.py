@@ -13,7 +13,7 @@ class TemplateCategory(str, Enum):
 
 FieldType = Literal[
     "text",
-    "email",
+    "email", 
     "select",
     "checkbox",
     "textarea",
@@ -78,34 +78,22 @@ class TemplateConfig(BaseModel):
     analytics_config: Optional[AnalyticsConfig] = None
     landing_page_config: Optional[LandingPageConfig] = None
 
-class CampaignTemplateBase(BaseModel):
-    campaign_type: str = Field(..., description="Unique identifier for the template")
+# Response wrappers - API business logic, not DB schemas  
+# Temporary: Define CampaignTemplate here, will import from DB schemas later
+class CampaignTemplate(BaseModel):
+    id: UUID
+    campaign_type: str
     name: str
     description: Optional[str] = None
     category: TemplateCategory
     template_config: Optional[TemplateConfig] = None
     default_landing_page_id: Optional[UUID] = None
     is_default: Optional[bool] = False
-
-class CampaignTemplate(CampaignTemplateBase):
-    id: UUID
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
-
-class CampaignTemplateCreate(CampaignTemplateBase):
-    pass
-
-class CampaignTemplateUpdate(BaseModel):
-    campaign_type: Optional[str] = None
-    name: Optional[str] = None
-    description: Optional[str] = None
-    category: Optional[TemplateCategory] = None
-    template_config: Optional[TemplateConfig] = None
-    default_landing_page_id: Optional[UUID] = None
-    is_default: Optional[bool] = None
 
 class CampaignTemplateResponse(BaseModel):
     success: bool
@@ -118,7 +106,7 @@ class CampaignTemplateListResponse(BaseModel):
     templates: List[CampaignTemplate]
     total_count: int
 
-# Landing Page Template schemas
+# Landing Page Template schemas - these might be DB tables we need to generate
 class LandingPageTemplateBase(BaseModel):
     template_id: str = Field(..., description="Human-readable template ID")
     name: str
@@ -173,7 +161,7 @@ class LandingPageTemplateListResponse(BaseModel):
     templates: List[LandingPageTemplate]
     total_count: int
 
-# Template Application schemas
+# Template Application schemas - business logic
 class ApplyTemplateRequest(BaseModel):
     campaign_id: UUID
     template_id: UUID
@@ -186,7 +174,7 @@ class ApplyTemplateResponse(BaseModel):
     applied_fields: Optional[List[OnboardingField]] = None
     campaign_id: Optional[UUID] = None
 
-# Template with Landing Page (joined data)
+# Template with Landing Page (joined data) - response wrappers
 class CampaignTemplateWithLandingPage(CampaignTemplate):
     landing_page_template: Optional[LandingPageTemplate] = None
 

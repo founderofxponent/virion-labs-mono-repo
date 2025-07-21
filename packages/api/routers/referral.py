@@ -7,7 +7,7 @@ from starlette.requests import Request
 from core.database import get_db
 from services import referral_service
 from middleware.auth_middleware import AuthContext
-from schemas.referral import (
+from schemas.api.referral import (
     ReferralValidation, 
     ReferralCampaignInfo, 
     ReferralSignup, 

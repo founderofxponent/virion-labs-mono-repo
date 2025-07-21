@@ -6,7 +6,7 @@ from supabase import Client
 from core.database import get_db
 from services import client_service
 from middleware.auth_middleware import AuthContext
-from schemas.client import Client, ClientCreate, ClientUpdate
+from schemas.db.clients import Client, ClientCreate, ClientUpdate
 
 router = APIRouter(
     prefix="/api/clients",

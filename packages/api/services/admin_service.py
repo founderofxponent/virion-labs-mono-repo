@@ -1,7 +1,11 @@
 from supabase import Client
 from typing import List
 from uuid import UUID
-from schemas.admin import AccessRequest, AdminUserProfile, AdminUserListResponse
+# Generated schemas
+from schemas.db.access_requests import AccessRequest
+
+# Manual schemas for types not yet generated
+from schemas.api.admin import AdminUserProfile, AdminUserListResponse
 
 def get_access_requests(db: Client) -> List[AccessRequest]:
     """

@@ -6,7 +6,7 @@ from supabase import Client
 from core.database import get_db
 from services import analytics_service
 from middleware.auth_middleware import AuthContext
-from schemas.analytics import (
+from schemas.api.analytics import (
     AnalyticsTrackRequest,
     AnalyticsTrackResponse,
     GuildAnalyticsResponse,

@@ -4,7 +4,8 @@ from uuid import UUID, uuid4
 from datetime import datetime, timedelta
 import json
 
-from schemas.analytics import (
+# Manual schemas (no generated equivalent yet)
+from schemas.api.analytics import (
     AnalyticsTrackRequest, 
     AnalyticsTrackResponse, 
     GuildAnalytics, 

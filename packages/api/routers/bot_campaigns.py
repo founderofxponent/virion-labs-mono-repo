@@ -6,7 +6,7 @@ from supabase import Client
 from core.database import get_db
 from services import bot_campaign_service
 from middleware.auth_middleware import require_any_auth, AuthContext
-from schemas.bot_campaign import (
+from schemas.api.bot_campaign import (
     BotCampaign, 
     BotCampaignCreate, 
     BotCampaignUpdate,

@@ -6,7 +6,8 @@ from supabase import Client
 from core.database import get_supabase_client
 from services import admin_service
 from middleware.auth_middleware import AuthContext
-from schemas.admin import AccessRequest, AccessRequestUpdate, AdminUserListResponse
+from schemas.db.access_requests import AccessRequest, AccessRequestUpdate
+from schemas.api.admin import AdminUserListResponse
 
 router = APIRouter(
     prefix="/api/admin",
