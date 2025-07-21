@@ -5,11 +5,13 @@ from typing import List
 from functions.base import api_client, logger
 from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
+from server import token_context
 
 
-async def start_onboarding(params: dict, token: str = None) -> dict:
+async def start_onboarding(params: dict) -> dict:
     """Starts Discord bot onboarding process."""
     try:
+        token = token_context.get()
         data = {
             "guild_id": params["guild_id"],
             "user_id": params["user_id"],
@@ -24,9 +26,10 @@ async def start_onboarding(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def submit_onboarding_modal(params: dict, token: str = None) -> dict:
+async def submit_onboarding_modal(params: dict) -> dict:
     """Submits Discord bot onboarding modal data."""
     try:
+        token = token_context.get()
         data = {
             "session_id": params["session_id"],
             "responses": params["responses"]
@@ -39,9 +42,10 @@ async def submit_onboarding_modal(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_onboarding_session(params: dict, token: str = None) -> dict:
+async def get_onboarding_session(params: dict) -> dict:
     """Gets Discord bot onboarding session data."""
     try:
+        token = token_context.get()
         session_id = params["session_id"]
         result = await api_client.get_onboarding_session(session_id, token=token)
         return result
@@ -50,9 +54,10 @@ async def get_onboarding_session(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def complete_onboarding(params: dict, token: str = None) -> dict:
+async def complete_onboarding(params: dict) -> dict:
     """Completes Discord bot onboarding process."""
     try:
+        token = token_context.get()
         data = {
             "session_id": params["session_id"],
             "user_id": params["user_id"],
@@ -66,9 +71,10 @@ async def complete_onboarding(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_discord_config(params: dict, token: str = None) -> dict:
+async def get_discord_config(params: dict) -> dict:
     """Gets Discord bot configuration."""
     try:
+        token = token_context.get()
         guild_id = params.get("guild_id")
         campaign_id = params.get("campaign_id")
         
@@ -90,9 +96,10 @@ async def get_discord_config(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_invite_context(params: dict, token: str = None) -> dict:
+async def get_invite_context(params: dict) -> dict:
     """Gets Discord invite context information."""
     try:
+        token = token_context.get()
         invite_code = params["invite_code"]
         result = await api_client._make_request("GET", f"/api/discord-bot/discord/invite/{invite_code}/context", token=token)
         return result
@@ -101,9 +108,10 @@ async def get_invite_context(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def assign_member_role(params: dict, token: str = None) -> dict:
+async def assign_member_role(params: dict) -> dict:
     """Assigns a role to a Discord guild member."""
     try:
+        token = token_context.get()
         guild_id = params["guild_id"]
         member_id = params["member_id"]
         data = {
@@ -118,9 +126,10 @@ async def assign_member_role(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_member_roles(params: dict, token: str = None) -> dict:
+async def get_member_roles(params: dict) -> dict:
     """Gets roles for a Discord guild member."""
     try:
+        token = token_context.get()
         guild_id = params["guild_id"]
         member_id = params["member_id"]
         

@@ -5,11 +5,13 @@ from typing import List
 from functions.base import api_client, logger
 from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
+from server import token_context
 
 
-async def get_campaign_analytics(params: dict, token: str = None) -> dict:
+async def get_campaign_analytics(params: dict) -> dict:
     """Retrieves the performance metrics for a specific campaign."""
     try:
+        token = token_context.get()
         campaign_id = params["campaign_id"]
         result = await api_client._make_request("GET", f"/api/analytics/campaign/{campaign_id}", token=token)
         return result
@@ -18,9 +20,10 @@ async def get_campaign_analytics(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_my_analytics(_params: dict, token: str = None) -> dict:
+async def get_my_analytics(_params: dict) -> dict:
     """Retrieves the performance metrics for the current influencer."""
     try:
+        token = token_context.get()
         result = await api_client._make_request("GET", "/api/analytics/my-analytics", token=token)
         return result
     except Exception as e:
@@ -28,9 +31,10 @@ async def get_my_analytics(_params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def track_analytics_event(params: dict, token: str = None) -> dict:
+async def track_analytics_event(params: dict) -> dict:
     """Tracks an analytics event."""
     try:
+        token = token_context.get()
         data = {
             "event_type": params["event_type"],
             "user_id": params.get("user_id"),
@@ -47,9 +51,10 @@ async def track_analytics_event(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_guild_analytics(params: dict, token: str = None) -> dict:
+async def get_guild_analytics(params: dict) -> dict:
     """Gets analytics for a specific Discord guild."""
     try:
+        token = token_context.get()
         guild_id = params["guild_id"]
         result = await api_client._make_request("GET", f"/api/analytics/guild/{guild_id}", token=token)
         return result
@@ -58,9 +63,10 @@ async def get_guild_analytics(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_campaign_overview(_params: dict, token: str = None) -> dict:
+async def get_campaign_overview(_params: dict) -> dict:
     """Gets campaign overview analytics."""
     try:
+        token = token_context.get()
         result = await api_client._make_request("GET", "/api/analytics/campaign-overview", token=token)
         return result
     except Exception as e:
@@ -68,9 +74,10 @@ async def get_campaign_overview(_params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_real_time_analytics(params: dict, token: str = None) -> dict:
+async def get_real_time_analytics(params: dict) -> dict:
     """Gets real-time analytics data."""
     try:
+        token = token_context.get()
         time_range = params.get("time_range", "1h")
         campaign_id = params.get("campaign_id")
         
@@ -86,9 +93,10 @@ async def get_real_time_analytics(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_user_journey_analytics(params: dict, token: str = None) -> dict:
+async def get_user_journey_analytics(params: dict) -> dict:
     """Gets user journey analytics data."""
     try:
+        token = token_context.get()
         user_id = params.get("user_id")
         campaign_id = params.get("campaign_id")
         

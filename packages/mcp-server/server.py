@@ -220,14 +220,11 @@ class VirionLabsMCPServer:
                     func = registry.get_function(function_name)
                     params = parameters or {}
                     
+                    # The function is now responsible for getting the token from the
+                    # context variable set by the AuthMiddleware. We just call it.
                     import inspect
                     if inspect.iscoroutinefunction(func):
-                        # Pass token to function if it accepts it
-                        sig = inspect.signature(func)
-                        if "token" in sig.parameters:
-                            result = await func(params, token=token)
-                        else:
-                            result = await func(params)
+                        result = await func(params)
                     else:
                         result = await asyncio.get_event_loop().run_in_executor(None, func, params)
                     

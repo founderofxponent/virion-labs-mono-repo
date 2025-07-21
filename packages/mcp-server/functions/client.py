@@ -5,11 +5,13 @@ from typing import List
 from functions.base import api_client, logger
 from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
+from server import token_context
 
 
-async def create_client(params: dict, token: str = None) -> dict:
+async def create_client(params: dict) -> dict:
     """Creates a new client."""
     try:
+        token = token_context.get()
         client_data = {
             "name": params["name"],
             "email": params.get("contact_email"),
@@ -24,9 +26,10 @@ async def create_client(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def update_client(params: dict, token: str = None) -> dict:
+async def update_client(params: dict) -> dict:
     """Updates an existing client."""
     try:
+        token = token_context.get()
         client_id = params["client_id"]
         updates = params["updates"]
         
@@ -50,9 +53,10 @@ async def update_client(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def list_clients(_params: dict, token: str = None) -> dict:
+async def list_clients(_params: dict) -> dict:
     """Lists all clients."""
     try:
+        token = token_context.get()
         clients = await api_client.list_clients(token=token)
         return {"clients": clients}
     except Exception as e:
@@ -60,9 +64,10 @@ async def list_clients(_params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_client(params: dict, token: str = None) -> dict:
+async def get_client(params: dict) -> dict:
     """Retrieves a single client by its ID."""
     try:
+        token = token_context.get()
         client_id = params["client_id"]
         result = await api_client.get_client(client_id, token=token)
         return result
@@ -71,9 +76,10 @@ async def get_client(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def delete_client(params: dict, token: str = None) -> dict:
+async def delete_client(params: dict) -> dict:
     """Deletes a client by its ID."""
     try:
+        token = token_context.get()
         client_id = params["client_id"]
         result = await api_client.delete_client(client_id, token=token)
         return result

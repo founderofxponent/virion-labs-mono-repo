@@ -6,11 +6,13 @@ from typing import List
 from functions.base import api_client, logger, CampaignType
 from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
+from server import token_context
 
 
-async def create_campaign(params: dict, token: str = None) -> dict:
+async def create_campaign(params: dict) -> dict:
     """Creates a new campaign in the Virion Labs platform."""
     try:
+        token = token_context.get()
         campaign_data = {
             "client_id": params["client_id"],
             "guild_id": params["guild_id"],
@@ -28,11 +30,12 @@ async def create_campaign(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def update_campaign(params: dict, token: str = None) -> dict:
+async def update_campaign(params: dict) -> dict:
     """Updates an existing campaign in the Virion Labs platform."""
     try:
+        token = token_context.get()
         campaign_id = params["campaign_id"]
-        updates = params["updates"]
+        updates = params.get("updates", {})
         
         # Map old field names to new API field names
         mapped_updates = {}
@@ -82,9 +85,10 @@ async def update_campaign(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def delete_campaign(params: dict, token: str = None) -> dict:
+async def delete_campaign(params: dict) -> dict:
     """Deletes a campaign by marking it as inactive."""
     try:
+        token = token_context.get()
         campaign_id = params["campaign_id"]
         result = await api_client.delete_campaign(campaign_id, token=token)
         return result
@@ -93,9 +97,10 @@ async def delete_campaign(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def set_campaign_status(params: dict, token: str = None) -> dict:
+async def set_campaign_status(params: dict) -> dict:
     """Sets the status of a campaign."""
     try:
+        token = token_context.get()
         campaign_id = params["campaign_id"]
         status = params["status"]
         
@@ -110,9 +115,10 @@ async def set_campaign_status(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def list_available_campaigns(params: dict, token: str = None) -> dict:
+async def list_available_campaigns(params: dict) -> dict:
     """Retrieves a list of all active campaigns available to influencers."""
     try:
+        token = token_context.get()
         # Pass optional client_id to the API client
         client_id = params.get("client_id") if params else None
         campaigns = await api_client.list_campaigns(client_id=client_id, token=token)
@@ -122,9 +128,10 @@ async def list_available_campaigns(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_campaign(params: dict, token: str = None) -> dict:
+async def get_campaign(params: dict) -> dict:
     """Gets a specific campaign by ID."""
     try:
+        token = token_context.get()
         campaign_id = params["campaign_id"]
         result = await api_client.get_campaign(campaign_id, token=token)
         return result
@@ -133,9 +140,10 @@ async def get_campaign(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def update_campaign_stats(params: dict, token: str = None) -> dict:
+async def update_campaign_stats(params: dict) -> dict:
     """Updates campaign statistics."""
     try:
+        token = token_context.get()
         campaign_id = params["campaign_id"]
         stats = {
             "view_count": params.get("view_count"),

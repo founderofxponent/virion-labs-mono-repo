@@ -6,11 +6,13 @@ from typing import List
 from functions.base import api_client, logger
 from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
+from server import token_context
 
 
-async def list_access_requests(_params: dict, token: str = None) -> dict:
+async def list_access_requests(_params: dict) -> dict:
     """Retrieves a list of all access requests."""
     try:
+        token = token_context.get()
         result = await api_client.list_access_requests(token=token)
         return result
     except Exception as e:
@@ -18,9 +20,10 @@ async def list_access_requests(_params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def approve_access_request(params: dict, token: str = None) -> dict:
+async def approve_access_request(params: dict) -> dict:
     """Approves a pending access request."""
     try:
+        token = token_context.get()
         request_id = params["request_id"]
         result = await api_client.update_access_request(request_id, "approve", token=token)
         return result
@@ -29,9 +32,10 @@ async def approve_access_request(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def deny_access_request(params: dict, token: str = None) -> dict:
+async def deny_access_request(params: dict) -> dict:
     """Denies a pending access request by marking it as updated."""
     try:
+        token = token_context.get()
         request_id = params["request_id"]
         result = await api_client.update_access_request(request_id, "deny", token=token)
         return result

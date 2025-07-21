@@ -94,9 +94,13 @@ class APIClient:
         """Update an existing campaign."""
         return await self._make_request("PATCH", f"/api/bot-campaigns/{campaign_id}", data=updates, token=token)
     
-    async def list_campaigns(self, token: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def list_campaigns(self, client_id: Optional[str] = None, token: Optional[str] = None) -> List[Dict[str, Any]]:
         """List all campaigns."""
-        response = await self._make_request("GET", "/api/bot-campaigns/", token=token)
+        params = {}
+        if client_id:
+            params["client_id"] = client_id
+            
+        response = await self._make_request("GET", "/api/bot-campaigns/", params=params, token=token)
         if isinstance(response, list):
             return response
         return response.get("campaigns", [])
@@ -113,22 +117,27 @@ class APIClient:
         """Update campaign statistics."""
         return await self._make_request("PATCH", f"/api/bot-campaigns/{campaign_id}/stats", data=stats, token=token)
     
+    # User account endpoints
+    async def delete_user(self, token: str) -> Dict[str, Any]:
+        """Deletes the current user's account."""
+        return await self._make_request("DELETE", "/api/auth/user/delete", token=token)
+
     # Referral endpoints
-    async def validate_referral_code(self, code: str) -> Dict[str, Any]:
+    async def validate_referral_code(self, code: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Validate a referral code."""
-        return await self._make_request("GET", f"/api/referral/{code}/validate")
+        return await self._make_request("GET", f"/api/referral/{code}/validate", token=token)
     
-    async def get_referral_campaign_info(self, code: str) -> Dict[str, Any]:
+    async def get_referral_campaign_info(self, code: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Get campaign info for a referral code."""
-        return await self._make_request("GET", f"/api/referral/{code}/campaign")
+        return await self._make_request("GET", f"/api/referral/{code}/campaign", token=token)
     
-    async def process_referral_signup(self, signup_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_referral_signup(self, signup_data: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Process a referral signup."""
-        return await self._make_request("POST", "/api/referral/signup", data=signup_data)
+        return await self._make_request("POST", "/api/referral/signup", data=signup_data, token=token)
     
-    async def complete_referral(self, completion_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def complete_referral(self, completion_data: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Mark a referral as converted."""
-        return await self._make_request("POST", "/api/referral/complete", data=completion_data)
+        return await self._make_request("POST", "/api/referral/complete", data=completion_data, token=token)
     
     # Access request endpoints
     async def create_access_request(self, request_data: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
@@ -150,33 +159,33 @@ class APIClient:
         }, token=token)
     
     # Discord bot endpoints
-    async def start_onboarding(self, onboarding_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def start_onboarding(self, onboarding_data: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Start onboarding flow."""
-        return await self._make_request("POST", "/api/discord-bot/onboarding/start", data=onboarding_data)
+        return await self._make_request("POST", "/api/discord-bot/onboarding/start", data=onboarding_data, token=token)
     
-    async def submit_onboarding_modal(self, modal_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def submit_onboarding_modal(self, modal_data: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Submit onboarding modal."""
-        return await self._make_request("POST", "/api/discord-bot/onboarding/modal", data=modal_data)
+        return await self._make_request("POST", "/api/discord-bot/onboarding/modal", data=modal_data, token=token)
     
-    async def get_onboarding_session(self, discord_user_id: str) -> Dict[str, Any]:
+    async def get_onboarding_session(self, discord_user_id: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Get onboarding session."""
-        return await self._make_request("GET", "/api/discord-bot/onboarding/session", params={"discord_user_id": discord_user_id})
+        return await self._make_request("GET", "/api/discord-bot/onboarding/session", params={"discord_user_id": discord_user_id}, token=token)
     
-    async def complete_onboarding(self, completion_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def complete_onboarding(self, completion_data: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Complete onboarding."""
-        return await self._make_request("POST", "/api/discord-bot/onboarding/complete", data=completion_data)
+        return await self._make_request("POST", "/api/discord-bot/onboarding/complete", data=completion_data, token=token)
     
-    async def get_discord_config(self, guild_id: str) -> Dict[str, Any]:
+    async def get_discord_config(self, guild_id: str, token: Optional[str] = None) -> Dict[str, Any]:
         """Get Discord configuration."""
-        return await self._make_request("GET", "/api/discord-bot/config", params={"guild_id": guild_id})
+        return await self._make_request("GET", "/api/discord-bot/config", params={"guild_id": guild_id}, token=token)
     
-    async def assign_discord_role(self, guild_id: str, member_id: str, role_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def assign_discord_role(self, guild_id: str, member_id: str, role_data: Dict[str, Any], token: Optional[str] = None) -> Dict[str, Any]:
         """Assign Discord role."""
-        return await self._make_request("POST", f"/api/discord-bot/discord/guilds/{guild_id}/members/{member_id}/roles", data=role_data)
+        return await self._make_request("POST", f"/api/discord-bot/discord/guilds/{guild_id}/members/{member_id}/roles", data=role_data, token=token)
     
-    async def get_member_roles(self, guild_id: str, member_id: str) -> List[Dict[str, Any]]:
+    async def get_member_roles(self, guild_id: str, member_id: str, token: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get member roles."""
-        response = await self._make_request("GET", f"/api/discord-bot/discord/guilds/{guild_id}/members/{member_id}/roles")
+        response = await self._make_request("GET", f"/api/discord-bot/discord/guilds/{guild_id}/members/{member_id}/roles", token=token)
         return response.get("roles", [])
     
     async def close(self):

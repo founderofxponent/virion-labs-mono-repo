@@ -5,11 +5,13 @@ from typing import List
 from functions.base import api_client, logger
 from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
+from server import token_context
 
 
-async def create_referral_link(params: dict, token: str = None) -> dict:
+async def create_referral_link(params: dict) -> dict:
     """Creates a new referral link for a campaign."""
     try:
+        token = token_context.get()
         campaign_id = params["campaign_id"]
         data = {
             "title": params.get("title", "Default Link"),
@@ -23,9 +25,10 @@ async def create_referral_link(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_my_referral_links(params: dict, token: str = None) -> dict:
+async def get_my_referral_links(params: dict) -> dict:
     """Retrieves a list of all referral links for a campaign."""
     try:
+        token = token_context.get()
         campaign_id = params["campaign_id"]
         result = await api_client._make_request("GET", f"/api/campaigns/{campaign_id}/referral-links", token=token)
         return result
@@ -34,9 +37,10 @@ async def get_my_referral_links(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def validate_referral_code(params: dict, token: str = None) -> dict:
+async def validate_referral_code(params: dict) -> dict:
     """Validates a referral code."""
     try:
+        token = token_context.get()
         referral_code = params["referral_code"]
         result = await api_client.validate_referral_code(referral_code, token=token)
         return result
@@ -45,9 +49,10 @@ async def validate_referral_code(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_referral_campaign_info(params: dict, token: str = None) -> dict:
+async def get_referral_campaign_info(params: dict) -> dict:
     """Gets campaign information for a referral code."""
     try:
+        token = token_context.get()
         referral_code = params["referral_code"]
         result = await api_client.get_referral_campaign_info(referral_code, token=token)
         return result
@@ -56,9 +61,10 @@ async def get_referral_campaign_info(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def process_referral_signup(params: dict, token: str = None) -> dict:
+async def process_referral_signup(params: dict) -> dict:
     """Processes a referral signup."""
     try:
+        token = token_context.get()
         data = {
             "referral_code": params["referral_code"],
             "user_email": params["user_email"],
@@ -72,9 +78,10 @@ async def process_referral_signup(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def complete_referral(params: dict, token: str = None) -> dict:
+async def complete_referral(params: dict) -> dict:
     """Completes a referral process."""
     try:
+        token = token_context.get()
         data = {
             "referral_code": params["referral_code"],
             "user_id": params["user_id"],

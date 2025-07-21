@@ -5,11 +5,13 @@ from typing import List
 from functions.base import api_client, logger
 from core.plugin import PluginBase, FunctionSpec
 from core.middleware import apply_middleware, validation_middleware
+from server import token_context
 
 
-async def list_campaign_templates(_params: dict, token: str = None) -> dict:
+async def list_campaign_templates(_params: dict) -> dict:
     """Lists all campaign templates."""
     try:
+        token = token_context.get()
         result = await api_client._make_request("GET", "/api/campaign-templates", token=token)
         return result
     except Exception as e:
@@ -17,9 +19,10 @@ async def list_campaign_templates(_params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def get_campaign_template(params: dict, token: str = None) -> dict:
+async def get_campaign_template(params: dict) -> dict:
     """Gets a specific campaign template by ID."""
     try:
+        token = token_context.get()
         template_id = params["template_id"]
         result = await api_client._make_request("GET", f"/api/campaign-templates/{template_id}", token=token)
         return result
@@ -28,9 +31,10 @@ async def get_campaign_template(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def create_campaign_template(params: dict, token: str = None) -> dict:
+async def create_campaign_template(params: dict) -> dict:
     """Creates a new campaign template."""
     try:
+        token = token_context.get()
         data = {
             "name": params["name"],
             "description": params.get("description"),
@@ -46,9 +50,10 @@ async def create_campaign_template(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def update_campaign_template(params: dict, token: str = None) -> dict:
+async def update_campaign_template(params: dict) -> dict:
     """Updates an existing campaign template."""
     try:
+        token = token_context.get()
         template_id = params["template_id"]
         updates = params["updates"]
         
@@ -59,9 +64,10 @@ async def update_campaign_template(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def delete_campaign_template(params: dict, token: str = None) -> dict:
+async def delete_campaign_template(params: dict) -> dict:
     """Deletes a campaign template."""
     try:
+        token = token_context.get()
         template_id = params["template_id"]
         result = await api_client._make_request("DELETE", f"/api/campaign-templates/{template_id}", token=token)
         return result
@@ -70,9 +76,10 @@ async def delete_campaign_template(params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def list_landing_page_templates(_params: dict, token: str = None) -> dict:
+async def list_landing_page_templates(_params: dict) -> dict:
     """Lists all landing page templates."""
     try:
+        token = token_context.get()
         result = await api_client._make_request("GET", "/api/landing-page-templates", token=token)
         return result
     except Exception as e:
@@ -80,9 +87,10 @@ async def list_landing_page_templates(_params: dict, token: str = None) -> dict:
         return {"error": str(e)}
 
 
-async def apply_onboarding_template(params: dict, token: str = None) -> dict:
+async def apply_onboarding_template(params: dict) -> dict:
     """Applies a template to campaign onboarding fields."""
     try:
+        token = token_context.get()
         data = {
             "template_id": params["template_id"],
             "campaign_id": params["campaign_id"],
