@@ -191,6 +191,11 @@ class APIClient:
         response = await self._make_request("GET", f"/api/discord-bot/discord/guilds/{guild_id}/members/{member_id}/roles", token=token)
         return response.get("roles", [])
     
+    # OpenAPI schema endpoint
+    async def get_openapi_schema(self) -> Dict[str, Any]:
+        """Fetches the OpenAPI schema from the API."""
+        return await self._make_request("GET", "/openapi.json")
+
     async def close(self):
         """Close the HTTP client."""
         # Since we create clients per-request, this is now a no-op but kept for interface compatibility

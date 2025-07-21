@@ -26,6 +26,7 @@ from core.config import AppConfig
 from core.api_client import APIClient
 from core.plugin import registry
 from functions.base import set_api_client
+from core.dynamic_functions import DynamicFunctionRegistry
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -46,6 +47,7 @@ class VirionLabsMCPServer:
     def __init__(self, config: AppConfig):
         self.config = config
         self.api_client = APIClient(config.api)
+        self.function_registry = DynamicFunctionRegistry(self.api_client)
         
         # Initialize both FastMCP (for stdio) and low-level server (for streamable HTTP)
         self.mcp = FastMCP("virion_labs_mcp_server")
@@ -54,8 +56,8 @@ class VirionLabsMCPServer:
         # Set the global API client for functions to use
         set_api_client(self.api_client)
         
-        # Auto-discover and register plugins
-        registry.auto_discover_plugins()
+        # Auto-discover and register plugins (OLD WAY - to be replaced)
+        # registry.auto_discover_plugins()
         
         # Register tools on both servers
         self._register_universal_tool()
@@ -66,16 +68,7 @@ class VirionLabsMCPServer:
     def _list_functions_impl(self) -> dict:
         """Implementation for listing available functions."""
         try:
-            functions_info = {}
-            for name, func_spec in registry.functions.items():
-                functions_info[name] = {
-                    "description": func_spec.description,
-                    "category": func_spec.category,
-                }
-            return {
-                "functions": functions_info,
-                "total_count": len(registry.functions),
-            }
+            return self.function_registry.list_functions()
         except Exception as e:
             logger.error(f"Error listing functions: {e}")
             return {"error": f"Error listing functions: {str(e)}"}
@@ -83,49 +76,10 @@ class VirionLabsMCPServer:
     def _get_function_details_impl(self, function_name: str) -> dict:
         """Implementation for getting detailed function information."""
         try:
-            if function_name not in registry.functions:
-                available_functions = registry.list_functions()
-                return {
-                    "error": f"Function '{function_name}' not found. Available functions: {available_functions}"
-                }
-
-            func_spec = registry.functions[function_name]
-            schema = func_spec.schema or {"type": "object", "properties": {}}
-            parameters_info = {}
-            required_params = schema.get("required", [])
-            properties = schema.get("properties", {})
-
-            for param_name, param_schema in properties.items():
-                param_info = {
-                    "type": param_schema.get("type", "unknown"),
-                    "description": param_schema.get("description", ""),
-                    "required": param_name in required_params,
-                }
-                for key in ["enum", "format", "pattern", "items", "properties", "default"]:
-                    if key in param_schema:
-                        param_info[key] = param_schema[key]
-                parameters_info[param_name] = param_info
-
-            import inspect
-            docstring = inspect.getdoc(func_spec.func) or "No documentation available"
-
-            return {
-                "name": func_spec.name,
-                "description": func_spec.description,
-                "category": func_spec.category,
-                "parameters": parameters_info,
-                "schema": schema,
-                "docstring": docstring,
-                "usage_notes": [
-                    "Pass parameters as a dictionary matching the schema structure",
-                    "All required parameters must be provided",
-                    "Optional parameters can be omitted or set to null",
-                    "Follow the specified types and formats exactly",
-                ],
-            }
+            return self.function_registry.get_function_details(function_name)
         except Exception as e:
             logger.error(f"Error getting function details for {function_name}: {e}")
-            return {"error": f"Error getting function details: {str(e)}"}
+            return {"error": f"Error getting function details for {function_name}: {str(e)}"}
     
     def _register_universal_tool(self):
         """Register the universal tool that dispatches to plugins."""
@@ -143,26 +97,9 @@ class VirionLabsMCPServer:
                 Function execution result
             """
             try:
-                if function_name not in registry.functions:
-                    available_functions = registry.list_functions()
-                    return {
-                        "error": f"Unknown function '{function_name}'. Available: {available_functions}"
-                    }
-                
-                func = registry.get_function(function_name)
-                params = parameters or {}
-                
-                # This tool handler is for stdio/basic http and does not have user context
-                # The token-aware logic is in `call_tool` for the streamable http server
-                import inspect
-                if inspect.iscoroutinefunction(func):
-                    result = await func(params)
-                else:
-                    # For sync functions, run them in the event loop
-                    result = await asyncio.get_event_loop().run_in_executor(None, func, params)
-                
-                return result
-                
+                # DYNAMIC DISPATCH LOGIC
+                return await self.function_registry.execute_function(function_name, parameters)
+
             except Exception as e:
                 logger.error(f"Error executing function {function_name}: {e}")
                 return {"error": f"Error executing function {function_name}: {str(e)}"}
@@ -210,23 +147,8 @@ class VirionLabsMCPServer:
                             text='{"error": "function_name is required"}'
                         )]
                     
-                    if function_name not in registry.functions:
-                        available_functions = registry.list_functions()
-                        return [types.TextContent(
-                            type="text",
-                            text=f'{{"error": "Unknown function \'{function_name}\'. Available: {available_functions}"}}'
-                        )]
-                    
-                    func = registry.get_function(function_name)
-                    params = parameters or {}
-                    
-                    # The function is now responsible for getting the token from the
-                    # context variable set by the AuthMiddleware. We just call it.
-                    import inspect
-                    if inspect.iscoroutinefunction(func):
-                        result = await func(params)
-                    else:
-                        result = await asyncio.get_event_loop().run_in_executor(None, func, params)
+                    # DYNAMIC DISPATCH LOGIC
+                    result = await self.function_registry.execute_function(function_name, parameters)
                     
                     import json
                     return [types.TextContent(type="text", text=json.dumps(result))]
@@ -299,9 +221,21 @@ class VirionLabsMCPServer:
                     }
                 )
             ]
-    
+
+    async def _initialize_registry(self):
+        """Fetches the OpenAPI schema and initializes the function registry."""
+        try:
+            await self.function_registry.initialize()
+            logger.info(f"Successfully initialized dynamic function registry with {self.function_registry.count()} functions.")
+        except Exception as e:
+            logger.error(f"FATAL: Could not initialize dynamic function registry: {e}")
+            logger.warning("MCP server will start with no functions available.")
+
     async def run(self):
         """Run the MCP server."""
+        # Initialize the dynamic function registry first
+        await self._initialize_registry()
+
         # Test API connection (allow failure for Cloud Run deployment)
         try:
             # Simple health check to test API connection
@@ -312,7 +246,7 @@ class VirionLabsMCPServer:
             logger.info("Continuing startup - API connection will be retried on first request")
         
         logger.info(f"Starting server on {self.config.server.transport}:{self.config.server.port}")
-        logger.info(f"Registered {len(registry.functions)} functions from {len(registry.plugins)} plugins")
+        # logger.info(f"Registered {len(registry.functions)} functions from {len(registry.plugins)} plugins")
         
         if self.config.server.transport == "stdio":
             await self.mcp.run_async(transport="stdio")

@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-class DiscordActivitieBase(BaseModel):
+class DiscordActivityBase(BaseModel):
     client_id: UUID
     activity_name: str
     activity_type: str
@@ -19,10 +19,10 @@ class DiscordActivitieBase(BaseModel):
     last_used_at: Optional[datetime] = None
     is_active: Optional[bool] = None
 
-class DiscordActivitieCreate(DiscordActivitieBase):
+class DiscordActivityCreate(DiscordActivityBase):
     pass
 
-class DiscordActivitieUpdate(BaseModel):
+class DiscordActivityUpdate(BaseModel):
     client_id: Optional[UUID] = None
     activity_name: Optional[str] = None
     activity_type: Optional[str] = None
@@ -38,7 +38,7 @@ class DiscordActivitieUpdate(BaseModel):
     last_used_at: Optional[datetime] = None
     is_active: Optional[bool] = None
 
-class DiscordActivitie(DiscordActivitieBase):
+class DiscordActivity(DiscordActivityBase):
     id: UUID
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
