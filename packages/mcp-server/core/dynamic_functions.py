@@ -71,15 +71,20 @@ class DynamicFunctionRegistry:
         e.g., "api.users.get_user_by_id"
         """
         if operation.get("operationId"):
-            # Format: get_user_api_users__user_id__get -> api.users.get_user
             op_id = operation["operationId"]
+            
+            # If operation ID is already in clean format (e.g., "campaigns.list"), use it directly
+            if '.' in op_id and not '_' in op_id and len(op_id.split('.')) == 2:
+                return op_id
+            
+            # Format: get_user_api_users__user_id__get -> api.users.get_user
             # Example: handle_access_request_api_admin_access_requests_post -> admin.handle_access_request
             clean_op_id = op_id.replace("_api", "").replace("_", ".")
             parts = clean_op_id.split('.')
-            if len(parts) > 2:
+            if len(parts) >= 2:
                 # Reassemble a more readable name
                 action = parts[0]
-                tag = parts[1] if parts[1] not in ['api', 'models'] else parts[2]
+                tag = parts[1] if parts[1] not in ['api', 'models'] else parts[2] if len(parts) > 2 else parts[1]
                 return f"{tag}.{action}"
 
 
