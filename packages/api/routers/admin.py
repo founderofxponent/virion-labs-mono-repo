@@ -14,7 +14,7 @@ router = APIRouter(
     tags=["Admin"],
 )
 
-@router.get("/access-requests", response_model=List[AccessRequest])
+@router.get("/access-requests", response_model=List[AccessRequest], operation_id="admin.list_access_requests")
 async def list_access_requests(
     request: Request,
     db: Client = Depends(get_supabase_client)
@@ -28,7 +28,7 @@ async def list_access_requests(
         
     return admin_service.get_access_requests(db)
 
-@router.post("/access-requests", response_model=AccessRequest)
+@router.post("/access-requests", response_model=AccessRequest, operation_id="admin.handle_access_request")
 async def handle_access_request(
     update: AccessRequestUpdate,
     request: Request,
@@ -49,7 +49,7 @@ async def handle_access_request(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@router.get("/users", response_model=AdminUserListResponse)
+@router.get("/users", response_model=AdminUserListResponse, operation_id="admin.get_all_users")
 async def get_all_users(
     request: Request,
     db: Client = Depends(get_supabase_client)

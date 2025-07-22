@@ -188,3 +188,9 @@ class CampaignTemplateWithLandingPageListResponse(BaseModel):
     message: str
     templates: List[CampaignTemplateWithLandingPage]
     total_count: int
+
+class DefaultTemplatesResponse(BaseModel):
+    success: bool
+    message: str
+    campaign_templates: List[CampaignTemplate]
+    landing_page_templates: List[LandingPageTemplate]

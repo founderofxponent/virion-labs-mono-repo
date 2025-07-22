@@ -19,7 +19,7 @@ router = APIRouter(
     tags=["Analytics"],
 )
 
-@router.post("/track", response_model=AnalyticsTrackResponse)
+@router.post("/track", response_model=AnalyticsTrackResponse, operation_id="analytics.track")
 async def track_analytics(
     event_data: AnalyticsTrackRequest,
     request: Request,
@@ -37,7 +37,7 @@ async def track_analytics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to track analytics event: {e}")
 
-@router.get("/guild/{guild_id}", response_model=GuildAnalyticsResponse)
+@router.get("/guild/{guild_id}", response_model=GuildAnalyticsResponse, operation_id="analytics.get_guild")
 async def get_guild_analytics(
     guild_id: str,
     request: Request,
@@ -55,7 +55,7 @@ async def get_guild_analytics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve guild analytics: {e}")
 
-@router.get("/campaign-overview")
+@router.get("/campaign-overview", operation_id="analytics.get_campaign_overview")
 async def get_campaign_overview(
     request: Request,
     db: Client = Depends(get_db)
@@ -125,7 +125,7 @@ async def get_campaign_overview(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get campaign overview: {e}")
 
-@router.get("/real-time")
+@router.get("/real-time", operation_id="analytics.get_real_time")
 async def get_real_time_analytics(
     request: Request,
     db: Client = Depends(get_db)
@@ -191,7 +191,7 @@ async def get_real_time_analytics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get real-time analytics: {e}")
 
-@router.get("/user-journey")
+@router.get("/user-journey", operation_id="analytics.get_user_journey")
 async def get_user_journey_analytics(
     request: Request,
     db: Client = Depends(get_db),

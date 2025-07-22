@@ -3,7 +3,7 @@ from core.config import settings
 
 router = APIRouter()
 
-@router.get("/health", tags=["Health"])
+@router.get("/health", tags=["Health"], operation_id="health.check")
 async def health_check():
     """
     Health check endpoint to verify environment.

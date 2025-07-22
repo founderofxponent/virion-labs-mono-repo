@@ -27,7 +27,7 @@ router = APIRouter(
 
 security = HTTPBearer()
 
-@router.post("/signup", response_model=AuthResponse)
+@router.post("/signup", response_model=AuthResponse, operation_id="auth.signup")
 async def signup(user_data: UserSignup, db: Client = Depends(get_supabase_client)):
     """
     Register a new user account.
@@ -39,7 +39,7 @@ async def signup(user_data: UserSignup, db: Client = Depends(get_supabase_client
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to create user")
 
-@router.post("/login", response_model=AuthResponse)
+@router.post("/login", response_model=AuthResponse, operation_id="auth.login")
 async def login(user_data: UserLogin, db: Client = Depends(get_supabase_client)):
     """
     Authenticate a user and return access token.
@@ -51,7 +51,7 @@ async def login(user_data: UserLogin, db: Client = Depends(get_supabase_client))
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to authenticate user")
 
-@router.post("/logout")
+@router.post("/logout", operation_id="auth.logout")
 async def logout(request: Request):
     """
     Logout the current user. This is a placeholder and may not be needed
@@ -68,7 +68,7 @@ async def logout(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail="Logout failed")
 
-@router.post("/send-confirmation")
+@router.post("/send-confirmation", operation_id="auth.resend_confirmation")
 async def resend_confirmation_email(
     request_data: EmailConfirmation, 
     db: Client = Depends(get_supabase_client)
@@ -84,7 +84,7 @@ async def resend_confirmation_email(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to send confirmation email")
 
-@router.post("/confirm")
+@router.post("/confirm", operation_id="auth.confirm_email")
 async def confirm_email(
     confirmation: EmailConfirmation, 
     db: Client = Depends(get_supabase_client)
@@ -100,7 +100,7 @@ async def confirm_email(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Email confirmation failed")
 
-@router.get("/user", response_model=UserProfile)
+@router.get("/user", response_model=UserProfile, operation_id="auth.get_current_user")
 async def get_current_user(
     request: Request,
     db: Client = Depends(get_supabase_client)
@@ -120,7 +120,7 @@ async def get_current_user(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to get user profile")
 
-@router.delete("/user/delete")
+@router.delete("/user/delete", operation_id="auth.delete_user")
 async def delete_user_account(
     request: Request,
     db: Client = Depends(get_supabase_client)
@@ -141,7 +141,7 @@ async def delete_user_account(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to delete user account")
 
-@router.get("/google/login", tags=["Authentication"])
+@router.get("/google/login", tags=["Authentication"], operation_id="auth.google_login")
 async def google_login(supabase: Client = Depends(get_supabase_client)):
     """
     Redirects the user to Google for authentication.
@@ -153,7 +153,7 @@ async def google_login(supabase: Client = Depends(get_supabase_client)):
     return RedirectResponse(data.url)
 
 # This will be called by Google
-@router.get("/google/callback", tags=["Authentication"])
+@router.get("/google/callback", tags=["Authentication"], operation_id="auth.google_callback")
 async def google_callback(request: Request, db: Client = Depends(get_supabase_client)):
     """
     Handles the callback from Google after authentication.

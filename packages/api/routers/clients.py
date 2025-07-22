@@ -7,13 +7,14 @@ from core.database import get_db
 from services import client_service
 from middleware.auth_middleware import AuthContext
 from schemas.db.clients import Client, ClientCreate, ClientUpdate
+from schemas.api.common import MessageResponse
 
 router = APIRouter(
     prefix="/api/clients",
     tags=["Clients"],
 )
 
-@router.get("/", response_model=List[Client])
+@router.get("/", response_model=List[Client], operation_id="clients.list")
 async def list_clients(
     request: Request,
     db: Client = Depends(get_db)
@@ -24,7 +25,7 @@ async def list_clients(
     auth_context: AuthContext = request.state.auth
     return client_service.get_all_clients(db)
 
-@router.post("/", response_model=Client)
+@router.post("/", response_model=Client, operation_id="clients.create")
 async def create_client(
     client_data: ClientCreate,
     request: Request,
@@ -41,7 +42,7 @@ async def create_client(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to create client")
 
-@router.get("/{client_id}", response_model=Client)
+@router.get("/{client_id}", response_model=Client, operation_id="clients.get")
 async def get_client(
     client_id: UUID,
     request: Request,
@@ -58,7 +59,7 @@ async def get_client(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to retrieve client")
 
-@router.patch("/{client_id}", response_model=Client)
+@router.patch("/{client_id}", response_model=Client, operation_id="clients.update")
 async def update_client(
     client_id: UUID,
     client_data: ClientUpdate,
@@ -76,7 +77,7 @@ async def update_client(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to update client")
 
-@router.delete("/{client_id}")
+@router.delete("/{client_id}", response_model=MessageResponse, operation_id="clients.delete")
 async def delete_client(
     client_id: UUID,
     request: Request,
@@ -88,7 +89,7 @@ async def delete_client(
     try:
         auth_context: AuthContext = request.state.auth
         client_service.delete_client(db, client_id)
-        return {"message": "Client deleted successfully"}
+        return MessageResponse(message="Client deleted successfully")
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

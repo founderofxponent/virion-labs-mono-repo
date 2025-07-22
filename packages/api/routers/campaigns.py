@@ -105,7 +105,7 @@ async def create_campaign(
         logger.error(f"DEBUG: Exception in campaign creation: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create campaign: {e}")
 
-@router.get("/available", response_model=List[DiscordGuildCampaign], operation_id="campaigns.available")
+@router.get("/available", response_model=List[DiscordGuildCampaign], operation_id="campaigns.list_available")
 async def get_available_campaigns(
     request: Request,
     db: Client = Depends(get_db),
@@ -127,7 +127,7 @@ async def get_available_campaigns(
         print(f"Error in get_available_campaigns: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve campaigns")
 
-@router.get("/{campaign_id}", response_model=DiscordGuildCampaign, operation_id="campaigns.get_by_id")
+@router.get("/{campaign_id}", response_model=DiscordGuildCampaign, operation_id="campaigns.get")
 async def get_campaign(
     campaign_id: UUID,
     request: Request,

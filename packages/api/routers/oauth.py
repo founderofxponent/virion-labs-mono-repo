@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 
-@router.post("/register", tags=["OAuth"])
+@router.post("/register", tags=["OAuth"], operation_id="oauth.register_client")
 async def dynamic_client_registration(request: Request):
     """
     Dynamic Client Registration endpoint per RFC 7591.
@@ -50,7 +50,7 @@ async def dynamic_client_registration(request: Request):
         "scope": "mcp"
     }
 
-@router.get("/authorize", tags=["OAuth"])
+@router.get("/authorize", tags=["OAuth"], operation_id="oauth.authorize")
 async def oauth_authorize(
     request: Request,
     client_id: str,
@@ -131,7 +131,7 @@ async def oauth_authorize(
     print(f"DEBUG: Supabase response URL = {data.url}")
     return RedirectResponse(data.url)
 
-@router.get("/callback", tags=["OAuth"])
+@router.get("/callback", tags=["OAuth"], operation_id="oauth.callback")
 async def oauth_callback(
     request: Request,
     code: Optional[str] = None,
@@ -207,7 +207,7 @@ async def oauth_callback(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/token", tags=["OAuth"])
+@router.post("/token", tags=["OAuth"], operation_id="oauth.token")
 async def oauth_token(request: Request):
     """
     OAuth 2.0 token endpoint for exchanging authorization code for access token.

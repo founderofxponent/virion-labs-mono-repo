@@ -22,7 +22,7 @@ router = APIRouter(
     tags=["Discord Bot"],
 )
 
-@router.post("/onboarding/start")
+@router.post("/onboarding/start", operation_id="discord.start_onboarding")
 async def start_onboarding(
     onboarding_data: OnboardingStart,
     request: Request,
@@ -41,7 +41,7 @@ async def start_onboarding(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to start onboarding")
 
-@router.post("/onboarding/modal")
+@router.post("/onboarding/modal", operation_id="discord.submit_onboarding")
 async def submit_onboarding_modal(
     modal_data: OnboardingModal,
     request: Request,
@@ -60,7 +60,7 @@ async def submit_onboarding_modal(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to submit onboarding modal")
 
-@router.get("/onboarding/session", response_model=OnboardingSession)
+@router.get("/onboarding/session", response_model=OnboardingSession, operation_id="discord.get_onboarding_session")
 async def get_onboarding_session(
     discord_user_id: str,
     campaign_id: UUID,
@@ -80,7 +80,7 @@ async def get_onboarding_session(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to get onboarding session")
 
-@router.post("/onboarding/complete")
+@router.post("/onboarding/complete", operation_id="discord.complete_onboarding")
 async def complete_onboarding(
     completion_data: OnboardingComplete,
     request: Request,
@@ -99,7 +99,7 @@ async def complete_onboarding(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to complete onboarding")
 
-@router.get("/config", response_model=DiscordConfig)
+@router.get("/config", response_model=DiscordConfig, operation_id="discord.get_config")
 async def get_discord_config(
     guild_id: str,
     campaign_id: UUID,
@@ -119,7 +119,7 @@ async def get_discord_config(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to get Discord config")
 
-@router.get("/discord/invite/{code}/context", response_model=DiscordInviteContext)
+@router.get("/discord/invite/{code}/context", response_model=DiscordInviteContext, operation_id="discord.get_invite_context")
 async def get_discord_invite_context(
     code: str,
     request: Request,
@@ -138,7 +138,7 @@ async def get_discord_invite_context(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to get invite context")
 
-@router.post("/discord/guilds/{guild_id}/members/{member_id}/roles")
+@router.post("/discord/guilds/{guild_id}/members/{member_id}/roles", operation_id="discord.assign_role")
 async def assign_discord_role(
     guild_id: str,
     member_id: str,
@@ -159,7 +159,7 @@ async def assign_discord_role(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to assign role")
 
-@router.get("/discord/guilds/{guild_id}/members/{member_id}/roles")
+@router.get("/discord/guilds/{guild_id}/members/{member_id}/roles", operation_id="discord.get_member_roles")
 async def get_member_roles(
     guild_id: str,
     member_id: str,

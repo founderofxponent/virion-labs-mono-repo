@@ -73,8 +73,8 @@ class DynamicFunctionRegistry:
         if operation.get("operationId"):
             op_id = operation["operationId"]
             
-            # If operation ID is already in clean format (e.g., "campaigns.list"), use it directly
-            if '.' in op_id and not '_' in op_id and len(op_id.split('.')) == 2:
+            # If operation ID is already in clean format (e.g., "campaigns.list" or "admin.list_access_requests"), use it directly
+            if '.' in op_id and len(op_id.split('.')) == 2:
                 return op_id
             
             # Format: get_user_api_users__user_id__get -> api.users.get_user

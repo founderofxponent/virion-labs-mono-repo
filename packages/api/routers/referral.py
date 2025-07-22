@@ -19,7 +19,7 @@ router = APIRouter(
     tags=["Referral"],
 )
 
-@router.get("/{code}/validate", response_model=ReferralValidation)
+@router.get("/{code}/validate", response_model=ReferralValidation, operation_id="referral.validate")
 async def validate_referral_code(
     code: str,
     request: Request,
@@ -36,7 +36,7 @@ async def validate_referral_code(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to validate referral code")
 
-@router.get("/{code}/campaign", response_model=ReferralCampaignInfo)
+@router.get("/{code}/campaign", response_model=ReferralCampaignInfo, operation_id="referral.get_campaign")
 async def get_referral_campaign_info(
     code: str,
     request: Request,
@@ -53,7 +53,7 @@ async def get_referral_campaign_info(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to get campaign info")
 
-@router.post("/signup")
+@router.post("/signup", operation_id="referral.process_signup")
 async def process_referral_signup(
     signup_data: ReferralSignup,
     request: Request,
@@ -70,7 +70,7 @@ async def process_referral_signup(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to process referral signup")
 
-@router.post("/complete")
+@router.post("/complete", operation_id="referral.complete")
 async def complete_referral(
     completion_data: ReferralComplete,
     request: Request,

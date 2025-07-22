@@ -20,8 +20,10 @@ from schemas.api.template import (
     LandingPageTemplate,
     LandingPageTemplateListResponse,
     ApplyTemplateRequest,
-    ApplyTemplateResponse
+    ApplyTemplateResponse,
+    DefaultTemplatesResponse
 )
+from schemas.api.common import MessageResponse
 
 router = APIRouter(
     prefix="/api",
@@ -60,7 +62,7 @@ async def get_campaign_templates(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve campaign templates: {e}")
 
-@router.get("/campaign-templates/{template_id}", response_model=CampaignTemplateResponse, operation_id="templates.get_by_id")
+@router.get("/campaign-templates/{template_id}", response_model=CampaignTemplateResponse, operation_id="templates.get")
 async def get_campaign_template(
     template_id: UUID,
     request: Request,
@@ -142,7 +144,7 @@ async def update_campaign_template(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update campaign template: {e}")
 
-@router.delete("/campaign-templates/{template_id}", operation_id="templates.delete")
+@router.delete("/campaign-templates/{template_id}", response_model=MessageResponse, operation_id="templates.delete")
 async def delete_campaign_template(
     template_id: UUID,
     request: Request,
@@ -159,14 +161,14 @@ async def delete_campaign_template(
             status_code = 404 if "not found" in result.message else 400
             raise HTTPException(status_code=status_code, detail=result.message)
         
-        return {"message": "Campaign template deleted successfully"}
+        return MessageResponse(message="Campaign template deleted successfully")
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete campaign template: {e}")
 
-@router.get("/landing-page-templates", response_model=LandingPageTemplateListResponse, operation_id="templates.landing_pages")
+@router.get("/landing-page-templates", response_model=LandingPageTemplateListResponse, operation_id="templates.list_landing_pages")
 async def get_landing_page_templates(
     request: Request,
     db: Client = Depends(get_db)
@@ -209,7 +211,7 @@ async def apply_template_to_campaign(
         raise HTTPException(status_code=500, detail=f"Failed to apply template to campaign: {e}")
 
 # Additional utility endpoints
-@router.get("/campaign-templates/by-category/{category}", operation_id="templates.get_by_category")
+@router.get("/campaign-templates/by-category/{category}", response_model=CampaignTemplateListResponse, operation_id="templates.get_by_category")
 async def get_campaign_templates_by_category(
     category: str,
     request: Request,
@@ -224,26 +226,26 @@ async def get_campaign_templates_by_category(
         response = db.table("campaign_templates").select("*").eq("category", category).order("created_at", desc=True).execute()
         
         if not response.data:
-            return {
-                "success": True,
-                "message": f"No templates found for category: {category}",
-                "templates": [],
-                "total_count": 0
-            }
+            return CampaignTemplateListResponse(
+                success=True,
+                message=f"No templates found for category: {category}",
+                templates=[],
+                total_count=0
+            )
         
         templates = [CampaignTemplate.model_validate(template) for template in response.data]
         
-        return {
-            "success": True,
-            "message": f"Templates for category {category} retrieved successfully",
-            "templates": templates,
-            "total_count": len(templates)
-        }
+        return CampaignTemplateListResponse(
+            success=True,
+            message=f"Templates for category {category} retrieved successfully",
+            templates=templates,
+            total_count=len(templates)
+        )
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve templates by category: {e}")
 
-@router.get("/campaign-templates/by-type/{campaign_type}", operation_id="templates.get_by_type")
+@router.get("/campaign-templates/by-type/{campaign_type}", response_model=CampaignTemplateResponse, operation_id="templates.get_by_type")
 async def get_campaign_template_by_type(
     campaign_type: str,
     request: Request,
@@ -263,16 +265,16 @@ async def get_campaign_template_by_type(
         
         template = CampaignTemplate.model_validate(response.data[0])
         
-        return {
-            "success": True,
-            "message": "Template retrieved successfully",
-            "template": template
-        }
+        return CampaignTemplateResponse(
+            success=True,
+            message="Template retrieved successfully",
+            template=template
+        )
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve template by type: {e}")
 
-@router.get("/templates/default", operation_id="templates.defaults")
+@router.get("/templates/default", response_model=DefaultTemplatesResponse, operation_id="templates.get_defaults")
 async def get_default_templates(
     request: Request,
     db: Client = Depends(get_db)
@@ -291,12 +293,12 @@ async def get_default_templates(
         landing_response = db.table("landing_page_templates").select("*").eq("is_default", True).execute()
         landing_templates = [LandingPageTemplate.model_validate(t) for t in landing_response.data] if landing_response.data else []
         
-        return {
-            "success": True,
-            "message": "Default templates retrieved successfully",
-            "campaign_templates": campaign_templates,
-            "landing_page_templates": landing_templates
-        }
+        return DefaultTemplatesResponse(
+            success=True,
+            message="Default templates retrieved successfully",
+            campaign_templates=campaign_templates,
+            landing_page_templates=landing_templates
+        )
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve default templates: {e}")
