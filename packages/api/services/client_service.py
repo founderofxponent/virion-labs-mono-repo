@@ -28,8 +28,14 @@ def create_client(db: SupabaseClient, client_data: ClientCreate) -> Client:
     """
     Create a new client.
     """
+    client_dict = client_data.model_dump()
+    
+    # Convert datetime objects to ISO format strings
+    if "join_date" in client_dict and client_dict["join_date"]:
+        client_dict["join_date"] = client_dict["join_date"].isoformat()
+    
     client_record = {
-        **client_data.model_dump(),
+        **client_dict,
         "created_at": datetime.utcnow().isoformat(),
         "updated_at": datetime.utcnow().isoformat()
     }
@@ -46,6 +52,11 @@ def update_client(db: SupabaseClient, client_id: UUID, client_data: ClientUpdate
     """
     # Remove None values
     updates = {k: v for k, v in client_data.model_dump().items() if v is not None}
+    
+    # Convert datetime objects to ISO format strings
+    if "join_date" in updates and updates["join_date"]:
+        updates["join_date"] = updates["join_date"].isoformat()
+    
     updates["updated_at"] = datetime.utcnow().isoformat()
     
     response = db.table("clients").update(updates).eq("id", client_id).execute()

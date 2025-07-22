@@ -1,44 +1,50 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Any, Dict, Union
 from uuid import UUID
 from enum import Enum
 
-# Legacy Campaign schemas for backward compatibility
-class CampaignBase(BaseModel):
-    name: str
+
+class CampaignCreate(BaseModel):
+    client_id: UUID
+    guild_id: str
+    channel_id: Optional[str] = None
+    campaign_name: str
+    campaign_type: str
+    referral_link_id: Optional[UUID] = None
+    influencer_id: Optional[UUID] = None
+    webhook_url: Optional[str] = None
+    welcome_message: Optional[str] = None
     description: Optional[str] = None
-    is_active: bool = True
-    max_participants: Optional[int] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-
-class Campaign(CampaignBase):
-    id: UUID
-    created_by: UUID
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
-class CampaignCreate(CampaignBase):
-    pass
 
 class CampaignUpdate(BaseModel):
-    name: Optional[str] = None
+    client_id: Optional[UUID] = None
+    guild_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    campaign_type: Optional[str] = None
+    referral_link_id: Optional[UUID] = None
+    influencer_id: Optional[UUID] = None
+    webhook_url: Optional[str] = None
+    welcome_message: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
-    max_participants: Optional[int] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
+    campaign_end_date: Optional[datetime] = None
+    onboarding_flow: Optional[Union[dict, list]] = None
 
-# Campaign access request for API endpoints
+class CampaignStats(BaseModel):
+    total_interactions: Optional[int] = None
+    successful_onboardings: Optional[int] = None
+    referral_conversions: Optional[int] = None
+    commands_used: Optional[int] = None
+    users_served: Optional[int] = None
+
+
 class CampaignAccessRequest(BaseModel):
-    reason: Optional[str] = None
+    reason: str
     additional_info: Optional[str] = None
 
-# Data Export schemas - business logic, not direct DB mappings
+
 class ExportFormat(str, Enum):
     CSV = "csv"
     JSON = "json"
@@ -53,13 +59,12 @@ class ExportType(str, Enum):
 
 class DataExportRequest(BaseModel):
     export_type: ExportType
-    format: ExportFormat
+    format: ExportFormat = ExportFormat.CSV
     campaign_ids: Optional[List[UUID]] = None
     guild_ids: Optional[List[str]] = None
     date_range_start: Optional[datetime] = None
     date_range_end: Optional[datetime] = None
-    include_pii: Optional[bool] = False
-    filters: Optional[dict] = {}
+    include_pii: bool = False
 
 class DataExportResponse(BaseModel):
     success: bool
@@ -73,7 +78,6 @@ class DataExportStatus(str, Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
-    EXPIRED = "expired"
 
 class DataExport(BaseModel):
     id: UUID
@@ -81,12 +85,7 @@ class DataExport(BaseModel):
     format: ExportFormat
     status: DataExportStatus
     file_path: Optional[str] = None
-    file_size: Optional[int] = None
-    record_count: Optional[int] = None
-    error_message: Optional[str] = None
-    expires_at: Optional[datetime] = None
+    record_count: int
+    expires_at: datetime
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True

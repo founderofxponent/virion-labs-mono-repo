@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from middleware.auth_middleware import AuthMiddleware
 from routers import (
     admin,
-    bot_campaigns,
     clients,
     status,
     referral,
@@ -26,10 +25,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Debug environment variables at startup
-print(f"DEBUG: OAUTH_REDIRECT_URI = {os.getenv('OAUTH_REDIRECT_URI')}")
-print(f"DEBUG: SITE_URL = {os.getenv('SITE_URL')}")
-print(f"DEBUG: JWT_SECRET = {os.getenv('JWT_SECRET')}")
+# Environment variables loaded
 
 app = FastAPI(
     title="Virion Labs Unified API",
@@ -52,7 +48,6 @@ app.add_middleware(
 
 # Include routers
 app.include_router(admin.router)
-app.include_router(bot_campaigns.router)
 app.include_router(clients.router)
 app.include_router(status.router)
 app.include_router(referral.router)
@@ -76,21 +71,14 @@ async def oauth_authorization_server_metadata(request: Request):
     """OAuth 2.0 Authorization Server Metadata at root level."""
     # Use environment variable if available, otherwise construct from headers
     api_base_url = os.getenv("API_BASE_URL")
-    print(f"DEBUG: API_BASE_URL env var = {api_base_url}")
-    print(f"DEBUG: request.base_url = {request.base_url}")
-    print(f"DEBUG: x-forwarded-proto = {request.headers.get('x-forwarded-proto')}")
-    print(f"DEBUG: x-forwarded-host = {request.headers.get('x-forwarded-host')}")
-    print(f"DEBUG: host = {request.headers.get('host')}")
     
     if api_base_url:
         base_url = api_base_url
-        print(f"DEBUG: Using API_BASE_URL: {base_url}")
     else:
         # Use X-Forwarded headers for Cloud Run
         scheme = request.headers.get("x-forwarded-proto", "https")
         host = request.headers.get("x-forwarded-host") or request.headers.get("host", "localhost:8000")
         base_url = f"{scheme}://{host}"
-        print(f"DEBUG: Constructed from headers: {base_url}")
     
     return {
         "issuer": f"{base_url}",

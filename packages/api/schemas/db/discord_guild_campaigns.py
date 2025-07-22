@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union, Any
 from uuid import UUID
 
 class DiscordGuildCampaignBase(BaseModel):
@@ -12,54 +12,54 @@ class DiscordGuildCampaignBase(BaseModel):
     referral_link_id: Optional[str] = None
     influencer_id: Optional[str] = None
     webhook_url: Optional[str] = None
-    welcome_message: str
-    onboarding_flow: dict
-    referral_tracking_enabled: bool
-    auto_role_assignment: bool
-    total_interactions: int
-    successful_onboardings: int
-    referral_conversions: int
-    is_active: bool
+    welcome_message: Optional[str] = None
+    onboarding_flow: Optional[Union[dict, list]] = None
+    referral_tracking_enabled: Optional[bool] = False
+    auto_role_assignment: Optional[bool] = False
+    total_interactions: Optional[int] = 0
+    successful_onboardings: Optional[int] = 0
+    referral_conversions: Optional[int] = 0
+    is_active: Optional[bool] = True
     campaign_start_date: Optional[str] = None
     campaign_end_date: Optional[str] = None
-    metadata: dict
-    bot_name: str
+    metadata: Optional[dict] = {}
+    bot_name: Optional[str] = None
     bot_avatar_url: Optional[str] = None
-    bot_personality: str
-    bot_response_style: str
-    brand_color: str
+    bot_personality: Optional[str] = None
+    bot_response_style: Optional[str] = None
+    brand_color: Optional[str] = None
     brand_logo_url: Optional[str] = None
-    custom_commands: list
-    auto_responses: dict
-    rate_limit_per_user: int
-    allowed_channels: list
-    blocked_users: list
-    moderation_enabled: bool
-    content_filters: list
-    template: str
-    prefix: str
-    description: str
+    custom_commands: Optional[list] = []
+    auto_responses: Optional[dict] = {}
+    rate_limit_per_user: Optional[int] = 10
+    allowed_channels: Optional[list] = []
+    blocked_users: Optional[list] = []
+    moderation_enabled: Optional[bool] = False
+    content_filters: Optional[list] = []
+    template: Optional[str] = None
+    prefix: Optional[str] = None
+    description: Optional[str] = None
     avatar_url: Optional[str] = None
-    features: dict
-    response_templates: dict
+    features: Optional[dict] = {}
+    response_templates: Optional[dict] = {}
     embed_footer: Optional[str] = None
-    webhook_routes: list
-    api_endpoints: dict
-    external_integrations: dict
-    configuration_version: int
-    commands_used: int
-    users_served: int
+    webhook_routes: Optional[list] = []
+    api_endpoints: Optional[dict] = {}
+    external_integrations: Optional[dict] = {}
+    configuration_version: Optional[int] = 1
+    commands_used: Optional[int] = 0
+    users_served: Optional[int] = 0
     last_activity_at: Optional[str] = None
     private_channel_id: Optional[str] = None
-    access_control_enabled: bool
-    referral_only_access: bool
-    onboarding_channel_type: str
-    onboarding_completion_requirements: dict
-    private_channel_setup: dict
-    target_role_ids: list
+    access_control_enabled: Optional[bool] = False
+    referral_only_access: Optional[bool] = False
+    onboarding_channel_type: Optional[str] = "public"
+    onboarding_completion_requirements: Optional[dict] = {}
+    private_channel_setup: Optional[dict] = {}
+    target_role_ids: Optional[list] = []
     paused_at: Optional[str] = None
-    is_deleted: bool
-    deleted_at: datetime
+    is_deleted: Optional[bool] = False
+    deleted_at: Optional[datetime] = None
 
 class DiscordGuildCampaignCreate(DiscordGuildCampaignBase):
     pass
@@ -127,5 +127,10 @@ class DiscordGuildCampaign(DiscordGuildCampaignBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_encoders={
+            UUID: str,
+            datetime: lambda dt: dt.isoformat() if dt else None
+        }
+    )

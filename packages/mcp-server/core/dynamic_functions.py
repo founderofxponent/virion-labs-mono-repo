@@ -165,7 +165,7 @@ class DynamicFunctionRegistry:
                 # Filter only the parameters relevant for the body
                 body_params = {k: v for k, v in (parameters or {}).items() if k in DynamicModel.model_fields}
                 model_instance = DynamicModel(**body_params)
-                body_data = model_instance.model_dump()
+                body_data = model_instance.model_dump(mode="json")
             except pydantic.ValidationError as e:
                 logger.error(f"Body parameter validation failed for {function_name}: {e}")
                 raise ValueError(f"Invalid body parameters for {function_name}: {e}")
