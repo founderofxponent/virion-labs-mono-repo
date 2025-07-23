@@ -26,7 +26,12 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=List[DiscordGuildCampaign], operation_id="campaigns.list")
+@router.get(
+    "/", 
+    response_model=List[DiscordGuildCampaign], 
+    operation_id="campaigns.list",
+    summary="[Campaigns] Get a paginated list of campaigns for the authenticated user or service."
+)
 async def get_campaigns(
     request: Request,
     db: Client = Depends(get_db),
@@ -44,7 +49,11 @@ async def get_campaigns(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve campaigns: {e}")
 
-@router.post("/", operation_id="campaigns.create")
+@router.post(
+    "/", 
+    operation_id="campaigns.create",
+    summary="[Campaigns] Create a new Discord bot campaign."
+)
 async def create_campaign(
     campaign_data: CampaignCreate,
     request: Request,
@@ -105,7 +114,12 @@ async def create_campaign(
         logger.error(f"DEBUG: Exception in campaign creation: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create campaign: {e}")
 
-@router.get("/available", response_model=List[DiscordGuildCampaign], operation_id="campaigns.list_available")
+@router.get(
+    "/available", 
+    response_model=List[DiscordGuildCampaign], 
+    operation_id="campaigns.list_available",
+    summary="[Campaigns] Get a paginated list of all campaigns available to the authenticated user."
+)
 async def get_available_campaigns(
     request: Request,
     db: Client = Depends(get_db),
@@ -127,7 +141,12 @@ async def get_available_campaigns(
         print(f"Error in get_available_campaigns: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve campaigns")
 
-@router.get("/{campaign_id}", response_model=DiscordGuildCampaign, operation_id="campaigns.get")
+@router.get(
+    "/{campaign_id}", 
+    response_model=DiscordGuildCampaign, 
+    operation_id="campaigns.get",
+    summary="[Campaigns] Get the details of a specific bot campaign by its ID."
+)
 async def get_campaign(
     campaign_id: UUID,
     request: Request,
@@ -145,7 +164,12 @@ async def get_campaign(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve campaign: {e}")
 
-@router.patch("/{campaign_id}", response_model=DiscordGuildCampaign, operation_id="campaigns.update")
+@router.patch(
+    "/{campaign_id}", 
+    response_model=DiscordGuildCampaign, 
+    operation_id="campaigns.update",
+    summary="[Campaigns] Update the details of an existing bot campaign."
+)
 async def update_campaign(
     campaign_id: UUID,
     campaign_data: CampaignUpdate,
@@ -164,7 +188,11 @@ async def update_campaign(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update campaign: {e}")
 
-@router.delete("/{campaign_id}", operation_id="campaigns.delete")
+@router.delete(
+    "/{campaign_id}", 
+    operation_id="campaigns.delete",
+    summary="[Campaigns] Delete a bot campaign by its ID."
+)
 async def delete_campaign(
     campaign_id: UUID,
     request: Request,
@@ -183,7 +211,12 @@ async def delete_campaign(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete campaign: {e}")
 
-@router.patch("/{campaign_id}/stats", response_model=DiscordGuildCampaign, operation_id="campaigns.update_stats")
+@router.patch(
+    "/{campaign_id}/stats", 
+    response_model=DiscordGuildCampaign, 
+    operation_id="campaigns.update_stats",
+    summary="[Campaigns] Update the interaction and conversion statistics for a campaign."
+)
 async def update_campaign_stats(
     campaign_id: UUID,
     stats: CampaignStats,
@@ -205,7 +238,11 @@ async def update_campaign_stats(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update campaign stats: {e}")
 
-@router.post("/{campaign_id}/request-access", operation_id="campaigns.request_access")
+@router.post(
+    "/{campaign_id}/request-access", 
+    operation_id="campaigns.request_access",
+    summary="[Campaigns] Allow a user to request access to a private campaign."
+)
 async def request_campaign_access(
     campaign_id: UUID,
     request_data: CampaignAccessRequest,
@@ -227,7 +264,12 @@ async def request_campaign_access(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to request access")
 
-@router.post("/{campaign_id}/referral-links", response_model=ReferralLink, operation_id="campaigns.create_referral_link")
+@router.post(
+    "/{campaign_id}/referral-links", 
+    response_model=ReferralLink, 
+    operation_id="campaigns.create_referral_link",
+    summary="[Campaigns] Create a new, unique referral link for a campaign."
+)
 async def create_referral_link(
     campaign_id: UUID,
     link_data: ReferralLinkCreate,
@@ -249,7 +291,12 @@ async def create_referral_link(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to create referral link")
 
-@router.get("/{campaign_id}/referral-links", response_model=List[ReferralLink], operation_id="campaigns.get_referral_links")
+@router.get(
+    "/{campaign_id}/referral-links", 
+    response_model=List[ReferralLink], 
+    operation_id="campaigns.get_referral_links",
+    summary="[Campaigns] Get a list of all referral links created for a specific campaign."
+)
 async def get_campaign_referral_links(
     campaign_id: UUID,
     request: Request,
@@ -270,7 +317,12 @@ async def get_campaign_referral_links(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to retrieve referral links")
 
-@router.post("/export-data", response_model=DataExportResponse, operation_id="campaigns.export_data")
+@router.post(
+    "/export-data", 
+    response_model=DataExportResponse, 
+    operation_id="campaigns.export_data",
+    summary="[Campaigns] Initiate an asynchronous export of campaign data."
+)
 async def initiate_data_export(
     export_request: DataExportRequest,
     request: Request,
@@ -296,7 +348,11 @@ async def initiate_data_export(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to initiate data export: {e}")
 
-@router.get("/export-data/download", operation_id="campaigns.download_export")
+@router.get(
+    "/export-data/download", 
+    operation_id="campaigns.download_export",
+    summary="[Campaigns] Download the data from a completed campaign data export."
+)
 async def download_export_data(
     export_id: UUID = Query(..., description="The export ID to download"),
     request: Request = None,

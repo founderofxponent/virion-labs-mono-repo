@@ -12,7 +12,11 @@ router = APIRouter(
     tags=["Access Requests"],
 )
 
-@router.post("/", operation_id="access.submit_request")
+@router.post(
+    "/", 
+    operation_id="access.submit_request",
+    summary="[Access] Submit a new request for a user to access a campaign."
+)
 async def submit_access_request(
     request_data: AccessRequestCreate,
     request: Request,

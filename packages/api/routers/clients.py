@@ -14,7 +14,12 @@ router = APIRouter(
     tags=["Clients"],
 )
 
-@router.get("/", response_model=List[Client], operation_id="clients.list")
+@router.get(
+    "/",
+    response_model=List[Client],
+    operation_id="clients.list",
+    summary="[Clients] Get a list of all clients in the system."
+)
 async def list_clients(
     request: Request,
     db: Client = Depends(get_db)
@@ -25,7 +30,12 @@ async def list_clients(
     auth_context: AuthContext = request.state.auth
     return client_service.get_all_clients(db)
 
-@router.post("/", response_model=Client, operation_id="clients.create")
+@router.post(
+    "/",
+    response_model=Client,
+    operation_id="clients.create",
+    summary="[Clients] Create a new client in the system."
+)
 async def create_client(
     client_data: ClientCreate,
     request: Request,
@@ -42,7 +52,12 @@ async def create_client(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to create client")
 
-@router.get("/{client_id}", response_model=Client, operation_id="clients.get")
+@router.get(
+    "/{client_id}",
+    response_model=Client,
+    operation_id="clients.get",
+    summary="[Clients] Get the details of a specific client by their ID."
+)
 async def get_client(
     client_id: UUID,
     request: Request,
@@ -59,7 +74,12 @@ async def get_client(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to retrieve client")
 
-@router.patch("/{client_id}", response_model=Client, operation_id="clients.update")
+@router.patch(
+    "/{client_id}",
+    response_model=Client,
+    operation_id="clients.update",
+    summary="[Clients] Update the details of an existing client."
+)
 async def update_client(
     client_id: UUID,
     client_data: ClientUpdate,
@@ -77,7 +97,12 @@ async def update_client(
     except Exception as e:
         raise HTTPException(status_code=500, detail="Failed to update client")
 
-@router.delete("/{client_id}", response_model=MessageResponse, operation_id="clients.delete")
+@router.delete(
+    "/{client_id}",
+    response_model=MessageResponse,
+    operation_id="clients.delete",
+    summary="[Clients] Delete a client from the system by their ID."
+)
 async def delete_client(
     client_id: UUID,
     request: Request,

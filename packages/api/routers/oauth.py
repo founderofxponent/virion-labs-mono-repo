@@ -15,29 +15,34 @@ router = APIRouter(
 )
 
 
-@router.post("/register", tags=["OAuth"], operation_id="oauth.register_client")
+@router.post(
+    "/register",
+    tags=["OAuth"],
+    operation_id="oauth.register_client",
+    summary="[OAuth] Dynamically register a new OAuth client for API access."
+)
 async def dynamic_client_registration(request: Request):
     """
     Dynamic Client Registration endpoint per RFC 7591.
     """
     import uuid
     import secrets
-    
+
     try:
         body = await request.json()
     except:
         body = {}
-    
+
     # Generate client credentials
     client_id = f"mcp_client_{uuid.uuid4().hex[:16]}"
     client_secret = secrets.token_urlsafe(32)
-    
+
     # Extract redirect URIs from request or use default
     redirect_uris = body.get("redirect_uris", ["http://localhost:3000/auth/callback"])
-    
+
     # Store client info (in production, save to database)
     # For now, we'll accept any valid registration request
-    
+
     return {
         "client_id": client_id,
         "client_secret": client_secret,
@@ -50,7 +55,12 @@ async def dynamic_client_registration(request: Request):
         "scope": "mcp"
     }
 
-@router.get("/authorize", tags=["OAuth"], operation_id="oauth.authorize")
+@router.get(
+    "/authorize",
+    tags=["OAuth"],
+    operation_id="oauth.authorize",
+    summary="[OAuth] Start the authorization process by redirecting to the identity provider."
+)
 async def oauth_authorize(
     request: Request,
     client_id: str,
@@ -68,7 +78,7 @@ async def oauth_authorize(
     """
     if response_type != "code":
         raise HTTPException(status_code=400, detail="Unsupported response type")
-    
+
     # Store PKCE parameters and redirect info for the callback
     # Use environment variable if set, otherwise derive from request
     oauth_redirect_uri = os.getenv("OAUTH_REDIRECT_URI")
@@ -83,7 +93,7 @@ async def oauth_authorize(
             base_url = base_url.replace("http://", "https://")
         google_redirect_uri = f"{base_url}/api/oauth/callback"
         print(f"DEBUG: Using derived redirect URI = {google_redirect_uri}")
-    
+
     # Store state and redirect info in JWT for stateless operation
     auth_state = {
         "original_redirect_uri": redirect_uri,
@@ -95,13 +105,13 @@ async def oauth_authorize(
         "resource": resource,  # Store MCP resource
         "exp": datetime.utcnow() + timedelta(minutes=30)
     }
-    
+
     state_token = jwt.encode(auth_state, settings.JWT_SECRET, algorithm="HS256")
-    
+
     # Redirect to Google OAuth with our state token
     full_redirect_uri = f"{google_redirect_uri}?state={state_token}"
     print(f"DEBUG: Testing redirectTo = {full_redirect_uri}")
-    
+
     # Try different method signatures for Supabase OAuth
     try:
         # Method 1: Dictionary format
@@ -127,11 +137,16 @@ async def oauth_authorize(
             # Method 3: Fallback
             data = supabase.auth.sign_in_with_oauth("google")
             print(f"DEBUG: Method 3 fallback result = {data.url}")
-    
+
     print(f"DEBUG: Supabase response URL = {data.url}")
     return RedirectResponse(data.url)
 
-@router.get("/callback", tags=["OAuth"], operation_id="oauth.callback")
+@router.get(
+    "/callback",
+    tags=["OAuth"],
+    operation_id="oauth.callback",
+    summary="[OAuth] Handle the callback from the identity provider and exchange the auth code for a session."
+)
 async def oauth_callback(
     request: Request,
     code: Optional[str] = None,
@@ -143,14 +158,14 @@ async def oauth_callback(
     """
     if not code:
         raise HTTPException(status_code=400, detail="Missing authorization code")
-    
+
     if not state:
         raise HTTPException(status_code=400, detail="Missing state parameter")
-    
+
     try:
         # Decode the state to get original OAuth parameters
         auth_state = jwt.decode(state, settings.JWT_SECRET, algorithms=["HS256"])
-        
+
         # Exchange Google OAuth code for session
         try:
             session_data = supabase.auth.exchange_code_for_session({"auth_code": code})
@@ -163,15 +178,15 @@ async def oauth_callback(
                 print(f"DEBUG: alternative method failed: {e2}")
                 # Try with different parameter name
                 session_data = supabase.auth.exchange_code_for_session({"code": code})
-        
+
         print(f"DEBUG: session_data type: {type(session_data)}")
         print(f"DEBUG: session_data: {session_data}")
-        
+
         # Handle different response formats
         if isinstance(session_data, str):
             # If it's a string, it might be an error message
             raise Exception(f"Supabase returned string: {session_data}")
-        
+
         # Extract tokens based on response structure
         if hasattr(session_data, 'session') and hasattr(session_data, 'user'):
             access_token = session_data.session.access_token
@@ -183,7 +198,7 @@ async def oauth_callback(
             user_id = session_data.get('user', {}).get('id') if session_data.get('user') else None
         else:
             raise Exception(f"Unexpected session_data format: {type(session_data)}")
-        
+
         # Generate authorization code for MCP Inspector
         auth_code = jwt.encode({
             "access_token": access_token,
@@ -193,13 +208,13 @@ async def oauth_callback(
             "scope": auth_state.get("scope", "mcp"),
             "exp": datetime.utcnow() + timedelta(minutes=10)
         }, settings.JWT_SECRET, algorithm="HS256")
-        
+
         # Redirect back to MCP Inspector with authorization code
         redirect_uri = auth_state["original_redirect_uri"]
         original_state = auth_state.get("state", "")
-        
+
         return RedirectResponse(f"{redirect_uri}?code={auth_code}&state={original_state}")
-        
+
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=400, detail="State token expired")
     except jwt.InvalidTokenError:
@@ -207,7 +222,12 @@ async def oauth_callback(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/token", tags=["OAuth"], operation_id="oauth.token")
+@router.post(
+    "/token",
+    tags=["OAuth"],
+    operation_id="oauth.token",
+    summary="[OAuth] Exchange a valid authorization code or refresh token for a new access token."
+)
 async def oauth_token(request: Request, supabase: Client = Depends(get_supabase_client)):
     """
     OAuth 2.0 token endpoint for exchanging authorization code for access token
@@ -282,7 +302,7 @@ async def handle_refresh_token(params: dict, supabase: Client):
     try:
         # Use Supabase to refresh the session
         response = supabase.auth.refresh_session(refresh_token)
-        
+
         # Log the full response for debugging
         print(f"DEBUG: Supabase refresh_session response: {response}")
 
@@ -298,7 +318,7 @@ async def handle_refresh_token(params: dict, supabase: Client):
         # Extract new tokens from the session
         new_access_token = response.session.access_token
         new_refresh_token = response.session.refresh_token
-        
+
         return {
             "access_token": new_access_token,
             "token_type": "Bearer",

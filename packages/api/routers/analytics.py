@@ -19,7 +19,12 @@ router = APIRouter(
     tags=["Analytics"],
 )
 
-@router.post("/track", response_model=AnalyticsTrackResponse, operation_id="analytics.track")
+@router.post(
+    "/track",
+    response_model=AnalyticsTrackResponse,
+    operation_id="analytics.track",
+    summary="[Analytics] Track a custom analytics event, such as a user interaction or system event."
+)
 async def track_analytics(
     event_data: AnalyticsTrackRequest,
     request: Request,
@@ -37,7 +42,12 @@ async def track_analytics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to track analytics event: {e}")
 
-@router.get("/guild/{guild_id}", response_model=GuildAnalyticsResponse, operation_id="analytics.get_guild")
+@router.get(
+    "/guild/{guild_id}",
+    response_model=GuildAnalyticsResponse,
+    operation_id="analytics.get_guild",
+    summary="[Analytics] Get comprehensive analytics data for a specific Discord guild."
+)
 async def get_guild_analytics(
     guild_id: str,
     request: Request,
@@ -55,7 +65,11 @@ async def get_guild_analytics(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve guild analytics: {e}")
 
-@router.get("/campaign-overview", operation_id="analytics.get_campaign_overview")
+@router.get(
+    "/campaign-overview",
+    operation_id="analytics.get_campaign_overview",
+    summary="[Analytics] Get a high-level performance overview across all campaigns."
+)
 async def get_campaign_overview(
     request: Request,
     db: Client = Depends(get_db)
@@ -65,10 +79,10 @@ async def get_campaign_overview(
     """
     try:
         auth_context: AuthContext = request.state.auth
-        
+
         # Get all campaigns
         campaigns_response = db.table("discord_guild_campaigns").select("*").execute()
-        
+
         if not campaigns_response.data:
             return {
                 "total_campaigns": 0,
@@ -79,9 +93,9 @@ async def get_campaign_overview(
                 "overall_conversion_rate": 0.0,
                 "campaigns": []
             }
-        
+
         campaigns = campaigns_response.data
-        
+
         # Calculate overview metrics
         total_campaigns = len(campaigns)
         active_campaigns = len([c for c in campaigns if c.get("is_active", False)])
@@ -89,14 +103,14 @@ async def get_campaign_overview(
         total_onboardings = sum(c.get("successful_onboardings", 0) for c in campaigns)
         total_conversions = sum(c.get("referral_conversions", 0) for c in campaigns)
         overall_conversion_rate = (total_onboardings / total_interactions * 100) if total_interactions > 0 else 0.0
-        
+
         # Build campaign summaries
         campaign_summaries = []
         for campaign in campaigns:
             campaign_interactions = campaign.get("total_interactions", 0)
             campaign_onboardings = campaign.get("successful_onboardings", 0)
             campaign_conversion_rate = (campaign_onboardings / campaign_interactions * 100) if campaign_interactions > 0 else 0.0
-            
+
             campaign_summaries.append({
                 "id": campaign["id"],
                 "name": campaign.get("campaign_name", "Unknown"),
@@ -108,10 +122,10 @@ async def get_campaign_overview(
                 "conversion_rate": campaign_conversion_rate,
                 "last_activity_at": campaign.get("last_activity_at")
             })
-        
+
         # Sort by interactions desc
         campaign_summaries.sort(key=lambda x: x["total_interactions"], reverse=True)
-        
+
         return {
             "total_campaigns": total_campaigns,
             "active_campaigns": active_campaigns,
@@ -121,11 +135,15 @@ async def get_campaign_overview(
             "overall_conversion_rate": overall_conversion_rate,
             "campaigns": campaign_summaries
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get campaign overview: {e}")
 
-@router.get("/real-time", operation_id="analytics.get_real_time")
+@router.get(
+    "/real-time",
+    operation_id="analytics.get_real_time",
+    summary="[Analytics] Get real-time activity data, such as active users and recent events, for the last hour."
+)
 async def get_real_time_analytics(
     request: Request,
     db: Client = Depends(get_db)
@@ -135,15 +153,15 @@ async def get_real_time_analytics(
     """
     try:
         auth_context: AuthContext = request.state.auth
-        
+
         from datetime import datetime, timedelta
-        
+
         # Get recent activity (last hour)
         one_hour_ago = (datetime.utcnow() - timedelta(hours=1)).isoformat()
-        
+
         # Query recent analytics events
         response = db.table("referral_analytics").select("*").gte("created_at", one_hour_ago).execute()
-        
+
         if not response.data:
             return {
                 "active_users": 0,
@@ -151,23 +169,23 @@ async def get_real_time_analytics(
                 "top_guilds": [],
                 "recent_events": []
             }
-        
+
         events = response.data
-        
+
         # Calculate real-time metrics
         active_users = len(set(event.get("metadata", {}).get("user_id") for event in events if event.get("metadata", {}).get("user_id")))
         events_last_hour = len(events)
-        
+
         # Get top guilds by activity
         guild_activity = {}
         for event in events:
             guild_id = event.get("metadata", {}).get("guild_id")
             if guild_id:
                 guild_activity[guild_id] = guild_activity.get(guild_id, 0) + 1
-        
+
         top_guilds = sorted(guild_activity.items(), key=lambda x: x[1], reverse=True)[:10]
         top_guilds_list = [{"guild_id": guild_id, "activity_count": count} for guild_id, count in top_guilds]
-        
+
         # Get recent events (last 10)
         recent_events = sorted(events, key=lambda x: x["created_at"], reverse=True)[:10]
         recent_events_list = [
@@ -180,18 +198,22 @@ async def get_real_time_analytics(
             }
             for event in recent_events
         ]
-        
+
         return {
             "active_users": active_users,
             "events_last_hour": events_last_hour,
             "top_guilds": top_guilds_list,
             "recent_events": recent_events_list
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get real-time analytics: {e}")
 
-@router.get("/user-journey", operation_id="analytics.get_user_journey")
+@router.get(
+    "/user-journey",
+    operation_id="analytics.get_user_journey",
+    summary="[Analytics] Get user journey data, with optional filters for guild or user."
+)
 async def get_user_journey_analytics(
     request: Request,
     db: Client = Depends(get_db),
@@ -203,18 +225,18 @@ async def get_user_journey_analytics(
     """
     try:
         auth_context: AuthContext = request.state.auth
-        
+
         # Build query for user journey data
         query = db.table("discord_referral_interactions").select("*")
-        
+
         if guild_id:
             query = query.eq("guild_id", guild_id)
         if user_id:
             query = query.eq("user_id", user_id)
-        
+
         # Order by timestamp
         response = query.order("created_at", desc=True).limit(100).execute()
-        
+
         if not response.data:
             return {
                 "total_journeys": 0,
@@ -223,43 +245,43 @@ async def get_user_journey_analytics(
                 "common_paths": [],
                 "drop_off_points": []
             }
-        
+
         interactions = response.data
-        
+
         # Group by user to create journeys
         user_journeys = {}
         for interaction in interactions:
             user_id = interaction.get("user_id")
             if not user_id:
                 continue
-                
+
             if user_id not in user_journeys:
                 user_journeys[user_id] = []
-            
+
             user_journeys[user_id].append({
                 "step": interaction.get("onboarding_step", interaction.get("interaction_type", "unknown")),
                 "timestamp": interaction["created_at"],
                 "guild_id": interaction.get("guild_id"),
                 "campaign_id": interaction.get("campaign_id")
             })
-        
+
         # Analyze journeys
         total_journeys = len(user_journeys)
         completed_journeys = sum(1 for journey in user_journeys.values() if any("complete" in step.get("step", "") for step in journey))
-        
+
         # Calculate common paths and drop-off points
         all_steps = []
         for journey in user_journeys.values():
             journey_steps = [step["step"] for step in sorted(journey, key=lambda x: x["timestamp"])]
             all_steps.extend(journey_steps)
-        
+
         # Count step occurrences
         step_counts = {}
         for step in all_steps:
             step_counts[step] = step_counts.get(step, 0) + 1
-        
+
         common_paths = sorted(step_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-        
+
         return {
             "total_journeys": total_journeys,
             "completed_journeys": completed_journeys,
@@ -268,6 +290,6 @@ async def get_user_journey_analytics(
             "common_paths": [{"step": step, "count": count} for step, count in common_paths],
             "drop_off_points": []  # Would need journey analysis
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get user journey analytics: {e}")

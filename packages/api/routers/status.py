@@ -7,7 +7,12 @@ router = APIRouter(
     tags=["Status"],
 )
 
-@router.get("/health", response_model=HealthResponse, operation_id="status.health")
+@router.get(
+    "/health", 
+    response_model=HealthResponse, 
+    operation_id="status.health",
+    summary="[Status] Perform a health check to confirm the API is running."
+)
 async def health_check():
     """
     Health check endpoint to confirm the API is running.

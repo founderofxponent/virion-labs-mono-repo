@@ -30,7 +30,12 @@ router = APIRouter(
     tags=["Templates"],
 )
 
-@router.get("/campaign-templates", response_model=CampaignTemplateListResponse, operation_id="templates.list")
+@router.get(
+    "/campaign-templates", 
+    response_model=CampaignTemplateListResponse, 
+    operation_id="templates.list",
+    summary="[Templates] Get a list of all campaign templates, optionally including their landing page data."
+)
 async def get_campaign_templates(
     request: Request,
     db: Client = Depends(get_db),
@@ -62,7 +67,12 @@ async def get_campaign_templates(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve campaign templates: {e}")
 
-@router.get("/campaign-templates/{template_id}", response_model=CampaignTemplateResponse, operation_id="templates.get")
+@router.get(
+    "/campaign-templates/{template_id}", 
+    response_model=CampaignTemplateResponse, 
+    operation_id="templates.get",
+    summary="[Templates] Get a specific campaign template by its ID, optionally including its landing page data."
+)
 async def get_campaign_template(
     template_id: UUID,
     request: Request,
@@ -96,7 +106,12 @@ async def get_campaign_template(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve campaign template: {e}")
 
-@router.post("/campaign-templates", response_model=CampaignTemplateResponse, operation_id="templates.create")
+@router.post(
+    "/campaign-templates", 
+    response_model=CampaignTemplateResponse, 
+    operation_id="templates.create",
+    summary="[Templates] Create a new campaign template."
+)
 async def create_campaign_template(
     template_data: CampaignTemplateCreate,
     request: Request,
@@ -119,7 +134,12 @@ async def create_campaign_template(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create campaign template: {e}")
 
-@router.patch("/campaign-templates/{template_id}", response_model=CampaignTemplateResponse, operation_id="templates.update")
+@router.patch(
+    "/campaign-templates/{template_id}", 
+    response_model=CampaignTemplateResponse, 
+    operation_id="templates.update",
+    summary="[Templates] Update an existing campaign template."
+)
 async def update_campaign_template(
     template_id: UUID,
     template_data: CampaignTemplateUpdate,
@@ -144,7 +164,12 @@ async def update_campaign_template(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update campaign template: {e}")
 
-@router.delete("/campaign-templates/{template_id}", response_model=MessageResponse, operation_id="templates.delete")
+@router.delete(
+    "/campaign-templates/{template_id}", 
+    response_model=MessageResponse, 
+    operation_id="templates.delete",
+    summary="[Templates] Delete a campaign template by its ID."
+)
 async def delete_campaign_template(
     template_id: UUID,
     request: Request,
@@ -168,7 +193,12 @@ async def delete_campaign_template(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete campaign template: {e}")
 
-@router.get("/landing-page-templates", response_model=LandingPageTemplateListResponse, operation_id="templates.list_landing_pages")
+@router.get(
+    "/landing-page-templates", 
+    response_model=LandingPageTemplateListResponse, 
+    operation_id="templates.list_landing_pages",
+    summary="[Templates] Get a list of all available landing page templates."
+)
 async def get_landing_page_templates(
     request: Request,
     db: Client = Depends(get_db)
@@ -185,7 +215,12 @@ async def get_landing_page_templates(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve landing page templates: {e}")
 
-@router.post("/campaign-onboarding-fields/apply-template", response_model=ApplyTemplateResponse, operation_id="templates.apply_to_campaign")
+@router.post(
+    "/campaign-onboarding-fields/apply-template", 
+    response_model=ApplyTemplateResponse, 
+    operation_id="templates.apply_to_campaign",
+    summary="[Templates] Apply a campaign template's fields to a specific campaign."
+)
 async def apply_template_to_campaign(
     request_data: ApplyTemplateRequest,
     request: Request,
@@ -211,7 +246,12 @@ async def apply_template_to_campaign(
         raise HTTPException(status_code=500, detail=f"Failed to apply template to campaign: {e}")
 
 # Additional utility endpoints
-@router.get("/campaign-templates/by-category/{category}", response_model=CampaignTemplateListResponse, operation_id="templates.get_by_category")
+@router.get(
+    "/campaign-templates/by-category/{category}", 
+    response_model=CampaignTemplateListResponse, 
+    operation_id="templates.get_by_category",
+    summary="[Templates] Get a list of campaign templates filtered by a specific category."
+)
 async def get_campaign_templates_by_category(
     category: str,
     request: Request,
@@ -245,7 +285,12 @@ async def get_campaign_templates_by_category(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve templates by category: {e}")
 
-@router.get("/campaign-templates/by-type/{campaign_type}", response_model=CampaignTemplateResponse, operation_id="templates.get_by_type")
+@router.get(
+    "/campaign-templates/by-type/{campaign_type}", 
+    response_model=CampaignTemplateResponse, 
+    operation_id="templates.get_by_type",
+    summary="[Templates] Get a specific campaign template by its campaign type identifier."
+)
 async def get_campaign_template_by_type(
     campaign_type: str,
     request: Request,
@@ -274,7 +319,12 @@ async def get_campaign_template_by_type(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve template by type: {e}")
 
-@router.get("/templates/default", response_model=DefaultTemplatesResponse, operation_id="templates.get_defaults")
+@router.get(
+    "/templates/default", 
+    response_model=DefaultTemplatesResponse, 
+    operation_id="templates.get_defaults",
+    summary="[Templates] Get a list of all default campaign and landing page templates."
+)
 async def get_default_templates(
     request: Request,
     db: Client = Depends(get_db)
