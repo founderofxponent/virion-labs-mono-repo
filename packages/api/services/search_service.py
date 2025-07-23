@@ -13,6 +13,7 @@ SEARCHABLE_RESOURCES = {
     },
     "campaigns": {
         "model": DiscordGuildCampaign,
+        "table_name": "discord_guild_campaigns",
         "searchable_fields": ["campaign_name", "campaign_type", "description"],
     },
 }
@@ -25,6 +26,7 @@ def search_resource(db: Client, resource: str, query: str) -> List[Dict[str, Any
         raise ValueError(f"Resource '{resource}' is not configured for searching.")
 
     config = SEARCHABLE_RESOURCES[resource]
+    table_name = config.get("table_name", resource)
     searchable_fields = config["searchable_fields"]
 
     try:
@@ -33,7 +35,7 @@ def search_resource(db: Client, resource: str, query: str) -> List[Dict[str, Any
         or_filter = ",".join([f"{field}.ilike.%{query}%" for field in searchable_fields])
 
         # The `or` filter needs to be applied to the query builder
-        query_builder = db.from_(resource).select("*").or_(or_filter)
+        query_builder = db.from_(table_name).select("*").or_(or_filter)
         result = query_builder.execute()
 
         if result.data:
