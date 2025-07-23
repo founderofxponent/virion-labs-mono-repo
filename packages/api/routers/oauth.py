@@ -43,7 +43,7 @@ async def dynamic_client_registration(request: Request):
         "client_secret": client_secret,
         "client_id_issued_at": int(datetime.utcnow().timestamp()),
         "client_secret_expires_at": 0,  # Never expires
-        "grant_types": ["authorization_code"],
+        "grant_types": ["authorization_code", "refresh_token"],
         "response_types": ["code"],
         "redirect_uris": redirect_uris,
         "token_endpoint_auth_method": "client_secret_basic",
@@ -208,88 +208,108 @@ async def oauth_callback(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/token", tags=["OAuth"], operation_id="oauth.token")
-async def oauth_token(request: Request):
+async def oauth_token(request: Request, supabase: Client = Depends(get_supabase_client)):
     """
-    OAuth 2.0 token endpoint for exchanging authorization code for access token.
+    OAuth 2.0 token endpoint for exchanging authorization code for access token
+    or refreshing an access token.
     """
     try:
-        # Debug incoming request
-        print(f"DEBUG: Token request headers: {dict(request.headers)}")
-        
         # Handle both form data and JSON
         content_type = request.headers.get("content-type", "")
-        print(f"DEBUG: Content-Type: {content_type}")
-        
         if "application/x-www-form-urlencoded" in content_type:
             form = await request.form()
-            print(f"DEBUG: Form data: {dict(form)}")
-            grant_type = form.get("grant_type")
-            code = form.get("code")
-            redirect_uri = form.get("redirect_uri")
-            client_id = form.get("client_id")
-            code_verifier = form.get("code_verifier")
-            resource = form.get("resource")
+            params = dict(form)
         else:
-            # Try JSON
             try:
-                body = await request.json()
-                print(f"DEBUG: JSON body: {body}")
-                grant_type = body.get("grant_type")
-                code = body.get("code")
-                redirect_uri = body.get("redirect_uri")
-                client_id = body.get("client_id")
-                code_verifier = body.get("code_verifier")
-                resource = body.get("resource")
-            except Exception as e:
-                print(f"DEBUG: Failed to parse JSON: {e}")
+                params = await request.json()
+            except Exception:
                 raise HTTPException(status_code=400, detail="Invalid request format")
-        
-        print(f"DEBUG: Parsed values - grant_type: {grant_type}, code: {code}, client_id: {client_id}")
-        print(f"DEBUG: resource parameter: {resource}")
-        
-        if grant_type != "authorization_code":
-            print(f"DEBUG: Invalid grant type: {grant_type}")
+
+        grant_type = params.get("grant_type")
+
+        if grant_type == "authorization_code":
+            return await handle_authorization_code(params)
+        elif grant_type == "refresh_token":
+            return await handle_refresh_token(params, supabase)
+        else:
             raise HTTPException(status_code=400, detail="Unsupported grant type")
-        
-        if not code:
-            print(f"DEBUG: Missing authorization code")
-            raise HTTPException(status_code=400, detail="Missing authorization code")
-        
-        # Decode the authorization code to get the actual tokens
-        try:
-            payload = jwt.decode(code, settings.JWT_SECRET, algorithms=["HS256"])
-            print(f"DEBUG: Decoded JWT payload: {payload}")
-        except jwt.ExpiredSignatureError as e:
-            print(f"DEBUG: JWT expired: {e}")
-            raise HTTPException(status_code=400, detail="Authorization code expired")
-        except jwt.InvalidTokenError as e:
-            print(f"DEBUG: Invalid JWT: {e}")
-            raise HTTPException(status_code=400, detail="Invalid authorization code")
-        except Exception as e:
-            print(f"DEBUG: JWT decode error: {e}")
-            raise HTTPException(status_code=400, detail=f"JWT decode error: {str(e)}")
-        
-        # Validate resource if provided - ignore "undefined" string
-        token_resource = payload.get("resource")
-        print(f"DEBUG: token_resource: {token_resource}, request_resource: {resource}")
-        if resource and resource != "undefined" and token_resource and resource != token_resource:
-            print(f"DEBUG: Resource mismatch - expected: {token_resource}, got: {resource}")
-            raise HTTPException(status_code=400, detail="Resource mismatch")
-        
-        return {
-            "access_token": payload["access_token"],
-            "token_type": "Bearer",
-            "expires_in": 3600,
-            "refresh_token": payload.get("refresh_token"),
-            "scope": payload.get("scope", "mcp"),
-            "resource": token_resource
-        }
-        
+
+    except HTTPException as e:
+        # Re-raise HTTPException to ensure FastAPI handles it
+        raise e
+    except Exception as e:
+        # Catch any other unexpected errors
+        print(f"DEBUG: Unexpected error in /token endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+
+async def handle_authorization_code(params: dict):
+    """Handles the authorization_code grant type."""
+    code = params.get("code")
+    resource = params.get("resource")
+
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+
+    try:
+        payload = jwt.decode(code, settings.JWT_SECRET, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=400, detail="Authorization code expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=400, detail="Invalid authorization code")
-    except HTTPException:
-        raise
+
+    # Validate resource if provided
+    token_resource = payload.get("resource")
+    if resource and resource != "undefined" and token_resource and resource != token_resource:
+        raise HTTPException(status_code=400, detail="Resource mismatch")
+
+    return {
+        "access_token": payload["access_token"],
+        "token_type": "Bearer",
+        "expires_in": 3600,
+        "refresh_token": payload.get("refresh_token"),
+        "scope": payload.get("scope", "mcp"),
+        "resource": token_resource,
+    }
+
+
+async def handle_refresh_token(params: dict, supabase: Client):
+    """Handles the refresh_token grant type."""
+    refresh_token = params.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(status_code=400, detail="Missing refresh token")
+
+    try:
+        # Use Supabase to refresh the session
+        response = supabase.auth.refresh_session(refresh_token)
+        
+        # Log the full response for debugging
+        print(f"DEBUG: Supabase refresh_session response: {response}")
+
+        # Check for errors in the response
+        if not response.session:
+            error_detail = "Invalid refresh token"
+            if hasattr(response, 'message'):
+                error_detail = response.message
+            elif hasattr(response, 'error'):
+                error_detail = response.error.message
+            raise HTTPException(status_code=400, detail=error_detail)
+
+        # Extract new tokens from the session
+        new_access_token = response.session.access_token
+        new_refresh_token = response.session.refresh_token
+        
+        return {
+            "access_token": new_access_token,
+            "token_type": "Bearer",
+            "expires_in": 3600,  # Typically, the new token has the same expiry
+            "refresh_token": new_refresh_token,
+            "scope": params.get("scope", "mcp"), # Preserve original scope
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the exception for debugging
+        print(f"DEBUG: Error during token refresh: {e}")
+        # Check if the error message is about an invalid refresh token
+        if "invalid refresh token" in str(e).lower():
+            raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+        raise HTTPException(status_code=500, detail=f"Failed to refresh token: {str(e)}")
