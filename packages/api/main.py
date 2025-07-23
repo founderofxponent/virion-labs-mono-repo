@@ -2,18 +2,8 @@ from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from middleware.auth_middleware import AuthMiddleware
 from routers import (
-    admin,
-    clients,
-    status,
-    referral,
-    campaigns,
-    health,
-    auth,
-    discord_bot,
-    access_requests,
-    analytics,
-    templates,
-    oauth
+    access_requests, admin, analytics, auth, campaigns, clients,
+    discord_bot, health, referral, search, status, templates, oauth
 )
 import logging
 import os
@@ -47,16 +37,17 @@ app.add_middleware(
 
 
 # Include routers
-app.include_router(admin.router)
-app.include_router(clients.router)
-app.include_router(status.router)
-app.include_router(referral.router)
-app.include_router(campaigns.router)
 app.include_router(health.router)
 app.include_router(auth.router)
-app.include_router(discord_bot.router)
-app.include_router(access_requests.router)
+app.include_router(admin.router)
+app.include_router(clients.router)
+app.include_router(campaigns.router)
+app.include_router(referral.router)
 app.include_router(analytics.router)
+app.include_router(access_requests.router)
+app.include_router(discord_bot.router)
+app.include_router(search.router, prefix="/search")
+app.include_router(status.router)
 app.include_router(templates.router)
 app.include_router(oauth.router)
 
@@ -90,3 +81,7 @@ async def oauth_authorization_server_metadata(request: Request):
         "code_challenge_methods_supported": ["S256"],
         "scopes_supported": ["mcp", "read", "write"]
     }
+
+@app.on_event("startup")
+async def startup_event():
+    pass

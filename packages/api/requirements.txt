@@ -4,3 +4,5 @@ python-dotenv
 supabase
 bcrypt
 pyjwt
+sqlalchemy
+psycopg2-binary
