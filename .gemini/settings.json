@@ -1,12 +1,20 @@
 {
-"mcpServers":{
-    "virion-labs-mcp-server-local":{
-        "httpUrl":"http://localhost:8080/mcp/",
-        "headers":{
-            "X-API-Key":"bde013fbfaa066f205f4a37122b0a2b5d276b3a91b60234226d008889bd56b03",
-            "Content-Type":"application/json",
-            "Authorization":"Bearer eyJhbGciOiJIUzI1NiIsImtpZCI6ImpWT0dqd3N4aEVTRjZxM0IiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3hoZnJ4d3lnZ3BsaHl0bG9waXhiLnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJiNGU4YWRiNi03ODAwLTQ5NGQtYWZlYy1hYmU1OWIxMWJhNmEiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzUzMzM1MjUwLCJpYXQiOjE3NTMzMzE2NTAsImVtYWlsIjoidmVyY2lsbGl1c2pybWlsYUBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6Imdvb2dsZSIsInByb3ZpZGVycyI6WyJnb29nbGUiXX0sInVzZXJfbWV0YWRhdGEiOnsiYXZhdGFyX3VybCI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FDZzhvY0pZS3dBQjJMYVFSLVNCR09SbGNwUWNzMmlzby04VUdYalRZSTFFWWg0UUZtT0cyMVk9czk2LWMiLCJlbWFpbCI6InZlcmNpbGxpdXNqcm1pbGFAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImZ1bGxfbmFtZSI6IlZlcmNpbGxpdXMgSnIuIE1pbGEiLCJpc3MiOiJodHRwczovL2FjY291bnRzLmdvb2dsZS5jb20iLCJuYW1lIjoiVmVyY2lsbGl1cyBKci4gTWlsYSIsInBob25lX3ZlcmlmaWVkIjpmYWxzZSwicGljdHVyZSI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FDZzhvY0pZS3dBQjJMYVFSLVNCR09SbGNwUWNzMmlzby04VUdYalRZSTFFWWg0UUZtT0cyMVk9czk2LWMiLCJwcm92aWRlcl9pZCI6IjEwODg2MjcwNzYwMTk3NTg3NjgyOSIsInN1YiI6IjEwODg2MjcwNzYwMTk3NTg3NjgyOSJ9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6Im9hdXRoIiwidGltZXN0YW1wIjoxNzUzMzMxNjUwfV0sInNlc3Npb25faWQiOiIxY2EzYjIzNS1kZDY0LTQ2NDktOWRhZS0xNGY1OWE3MGE4YWQiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.iRuEjN3-Zwxdg9e1GAPoV8B89k35r1_ZxtBg3XQbQ94"
-        }
+  "mcpServers": {
+    "supabase-virion-labs": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest"],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_49e5be8a2a6e58277baa0b89ec1dafa6f9410751"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--config",
+        "/Users/cruzr/projects/crypto/playwright-mcp-config.json"
+      ],
+      "env": {}
     }
-}
+  }
 }

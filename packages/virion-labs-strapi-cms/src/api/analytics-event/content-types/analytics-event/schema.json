@@ -1,0 +1,56 @@
+{
+  "kind": "collectionType",
+  "collectionName": "analytics_events",
+  "info": {
+    "singularName": "analytics-event",
+    "pluralName": "analytics-events",
+    "displayName": "Analytics Event",
+    "description": "Stores analytics events for tracking user interactions."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "eventType": {
+      "type": "enumeration",
+      "enum": [
+        "click",
+        "conversion"
+      ],
+      "required": true
+    },
+    "userAgent": {
+      "type": "text"
+    },
+    "ipAddress": {
+      "type": "string"
+    },
+    "referrer": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "deviceType": {
+      "type": "string"
+    },
+    "browser": {
+      "type": "string"
+    },
+    "conversionValue": {
+      "type": "decimal",
+      "default": 0
+    },
+    "metadata": {
+      "type": "json"
+    },
+    "referral_link": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::referral-link.referral-link"
+    }
+  }
+}
