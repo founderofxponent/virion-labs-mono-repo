@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from middleware.auth_middleware import AuthMiddleware
 from routers import (
     access_requests, admin, analytics, auth, campaigns, clients,
-    discord_bot, health, referral, search, status, templates, oauth
+    discord_bot, health, referral, search, status, templates, oauth,
+    conversations
 )
 import logging
 import os
@@ -50,6 +51,7 @@ app.include_router(search.router, prefix="/search")
 app.include_router(status.router)
 app.include_router(templates.router)
 app.include_router(oauth.router)
+app.include_router(conversations.router)
 
 
 @app.get("/")
