@@ -30,5 +30,8 @@
     "campaign-management"
   ],
   "author": "Virion Labs",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@strapi/strapi": "^5.19.0"
+  }
 }
