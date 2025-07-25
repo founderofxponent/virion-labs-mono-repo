@@ -17,15 +17,20 @@ This document provides a comprehensive overview of the distinct user roles withi
 *   **As a Discord Member, I want to fill out a simple form inside Discord to provide my information and get access to special roles or channels.**
 *   **As a Discord Member, I want to receive a specific role automatically after completing a task, so I can unlock new permissions and content.**
 
-### Supporting API Endpoints:
+### Supporting Business Logic API Endpoints:
 
-*   `[ ]` **GET /api/campaigns/available**
-    *   **Description:** Fetches a list of campaigns available to a specific user based on their current roles within the Discord server.
+*   `[ ]` **GET /api/v1/workflows/onboarding/start**
+    *   **Description:** Initiates onboarding flow and fetches available campaigns for a Discord user.
     *   **Auth:** Bot-level authentication (API Key).
     *   **Query Params:** `guild_id`, `channel_id`, `user_id`, `user_roles[]`.
-*   `[ ]` **GET /api/me/profile**
-    *   **Description:** Allows a user to view their own profile, including which campaigns they've joined and the information they have submitted.
-    *   **Auth:** Requires authentication via Discord user ID.
+*   `[ ]` **POST /api/v1/workflows/onboarding/complete**
+    *   **Description:** Completes user onboarding, assigns Discord roles, and tracks campaign participation.
+    *   **Auth:** Bot-level authentication (API Key).
+    *   **Request Body:** `user_id`, `campaign_id`, `onboarding_responses`, `guild_id`.
+*   `[ ]` **POST /api/v1/integrations/discord/server-join**
+    *   **Description:** Handles Discord server join events and triggers appropriate onboarding workflows.
+    *   **Auth:** Bot-level authentication (API Key).
+    *   **Request Body:** `user_id`, `guild_id`, `invite_source`.
 
 ---
 
@@ -43,28 +48,32 @@ This document provides a comprehensive overview of the distinct user roles withi
 *   **As an Influencer, I want to discover and request access to new marketing campaigns.**
 *   **As an Influencer, I want to generate QR codes for my links.**
 
-### Supporting API Endpoints:
+### Supporting Business Logic API Endpoints:
 
-*   `[ ]` **GET /api/influencer/dashboard**
-    *   **Description:** Retrieves all summary data required for the influencer's main dashboard view.
+*   `[ ]` **GET /api/v1/operations/analytics/generate-dashboard**
+    *   **Description:** Aggregates and generates influencer dashboard data including performance metrics and earnings.
     *   **Auth:** Influencer user account.
-*   `[ ]` **GET /api/referral-links**
-    *   **Description:** Lists all referral links created by the authenticated influencer, along with their performance.
+    *   **Query Params:** `time_range`, `campaign_filter`.
+*   `[ ]` **POST /api/v1/workflows/referral-tracking/generate-link**
+    *   **Description:** Creates a new trackable referral link with analytics setup and campaign validation.
     *   **Auth:** Influencer user account.
-*   `[ ]` **POST /api/referral-links**
-    *   **Description:** Creates a new, unique, and trackable referral link for a specific campaign.
+    *   **Request Body:** `campaign_id`, `link_name`, `utm_parameters`.
+*   `[ ]` **POST /api/v1/workflows/referral-tracking/click**
+    *   **Description:** Tracks referral link clicks and handles attribution logic.
+    *   **Auth:** Public endpoint with validation.
+    *   **Request Body:** `link_id`, `user_agent`, `ip_address`, `referrer`.
+*   `[ ]` **POST /api/v1/workflows/referral-tracking/convert**
+    *   **Description:** Tracks successful conversions and calculates commissions.
+    *   **Auth:** Internal/Bot authentication.
+    *   **Request Body:** `link_id`, `user_id`, `conversion_type`, `value`.
+*   `[ ]` **GET /api/v1/operations/analytics/influencer-metrics**
+    *   **Description:** Calculates comprehensive influencer performance metrics and conversion rates.
     *   **Auth:** Influencer user account.
-    *   **Request Body:** `campaign_id`, `link_name`.
-*   `[ ]` **PUT /api/referral-links/{link_id}**
-    *   **Description:** Updates a referral link's properties, primarily its status.
+    *   **Query Params:** `campaign_id`, `date_range`.
+*   `[ ]` **POST /api/v1/workflows/campaign-access/request**
+    *   **Description:** Submits campaign access request with validation and notification workflows.
     *   **Auth:** Influencer user account.
-    *   **Request Body:** `status`.
-*   `[ ]` **GET /api/campaigns/discoverable**
-    *   **Description:** Allows influencers to find new marketing campaigns that are open for applications.
-    *   **Auth:** Influencer user account.
-*   `[ ]` **POST /api/campaigns/{campaign_id}/request-access**
-    *   **Description:** Submits an application for an influencer to join a restricted campaign.
-    *   **Auth:** Influencer user account.
+    *   **Request Body:** `campaign_id`, `application_message`, `portfolio_links`.
 
 ---
 
@@ -82,35 +91,48 @@ This document provides a comprehensive overview of the distinct user roles withi
 *   **As a Client, I want to pause, resume, or archive campaigns.**
 *   **As a Client, I want to view detailed analytics to understand the ROI of my marketing spend.**
 
-### Supporting API Endpoints:
+### Supporting Business Logic API Endpoints:
 
-*   `[ ]` **GET /api/client/dashboard**
-    *   **Description:** Retrieves a high-level overview of all campaign performance for the client.
+*   `[ ]` **GET /api/v1/operations/analytics/generate-dashboard**
+    *   **Description:** Aggregates campaign performance data, ROI calculations, and client metrics overview.
     *   **Auth:** Client user account.
-*   `[ ]` **GET /api/campaigns**
-    *   **Description:** Lists all marketing campaigns owned by the authenticated client.
+    *   **Query Params:** `time_range`, `campaign_filter`, `metric_type`.
+*   `[ ]` **POST /api/v1/workflows/client-onboarding/start-wizard**
+    *   **Description:** Initiates client onboarding process with guided campaign setup.
     *   **Auth:** Client user account.
-*   `[ ]` **POST /api/campaigns**
-    *   **Description:** Creates a new marketing campaign.
+    *   **Request Body:** `business_type`, `target_audience`, `goals`.
+*   `[ ]` **POST /api/v1/workflows/client-onboarding/create-first-campaign**
+    *   **Description:** Completes onboarding by creating first campaign with bot deployment.
     *   **Auth:** Client user account.
-    *   **Request Body:** Comprehensive campaign details object.
-*   `[ ]` **GET /api/campaigns/{campaign_id}**
-    *   **Description:** Gets the detailed configuration and full analytics for a specific campaign.
+    *   **Request Body:** `campaign_config`, `bot_branding`, `discord_server_id`.
+*   `[ ]` **POST /api/v1/operations/campaign/deploy**
+    *   **Description:** Deploys campaign with Discord bot setup, webhook configuration, and activation.
     *   **Auth:** Client user account.
-*   `[ ]` **PUT /api/campaigns/{campaign_id}**
-    *   **Description:** Updates a campaign's configuration or status.
+    *   **Request Body:** `campaign_id`, `discord_config`, `deployment_settings`.
+*   `[ ]` **POST /api/v1/operations/campaign/pause**
+    *   **Description:** Pauses campaign operations, disables bot interactions, and updates referral links.
     *   **Auth:** Client user account.
-    *   **Request Body:** Specific fields to update.
-*   `[ ]` **DELETE /api/campaigns/{campaign_id}**
-    *   **Description:** Archives a campaign.
+    *   **Request Body:** `campaign_id`, `pause_reason`.
+*   `[ ]` **POST /api/v1/operations/campaign/resume**
+    *   **Description:** Resumes paused campaign with validation and re-activation workflows.
     *   **Auth:** Client user account.
-*   `[ ]` **PUT /api/bot/branding**
-    *   **Description:** Allows a client to customize their Discord bot's appearance and personality.
+    *   **Request Body:** `campaign_id`.
+*   `[ ]` **POST /api/v1/operations/campaign/archive**
+    *   **Description:** Archives campaign with data cleanup and final analytics generation.
     *   **Auth:** Client user account.
-    *   **Request Body:** `bot_name`, `logo_url`, `theme_color`, `welcome_message`.
-*   `[ ]` **GET /api/client/influencers**
-    *   **Description:** Lists all influencers participating in the client's campaigns.
+    *   **Request Body:** `campaign_id`, `archive_settings`.
+*   `[ ]` **PUT /api/v1/operations/campaign/configure-branding**
+    *   **Description:** Updates Discord bot branding with validation and deployment to active servers.
     *   **Auth:** Client user account.
+    *   **Request Body:** `campaign_id`, `bot_name`, `logo_url`, `theme_color`, `welcome_message`.
+*   `[ ]` **GET /api/v1/operations/analytics/calculate-roi**
+    *   **Description:** Calculates comprehensive ROI metrics across campaigns with attribution analysis.
+    *   **Auth:** Client user account.
+    *   **Query Params:** `campaign_ids[]`, `time_range`, `cost_basis`.
+*   `[ ]` **GET /api/v1/operations/analytics/performance-report**
+    *   **Description:** Generates detailed performance reports with influencer breakdowns and trends.
+    *   **Auth:** Client user account.
+    *   **Query Params:** `report_type`, `date_range`, `export_format`.
 
 ---
 
@@ -128,27 +150,33 @@ This document provides a comprehensive overview of the distinct user roles withi
 *   **As an Administrator, I want to ensure that key data points are automatically and accurately updated.**
 *   **As an Administrator, I want to securely add other admin users via a command-line script.**
 
-### Supporting API Endpoints:
+### Supporting Business Logic API Endpoints:
 
-*   `[ ]` **GET /api/admin/clients**
-    *   **Description:** Lists all client accounts on the platform.
+*   `[ ]` **GET /api/v1/operations/admin/platform-overview**
+    *   **Description:** Generates comprehensive platform analytics with client, campaign, and revenue metrics.
     *   **Auth:** Admin user account.
-*   `[ ]` **POST /api/admin/clients**
-    *   **Description:** Creates a new client account.
+    *   **Query Params:** `time_range`, `metric_breakdown`, `include_forecasts`.
+*   `[ ]` **POST /api/v1/operations/admin/provision-client**
+    *   **Description:** Creates new client account with infrastructure setup, bot provisioning, and initial configuration.
     *   **Auth:** Admin user account.
-    *   **Request Body:** `client_name`, `contact_email`, `plan_level`.
-*   `[ ]` **GET /api/admin/clients/{client_id}**
-    *   **Description:** Views the detailed information for a specific client.
+    *   **Request Body:** `client_name`, `contact_email`, `plan_level`, `initial_config`.
+*   `[ ]` **POST /api/v1/operations/admin/deploy-bot**
+    *   **Description:** Deploys new Discord bot instance for client with server setup and webhook configuration.
     *   **Auth:** Admin user account.
-*   `[ ]` **GET /api/admin/campaigns**
-    *   **Description:** Provides a global view of all campaigns across all clients.
+    *   **Request Body:** `client_id`, `bot_config`, `discord_permissions`, `server_id`.
+*   `[ ]` **POST /api/v1/workflows/campaign-access/approve**
+    *   **Description:** Approves influencer campaign access with notification workflows and access provisioning.
     *   **Auth:** Admin user account.
-*   `[ ]` **GET /api/admin/influencer-requests**
-    *   **Description:** Lists all pending requests from influencers to join restricted campaigns.
+    *   **Request Body:** `request_id`, `approval_notes`, `access_level`.
+*   `[ ]` **POST /api/v1/workflows/campaign-access/deny**
+    *   **Description:** Denies influencer campaign access with automated notification and feedback collection.
     *   **Auth:** Admin user account.
-*   `[ ]` **POST /api/admin/influencer-requests/{request_id}/approve**
-    *   **Description:** Approves an influencer's request to join a campaign.
+    *   **Request Body:** `request_id`, `denial_reason`, `feedback_message`.
+*   `[ ]` **GET /api/v1/operations/admin/platform-health**
+    *   **Description:** Monitors platform health with system metrics, error rates, and performance indicators.
     *   **Auth:** Admin user account.
-*   `[ ]` **POST /api/admin/influencer-requests/{request_id}/deny**
-    *   **Description:** Denies an influencer's request to join a campaign.
+    *   **Query Params:** `include_alerts`, `metric_depth`.
+*   `[ ]` **POST /api/v1/operations/admin/maintenance-mode**
+    *   **Description:** Manages platform maintenance mode with graceful service degradation and user notifications.
     *   **Auth:** Admin user account.
+    *   **Request Body:** `action`, `services[]`, `duration`, `notification_message`.

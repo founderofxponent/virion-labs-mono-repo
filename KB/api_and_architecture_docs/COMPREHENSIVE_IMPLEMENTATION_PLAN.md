@@ -89,38 +89,94 @@ This migration will be conducted in five distinct phases to minimize risk and en
 *   `[ ]` **2.3. Data Migration (Optional but Recommended):**
     *   If you have existing data, write a one-time script to pull data from the old tables and push it into the new Strapi-managed tables via its API.
 
-### **Phase 3: Building the Unified API**
+### **Phase 3: Building the Unified Business Logic API**
 
-*Objective: Implement the core business logic that orchestrates calls to the Strapi API.*
+*Objective: Implement business workflows and operations that orchestrate calls to the Strapi API.*
 
-*   `[ ]` **3.1. Reference the Checklist:**
-    *   Use the `USER_BASED_API_ENDPOINT_CHECKLIST.md` as your guide for which endpoints to build.
+*   `[ ]` **3.1. Implement Core API Structure:**
+    *   Set up the following endpoint categories in your business logic API:
+        *   `/api/v1/workflows/` - Multi-step business processes
+        *   `/api/v1/operations/` - Complex operations and calculations  
+        *   `/api/v1/integrations/` - External service integrations
 
-*   `[ ]` **3.2. Implement Endpoints:**
-    *   For each endpoint, write the business logic. This logic will make authenticated calls to the Strapi API.
-    *   **Example Workflow (`/api/onboarding/complete`):**
-        1.  Receive the request from the Discord Bot.
-        2.  Call Strapi to save the onboarding answers: `POST /api/onboarding-responses`.
-        3.  Call Strapi to fetch the user's data: `GET /api/users/{id}`.
-        4.  Call Strapi to update the user with their new role: `PUT /api/users/{id}`.
-        5.  Return a success message to the bot.
+*   `[ ]` **3.2. Implement Workflow Endpoints:**
+    *   **Onboarding Workflows:**
+        *   `GET /api/v1/workflows/onboarding/start` - Initiate user onboarding
+        *   `POST /api/v1/workflows/onboarding/complete` - Complete onboarding with role assignment
+    *   **Campaign Access Workflows:**
+        *   `POST /api/v1/workflows/campaign-access/request` - Request campaign access
+        *   `POST /api/v1/workflows/campaign-access/approve` - Approve access requests
+        *   `POST /api/v1/workflows/campaign-access/deny` - Deny access requests
+    *   **Referral Tracking Workflows:**
+        *   `POST /api/v1/workflows/referral-tracking/generate-link` - Create trackable links
+        *   `POST /api/v1/workflows/referral-tracking/click` - Track link clicks
+        *   `POST /api/v1/workflows/referral-tracking/convert` - Track conversions
+    *   **Client Onboarding Workflows:**
+        *   `POST /api/v1/workflows/client-onboarding/start-wizard` - Start client setup
+        *   `POST /api/v1/workflows/client-onboarding/create-first-campaign` - Complete setup
 
-*   `[ ]` **3.3. Implement Authentication:**
-    *   The Unified API itself needs to be secure. Implement a token-based authentication system (e.g., JWT) for clients like the dashboard and the bot.
+*   `[ ]` **3.3. Implement Operation Endpoints:**
+    *   **Campaign Operations:**
+        *   `POST /api/v1/operations/campaign/deploy` - Deploy campaign with bot setup
+        *   `POST /api/v1/operations/campaign/pause` - Pause campaign operations
+        *   `POST /api/v1/operations/campaign/resume` - Resume campaign
+        *   `POST /api/v1/operations/campaign/archive` - Archive with cleanup
+        *   `PUT /api/v1/operations/campaign/configure-branding` - Update bot branding
+    *   **Analytics Operations:**
+        *   `GET /api/v1/operations/analytics/generate-dashboard` - Generate dashboard data
+        *   `GET /api/v1/operations/analytics/calculate-roi` - Calculate ROI metrics
+        *   `GET /api/v1/operations/analytics/performance-report` - Generate reports
+        *   `GET /api/v1/operations/analytics/influencer-metrics` - Influencer analytics
+    *   **Admin Operations:**
+        *   `POST /api/v1/operations/admin/provision-client` - Setup new client
+        *   `POST /api/v1/operations/admin/deploy-bot` - Deploy Discord bot
+        *   `GET /api/v1/operations/admin/platform-overview` - Platform analytics
+
+*   `[ ]` **3.4. Implement Integration Endpoints:**
+    *   **Discord Integrations:**
+        *   `POST /api/v1/integrations/discord/server-join` - Handle server joins
+        *   `POST /api/v1/integrations/discord/role-assignment` - Assign roles
+        *   `POST /api/v1/integrations/discord/slash-commands` - Handle bot commands
+    *   **External Integrations:**
+        *   `POST /api/v1/integrations/external/webhook-handler` - Process webhooks
+        *   `POST /api/v1/integrations/external/payment-processor` - Handle payments
+
+*   `[ ]` **3.5. Example Implementation Pattern:**
+    *   **Business Logic Workflow (`POST /api/v1/workflows/onboarding/complete`):**
+        1.  Validate request data and user permissions
+        2.  Call Strapi: `POST /api/onboarding-responses` - Save answers
+        3.  Call Strapi: `GET /api/users/{id}` - Fetch user data
+        4.  Call Strapi: `PUT /api/users/{id}` - Update user role
+        5.  Call Discord API: Assign server role
+        6.  Call Strapi: `POST /api/analytics-events` - Track completion
+        7.  Return structured response with next steps
+
+*   `[ ]` **3.6. Implement Authentication & Authorization:**
+    *   JWT-based authentication for dashboard and bot clients
+    *   Role-based access control (Admin, Client, Influencer)
+    *   API key authentication for bot operations
+    *   Rate limiting and request validation
 
 ### **Phase 4: Client Refactoring & Integration**
 
 *Objective: Incrementally update the Dashboard and Discord Bot to use the new Unified API instead of directly accessing Supabase.*
 
 *   `[ ]` **4.1. Refactor the Dashboard:**
-    *   Create a new API service/client within the dashboard project to handle all communication with the Unified API.
-    *   Go through the dashboard feature by feature. Replace every direct Supabase call (`supabase.from(...).select()`) with a call to the new API service.
-    *   Start with read-only features (e.g., listing campaigns) before moving to write operations.
+    *   Create a new API service/client within the dashboard project to handle all communication with the Business Logic API.
+    *   Replace direct Supabase calls with business logic API calls:
+        *   Dashboard data: `GET /api/v1/operations/analytics/generate-dashboard`
+        *   Campaign creation: `POST /api/v1/workflows/client-onboarding/create-first-campaign`
+        *   Campaign management: `/api/v1/operations/campaign/*` endpoints
+        *   Analytics: `/api/v1/operations/analytics/*` endpoints
+    *   Start with read-only features (analytics, dashboards) before moving to write operations.
 
 *   `[ ]` **4.2. Refactor the Discord Bot:**
-    *   Follow the same process for the `virion-labs-discord-bot`.
-    *   Replace all direct Supabase queries with calls to the Unified API.
-    *   The `/join` command, for example, will now call `GET /api/campaigns/available` from your Unified API.
+    *   Replace all direct Supabase queries with Business Logic API calls:
+        *   `/join` command: `GET /api/v1/workflows/onboarding/start`
+        *   Onboarding completion: `POST /api/v1/workflows/onboarding/complete`
+        *   Referral tracking: `/api/v1/workflows/referral-tracking/*` endpoints
+        *   Server events: `/api/v1/integrations/discord/*` endpoints
+    *   Update slash command handlers to use workflow endpoints instead of direct database access.
 
 ### **Phase 5: Decommissioning & Finalization**
 
@@ -134,7 +190,8 @@ This migration will be conducted in five distinct phases to minimize risk and en
 
 *   `[ ]` **5.3. Update Environment Variables:**
     *   Remove the `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the `.env` files of the dashboard and bot.
-    *   Add the new `UNIFIED_API_URL` and `UNIFIED_API_KEY`.
+    *   Add the new `BUSINESS_LOGIC_API_URL` and `BUSINESS_LOGIC_API_KEY`.
+    *   Configure Strapi connection details for the business logic API only.
 
 *   `[ ]` **5.4. Final Review:**
     *   Conduct a final architecture review to confirm that all services are communicating through the correct channels and that the decoupling is complete.
