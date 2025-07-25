@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
-from routers import health, operations, oauth, oauth_api
+from routers import health, operations, auth
 import logging
 
 # Configure logging
@@ -26,9 +26,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(health.router, tags=["Platform"])
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(operations.router, prefix="/api/v1/operations", tags=["Operations"])
-app.include_router(oauth.router, tags=["OAuth Discovery"]) # Root-level discovery
-app.include_router(oauth_api.router, prefix="/api/oauth", tags=["OAuth Flow"]) # Prefixed flow endpoints
 
 
 @app.get("/")
@@ -37,6 +36,24 @@ async def root():
         "message": "Virion Labs Unified Business Logic API",
         "version": settings.API_VERSION,
         "docs": "/docs"
+    }
+
+@app.get("/.well-known/oauth-authorization-server", tags=["OAuth Discovery"])
+async def get_oauth_server_metadata():
+    """
+    Provides OAuth 2.0 Authorization Server Metadata.
+    This tells clients how to interact with our new auth flow.
+    """
+    base_url = "http://localhost:8000" # Should be from settings
+    return {
+        "issuer": base_url,
+        "authorization_endpoint": f"{base_url}/api/auth/login/google",
+        "token_endpoint": f"{base_url}/api/auth/token", # Point to the new token endpoint
+        "registration_endpoint": f"{base_url}/api/auth/register",
+        "response_types_supported": ["code"], # We now properly support the 'code' flow
+        "grant_types_supported": ["authorization_code"],
+        "scopes_supported": ["openid", "profile", "email"],
+        "code_challenge_methods_supported": ["S256"],
     }
 
 if __name__ == "__main__":

@@ -301,25 +301,8 @@ class VirionLabsMCPServer:
                 "resource_documentation": f"{base_url}/docs"
             })
 
-        async def oauth_authorization_server_metadata(request: Request):
-            """OAuth 2.0 Authorization Server Metadata."""
-            base_url = self.config.api.base_url
-            return JSONResponse({
-                "issuer": f"{base_url}",
-                "authorization_endpoint": f"{base_url}/api/oauth/authorize",
-                "token_endpoint": f"{base_url}/api/oauth/token",
-                "registration_endpoint": f"{base_url}/api/oauth/register",
-                "response_types_supported": ["code"],
-                "grant_types_supported": ["authorization_code"],
-                "code_challenge_methods_supported": ["S256"],
-                "scopes_supported": ["mcp", "read", "write"]
-            })
-
         async def redirect_to_metadata(request: Request):
             return RedirectResponse(url="/.well-known/oauth-protected-resource")
-
-        async def redirect_to_auth_server_metadata(request: Request):
-            return RedirectResponse(url="/.well-known/oauth-authorization-server")
 
         class AuthMiddleware(BaseHTTPMiddleware):
             def __init__(self, app, api_client):
@@ -355,43 +338,45 @@ class VirionLabsMCPServer:
                 # Extract and validate token
                 token = auth_header[7:]
                 logger.info(f"Full Authorization header: {auth_header}")
-                logger.info(f"Extracted token: {token}")
+                logger.info(f"Extracted token: {token[:10]}...")
                 try:
-                    # Validate token directly with Supabase (same as auth middleware)
-                    from supabase import create_client
-                    supabase_url = os.getenv("SUPABASE_URL")
-                    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-                    logger.info(f"Supabase URL from env: {supabase_url}")
-                    if not supabase_url or not supabase_key:
-                        logger.error("Missing Supabase configuration")
-                        raise ValueError("Missing Supabase configuration")
+                    # Validate token by calling the business logic API's introspection endpoint
+                    auth_api_url = f"{self.api_client.config.base_url}/api/auth/me"
+                    headers = {"Authorization": f"Bearer {token}"}
                     
-                    supabase = create_client(supabase_url, supabase_key)
-                    logger.info("Supabase client created. Validating token...")
-                    user_response = supabase.auth.get_user(token)
-                    logger.info(f"Supabase user response: {user_response}")
+                    logger.info(f"Attempting to validate token with Business Logic API at: {auth_api_url}")
+
+                    import httpx
+                    async with httpx.AsyncClient() as client:
+                        response = await client.get(auth_api_url, headers=headers)
                     
-                    if not user_response.user:
-                        logger.warning("Token validation failed: Invalid token or user not found")
-                        raise ValueError("Invalid token or user not found")
+                    response.raise_for_status() # Raises exception for 4xx/5xx responses
                     
+                    user_data = response.json()
+                    logger.info(f"Token validated successfully for user: {user_data.get('email')}")
+
                     # Store user info and token in request state
-                    request.state.user = user_response.user
+                    request.state.user = user_data
                     request.state.token = token
                     
                     # Set token in context var for access in tool calls
                     token_context.set(token)
                         
-                except Exception:
+                except httpx.HTTPStatusError as e:
+                    logger.warning(f"Token validation failed. API returned status {e.response.status_code}")
                     return JSONResponse(
                         status_code=401,
-                        content={"error": "invalid_token", "error_description": "The access token is invalid"},
+                        content={"error": "invalid_token", "error_description": "The access token is invalid or expired"},
                         headers={
                             "WWW-Authenticate": f'Bearer realm="{self.api_client.config.base_url}", '
-                                              f'authorization_uri="{self.api_client.config.base_url}/api/oauth/authorize", '
-                                              f'resource="{request.base_url}", '
                                               f'error="invalid_token"'
                         }
+                    )
+                except Exception as e:
+                    logger.error(f"An unexpected error occurred during token validation: {e}")
+                    return JSONResponse(
+                        status_code=500,
+                        content={"error": "server_error", "error_description": "Could not process token validation"},
                     )
                 
                 response = await call_next(request)
@@ -412,9 +397,7 @@ class VirionLabsMCPServer:
             # Starlette will automatically redirect requests to /mcp to /mcp/.
             Mount("/mcp/", app=mcp_app),
             Route("/.well-known/oauth-protected-resource", oauth_protected_resource_metadata, methods=["GET"]),
-            Route("/.well-known/oauth-authorization-server", oauth_authorization_server_metadata, methods=["GET"]),
             Route("/.well-known/oauth-protected-resource/mcp", redirect_to_metadata, methods=["GET"]),
-            Route("/.well-known/oauth-authorization-server/mcp", redirect_to_auth_server_metadata, methods=["GET"]),
         ]
         
         app = Starlette(routes=routes, lifespan=lifespan)

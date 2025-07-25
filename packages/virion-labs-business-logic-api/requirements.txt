@@ -1,7 +1,2 @@
-fastapi
-uvicorn[standard]
-pydantic-settings
-httpx
-supabase
-PyJWT
-python-multipart
+
+pyjwt>=2.8.0
