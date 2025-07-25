@@ -1,10 +1,10 @@
-# MCP Server Migration Plan to the Unified Business Logic API
+# 04: MCP Server Migration Plan
 
 ## Executive Summary
 
 This document outlines the migration plan for the **MCP Server**. The server will be updated to use the new **Unified Business Logic API** (`localhost:8001`), which replaces the legacy API package (`localhost:8000`).
 
-The Unified API provides a comprehensive and structured set of endpoints for all business functions, including those used by administrators via the MCP Server. This migration will align the MCP Server with the new, robust architecture, centralizing all business logic and improving maintainability.
+The Unified API provides a comprehensive and structured set of endpoints for all business functions. This migration will align the MCP Server with the new, robust architecture, centralizing all business logic and improving maintainability.
 
 ---
 
@@ -15,10 +15,7 @@ The migration will be straightforward:
 2.  The function calls within the MCP Server's codebase will be updated to match the new `operationId`s exposed by the Unified API's OpenAPI schema.
 3.  The request and response payloads will be updated to match the new, more descriptive schemas.
 
-The Unified API is organized into clear categories. For an administrator using the MCP server, the relevant endpoints will primarily fall under:
--   `/api/v1/operations/*` for direct business operations.
--   `/api/v1/workflows/*` for initiating multi-step business processes.
--   `/api/v1/admin/*` for platform-wide analytics and management.
+For an administrator using the MCP server, the relevant endpoints will be found in the `/api/v1/workflows/` and `/api/v1/operations/` categories.
 
 ---
 
@@ -29,34 +26,33 @@ This section maps the functions from the legacy API to their new equivalents in 
 ### **Client Management**
 | Legacy Function | New Unified API Endpoint | HTTP Method | Category |
 |---|---|---|---|
-| `create_client` | `/api/v1/operations/client/create` | `POST` | Operations |
+| `create_client` | `/api/v1/workflows/client/provision` | `POST` | Workflows |
 | `list_clients` | `/api/v1/operations/client/list` | `GET` | Operations |
-| `get_client` | `/api/v1/operations/client/get/{id}` | `GET` | Operations |
-| `update_client` | `/api/v1/operations/client/update/{id}` | `PUT` | Operations |
-| `delete_client` | `/api/v1/operations/client/archive/{id}` | `POST` | Operations |
+| `get_client` | `/api/v1/operations/client/{id}` | `GET` | Operations |
+| `update_client` | `/api/v1/operations/client/{id}` | `PUT` | Operations |
+| `delete_client` | `/api/v1/operations/client/{id}` | `DELETE` | Operations |
 
 ### **Campaign Management**
 | Legacy Function | New Unified API Endpoint | HTTP Method | Category |
 |---|---|---|---|
 | `create_campaign` | `/api/v1/workflows/campaign/create` | `POST` | Workflows |
 | `list_campaigns` | `/api/v1/operations/campaign/list` | `GET` | Operations |
-| `get_campaign` | `/api/v1/operations/campaign/get/{id}` | `GET` | Operations |
-| `update_campaign` | `/api/v1/operations/campaign/update/{id}` | `PUT` | Operations |
-| `delete_campaign` | `/api/v1/workflows/campaign/archive/{id}` | `POST` | Workflows |
-| `update_campaign_stats` | `/api/v1/operations/campaign/update-stats/{id}` | `PUT` | Operations |
+| `get_campaign` | `/api/v1/operations/campaign/{id}` | `GET` | Operations |
+| `update_campaign` | `/api/v1/operations/campaign/{id}` | `PUT` | Operations |
+| `delete_campaign` | `/api/v1/workflows/campaign/archive` | `POST` | Workflows |
+| `update_campaign_stats` | `/api/v1/operations/campaign/update-stats/{id}`| `PUT` | Operations |
 
 ### **Access Request Management**
 | Legacy Function | New Unified API Endpoint | HTTP Method | Category |
 |---|---|---|---|
-| `list_access_requests` | `/api/v1/admin/access/list-requests` | `GET` | Admin |
-| `update_access_request` | `/api/v1/admin/access/process-request` | `POST` | Admin |
+| `list_access_requests` | `/api/v1/workflows/campaign-access/list-requests` | `GET` | Workflows |
+| `update_access_request` | `/api/v1/workflows/campaign-access/approve` or `deny` | `POST` | Workflows |
 
-### **Admin & Platform Analytics (New Capabilities)**
+### **Platform Administration (New Capabilities)**
 | Legacy Function | New Unified API Endpoint | HTTP Method | Category |
 |---|---|---|---|
-| *(New)* | `/api/v1/admin/analytics/dashboard` | `GET` | Admin |
-| *(New)* | `/api/v1/admin/analytics/platform-overview` | `GET` | Admin |
-| *(New)* | `/api/v1/admin/user/list` | `GET` | Admin |
+| *(New)* | `/api/v1/operations/platform/overview` | `GET` | Operations |
+| *(New)* | `/api/v1/operations/bot/deploy` | `POST` | Operations |
 
 ---
 
@@ -74,10 +70,10 @@ create_client({
 ```
 
 **After (Unified API):**
-The new operation ID will be `create_client_operation`. The request body will also be more structured.
+The new operation ID will be `provision_client_workflow`. The request body will also be more structured.
 ```python
-# Example: Creating a client via the new operation
-create_client_operation({
+# Example: Creating a client via the new workflow
+provision_client_workflow({
   "client_data": {
     "company_name": "Unified Corp",
     "contact_email": "contact@unified.com",
@@ -87,23 +83,6 @@ create_client_operation({
     "create_default_settings": True,
     "enable_analytics": True,
     "send_welcome_email": True
-  }
-})
-```
-
-**Example: Using a Workflow**
-```python
-# Example: Creating a campaign via the new workflow
-create_campaign_workflow({
-  "campaign_data": {
-    "name": "Q3 Marketing Push",
-    "client_id": "client-uuid-123",
-    "budget": 25000
-  },
-  "automation_options": {
-    "setup_discord_bot": True,
-    "generate_referral_links": True,
-    "setup_analytics": True
   }
 })
 ```
