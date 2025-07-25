@@ -1,0 +1,90 @@
+{
+  "kind": "collectionType",
+  "collectionName": "campaigns",
+  "info": {
+    "singularName": "campaign",
+    "pluralName": "campaigns",
+    "displayName": "Campaign"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "richtext"
+    },
+    "campaign_type": {
+      "type": "enumeration",
+      "enum": [
+        "referral_onboarding",
+        "community_engagement",
+        "product_promotion",
+        "custom",
+        "vip_support"
+      ]
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "start_date": {
+      "type": "datetime"
+    },
+    "end_date": {
+      "type": "datetime"
+    },
+    "guild_id": {
+      "type": "string",
+      "required": true
+    },
+    "channel_id": {
+      "type": "string"
+    },
+    "webhook_url": {
+      "type": "string"
+    },
+    "welcome_message": {
+      "type": "richtext"
+    },
+    "bot_name": {
+      "type": "string",
+      "default": "Virion Bot"
+    },
+    "bot_avatar_url": {
+      "type": "string"
+    },
+    "brand_color": {
+      "type": "string",
+      "default": "#6366f1"
+    },
+    "brand_logo_url": {
+      "type": "string"
+    },
+    "total_interactions": {
+      "type": "integer",
+      "default": 0
+    },
+    "successful_onboardings": {
+      "type": "integer",
+      "default": 0
+    },
+    "referral_conversions": {
+      "type": "integer",
+      "default": 0
+    },
+    "onboarding_flow": {
+      "type": "json"
+    },
+    "metadata": {
+      "type": "json"
+    },
+    "features": {
+      "type": "json"
+    }
+  }
+}

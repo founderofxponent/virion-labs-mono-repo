@@ -497,6 +497,66 @@ export interface ApiCampaignTemplateCampaignTemplate
   };
 }
 
+export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
+  collectionName: 'campaigns';
+  info: {
+    displayName: 'Campaign';
+    pluralName: 'campaigns';
+    singularName: 'campaign';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    bot_avatar_url: Schema.Attribute.String;
+    bot_name: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'Virion Bot'>;
+    brand_color: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'#6366f1'>;
+    brand_logo_url: Schema.Attribute.String;
+    campaign_type: Schema.Attribute.Enumeration<
+      [
+        'referral_onboarding',
+        'community_engagement',
+        'product_promotion',
+        'custom',
+        'vip_support',
+      ]
+    >;
+    channel_id: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.RichText;
+    end_date: Schema.Attribute.DateTime;
+    features: Schema.Attribute.JSON;
+    guild_id: Schema.Attribute.String & Schema.Attribute.Required;
+    is_active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign.campaign'
+    > &
+      Schema.Attribute.Private;
+    metadata: Schema.Attribute.JSON;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    onboarding_flow: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    referral_conversions: Schema.Attribute.Integer &
+      Schema.Attribute.DefaultTo<0>;
+    start_date: Schema.Attribute.DateTime;
+    successful_onboardings: Schema.Attribute.Integer &
+      Schema.Attribute.DefaultTo<0>;
+    total_interactions: Schema.Attribute.Integer &
+      Schema.Attribute.DefaultTo<0>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    webhook_url: Schema.Attribute.String;
+    welcome_message: Schema.Attribute.RichText;
+  };
+}
+
 export interface ApiClientClient extends Struct.CollectionTypeSchema {
   collectionName: 'clients';
   info: {
@@ -1248,6 +1308,7 @@ declare module '@strapi/strapi' {
       'api::campaign-onboarding-field.campaign-onboarding-field': ApiCampaignOnboardingFieldCampaignOnboardingField;
       'api::campaign-onboarding-response.campaign-onboarding-response': ApiCampaignOnboardingResponseCampaignOnboardingResponse;
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
+      'api::campaign.campaign': ApiCampaignCampaign;
       'api::client.client': ApiClientClient;
       'api::referral-analytic.referral-analytic': ApiReferralAnalyticReferralAnalytic;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;
