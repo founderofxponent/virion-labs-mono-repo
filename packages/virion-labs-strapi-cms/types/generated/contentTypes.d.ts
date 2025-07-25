@@ -533,6 +533,44 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiReferralAnalyticReferralAnalytic
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'referral_analytics';
+  info: {
+    displayName: 'Referral Analytics';
+    pluralName: 'referral-analytics';
+    singularName: 'referral-analytic';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    browser: Schema.Attribute.String;
+    city: Schema.Attribute.String;
+    conversion_value: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
+    country: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    device_type: Schema.Attribute.String;
+    event_type: Schema.Attribute.String & Schema.Attribute.Required;
+    ip_address: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::referral-analytic.referral-analytic'
+    > &
+      Schema.Attribute.Private;
+    metadata: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    referrer: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    user_agent: Schema.Attribute.String;
+  };
+}
+
 export interface ApiReferralLinkReferralLink
   extends Struct.CollectionTypeSchema {
   collectionName: 'referral_links';
@@ -1211,6 +1249,7 @@ declare module '@strapi/strapi' {
       'api::campaign-onboarding-response.campaign-onboarding-response': ApiCampaignOnboardingResponseCampaignOnboardingResponse;
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
       'api::client.client': ApiClientClient;
+      'api::referral-analytic.referral-analytic': ApiReferralAnalyticReferralAnalytic;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;
       'api::user-profile.user-profile': ApiUserProfileUserProfile;
       'api::user-setting.user-setting': ApiUserSettingUserSetting;
