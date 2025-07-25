@@ -373,6 +373,88 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiCampaignInfluencerAccessCampaignInfluencerAccess
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'campaign_influencer_accesses';
+  info: {
+    displayName: 'Campaign Influencer Access';
+    pluralName: 'campaign-influencer-accesses';
+    singularName: 'campaign-influencer-access';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    access_granted_at: Schema.Attribute.DateTime;
+    admin_response: Schema.Attribute.RichText;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    is_active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-influencer-access.campaign-influencer-access'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    request_message: Schema.Attribute.RichText;
+    request_status: Schema.Attribute.Enumeration<
+      ['pending', 'approved', 'denied']
+    > &
+      Schema.Attribute.DefaultTo<'pending'>;
+    requested_at: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiCampaignLandingPageCampaignLandingPage
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'campaign_landing_pages';
+  info: {
+    displayName: 'Campaign Landing Page';
+    pluralName: 'campaign-landing-pages';
+    singularName: 'campaign-landing-page';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    hero_image_url: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    how_it_works: Schema.Attribute.RichText;
+    inherited_from_template: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    landing_page_template_id: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-landing-page.campaign-landing-page'
+    > &
+      Schema.Attribute.Private;
+    offer_description: Schema.Attribute.RichText;
+    offer_expiry_date: Schema.Attribute.DateTime;
+    offer_highlights: Schema.Attribute.JSON;
+    offer_title: Schema.Attribute.JSON;
+    offer_value: Schema.Attribute.String;
+    product_images: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    requirements: Schema.Attribute.RichText;
+    support_info: Schema.Attribute.RichText;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    video_url: Schema.Attribute.String;
+    what_you_get: Schema.Attribute.RichText;
+  };
+}
+
 export interface ApiCampaignOnboardingFieldCampaignOnboardingField
   extends Struct.CollectionTypeSchema {
   collectionName: 'campaign_onboarding_fields';
@@ -1305,6 +1387,8 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::campaign-influencer-access.campaign-influencer-access': ApiCampaignInfluencerAccessCampaignInfluencerAccess;
+      'api::campaign-landing-page.campaign-landing-page': ApiCampaignLandingPageCampaignLandingPage;
       'api::campaign-onboarding-field.campaign-onboarding-field': ApiCampaignOnboardingFieldCampaignOnboardingField;
       'api::campaign-onboarding-response.campaign-onboarding-response': ApiCampaignOnboardingResponseCampaignOnboardingResponse;
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;

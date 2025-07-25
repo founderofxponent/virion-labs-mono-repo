@@ -1,0 +1,65 @@
+{
+  "kind": "collectionType",
+  "collectionName": "campaign_landing_pages",
+  "info": {
+    "singularName": "campaign-landing-page",
+    "pluralName": "campaign-landing-pages",
+    "displayName": "Campaign Landing Page"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "offer_title": {
+      "type": "json"
+    },
+    "offer_description": {
+      "type": "richtext"
+    },
+    "offer_highlights": {
+      "type": "json"
+    },
+    "offer_value": {
+      "type": "string"
+    },
+    "offer_expiry_date": {
+      "type": "datetime"
+    },
+    "hero_image_url": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "product_images": {
+      "type": "json"
+    },
+    "video_url": {
+      "type": "string"
+    },
+    "what_you_get": {
+      "type": "richtext"
+    },
+    "how_it_works": {
+      "type": "richtext"
+    },
+    "requirements": {
+      "type": "richtext"
+    },
+    "support_info": {
+      "type": "richtext"
+    },
+    "landing_page_template_id": {
+      "type": "string"
+    },
+    "inherited_from_template": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

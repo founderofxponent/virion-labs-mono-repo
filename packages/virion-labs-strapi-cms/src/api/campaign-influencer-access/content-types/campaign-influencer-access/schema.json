@@ -1,0 +1,40 @@
+{
+  "kind": "collectionType",
+  "collectionName": "campaign_influencer_accesses",
+  "info": {
+    "singularName": "campaign-influencer-access",
+    "pluralName": "campaign-influencer-accesses",
+    "displayName": "Campaign Influencer Access"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "access_granted_at": {
+      "type": "datetime"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "request_status": {
+      "type": "enumeration",
+      "default": "pending",
+      "enum": [
+        "pending",
+        "approved",
+        "denied"
+      ]
+    },
+    "requested_at": {
+      "type": "datetime"
+    },
+    "request_message": {
+      "type": "richtext"
+    },
+    "admin_response": {
+      "type": "richtext"
+    }
+  }
+}
