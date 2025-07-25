@@ -373,6 +373,48 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiCampaignOnboardingFieldCampaignOnboardingField
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'campaign_onboarding_fields';
+  info: {
+    displayName: 'Campaign Onboarding Field';
+    pluralName: 'campaign-onboarding-fields';
+    singularName: 'campaign-onboarding-field';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    discord_integration: Schema.Attribute.JSON;
+    field_description: Schema.Attribute.String;
+    field_key: Schema.Attribute.String & Schema.Attribute.Required;
+    field_label: Schema.Attribute.String & Schema.Attribute.Required;
+    field_options: Schema.Attribute.JSON;
+    field_placeholder: Schema.Attribute.String;
+    field_type: Schema.Attribute.Enumeration<
+      ['text', 'email', 'select', 'multiselect']
+    > &
+      Schema.Attribute.Required;
+    is_enabled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    is_required: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-onboarding-field.campaign-onboarding-field'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    sort_order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    validation_rules: Schema.Attribute.JSON;
+  };
+}
+
 export interface ApiCampaignTemplateCampaignTemplate
   extends Struct.CollectionTypeSchema {
   collectionName: 'campaign_templates';
@@ -1130,6 +1172,7 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::campaign-onboarding-field.campaign-onboarding-field': ApiCampaignOnboardingFieldCampaignOnboardingField;
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
       'api::client.client': ApiClientClient;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;
