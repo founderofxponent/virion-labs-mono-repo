@@ -1,0 +1,39 @@
+{
+  "kind": "collectionType",
+  "collectionName": "campaign_onboarding_responses",
+  "info": {
+    "singularName": "campaign-onboarding-response",
+    "pluralName": "campaign-onboarding-responses",
+    "displayName": "Campaign Onboarding Response"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "discord_user_id": {
+      "type": "string",
+      "required": true
+    },
+    "discord_username": {
+      "type": "string"
+    },
+    "field_key": {
+      "type": "string",
+      "required": true
+    },
+    "field_value": {
+      "type": "string"
+    },
+    "referral_id": {
+      "type": "string"
+    },
+    "interaction_id": {
+      "type": "string"
+    },
+    "is_completed": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

@@ -415,6 +415,41 @@ export interface ApiCampaignOnboardingFieldCampaignOnboardingField
   };
 }
 
+export interface ApiCampaignOnboardingResponseCampaignOnboardingResponse
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'campaign_onboarding_responses';
+  info: {
+    displayName: 'Campaign Onboarding Response';
+    pluralName: 'campaign-onboarding-responses';
+    singularName: 'campaign-onboarding-response';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    discord_user_id: Schema.Attribute.String & Schema.Attribute.Required;
+    discord_username: Schema.Attribute.String;
+    field_key: Schema.Attribute.String & Schema.Attribute.Required;
+    field_value: Schema.Attribute.String;
+    interaction_id: Schema.Attribute.String;
+    is_completed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-onboarding-response.campaign-onboarding-response'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    referral_id: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiCampaignTemplateCampaignTemplate
   extends Struct.CollectionTypeSchema {
   collectionName: 'campaign_templates';
@@ -1173,6 +1208,7 @@ declare module '@strapi/strapi' {
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
       'api::campaign-onboarding-field.campaign-onboarding-field': ApiCampaignOnboardingFieldCampaignOnboardingField;
+      'api::campaign-onboarding-response.campaign-onboarding-response': ApiCampaignOnboardingResponseCampaignOnboardingResponse;
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
       'api::client.client': ApiClientClient;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;
