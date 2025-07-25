@@ -1,7 +1,6 @@
 {
   "name": "virion-labs-strapi-cms",
   "version": "0.1.0",
-  "private": true,
   "description": "A Strapi application",
   "scripts": {
     "build": "strapi build",
@@ -16,7 +15,7 @@
   },
   "dependencies": {
     "@strapi/plugin-cloud": "5.19.0",
-    "@strapi/plugin-users-permissions": "5.19.0",
+    "@strapi/plugin-users-permissions": "^5.19.0",
     "@strapi/strapi": "5.19.0",
     "pg": "8.8.0",
     "react": "^18.0.0",

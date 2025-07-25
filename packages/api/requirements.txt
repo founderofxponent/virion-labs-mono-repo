@@ -6,3 +6,5 @@ bcrypt
 pyjwt
 sqlalchemy
 psycopg2-binary
+httpx
+aiohttp

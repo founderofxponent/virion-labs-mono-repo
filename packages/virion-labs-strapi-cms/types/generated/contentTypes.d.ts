@@ -373,405 +373,6 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiAnalyticsEventAnalyticsEvent
-  extends Struct.CollectionTypeSchema {
-  collectionName: 'analytics_events';
-  info: {
-    description: 'Stores analytics events for tracking user interactions.';
-    displayName: 'Analytics Event';
-    pluralName: 'analytics-events';
-    singularName: 'analytics-event';
-  };
-  options: {
-    draftAndPublish: false;
-  };
-  attributes: {
-    browser: Schema.Attribute.String;
-    city: Schema.Attribute.String;
-    conversionValue: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
-    country: Schema.Attribute.String;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    deviceType: Schema.Attribute.String;
-    eventType: Schema.Attribute.Enumeration<['click', 'conversion']> &
-      Schema.Attribute.Required;
-    ipAddress: Schema.Attribute.String;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::analytics-event.analytics-event'
-    > &
-      Schema.Attribute.Private;
-    metadata: Schema.Attribute.JSON;
-    publishedAt: Schema.Attribute.DateTime;
-    referral_link: Schema.Attribute.Relation<
-      'manyToOne',
-      'api::referral-link.referral-link'
-    >;
-    referrer: Schema.Attribute.String;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    userAgent: Schema.Attribute.Text;
-  };
-}
-
-export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
-  collectionName: 'campaigns';
-  info: {
-    description: 'Represents a marketing campaign within a Discord guild.';
-    displayName: 'Campaign';
-    pluralName: 'campaigns';
-    singularName: 'campaign';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    accessControlEnabled: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
-    allowedChannels: Schema.Attribute.JSON;
-    apiEndpoints: Schema.Attribute.JSON;
-    autoResponses: Schema.Attribute.JSON;
-    autoRoleAssignment: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
-    avatarUrl: Schema.Attribute.String;
-    blockedUsers: Schema.Attribute.JSON;
-    botAvatarUrl: Schema.Attribute.String;
-    botName: Schema.Attribute.String & Schema.Attribute.DefaultTo<'Virion Bot'>;
-    botPersonality: Schema.Attribute.String &
-      Schema.Attribute.DefaultTo<'helpful'>;
-    botResponseStyle: Schema.Attribute.String &
-      Schema.Attribute.DefaultTo<'friendly'>;
-    brandColor: Schema.Attribute.String & Schema.Attribute.DefaultTo<'#6366f1'>;
-    brandLogoUrl: Schema.Attribute.String;
-    campaignEndDate: Schema.Attribute.DateTime;
-    campaignName: Schema.Attribute.String & Schema.Attribute.Required;
-    campaignStartDate: Schema.Attribute.DateTime;
-    campaignType: Schema.Attribute.Enumeration<
-      [
-        'referral_onboarding',
-        'product_promotion',
-        'community_engagement',
-        'support',
-        'custom',
-        'vip_support',
-      ]
-    > &
-      Schema.Attribute.Required;
-    channelId: Schema.Attribute.String;
-    client: Schema.Attribute.Relation<'manyToOne', 'api::client.client'>;
-    commandsUsed: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
-    configurationVersion: Schema.Attribute.Integer &
-      Schema.Attribute.DefaultTo<2>;
-    contentFilters: Schema.Attribute.JSON;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    customCommands: Schema.Attribute.JSON;
-    deletedAt: Schema.Attribute.DateTime;
-    description: Schema.Attribute.Text;
-    embedFooter: Schema.Attribute.Text;
-    externalIntegrations: Schema.Attribute.JSON;
-    features: Schema.Attribute.JSON;
-    guildId: Schema.Attribute.String & Schema.Attribute.Required;
-    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
-    isDeleted: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
-    lastActivityAt: Schema.Attribute.DateTime;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::campaign.campaign'
-    > &
-      Schema.Attribute.Private;
-    metadata: Schema.Attribute.JSON;
-    moderationEnabled: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<true>;
-    onboardingChannelType: Schema.Attribute.String &
-      Schema.Attribute.DefaultTo<'channel'>;
-    onboardingCompletionRequirements: Schema.Attribute.JSON;
-    onboardingFlow: Schema.Attribute.JSON;
-    pausedAt: Schema.Attribute.DateTime;
-    prefix: Schema.Attribute.String & Schema.Attribute.DefaultTo<'!'>;
-    privateChannelId: Schema.Attribute.String;
-    privateChannelSetup: Schema.Attribute.JSON;
-    publishedAt: Schema.Attribute.DateTime;
-    rateLimitPerUser: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<5>;
-    referralConversions: Schema.Attribute.Integer &
-      Schema.Attribute.DefaultTo<0>;
-    referralOnlyAccess: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
-    referralTrackingEnabled: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<true>;
-    responseTemplates: Schema.Attribute.JSON;
-    successfulOnboardings: Schema.Attribute.Integer &
-      Schema.Attribute.DefaultTo<0>;
-    targetRoleIds: Schema.Attribute.JSON;
-    template: Schema.Attribute.Enumeration<
-      [
-        'standard',
-        'advanced',
-        'custom',
-        'referral_campaign',
-        'support_campaign',
-      ]
-    >;
-    totalInteractions: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    usersServed: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
-    webhookRoutes: Schema.Attribute.JSON;
-    webhookUrl: Schema.Attribute.String;
-    welcomeMessage: Schema.Attribute.Text;
-  };
-}
-
-export interface ApiClientClient extends Struct.CollectionTypeSchema {
-  collectionName: 'clients';
-  info: {
-    description: 'Represents a client or brand running campaigns.';
-    displayName: 'Client';
-    pluralName: 'clients';
-    singularName: 'client';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    campaigns: Schema.Attribute.Relation<'oneToMany', 'api::campaign.campaign'>;
-    contactEmail: Schema.Attribute.Email;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    industry: Schema.Attribute.String & Schema.Attribute.Required;
-    influencers: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
-    joinDate: Schema.Attribute.Date & Schema.Attribute.Required;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::client.client'
-    > &
-      Schema.Attribute.Private;
-    logo: Schema.Attribute.String;
-    name: Schema.Attribute.String & Schema.Attribute.Required;
-    primaryContact: Schema.Attribute.String;
-    publishedAt: Schema.Attribute.DateTime;
-    status: Schema.Attribute.Enumeration<['Active', 'Inactive', 'Pending']> &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'Active'>;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    website: Schema.Attribute.String;
-  };
-}
-
-export interface ApiOnboardingResponseOnboardingResponse
-  extends Struct.CollectionTypeSchema {
-  collectionName: 'onboarding_responses';
-  info: {
-    description: 'Stores user responses from campaign onboarding.';
-    displayName: 'Onboarding Response';
-    pluralName: 'onboarding-responses';
-    singularName: 'onboarding-response';
-  };
-  options: {
-    draftAndPublish: false;
-  };
-  attributes: {
-    campaign: Schema.Attribute.Relation<'manyToOne', 'api::campaign.campaign'>;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    discordUserId: Schema.Attribute.String & Schema.Attribute.Required;
-    discordUsername: Schema.Attribute.String;
-    fieldKey: Schema.Attribute.String & Schema.Attribute.Required;
-    fieldValue: Schema.Attribute.Text;
-    isCompleted: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::onboarding-response.onboarding-response'
-    > &
-      Schema.Attribute.Private;
-    publishedAt: Schema.Attribute.DateTime;
-    referral_link: Schema.Attribute.Relation<
-      'manyToOne',
-      'api::referral-link.referral-link'
-    >;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-  };
-}
-
-export interface ApiReferralLinkReferralLink
-  extends Struct.CollectionTypeSchema {
-  collectionName: 'referral_links';
-  info: {
-    description: 'Represents a trackable referral link for a campaign.';
-    displayName: 'Referral Link';
-    pluralName: 'referral-links';
-    singularName: 'referral-link';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    accessRoleId: Schema.Attribute.String;
-    campaign: Schema.Attribute.Relation<'manyToOne', 'api::campaign.campaign'>;
-    clicks: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
-    conversionRate: Schema.Attribute.Decimal;
-    conversions: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    customInviteCode: Schema.Attribute.String;
-    description: Schema.Attribute.Text;
-    discordGuildId: Schema.Attribute.String;
-    discordInviteUrl: Schema.Attribute.String;
-    earnings: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
-    expiresAt: Schema.Attribute.DateTime;
-    influencer: Schema.Attribute.Relation<
-      'manyToOne',
-      'api::user-profile.user-profile'
-    >;
-    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
-    landingPageEnabled: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<true>;
-    lastConversionAt: Schema.Attribute.DateTime;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::referral-link.referral-link'
-    > &
-      Schema.Attribute.Private;
-    metadata: Schema.Attribute.JSON;
-    originalUrl: Schema.Attribute.String & Schema.Attribute.Required;
-    platform: Schema.Attribute.Enumeration<
-      [
-        'YouTube',
-        'Instagram',
-        'TikTok',
-        'Twitter',
-        'Facebook',
-        'LinkedIn',
-        'Other',
-      ]
-    > &
-      Schema.Attribute.Required;
-    privateChannelId: Schema.Attribute.String;
-    publishedAt: Schema.Attribute.DateTime;
-    redirectToDiscord: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
-    referralCode: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique;
-    referralUrl: Schema.Attribute.String & Schema.Attribute.Required;
-    thumbnailUrl: Schema.Attribute.String;
-    title: Schema.Attribute.String & Schema.Attribute.Required;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-  };
-}
-
-export interface ApiUserProfileUserProfile extends Struct.CollectionTypeSchema {
-  collectionName: 'user_profiles';
-  info: {
-    description: 'Stores user profile information.';
-    displayName: 'User Profile';
-    pluralName: 'user-profiles';
-    singularName: 'user-profile';
-  };
-  options: {
-    draftAndPublish: false;
-  };
-  attributes: {
-    avatarUrl: Schema.Attribute.String;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    email: Schema.Attribute.Email &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique;
-    fullName: Schema.Attribute.String & Schema.Attribute.Required;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::user-profile.user-profile'
-    > &
-      Schema.Attribute.Private;
-    publishedAt: Schema.Attribute.DateTime;
-    role: Schema.Attribute.Enumeration<['influencer', 'admin', 'client']> &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'influencer'>;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-  };
-}
-
-export interface ApiUserSettingUserSetting extends Struct.CollectionTypeSchema {
-  collectionName: 'user_settings';
-  info: {
-    description: 'Stores detailed settings for a user.';
-    displayName: 'User Settings';
-    pluralName: 'user-settings';
-    singularName: 'user-setting';
-  };
-  options: {
-    draftAndPublish: false;
-  };
-  attributes: {
-    bio: Schema.Attribute.Text;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    currency: Schema.Attribute.String & Schema.Attribute.DefaultTo<'USD'>;
-    discordUsername: Schema.Attribute.String;
-    emailNotificationsLinkClicks: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
-    emailNotificationsNewReferral: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<true>;
-    emailNotificationsProductUpdates: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<true>;
-    emailNotificationsWeeklyReports: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<true>;
-    instagramHandle: Schema.Attribute.String;
-    language: Schema.Attribute.String & Schema.Attribute.DefaultTo<'en'>;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::user-setting.user-setting'
-    > &
-      Schema.Attribute.Private;
-    phoneNumber: Schema.Attribute.String;
-    profileVisibility: Schema.Attribute.Enumeration<
-      ['public', 'private', 'contacts_only']
-    > &
-      Schema.Attribute.DefaultTo<'public'>;
-    publishedAt: Schema.Attribute.DateTime;
-    theme: Schema.Attribute.Enumeration<['light', 'dark', 'system']> &
-      Schema.Attribute.DefaultTo<'system'>;
-    timezone: Schema.Attribute.String & Schema.Attribute.DefaultTo<'UTC'>;
-    twitterHandle: Schema.Attribute.String;
-    twoFactorEnabled: Schema.Attribute.Boolean &
-      Schema.Attribute.DefaultTo<false>;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    user_profile: Schema.Attribute.Relation<
-      'oneToOne',
-      'api::user-profile.user-profile'
-    >;
-    websiteUrl: Schema.Attribute.String;
-    youtubeChannel: Schema.Attribute.String;
-  };
-}
-
 export interface PluginContentReleasesRelease
   extends Struct.CollectionTypeSchema {
   collectionName: 'strapi_releases';
@@ -1119,6 +720,158 @@ export interface PluginUploadFolder extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface PluginUsersPermissionsPermission
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'up_permissions';
+  info: {
+    description: '';
+    displayName: 'Permission';
+    name: 'permission';
+    pluralName: 'permissions';
+    singularName: 'permission';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    action: Schema.Attribute.String & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'plugin::users-permissions.permission'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    role: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.role'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface PluginUsersPermissionsRole
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'up_roles';
+  info: {
+    description: '';
+    displayName: 'Role';
+    name: 'role';
+    pluralName: 'roles';
+    singularName: 'role';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'plugin::users-permissions.role'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 3;
+      }>;
+    permissions: Schema.Attribute.Relation<
+      'oneToMany',
+      'plugin::users-permissions.permission'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    type: Schema.Attribute.String & Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    users: Schema.Attribute.Relation<
+      'oneToMany',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
+export interface PluginUsersPermissionsUser
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'up_users';
+  info: {
+    description: '';
+    displayName: 'User';
+    name: 'user';
+    pluralName: 'users';
+    singularName: 'user';
+  };
+  options: {
+    draftAndPublish: false;
+    timestamps: true;
+  };
+  attributes: {
+    blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    confirmationToken: Schema.Attribute.String & Schema.Attribute.Private;
+    confirmed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    email: Schema.Attribute.Email &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 6;
+      }>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'plugin::users-permissions.user'
+    > &
+      Schema.Attribute.Private;
+    password: Schema.Attribute.Password &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 6;
+      }>;
+    provider: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    resetPasswordToken: Schema.Attribute.String & Schema.Attribute.Private;
+    role: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.role'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    username: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        minLength: 3;
+      }>;
+  };
+}
+
 declare module '@strapi/strapi' {
   export module Public {
     export interface ContentTypeSchemas {
@@ -1129,13 +882,6 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
-      'api::analytics-event.analytics-event': ApiAnalyticsEventAnalyticsEvent;
-      'api::campaign.campaign': ApiCampaignCampaign;
-      'api::client.client': ApiClientClient;
-      'api::onboarding-response.onboarding-response': ApiOnboardingResponseOnboardingResponse;
-      'api::referral-link.referral-link': ApiReferralLinkReferralLink;
-      'api::user-profile.user-profile': ApiUserProfileUserProfile;
-      'api::user-setting.user-setting': ApiUserSettingUserSetting;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;
@@ -1143,6 +889,9 @@ declare module '@strapi/strapi' {
       'plugin::review-workflows.workflow-stage': PluginReviewWorkflowsWorkflowStage;
       'plugin::upload.file': PluginUploadFile;
       'plugin::upload.folder': PluginUploadFolder;
+      'plugin::users-permissions.permission': PluginUsersPermissionsPermission;
+      'plugin::users-permissions.role': PluginUsersPermissionsRole;
+      'plugin::users-permissions.user': PluginUsersPermissionsUser;
     }
   }
 }

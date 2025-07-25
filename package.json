@@ -1,19 +1,17 @@
 {
   "name": "virion-labs-monorepo",
   "version": "1.0.0",
-  "description": "Virion Labs Monorepo - Dashboard and Discord Bot",
-  "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
+  "description": "Virion Labs - Dashboard, Discord Bot, and Strapi CMS",
   "scripts": {
     "py:install": "uv venv && source .venv/bin/activate && uv pip sync packages/api/pyproject.toml && uv pip sync packages/mcp-server/pyproject.toml",
-    "dashboard:build": "yarn workspace virion-labs-dashboard build",
-    "dashboard:dev": "yarn workspace virion-labs-dashboard dev",
-    "bot:dev": "yarn workspace virion-labs-discord-bot dev",
-    "bot:start": "yarn workspace virion-labs-discord-bot start",
+    "dashboard:build": "cd packages/virion-labs-dashboard && yarn build",
+    "dashboard:dev": "cd packages/virion-labs-dashboard && yarn dev",
+    "strapi:dev": "cd packages/virion-labs-strapi-cms && yarn develop",
+    "strapi:build": "cd packages/virion-labs-strapi-cms && yarn build",
+    "bot:dev": "cd packages/virion-labs-discord-bot && yarn dev",
+    "bot:start": "cd packages/virion-labs-discord-bot && yarn start",
     "start:all": "concurrently \"yarn dashboard:dev\" \"yarn bot:start\"",
-    "test:dashboard": "yarn workspace virion-labs-dashboard test"
+    "test:dashboard": "cd packages/virion-labs-dashboard && yarn test"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
