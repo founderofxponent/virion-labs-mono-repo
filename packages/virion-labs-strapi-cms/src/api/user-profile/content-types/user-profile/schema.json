@@ -39,11 +39,20 @@
         "admin"
       ]
     },
-    "campaign_templates": {
+    "referral_links": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::campaign-template.campaign-template",
-      "mappedBy": "user_profile"
+      "target": "api::referral-link.referral-link"
+    },
+    "user_setting": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::user-setting.user-setting"
+    },
+    "campaign_influencer_accesses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-influencer-access.campaign-influencer-access"
     }
   }
 }

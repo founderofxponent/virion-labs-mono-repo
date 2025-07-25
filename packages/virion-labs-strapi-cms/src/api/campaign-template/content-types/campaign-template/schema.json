@@ -39,12 +39,6 @@
     "is_default": {
       "type": "boolean",
       "default": false
-    },
-    "user_profile": {
-      "type": "relation",
-      "relation": "manyToOne",
-      "target": "api::user-profile.user-profile",
-      "inversedBy": "campaign_templates"
     }
   }
 }

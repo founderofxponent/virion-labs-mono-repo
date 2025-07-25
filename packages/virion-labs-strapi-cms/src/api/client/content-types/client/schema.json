@@ -51,6 +51,12 @@
     },
     "contact_email": {
       "type": "email"
+    },
+    "campaigns": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign.campaign",
+      "mappedBy": "client"
     }
   }
 }

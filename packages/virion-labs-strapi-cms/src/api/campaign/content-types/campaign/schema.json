@@ -85,6 +85,47 @@
     },
     "features": {
       "type": "json"
+    },
+    "client": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::client.client",
+      "inversedBy": "campaigns"
+    },
+    "referral_links": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::referral-link.referral-link"
+    },
+    "campaign_influencer_accesses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-influencer-access.campaign-influencer-access"
+    },
+    "campaign_landing_page": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::campaign-landing-page.campaign-landing-page"
+    },
+    "campaign_onboarding_fields": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-field.campaign-onboarding-field"
+    },
+    "campaign_onboarding_responses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-response.campaign-onboarding-response"
+    },
+    "campaign_onboarding_completions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-completion.campaign-onboarding-completion"
+    },
+    "campaign_onboarding_starts": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-start.campaign-onboarding-start"
     }
   }
 }

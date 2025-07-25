@@ -636,10 +636,6 @@ export interface ApiCampaignTemplateCampaignTemplate
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    user_profile: Schema.Attribute.Relation<
-      'manyToOne',
-      'api::user-profile.user-profile'
-    >;
   };
 }
 
@@ -660,6 +656,30 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     brand_color: Schema.Attribute.String &
       Schema.Attribute.DefaultTo<'#6366f1'>;
     brand_logo_url: Schema.Attribute.String;
+    campaign_influencer_accesses: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-influencer-access.campaign-influencer-access'
+    >;
+    campaign_landing_page: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::campaign-landing-page.campaign-landing-page'
+    >;
+    campaign_onboarding_completions: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-onboarding-completion.campaign-onboarding-completion'
+    >;
+    campaign_onboarding_fields: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-onboarding-field.campaign-onboarding-field'
+    >;
+    campaign_onboarding_responses: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-onboarding-response.campaign-onboarding-response'
+    >;
+    campaign_onboarding_starts: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-onboarding-start.campaign-onboarding-start'
+    >;
     campaign_type: Schema.Attribute.Enumeration<
       [
         'referral_onboarding',
@@ -670,6 +690,7 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
       ]
     >;
     channel_id: Schema.Attribute.String;
+    client: Schema.Attribute.Relation<'manyToOne', 'api::client.client'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -690,6 +711,10 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     publishedAt: Schema.Attribute.DateTime;
     referral_conversions: Schema.Attribute.Integer &
       Schema.Attribute.DefaultTo<0>;
+    referral_links: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::referral-link.referral-link'
+    >;
     start_date: Schema.Attribute.DateTime;
     successful_onboardings: Schema.Attribute.Integer &
       Schema.Attribute.DefaultTo<0>;
@@ -714,6 +739,7 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    campaigns: Schema.Attribute.Relation<'oneToMany', 'api::campaign.campaign'>;
     client_status: Schema.Attribute.Enumeration<['active', 'inactive']>;
     contact_email: Schema.Attribute.Email;
     createdAt: Schema.Attribute.DateTime;
@@ -848,9 +874,9 @@ export interface ApiUserProfileUserProfile extends Struct.CollectionTypeSchema {
     avatar_url: Schema.Attribute.Media<
       'images' | 'files' | 'videos' | 'audios'
     >;
-    campaign_templates: Schema.Attribute.Relation<
+    campaign_influencer_accesses: Schema.Attribute.Relation<
       'oneToMany',
-      'api::campaign-template.campaign-template'
+      'api::campaign-influencer-access.campaign-influencer-access'
     >;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -866,11 +892,19 @@ export interface ApiUserProfileUserProfile extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
+    referral_links: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::referral-link.referral-link'
+    >;
     role: Schema.Attribute.Enumeration<['influencer', 'client', 'admin']> &
       Schema.Attribute.DefaultTo<'influencer'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    user_setting: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::user-setting.user-setting'
+    >;
   };
 }
 
