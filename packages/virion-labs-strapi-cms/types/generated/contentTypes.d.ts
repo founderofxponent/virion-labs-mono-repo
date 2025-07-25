@@ -558,6 +558,10 @@ export interface ApiCampaignOnboardingResponseCampaignOnboardingResponse
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     referral_id: Schema.Attribute.String;
+    referral_link: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::referral-link.referral-link'
+    >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -816,6 +820,10 @@ export interface ApiReferralLinkReferralLink
   };
   attributes: {
     access_role_id: Schema.Attribute.String;
+    campaign_onboarding_responses: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-onboarding-response.campaign-onboarding-response'
+    >;
     clicks: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     conversion_rate: Schema.Attribute.Decimal;
     conversions: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
@@ -845,6 +853,10 @@ export interface ApiReferralLinkReferralLink
     publishedAt: Schema.Attribute.DateTime;
     redirect_to_discord: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<false>;
+    referral_analytics: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::referral-analytic.referral-analytic'
+    >;
     referral_code: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;

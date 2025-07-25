@@ -95,6 +95,17 @@
     },
     "metadata": {
       "type": "json"
+    },
+    "referral_analytics": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::referral-analytic.referral-analytic"
+    },
+    "campaign_onboarding_responses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-response.campaign-onboarding-response",
+      "mappedBy": "referral_link"
     }
   }
 }

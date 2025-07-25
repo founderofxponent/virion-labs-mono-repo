@@ -34,6 +34,12 @@
     "is_completed": {
       "type": "boolean",
       "default": false
+    },
+    "referral_link": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::referral-link.referral-link",
+      "inversedBy": "campaign_onboarding_responses"
     }
   }
 }
