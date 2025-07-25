@@ -553,6 +553,74 @@ export interface ApiUserProfileUserProfile extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiUserSettingUserSetting extends Struct.CollectionTypeSchema {
+  collectionName: 'user_settings';
+  info: {
+    displayName: 'User Setting';
+    pluralName: 'user-settings';
+    singularName: 'user-setting';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    api_key: Schema.Attribute.String;
+    api_key_regenerated_at: Schema.Attribute.DateTime;
+    api_key_test: Schema.Attribute.String;
+    bio: Schema.Attribute.RichText;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    currency: Schema.Attribute.String & Schema.Attribute.DefaultTo<'USD'>;
+    discord_username: Schema.Attribute.String;
+    email_notifications_link_clicks: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    email_notifications_new_referral: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<true>;
+    email_notifications_product_updates: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<true>;
+    email_notifications_weekly_reports: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<true>;
+    instagram_handle: Schema.Attribute.String;
+    language: Schema.Attribute.String & Schema.Attribute.DefaultTo<'en'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::user-setting.user-setting'
+    > &
+      Schema.Attribute.Private;
+    login_notifications: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<true>;
+    phone_number: Schema.Attribute.String;
+    profile_visibility: Schema.Attribute.Enumeration<['public', 'private']>;
+    publishedAt: Schema.Attribute.DateTime;
+    push_notifications_link_clicks: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    push_notifications_new_referral: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    push_notifications_product_updates: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    push_notifications_weekly_reports: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    show_earnings: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    show_referral_count: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<true>;
+    theme: Schema.Attribute.Enumeration<['light', 'dark', 'system']> &
+      Schema.Attribute.DefaultTo<'system'>;
+    timezone: Schema.Attribute.String & Schema.Attribute.DefaultTo<'UTC'>;
+    twitter_handle: Schema.Attribute.String;
+    two_factor_enabled: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    webhook_events: Schema.Attribute.JSON;
+    webhook_url: Schema.Attribute.String;
+    website_url: Schema.Attribute.String;
+    youtube_channel: Schema.Attribute.String;
+  };
+}
+
 export interface PluginContentReleasesRelease
   extends Struct.CollectionTypeSchema {
   collectionName: 'strapi_releases';
@@ -1066,6 +1134,7 @@ declare module '@strapi/strapi' {
       'api::client.client': ApiClientClient;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;
       'api::user-profile.user-profile': ApiUserProfileUserProfile;
+      'api::user-setting.user-setting': ApiUserSettingUserSetting;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;
