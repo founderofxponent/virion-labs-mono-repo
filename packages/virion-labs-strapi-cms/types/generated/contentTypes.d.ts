@@ -455,6 +455,38 @@ export interface ApiCampaignLandingPageCampaignLandingPage
   };
 }
 
+export interface ApiCampaignOnboardingCompletionCampaignOnboardingCompletion
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'campaign_onboarding_completions';
+  info: {
+    displayName: 'Campaign Onboarding Completion';
+    pluralName: 'campaign-onboarding-completions';
+    singularName: 'campaign-onboarding-completion';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    completed_at: Schema.Attribute.DateTime;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    discord_user_id: Schema.Attribute.String & Schema.Attribute.Required;
+    discord_username: Schema.Attribute.String & Schema.Attribute.Required;
+    guild_id: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-onboarding-completion.campaign-onboarding-completion'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiCampaignOnboardingFieldCampaignOnboardingField
   extends Struct.CollectionTypeSchema {
   collectionName: 'campaign_onboarding_fields';
@@ -1389,6 +1421,7 @@ declare module '@strapi/strapi' {
       'admin::user': AdminUser;
       'api::campaign-influencer-access.campaign-influencer-access': ApiCampaignInfluencerAccessCampaignInfluencerAccess;
       'api::campaign-landing-page.campaign-landing-page': ApiCampaignLandingPageCampaignLandingPage;
+      'api::campaign-onboarding-completion.campaign-onboarding-completion': ApiCampaignOnboardingCompletionCampaignOnboardingCompletion;
       'api::campaign-onboarding-field.campaign-onboarding-field': ApiCampaignOnboardingFieldCampaignOnboardingField;
       'api::campaign-onboarding-response.campaign-onboarding-response': ApiCampaignOnboardingResponseCampaignOnboardingResponse;
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
