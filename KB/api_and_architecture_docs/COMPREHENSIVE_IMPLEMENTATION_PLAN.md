@@ -53,25 +53,26 @@ This migration will be conducted in five distinct phases to minimize risk and en
 
 *Objective: Prepare the development environment and get the new services running.*
 
-*   `[ ]` **1.1. Set up Strapi Project:**
+*   `[x]` **1.1. Set up Strapi Project:**
     *   Create a new Strapi project in the `packages` directory: `npx create-strapi-app@latest api-data-layer --quickstart`.
     *   This will be our Data & Access Control Layer.
 
-*   `[ ]` **1.2. Configure Strapi Database:**
+*   `[x]` **1.2. Configure Strapi Database:**
     *   In the Strapi project, install the `pg` connector: `npm install pg`.
     *   Configure Strapi to connect to your existing Supabase database. You can find the connection string in your Supabase project settings (`Settings` > `Database`). Update the Strapi database config file (`./config/database.js`).
 
-*   `[ ]` **1.3. Set up Unified API Project:**
-    *   Create a new project for our business logic API in the `packages` directory (e.g., using a FastAPI or Express.js starter). Name it `api-business-logic`.
+*   `[x]` **1.3. Existing API Package Analysis:**
+    *   The existing `/packages/api/` FastAPI package will be enhanced to become the unified business logic API.
+    *   No new package creation needed - transform existing API package.
 
-*   `[ ]` **1.4. Version Control:**
-    *   Ensure both new packages (`api-data-layer` and `api-business-logic`) are included in your Git repository.
+*   `[x]` **1.4. Version Control:**
+    *   Existing packages (`api-data-layer` and enhanced `api`) are already included in your Git repository.
 
 ### **Phase 2: Data Modeling & Access Control in Strapi**
 
 *Objective: Replicate the entire data schema and permission model within Strapi, making it the new source of truth for data structure.*
 
-*   `[ ]` **2.1. Create Content-Types:**
+*   `[x]` **2.1. Create Content-Types:**
     *   Using the Strapi Admin Panel, go to the **Content-Type Builder**.
     *   Re-create all your existing database tables as Strapi Content-Types. Key models include:
         *   `Campaign`
@@ -81,7 +82,7 @@ This migration will be conducted in five distinct phases to minimize risk and en
         *   `AnalyticsEvent`
     *   Define all fields and, crucially, the **relations** between them (e.g., a `Campaign` has many `OnboardingResponses`).
 
-*   `[ ]` **2.2. Configure User Roles & Permissions:**
+*   `[x]` **2.2. Configure User Roles & Permissions:**
     *   Go to `Settings` > `Roles & Permissions`.
     *   Define the necessary roles: `Admin`, `Client`, `Influencer`, `Authenticated` (for Discord members), and `Public`.
     *   For each role, configure the permissions for every Content-Type. For example, an `Influencer` can `find` and `findOne` of their own `ReferralLinks`, but cannot `delete` them. This is a critical step for security.
@@ -89,9 +90,15 @@ This migration will be conducted in five distinct phases to minimize risk and en
 *   `[ ]` **2.3. Data Migration (Optional but Recommended):**
     *   If you have existing data, write a one-time script to pull data from the old tables and push it into the new Strapi-managed tables via its API.
 
-### **Phase 3: Building the Unified Business Logic API**
+### **Phase 3: Transform Existing API Package to Unified Business Logic API**
 
-*Objective: Implement business workflows and operations that orchestrate calls to the Strapi API.*
+*Objective: Transform the existing `/packages/api/` to use Strapi instead of Supabase while implementing sophisticated business workflows and operations.*
+
+**Key Changes:**
+- Replace all Supabase calls with Strapi client calls
+- Add new business logic focused endpoints
+- Maintain MCP server compatibility
+- Enhance domain logic separation
 
 *   `[ ]` **3.1. Implement Core API Structure:**
     *   Set up the following endpoint categories in your business logic API:
@@ -141,7 +148,13 @@ This migration will be conducted in five distinct phases to minimize risk and en
         *   `POST /api/v1/integrations/external/webhook-handler` - Process webhooks
         *   `POST /api/v1/integrations/external/payment-processor` - Handle payments
 
-*   `[ ]` **3.5. Example Implementation Pattern:**
+*   `[ ]` **3.5. Migration from Supabase to Strapi:**
+    *   Replace existing Supabase client calls in all services
+    *   Update data models to match Strapi content types
+    *   Maintain existing endpoint interfaces for MCP server compatibility
+    *   Test all functionality with new Strapi backend
+
+*   `[ ]` **3.6. Example Implementation Pattern:**
     *   **Business Logic Workflow (`POST /api/v1/workflows/onboarding/complete`):**
         1.  Validate request data and user permissions
         2.  Call Strapi: `POST /api/onboarding-responses` - Save answers
@@ -151,47 +164,51 @@ This migration will be conducted in five distinct phases to minimize risk and en
         6.  Call Strapi: `POST /api/analytics-events` - Track completion
         7.  Return structured response with next steps
 
-*   `[ ]` **3.6. Implement Authentication & Authorization:**
-    *   JWT-based authentication for dashboard and bot clients
-    *   Role-based access control (Admin, Client, Influencer)
-    *   API key authentication for bot operations
-    *   Rate limiting and request validation
+*   `[ ]` **3.7. Enhance Authentication & Authorization:**
+    *   Maintain existing JWT-based authentication system
+    *   Integrate with Strapi's role-based access control
+    *   Keep API key authentication for bot operations
+    *   Ensure MCP server authentication continues to work
 
-### **Phase 4: Client Refactoring & Integration**
+### **Phase 4: MCP Server Integration & Testing**
 
-*Objective: Incrementally update the Dashboard and Discord Bot to use the new Unified API instead of directly accessing Supabase.*
+*Objective: Ensure the transformed API package works seamlessly with the MCP server and test all integrations.*
 
-*   `[ ]` **4.1. Refactor the Dashboard:**
-    *   Create a new API service/client within the dashboard project to handle all communication with the Business Logic API.
-    *   Replace direct Supabase calls with business logic API calls:
+*   `[ ]` **4.1. MCP Server Compatibility Testing:**
+    *   Test all existing MCP server endpoints with new Strapi backend
+    *   Ensure no breaking changes to current API contracts
+    *   Validate response formats match expectations
+    *   Performance testing and optimization
+
+*   `[ ]` **4.2. Future Dashboard & Discord Bot Integration Planning:**
+    *   Document new business logic API endpoints for future use
+    *   Create migration guides for when dashboard/bot want to use unified API:
         *   Dashboard data: `GET /api/v1/operations/analytics/generate-dashboard`
         *   Campaign creation: `POST /api/v1/workflows/client-onboarding/create-first-campaign`
         *   Campaign management: `/api/v1/operations/campaign/*` endpoints
         *   Analytics: `/api/v1/operations/analytics/*` endpoints
-    *   Start with read-only features (analytics, dashboards) before moving to write operations.
+    *   Note: Dashboard and Discord bot will continue using direct Supabase for now
 
-*   `[ ]` **4.2. Refactor the Discord Bot:**
-    *   Replace all direct Supabase queries with Business Logic API calls:
-        *   `/join` command: `GET /api/v1/workflows/onboarding/start`
-        *   Onboarding completion: `POST /api/v1/workflows/onboarding/complete`
-        *   Referral tracking: `/api/v1/workflows/referral-tracking/*` endpoints
-        *   Server events: `/api/v1/integrations/discord/*` endpoints
-    *   Update slash command handlers to use workflow endpoints instead of direct database access.
+### **Phase 5: API Package Finalization & Optimization**
 
-### **Phase 5: Decommissioning & Finalization**
+*Objective: Complete the API package transformation and optimize for production use.*
 
-*Objective: Remove the old, tightly-coupled connections to finalize the migration and prevent regressions.*
+*   `[ ]` **5.1. Remove Old Supabase Dependencies:**
+    *   **Uninstall** the Supabase client library from the `/packages/api/` package
+    *   Remove all Supabase-related configuration and environment variables
 
-*   `[ ]` **5.1. Remove Old Dependencies:**
-    *   Once the dashboard and bot are fully migrated, **uninstall** the Supabase client library (`@supabase/supabase-js`) from both projects.
+*   `[ ]` **5.2. Clean Up API Package Code:**
+    *   Delete all old Supabase database access code
+    *   Consolidate and optimize Strapi client implementations
+    *   Add comprehensive error handling for Strapi API calls
 
-*   `[ ]` **5.2. Clean Up Code:**
-    *   Delete all old code related to direct database access.
+*   `[ ]` **5.3. Update API Package Environment Variables:**
+    *   Remove `SUPABASE_URL` and `SUPABASE_ANON_KEY` from API package
+    *   Configure `STRAPI_API_URL` and `STRAPI_API_TOKEN`
+    *   Update deployment configurations
 
-*   `[ ]` **5.3. Update Environment Variables:**
-    *   Remove the `SUPABASE_URL` and `SUPABASE_ANON_KEY` from the `.env` files of the dashboard and bot.
-    *   Add the new `BUSINESS_LOGIC_API_URL` and `BUSINESS_LOGIC_API_KEY`.
-    *   Configure Strapi connection details for the business logic API only.
-
-*   `[ ]` **5.4. Final Review:**
-    *   Conduct a final architecture review to confirm that all services are communicating through the correct channels and that the decoupling is complete.
+*   `[ ]` **5.4. Final Review & Documentation:**
+    *   Comprehensive testing of all API endpoints with Strapi backend
+    *   Update API documentation with new business logic endpoints
+    *   Performance optimization and caching strategies
+    *   Production deployment preparation
