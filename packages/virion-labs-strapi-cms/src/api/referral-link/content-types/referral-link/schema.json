@@ -1,0 +1,100 @@
+{
+  "kind": "collectionType",
+  "collectionName": "referral_links",
+  "info": {
+    "singularName": "referral-link",
+    "pluralName": "referral-links",
+    "displayName": "Referral Link"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "richtext"
+    },
+    "platform": {
+      "type": "string",
+      "required": true
+    },
+    "original_url": {
+      "type": "string",
+      "required": true
+    },
+    "referral_code": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "referral_url": {
+      "type": "string",
+      "required": true
+    },
+    "thumbnail_url": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "clicks": {
+      "type": "integer",
+      "default": 0
+    },
+    "conversions": {
+      "type": "integer",
+      "default": 0
+    },
+    "conversion_rate": {
+      "type": "decimal"
+    },
+    "earnings": {
+      "type": "decimal",
+      "default": 0
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "expires_at": {
+      "type": "datetime"
+    },
+    "discord_invite_url": {
+      "type": "string"
+    },
+    "discord_guild_id": {
+      "type": "string"
+    },
+    "redirect_to_discord": {
+      "type": "boolean",
+      "default": false
+    },
+    "landing_page_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "last_conversion_at": {
+      "type": "datetime"
+    },
+    "private_channel_id": {
+      "type": "string"
+    },
+    "access_role_id": {
+      "type": "string"
+    },
+    "custom_invite_code": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "json"
+    }
+  }
+}

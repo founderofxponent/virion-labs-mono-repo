@@ -1,0 +1,49 @@
+{
+  "kind": "collectionType",
+  "collectionName": "user_profiles",
+  "info": {
+    "singularName": "user-profile",
+    "pluralName": "user-profiles",
+    "displayName": "User Profile"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "email": {
+      "type": "email",
+      "required": true,
+      "unique": true
+    },
+    "full_name": {
+      "type": "string",
+      "required": true
+    },
+    "avatar_url": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "role": {
+      "type": "enumeration",
+      "default": "influencer",
+      "enum": [
+        "influencer",
+        "client",
+        "admin"
+      ]
+    },
+    "campaign_templates": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-template.campaign-template",
+      "mappedBy": "user_profile"
+    }
+  }
+}

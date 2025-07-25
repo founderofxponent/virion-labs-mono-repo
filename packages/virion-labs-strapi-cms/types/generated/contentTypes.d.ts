@@ -373,6 +373,186 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiCampaignTemplateCampaignTemplate
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'campaign_templates';
+  info: {
+    displayName: 'Campaign Template';
+    pluralName: 'campaign-templates';
+    singularName: 'campaign-template';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    campaign_type: Schema.Attribute.Enumeration<
+      [
+        'referral_onboarding',
+        'community_engagement',
+        'product_promotion',
+        'custom',
+        'vip_support',
+      ]
+    > &
+      Schema.Attribute.Required;
+    category: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.RichText;
+    is_default: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-template.campaign-template'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    template_config: Schema.Attribute.JSON & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    user_profile: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::user-profile.user-profile'
+    >;
+  };
+}
+
+export interface ApiClientClient extends Struct.CollectionTypeSchema {
+  collectionName: 'clients';
+  info: {
+    displayName: 'Client';
+    pluralName: 'clients';
+    singularName: 'client';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    client_status: Schema.Attribute.Enumeration<['active', 'inactive']>;
+    contact_email: Schema.Attribute.Email;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    industry: Schema.Attribute.String & Schema.Attribute.Required;
+    influencers: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    join_date: Schema.Attribute.Date;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::client.client'
+    > &
+      Schema.Attribute.Private;
+    logo: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    primary_contact: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    website: Schema.Attribute.String;
+  };
+}
+
+export interface ApiReferralLinkReferralLink
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'referral_links';
+  info: {
+    displayName: 'Referral Link';
+    pluralName: 'referral-links';
+    singularName: 'referral-link';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    access_role_id: Schema.Attribute.String;
+    clicks: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    conversion_rate: Schema.Attribute.Decimal;
+    conversions: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    custom_invite_code: Schema.Attribute.String;
+    description: Schema.Attribute.RichText;
+    discord_guild_id: Schema.Attribute.String;
+    discord_invite_url: Schema.Attribute.String;
+    earnings: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
+    expires_at: Schema.Attribute.DateTime;
+    is_active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    landing_page_enabled: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<true>;
+    last_conversion_at: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::referral-link.referral-link'
+    > &
+      Schema.Attribute.Private;
+    metadata: Schema.Attribute.JSON;
+    original_url: Schema.Attribute.String & Schema.Attribute.Required;
+    platform: Schema.Attribute.String & Schema.Attribute.Required;
+    private_channel_id: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    redirect_to_discord: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    referral_code: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    referral_url: Schema.Attribute.String & Schema.Attribute.Required;
+    thumbnail_url: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios',
+      true
+    >;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiUserProfileUserProfile extends Struct.CollectionTypeSchema {
+  collectionName: 'user_profiles';
+  info: {
+    displayName: 'User Profile';
+    pluralName: 'user-profiles';
+    singularName: 'user-profile';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    avatar_url: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    campaign_templates: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-template.campaign-template'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    email: Schema.Attribute.Email &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    full_name: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::user-profile.user-profile'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    role: Schema.Attribute.Enumeration<['influencer', 'client', 'admin']> &
+      Schema.Attribute.DefaultTo<'influencer'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface PluginContentReleasesRelease
   extends Struct.CollectionTypeSchema {
   collectionName: 'strapi_releases';
@@ -882,6 +1062,10 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
+      'api::client.client': ApiClientClient;
+      'api::referral-link.referral-link': ApiReferralLinkReferralLink;
+      'api::user-profile.user-profile': ApiUserProfileUserProfile;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;
