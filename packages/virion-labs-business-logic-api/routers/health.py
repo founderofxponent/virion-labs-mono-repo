@@ -3,7 +3,7 @@ from core.config import settings
 
 router = APIRouter()
 
-@router.get("/health")
+@router.get("/status/health")
 async def health_check():
     """
     Checks the health of the service.

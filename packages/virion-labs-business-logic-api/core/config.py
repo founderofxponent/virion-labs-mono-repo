@@ -8,7 +8,11 @@ class Settings(BaseSettings):
     # API Configuration
     API_TITLE: str = "Virion Labs Unified Business Logic API"
     API_VERSION: str = "1.0.0"
-    API_PORT: int = 8001
+    API_PORT: int = 8000
+
+    # Supabase Configuration
+    SUPABASE_URL: str
+    SUPABASE_KEY: str
 
     # Authentication
     JWT_SECRET: str = "your_jwt_secret_here"

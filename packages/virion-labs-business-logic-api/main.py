@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
-from routers import health, operations
+from routers import health, operations, oauth, oauth_api
 import logging
 
 # Configure logging
@@ -27,6 +27,8 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, tags=["Platform"])
 app.include_router(operations.router, prefix="/api/v1/operations", tags=["Operations"])
+app.include_router(oauth.router, tags=["OAuth Discovery"]) # Root-level discovery
+app.include_router(oauth_api.router, prefix="/api/oauth", tags=["OAuth Flow"]) # Prefixed flow endpoints
 
 
 @app.get("/")
