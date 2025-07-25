@@ -564,6 +564,38 @@ export interface ApiCampaignOnboardingResponseCampaignOnboardingResponse
   };
 }
 
+export interface ApiCampaignOnboardingStartCampaignOnboardingStart
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'campaign_onboarding_starts';
+  info: {
+    displayName: 'Campaign Onboarding Start';
+    pluralName: 'campaign-onboarding-starts';
+    singularName: 'campaign-onboarding-start';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    discord_user_id: Schema.Attribute.String & Schema.Attribute.Required;
+    discord_username: Schema.Attribute.String & Schema.Attribute.Required;
+    guild_id: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-onboarding-start.campaign-onboarding-start'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    started_at: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiCampaignTemplateCampaignTemplate
   extends Struct.CollectionTypeSchema {
   collectionName: 'campaign_templates';
@@ -1424,6 +1456,7 @@ declare module '@strapi/strapi' {
       'api::campaign-onboarding-completion.campaign-onboarding-completion': ApiCampaignOnboardingCompletionCampaignOnboardingCompletion;
       'api::campaign-onboarding-field.campaign-onboarding-field': ApiCampaignOnboardingFieldCampaignOnboardingField;
       'api::campaign-onboarding-response.campaign-onboarding-response': ApiCampaignOnboardingResponseCampaignOnboardingResponse;
+      'api::campaign-onboarding-start.campaign-onboarding-start': ApiCampaignOnboardingStartCampaignOnboardingStart;
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
       'api::campaign.campaign': ApiCampaignCampaign;
       'api::client.client': ApiClientClient;

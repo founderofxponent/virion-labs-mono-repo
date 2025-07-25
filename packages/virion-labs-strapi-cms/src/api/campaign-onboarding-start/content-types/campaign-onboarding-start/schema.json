@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "campaign_onboarding_starts",
+  "info": {
+    "singularName": "campaign-onboarding-start",
+    "pluralName": "campaign-onboarding-starts",
+    "displayName": "Campaign Onboarding Start"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "discord_user_id": {
+      "type": "string",
+      "required": true
+    },
+    "discord_username": {
+      "type": "string",
+      "required": true
+    },
+    "guild_id": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "datetime"
+    }
+  }
+}
