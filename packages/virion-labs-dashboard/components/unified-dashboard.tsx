@@ -27,7 +27,7 @@ import {
   Settings,
   Edit
 } from "lucide-react"
-import { useUnifiedData, type UnifiedData, type UnifiedListItem, type UnifiedActivity } from "@/hooks/use-unified-data"
+import { useDashboardData, type DashboardData, type DashboardListItem, type DashboardActivity } from "@/hooks/use-dashboard-data"
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
 import { useCallback } from "react"
@@ -74,7 +74,7 @@ function StatsCard({
               <ArrowDownRight className="mr-1 h-4 w-4 text-red-600" />
             )}
             <span className={`font-medium ${trend > 0 ? "text-green-600" : "text-red-600"}`}>
-              {Math.abs(trend)}%
+              {Math.abs(trend).toFixed(1)}%
             </span>
             <span className="ml-1 text-muted-foreground">vs last month</span>
           </div>
@@ -117,7 +117,7 @@ function QuickActionCard({ title, description, icon: Icon, onClick, variant = "d
 
 // Simplified list item with better spacing
 function ListItem({ item, showActions = false, role }: { 
-  item: UnifiedListItem; 
+  item: DashboardListItem; 
   showActions?: boolean;
   role?: string;
 }) {
@@ -193,7 +193,7 @@ function ListItem({ item, showActions = false, role }: {
 }
 
 // Activity item with better visual design
-function ActivityItem({ activity }: { activity: UnifiedActivity }) {
+function ActivityItem({ activity }: { activity: DashboardActivity }) {
   const getActivityIcon = (type: string) => {
     const baseClasses = "flex items-center justify-center w-8 h-8 rounded-full"
     switch (type) {
@@ -271,7 +271,7 @@ function DashboardSkeleton() {
 // Main dashboard component with improved layout
 export function UnifiedDashboard() {
   const { profile } = useAuth()
-  const { data, loading, error, refetch } = useUnifiedData()
+  const { data, loading, error, refetch } = useDashboardData()
   const router = useRouter()
 
   // Navigation handlers
@@ -513,6 +513,36 @@ export function UnifiedDashboard() {
             This Month
           </Button>
         </div>
+      </div>
+
+      {/* Main Stats Section */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <StatsCard
+          title={data.stats.primaryLabel}
+          value={data.stats.primary}
+          icon={icons[0]}
+          trend={data.stats.conversionRate}
+          isMain={true}
+          onClick={getStatClickHandler(0)}
+        />
+        <StatsCard
+          title={data.stats.secondaryLabel}
+          value={data.stats.secondary}
+          icon={icons[1]}
+          onClick={getStatClickHandler(1)}
+        />
+        <StatsCard
+          title={data.stats.tertiaryLabel}
+          value={data.stats.tertiary}
+          icon={icons[2]}
+          onClick={getStatClickHandler(2)}
+        />
+        <StatsCard
+          title={data.stats.quaternaryLabel}
+          value={data.stats.quaternary}
+          icon={icons[3]}
+          onClick={getStatClickHandler(3)}
+        />
       </div>
 
       {/* Quick Actions Section */}

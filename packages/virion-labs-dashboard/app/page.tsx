@@ -4,7 +4,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { UnifiedDashboard } from "@/components/unified-dashboard"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/components/auth-provider"
-import { useUnifiedData } from "@/hooks/use-unified-data"
+import { useDashboardData } from "@/hooks/use-dashboard-data"
 
 export default function Home() {
   return (
@@ -16,7 +16,7 @@ export default function Home() {
 
 function DashboardContent() {
   const { profile, loading: authLoading } = useAuth() 
-  const { loading: dataLoading, error: dataError, data } = useUnifiedData()
+  const { loading: dataLoading, error: dataError, data } = useDashboardData()
 
   if (!authLoading && !profile) {
     return null;
