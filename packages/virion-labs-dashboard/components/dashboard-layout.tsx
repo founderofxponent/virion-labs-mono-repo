@@ -40,6 +40,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const getDashboardTitle = () => {
     switch (profile?.role) {
       case "admin":
+      case "Platform Administrator":
         return "Admin Dashboard"
       case "client":
         return "Client Dashboard"
