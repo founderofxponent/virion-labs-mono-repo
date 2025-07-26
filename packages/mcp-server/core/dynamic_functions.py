@@ -145,7 +145,7 @@ class DynamicFunctionRegistry:
             "method": details.get("method"),
         }
 
-    async def execute_function(self, function_name: str, parameters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def execute_function(self, function_name: str, parameters: Optional[Dict[str, Any]] = None, token: Optional[str] = None) -> Dict[str, Any]:
         """
         Executes a function by validating parameters and making an API call.
         """
@@ -200,6 +200,7 @@ class DynamicFunctionRegistry:
             endpoint=path,
             data=body_data,
             params=query_params,
+            token=token,
         )
 
     def create_pydantic_model_from_schema(self, model_name: str, schema: Dict[str, Any]) -> Type[pydantic.BaseModel]:

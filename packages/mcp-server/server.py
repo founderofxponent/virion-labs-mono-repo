@@ -148,7 +148,11 @@ class VirionLabsMCPServer:
                         )]
                     
                     # DYNAMIC DISPATCH LOGIC
-                    result = await self.function_registry.execute_function(function_name, parameters)
+                    result = await self.function_registry.execute_function(
+                        function_name, 
+                        parameters,
+                        token=token
+                    )
                     
                     import json
                     return [types.TextContent(type="text", text=json.dumps(result))]
