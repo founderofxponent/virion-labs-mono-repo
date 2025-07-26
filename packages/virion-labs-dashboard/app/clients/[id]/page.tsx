@@ -12,7 +12,7 @@ export default async function ClientPage({ params }: ClientPageProps) {
   const { id } = await params
   
   return (
-    <ProtectedRoute allowedRoles={["admin"]}>
+    <ProtectedRoute allowedRoles={["admin", "Platform Administrator"]}>
       <DashboardLayout>
         <ClientDetailPage clientId={id} />
       </DashboardLayout>

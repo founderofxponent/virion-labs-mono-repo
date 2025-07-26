@@ -14,8 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { supabase, type Client, type ClientUpdate } from "@/lib/supabase"
-import { useClients } from "@/hooks/use-clients"
+import { useClients, type Client } from "@/hooks/use-clients"
 import { toast } from "sonner"
 
 interface ClientDetailPageProps {
@@ -23,6 +22,16 @@ interface ClientDetailPageProps {
 }
 
 type ClientStatus = "Active" | "Inactive" | "Pending"
+
+interface ClientUpdate {
+  name?: string
+  industry?: string
+  website?: string | null
+  primary_contact?: string | null
+  contact_email?: string | null
+  influencers?: number
+  status?: string
+}
 
 interface EditFormState {
   name: string
@@ -37,7 +46,7 @@ interface EditFormState {
 export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { updateClient, deleteClient, formatDate } = useClients()
+  const { updateClient, deleteClient, getClientById, formatDate } = useClients()
   
   const [client, setClient] = useState<Client | null>(null)
   const [loading, setLoading] = useState(true)
@@ -71,63 +80,6 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
     }
   }, [searchParams])
 
-  // Fetch client data
-  const fetchClient = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', clientId)
-        .single()
-
-      if (error) throw error
-      
-      if (data) {
-        setClient(data)
-        setEditForm({
-          name: data.name,
-          industry: data.industry,
-          website: data.website || "",
-          primary_contact: data.primary_contact || "",
-          contact_email: data.contact_email || "",
-          influencers: data.influencers || 0,
-          status: data.status as ClientStatus
-        })
-
-        // Fetch campaigns count for this client
-        await fetchCampaignsCount(data.id)
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Fetch campaigns count
-  const fetchCampaignsCount = async (clientId: string) => {
-    try {
-      const { count, error } = await supabase
-        .from('discord_guild_campaigns')
-        .select('*', { count: 'exact', head: true })
-        .eq('client_id', clientId)
-        .neq('is_deleted', true) // Don't count deleted campaigns
-
-      if (error) {
-        console.error('Error fetching campaigns count:', error)
-        setCampaignsCount(0)
-      } else {
-        setCampaignsCount(count || 0)
-      }
-    } catch (err) {
-      console.error('Error fetching campaigns count:', err)
-      setCampaignsCount(0)
-    }
-  }
-
   // Handle edit save
   const handleSave = async () => {
     if (!client || !editForm.name || !editForm.industry) {
@@ -147,12 +99,30 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
         status: editForm.status
       }
 
-      const { data, error } = await updateClient(client.id, updates)
+      const clientIdentifier = client.documentId || client.id
+      const { data, error } = await updateClient(clientIdentifier, updates)
 
       if (error) {
         toast.error(error)
       } else if (data) {
-        setClient(data)
+        // Use documentId from update response if available, otherwise fall back to numeric ID
+        const clientIdentifier = data.documentId || client.id
+        
+        // Refresh the client data from the API
+        const { data: refreshedData, error: refreshError } = await getClientById(clientIdentifier)
+        if (refreshedData && !refreshError) {
+          setClient(refreshedData)
+          setEditForm({
+            name: refreshedData.name,
+            industry: refreshedData.industry,
+            website: refreshedData.website || "",
+            primary_contact: refreshedData.primary_contact || "",
+            contact_email: refreshedData.contact_email || "",
+            influencers: refreshedData.influencers || 0,
+            status: refreshedData.status as ClientStatus
+          })
+          setCampaignsCount(refreshedData.campaign_count || 0)
+        }
         setIsEditing(false)
         toast.success("Client updated successfully")
       }
@@ -169,7 +139,8 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
 
     setIsDeleting(true)
     try {
-      const { error } = await deleteClient(client.id)
+      const clientIdentifier = client.documentId || client.id
+      const { error } = await deleteClient(clientIdentifier)
 
       if (error) {
         toast.error(error)
@@ -202,7 +173,44 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
   }
 
   useEffect(() => {
+    const fetchClient = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        // Try to parse as number first, but if it fails, use as string (documentId)
+        const clientIdentifier = isNaN(parseInt(clientId)) ? clientId : parseInt(clientId)
+        const { data, error } = await getClientById(clientIdentifier)
+
+        if (error) {
+          setError(error)
+          return
+        }
+        
+        if (data) {
+          setClient(data)
+          setEditForm({
+            name: data.name,
+            industry: data.industry,
+            website: data.website || "",
+            primary_contact: data.primary_contact || "",
+            contact_email: data.contact_email || "",
+            influencers: data.influencers || 0,
+            status: data.status as ClientStatus
+          })
+
+          // Campaign count is already included in the data from the API
+          setCampaignsCount(data.campaign_count || 0)
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred')
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchClient()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId])
 
   if (loading) {

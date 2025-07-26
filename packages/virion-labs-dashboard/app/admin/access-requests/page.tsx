@@ -4,7 +4,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 
 export default function AccessRequests() {
   return (
-    <ProtectedRoute allowedRoles={["admin"]}>
+    <ProtectedRoute allowedRoles={["admin", "Platform Administrator"]}>
       <DashboardLayout>
         <AdminAccessRequestsPage />
       </DashboardLayout>

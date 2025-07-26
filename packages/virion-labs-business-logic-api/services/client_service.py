@@ -49,26 +49,41 @@ class ClientService:
         """
         logger.info(f"ClientService: Executing update_client_operation for client {document_id}.")
         
-        # Authorization Check
+        # Authorization Check - for now, Platform Administrators can update all clients
         user_role = self._get_user_role(current_user)
         if user_role != 'Platform Administrator':
-            # If not an admin, must be the owner. Fetch client to verify.
+            raise HTTPException(status_code=403, detail="Forbidden: Access denied.")
+
+        # First, find the actual documentId if we were passed a numeric ID
+        actual_document_id = document_id
+        
+        # If document_id is numeric, we need to find the actual documentId
+        if document_id.isdigit():
             try:
-                client_to_update = await strapi_client.get_client(document_id, populate=['owner'])
-                owner_id = client_to_update.get('owner', {}).get('id')
-                if not owner_id or owner_id != current_user.id:
-                    raise HTTPException(status_code=403, detail="Forbidden: You do not own this resource.")
-            except HTTPException as e:
-                if e.status_code == 404:
-                    raise HTTPException(status_code=404, detail="Client not found.")
-                raise e
+                logger.info(f"Searching for client with numeric ID to get documentId: {document_id}")
+                all_clients = await strapi_client.get_clients()
+                for client in all_clients:
+                    if str(client.get("id")) == document_id:
+                        actual_document_id = client.get("documentId")
+                        logger.info(f"Found documentId for numeric ID {document_id}: {actual_document_id}")
+                        break
+                else:
+                    logger.error(f"Could not find client with numeric ID: {document_id}")
+                    raise HTTPException(status_code=404, detail=f"Client with ID {document_id} not found")
+            except Exception as e:
+                logger.error(f"Failed to lookup client by numeric ID {document_id}: {e}")
+                raise HTTPException(status_code=404, detail=f"Client with ID {document_id} not found")
 
         updates_with_logic = self.client_domain.update_client_with_business_logic(updates)
-        updated_client_attrs = await strapi_client.update_client(document_id, updates_with_logic)
-        updated_client = {"id": updated_client_attrs["id"], "attributes": updated_client_attrs}
+        updated_client_attrs = await strapi_client.update_client(actual_document_id, updates_with_logic)
+        updated_client = {
+            "id": updated_client_attrs["id"], 
+            "documentId": updated_client_attrs.get("documentId", actual_document_id),
+            "attributes": updated_client_attrs
+        }
         business_context = self.client_domain.get_client_business_context(updated_client['attributes'])
 
-        return {"client": updated_client, "business_context": business_context}
+        return {"client": updated_client, "business_context": business_context, "documentId": actual_document_id}
 
     async def get_client_operation(self, document_id: str, current_user: StrapiUser) -> Dict[str, Any]:
         """
@@ -76,16 +91,52 @@ class ClientService:
         """
         logger.info(f"ClientService: Executing get_client_operation for client {document_id}.")
         
-        client_attrs = await strapi_client.get_client(document_id, populate=['owner'])
-        
-        # Authorization Check
+        # Authorization Check - for now, Platform Administrators can access all clients
         user_role = self._get_user_role(current_user)
         if user_role != 'Platform Administrator':
-            owner_id = client_attrs.get('owner', {}).get('id')
-            if not owner_id or owner_id != current_user.id:
-                raise HTTPException(status_code=403, detail="Forbidden: You do not own this resource.")
-
-        return {"client": client_attrs}
+            raise HTTPException(status_code=403, detail="Forbidden: Access denied.")
+        
+        # Try different approaches to find the client
+        client_attrs = None
+        error_messages = []
+        
+        # Approach 1: Try as documentId directly
+        try:
+            logger.info(f"Trying to fetch client with documentId: {document_id}")
+            client_attrs = await strapi_client.get_client(document_id)
+        except Exception as e:
+            error_messages.append(f"documentId '{document_id}': {str(e)}")
+            logger.warning(f"Failed to fetch client with documentId {document_id}: {e}")
+        
+        # Approach 2: If that fails and document_id is numeric, try searching by numeric ID
+        if not client_attrs and document_id.isdigit():
+            try:
+                logger.info(f"Searching for client with numeric ID: {document_id}")
+                # Get all clients and find the one with matching numeric ID
+                all_clients = await strapi_client.get_clients()
+                for client in all_clients:
+                    if str(client.get("id")) == document_id:
+                        client_attrs = client
+                        logger.info(f"Found client by numeric ID: {client.get('id')} -> documentId: {client.get('documentId')}")
+                        break
+                if not client_attrs:
+                    error_messages.append(f"numeric ID '{document_id}': not found in client list")
+            except Exception as e:
+                error_messages.append(f"numeric ID search '{document_id}': {str(e)}")
+                logger.warning(f"Failed to search clients by numeric ID {document_id}: {e}")
+        
+        if not client_attrs:
+            logger.error(f"Client not found using any method. Tried: {'; '.join(error_messages)}")
+            raise HTTPException(status_code=404, detail=f"Client not found. Tried: {'; '.join(error_messages)}")
+        
+        # Return client in the expected format for the dashboard
+        # Need to structure it like the list operation expects it
+        structured_client = {
+            "id": client_attrs.get("id"),
+            "attributes": client_attrs
+        }
+        
+        return {"client": structured_client}
 
     async def delete_client_operation(self, document_id: str, current_user: StrapiUser) -> Dict[str, Any]:
         """
@@ -97,8 +148,28 @@ class ClientService:
         if self._get_user_role(current_user) != 'Platform Administrator':
             raise HTTPException(status_code=403, detail="Forbidden: Only admins can delete clients.")
 
+        # First, find the actual documentId if we were passed a numeric ID
+        actual_document_id = document_id
+        
+        # If document_id is numeric, we need to find the actual documentId
+        if document_id.isdigit():
+            try:
+                logger.info(f"Searching for client with numeric ID to get documentId: {document_id}")
+                all_clients = await strapi_client.get_clients()
+                for client in all_clients:
+                    if str(client.get("id")) == document_id:
+                        actual_document_id = client.get("documentId")
+                        logger.info(f"Found documentId for numeric ID {document_id}: {actual_document_id}")
+                        break
+                else:
+                    logger.error(f"Could not find client with numeric ID: {document_id}")
+                    raise HTTPException(status_code=404, detail=f"Client with ID {document_id} not found")
+            except Exception as e:
+                logger.error(f"Failed to lookup client by numeric ID {document_id}: {e}")
+                raise HTTPException(status_code=404, detail=f"Client with ID {document_id} not found")
+
         update_data = {"client_status": "inactive"}
-        deleted_client_attrs = await strapi_client.update_client(document_id, update_data)
+        deleted_client_attrs = await strapi_client.update_client(actual_document_id, update_data)
         
         return {"client": deleted_client_attrs, "status": "archived"}
 
@@ -139,6 +210,8 @@ class ClientService:
         for client_obj in clients_from_db:
             if "id" in client_obj:
                 client_id = client_obj["id"]
+                document_id = client_obj.get("documentId", "NO_DOC_ID")
+                logger.info(f"Client found - ID: {client_id}, DocumentID: {document_id}")
                 
                 # Add the campaign count directly to the flat object
                 client_obj["campaign_count"] = campaign_counts.get(client_id, 0)

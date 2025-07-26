@@ -15,7 +15,7 @@ export default function EditCampaignPage({ params }: EditCampaignPageProps) {
   const { id } = use(params)
   
   return (
-    <ProtectedRoute allowedRoles={["admin"]}>
+    <ProtectedRoute allowedRoles={["admin", "Platform Administrator"]}>
       <DashboardLayout>
         <CampaignWizard mode="edit" campaignId={id} />
       </DashboardLayout>

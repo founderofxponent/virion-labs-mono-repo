@@ -6,6 +6,7 @@ import { useAuth } from "@/components/auth-provider"
 // This is the shape of the data the UI components expect
 export interface Client {
   id: number;
+  documentId?: string;
   name: string;
   industry: string;
   website?: string;
@@ -16,11 +17,14 @@ export interface Client {
   join_date: string;
   logo?: string;
   campaign_count: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // This is the actual shape of the data from the API
 interface ApiClient {
   id: number;
+  documentId?: string;
   attributes: {
     name: string;
     industry: string;
@@ -32,6 +36,8 @@ interface ApiClient {
     join_date: string;
     logo?: string;
     campaign_count: number;
+    created_at?: string;
+    updated_at?: string;
   };
 }
 
@@ -41,24 +47,28 @@ interface ApiListResponse {
 }
 
 export function useClients() {
-  const { token } = useAuth()
+  const { user } = useAuth()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [campaignCounts, setCampaignCounts] = useState<Record<string, number>>({})
 
-  const API_BASE_URL = "http://localhost:8001/api/v1/operations"
+  const API_BASE_URL = "http://localhost:8000/api/v1/operations"
+
+  const getToken = () => localStorage.getItem('auth_token')
 
   // Correctly transform the nested API response to the flat structure the UI needs
   const transformApiClient = (apiClient: ApiClient): Client => {
     return {
       id: apiClient.id,
+      documentId: apiClient.documentId,
       ...apiClient.attributes,
       status: apiClient.attributes.client_status, // Map client_status to status
     }
   }
 
   const fetchClients = useCallback(async () => {
+    const token = getToken()
     if (!token) {
       setError("Authentication token not found.")
       setLoading(false)
@@ -95,13 +105,14 @@ export function useClients() {
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [])
 
   // Other functions (addClient, updateClient, etc.) would also need to be
   // updated to send the correct nested structure if they create/update data.
   // For now, the primary issue was fetching and displaying, which is now fixed.
 
   const addClient = async (clientData: Omit<Client, 'id' | 'join_date' | 'campaign_count'>) => {
+    const token = getToken()
     if (!token) return { data: null, error: "Authentication token not found." }
 
     try {
@@ -141,13 +152,14 @@ export function useClients() {
     }
   }
 
-  const updateClient = async (id: number, updates: Partial<Client>) => {
+  const updateClient = async (clientIdentifier: number | string, updates: Partial<Client>) => {
+    const token = getToken()
     if (!token) return { data: null, error: "Authentication token not found." }
 
     try {
       setError(null)
       
-      const response = await fetch(`${API_BASE_URL}/client/update/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/client/update/${clientIdentifier}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -161,8 +173,9 @@ export function useClients() {
         throw new Error(errorData.detail || 'Failed to update client')
       }
       
+      const responseData = await response.json()
       await fetchClients()
-      return { data: "Success", error: null }
+      return { data: responseData, error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       setError(errorMessage)
@@ -170,13 +183,14 @@ export function useClients() {
     }
   }
 
-  const deleteClient = async (id: number) => {
+  const deleteClient = async (clientIdentifier: number | string) => {
+    const token = getToken()
     if (!token) return { error: "Authentication token not found." }
 
     try {
       setError(null)
       
-      const response = await fetch(`${API_BASE_URL}/client/delete/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/client/delete/${clientIdentifier}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -222,7 +236,8 @@ export function useClients() {
     }
   }
 
-  const getClientById = async (id: number) => {
+  const getClientById = async (id: number | string) => {
+    const token = getToken()
     if (!token) return { data: null, error: "Authentication token not found." }
 
     try {
@@ -246,8 +261,10 @@ export function useClients() {
   }
 
   useEffect(() => {
-    fetchClients()
-  }, [fetchClients])
+    if (user) {
+      fetchClients()
+    }
+  }, [user, fetchClients])
 
   return {
     clients,

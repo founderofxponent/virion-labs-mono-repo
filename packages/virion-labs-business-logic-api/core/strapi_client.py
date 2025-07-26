@@ -67,10 +67,13 @@ class StrapiClient:
         response = await self._request("PUT", f"clients/{document_id}", data=data)
         return response.get("data")
 
-    async def get_client(self, document_id: str) -> Dict:
+    async def get_client(self, document_id: str, populate: Optional[List[str]] = None) -> Dict:
         """Fetches a single client by documentId from Strapi."""
         logger.info(f"StrapiClient: Fetching client {document_id} from Strapi.")
-        response = await self._request("GET", f"clients/{document_id}")
+        params = {}
+        if populate:
+            params["populate"] = ",".join(populate)
+        response = await self._request("GET", f"clients/{document_id}", params=params)
         return response.get("data")
 
     async def get_campaigns(self, filters: Optional[Dict] = None) -> List[Dict]:

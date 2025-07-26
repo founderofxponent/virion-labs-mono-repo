@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document outlines the migration plan for the **MCP Server**. The server will be updated to use the new **Unified Business Logic API** (`localhost:8001`), which replaces the legacy API package (`localhost:8000`).
+This document outlines the migration plan for the **MCP Server**. The server will be updated to use the new **Unified Business Logic API** (`localhost:8000`), which replaces the legacy API package (`localhost:8000`).
 
 The Unified API provides a comprehensive and structured set of endpoints for all business functions. This migration will align the MCP Server with the new, robust architecture, centralizing all business logic and improving maintainability.
 
@@ -11,7 +11,7 @@ The Unified API provides a comprehensive and structured set of endpoints for all
 ## Migration Strategy: Phased Replacement
 
 The migration will be straightforward:
-1.  The MCP Server's API client will be pointed to the new Unified API's base URL (`http://localhost:8001`).
+1.  The MCP Server's API client will be pointed to the new Unified API's base URL (`http://localhost:8000`).
 2.  The function calls within the MCP Server's codebase will be updated to match the new `operationId`s exposed by the Unified API's OpenAPI schema.
 3.  The request and response payloads will be updated to match the new, more descriptive schemas.
 
@@ -91,7 +91,7 @@ provision_client_workflow({
 
 ## Migration Steps
 
-1.  **Update Environment:** Change the `API_BASE_URL` in the MCP Server's `.env` file to `http://localhost:8001`.
+1.  **Update Environment:** Change the `API_BASE_URL` in the MCP Server's `.env` file to `http://localhost:8000`.
 2.  **Update Client Generation:** Rerun the script that generates the API client for the MCP server to fetch the new OpenAPI schema and create the updated functions.
 3.  **Update Function Calls:** Manually update the parts of the MCP server codebase that call the API to use the new function names and request/response models.
 4.  **Thorough Testing:** Test all MCP server commands to ensure they interact correctly with the new Unified API.

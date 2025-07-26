@@ -9,7 +9,7 @@ This guide provides step-by-step instructions for implementing the **Unified Bus
 ## Prerequisites
 
 - ✅ Strapi is running at `localhost:1337` with all content types configured.
-- ✅ The new Unified Business Logic API will run at `localhost:8001`.
+- ✅ The new Unified Business Logic API will run at `localhost:8000`.
 
 ## Unified Business Logic Scope Definition
 
@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     # API Configuration
     API_TITLE: str = "Virion Labs Unified Business Logic API"
     API_VERSION: str = "1.0.0"
-    API_PORT: int = 8001
+    API_PORT: int = 8000
     
     # Authentication
     JWT_SECRET: str
@@ -1189,7 +1189,7 @@ STRAPI_API_TOKEN=your_strapi_api_token_here
 # API Configuration  
 API_TITLE=Virion Labs Unified Business Logic API
 API_VERSION=1.0.0
-API_PORT=8001
+API_PORT=8000
 
 # Authentication
 JWT_SECRET=your_jwt_secret_here
@@ -1209,7 +1209,7 @@ API_KEY=your_api_key_here
 # API_BASE_URL=http://localhost:8000
 
 # Change to:
-API_BASE_URL=http://localhost:8001
+API_BASE_URL=http://localhost:8000
 ```
 
 ### **Step 7.2: Test MCP Server Integration**
@@ -1260,7 +1260,7 @@ async def test_client_operations():
         }
         
         response = await client.post(
-            "http://localhost:8001/api/v1/operations/client/create",
+            "http://localhost:8000/api/v1/operations/client/create",
             json=create_data
         )
         

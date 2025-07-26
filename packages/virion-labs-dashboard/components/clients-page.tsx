@@ -128,11 +128,13 @@ export function ClientsPage() {
     }
   }
 
-  const handleViewClient = (clientId: string) => {
+  const handleViewClient = (client: Client) => {
+    const clientId = client.documentId || client.id
     router.push(`/clients/${clientId}`)
   }
 
-  const handleEditClient = (clientId: string) => {
+  const handleEditClient = (client: Client) => {
+    const clientId = client.documentId || client.id
     router.push(`/clients/${clientId}?edit=true`)
   }
 
@@ -324,7 +326,7 @@ export function ClientsPage() {
                 <TableBody>
                   {filteredClients.map((client) => (
                     <TableRow key={client.id} className="cursor-pointer hover:bg-muted/50">
-                      <TableCell onClick={() => handleViewClient(client.id)}>
+                      <TableCell onClick={() => handleViewClient(client)}>
                         <div className="flex items-center gap-3">
                           <Avatar>
                             {client.logo && (
@@ -335,12 +337,12 @@ export function ClientsPage() {
                           <div className="font-medium">{client.name}</div>
                         </div>
                       </TableCell>
-                      <TableCell onClick={() => handleViewClient(client.id)}>{client.industry}</TableCell>
-                      <TableCell onClick={() => handleViewClient(client.id)}>{client.influencers || 0}</TableCell>
-                      <TableCell onClick={() => handleViewClient(client.id)}>
+                      <TableCell onClick={() => handleViewClient(client)}>{client.industry}</TableCell>
+                      <TableCell onClick={() => handleViewClient(client)}>{client.influencers || 0}</TableCell>
+                      <TableCell onClick={() => handleViewClient(client)}>
                         {campaignCounts[client.id] || 0}
                       </TableCell>
-                      <TableCell onClick={() => handleViewClient(client.id)}>
+                      <TableCell onClick={() => handleViewClient(client)}>
                         <Badge
                           variant={
                             client.status === "Active"
@@ -353,7 +355,7 @@ export function ClientsPage() {
                           {client.status}
                         </Badge>
                       </TableCell>
-                      <TableCell onClick={() => handleViewClient(client.id)}>{formatDate(client.join_date)}</TableCell>
+                      <TableCell onClick={() => handleViewClient(client)}>{formatDate(client.join_date)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button 
@@ -361,7 +363,7 @@ export function ClientsPage() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleViewClient(client.id)
+                              handleViewClient(client)
                             }}
                           >
                             View
@@ -371,7 +373,7 @@ export function ClientsPage() {
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleEditClient(client.id)
+                              handleEditClient(client)
                             }}
                           >
                             Edit
@@ -390,7 +392,7 @@ export function ClientsPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredClients.map((client) => (
               <Card key={client.id} className="cursor-pointer hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2" onClick={() => handleViewClient(client.id)}>
+                <CardHeader className="pb-2" onClick={() => handleViewClient(client)}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Avatar>
@@ -411,7 +413,7 @@ export function ClientsPage() {
                   </div>
                   <CardDescription>{client.industry}</CardDescription>
                 </CardHeader>
-                <CardContent className="pb-2" onClick={() => handleViewClient(client.id)}>
+                <CardContent className="pb-2" onClick={() => handleViewClient(client)}>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
