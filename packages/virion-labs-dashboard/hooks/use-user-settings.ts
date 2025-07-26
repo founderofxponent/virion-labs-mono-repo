@@ -58,9 +58,15 @@ export function useUserSettings() {
         throw error
       }
 
-      setSettings(data || null)
-      setError(null)
-      console.log('👤 useUserSettings: Settings fetched successfully:', !!data)
+      if (data) {
+        setSettings(data)
+        setError(null)
+        console.log('👤 useUserSettings: Settings fetched successfully:', !!data)
+      } else {
+        // No settings found, so create them
+        console.log('👤 useUserSettings: No settings found, creating defaults')
+        await createDefaultSettings()
+      }
     } catch (err: any) {
       setError(err.message)
       console.error('👤 useUserSettings: Error fetching settings:', err)
@@ -328,14 +334,6 @@ export function useUserSettings() {
       setLoading(false)
     }
   }, [user?.id, isUserAvailable])
-
-  // Create default settings if none exist
-  useEffect(() => {
-    if (!loading && user?.id && isUserAvailable && !settings && !error && !isCreatingDefaults) {
-      console.log('👤 useUserSettings: Triggering createDefaultSettings for confirmed user:', user.id)
-      createDefaultSettings()
-    }
-  }, [loading, user?.id, isUserAvailable, settings, error, isCreatingDefaults])
 
   return {
     settings,

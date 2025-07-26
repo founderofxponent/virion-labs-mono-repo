@@ -132,7 +132,8 @@ const transformAdminData = (
   clientsData: any[], 
   campaignsData: any[], 
   onboardingStartsData: any[], 
-  onboardingCompletionsData: any[]
+  onboardingCompletionsData: any[],
+  role: string
 ): UnifiedData => {
   const totalClients = clientsData.length;
   const totalCampaigns = campaignsData.length;
@@ -207,7 +208,7 @@ const transformAdminData = (
     secondaryList,
     recentActivity,
     metadata: {
-      role: 'admin',
+      role: role,
       permissions: ['view_all', 'manage_clients', 'manage_bots', 'manage_users'],
       lastUpdated: new Date().toISOString()
     }
@@ -399,7 +400,7 @@ export function useUnifiedData() {
           )
           break
         }
-
+        case 'Platform Administrator':
         case 'admin': {
           const [clientsResponse, campaignsResponse, onboardingStartsResponse, onboardingCompletionsResponse] = await Promise.all([
             supabase
@@ -437,7 +438,8 @@ export function useUnifiedData() {
             clientsResponse.data || [],
             campaignsResponse.data || [],
             onboardingStartsResponse.data || [],
-            onboardingCompletionsResponse.data || []
+            onboardingCompletionsResponse.data || [],
+            profile.role
           );
           break;
         }

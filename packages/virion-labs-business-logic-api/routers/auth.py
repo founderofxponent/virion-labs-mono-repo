@@ -153,10 +153,22 @@ async def get_current_user(request: Request):
 
     async with httpx.AsyncClient() as client:
         try:
+            # First, get the basic user information
             response = await client.get(strapi_users_me_url, headers=headers)
             response.raise_for_status()
-            
             user_data = response.json()
+
+            # Now, get the user's role
+            user_id = user_data.get("id")
+            if user_id:
+                strapi_user_details_url = f"{settings.STRAPI_URL}/api/users/{user_id}?populate=role"
+                role_response = await client.get(strapi_user_details_url, headers=headers)
+                role_response.raise_for_status()
+                
+                role_data = role_response.json().get("role")
+                if role_data:
+                    user_data["role"] = role_data.get("name")
+
             logger.info(f"Token validated successfully for user: {user_data.get('email')}")
             return user_data
             

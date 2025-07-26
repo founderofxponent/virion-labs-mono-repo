@@ -44,18 +44,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   const createProfileFromUser = (user: User): UserProfile => {
-    return {
+    // Determine the role based on the name provided by the API.
+    // If the role is the generic 'Authenticated', we default to 'influencer' for the dashboard view.
+    // Specific roles like 'Platform Administrator' will be preserved.
+    const role = user.role === 'Authenticated' ? 'influencer' : user.role || 'influencer';
+    
+    const profile = {
       id: user.id,
       email: user.email,
       full_name: user.full_name || user.email?.split('@')[0] || 'User',
       avatar_url: user.avatar_url || null,
-      role: user.role || 'influencer',
-    }
+      role: role,
+    };
+    console.log("Created profile object:", profile); // Log the created profile
+    return profile;
   }
 
   const getUser = useCallback(async () => {
     try {
-      const { data: userData } = await api.get('/api/auth/me')
+      console.log("Fetching user from /api/auth/me...");
+      const { data: userData } = await api.get('/api/auth/me');
+      console.log("Received user data from API:", userData); // Log the raw user data
       if (userData) {
         setUser(userData)
         setProfile(createProfileFromUser(userData))
@@ -67,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null)
       }
     } catch (error) {
+      console.error("Error fetching user:", error);
       // Token is invalid or expired
       localStorage.removeItem('auth_token')
       Cookies.remove('auth_token')

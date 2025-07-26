@@ -22,7 +22,7 @@ import { useAccessRequests } from "@/hooks/use-access-requests"
 export function Sidebar() {
   const { profile } = useAuth()
   const pathname = usePathname()
-  const isAdmin = profile?.role === "admin"
+  const isAdmin = profile?.role === "admin" || profile?.role === "Platform Administrator"
   const isClient = profile?.role === "client"
   const { pendingCount } = useAccessRequests()
 

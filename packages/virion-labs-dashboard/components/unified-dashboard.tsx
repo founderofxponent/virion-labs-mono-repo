@@ -143,7 +143,7 @@ function ListItem({ item, showActions = false, role }: {
   }
 
   const handleViewClick = useCallback(() => {
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'Platform Administrator') {
       // Navigate to client detail page
       router.push(`/clients/${item.id}`)
     } else if (role === 'influencer') {
@@ -173,7 +173,7 @@ function ListItem({ item, showActions = false, role }: {
         <p className="text-sm text-muted-foreground truncate mb-1">{item.subtitle}</p>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span>Created: {item.created}</span>
-          <span className="font-medium">{item.value.toLocaleString()} {role === 'admin' ? 'campaigns' : 'conversions'}</span>
+          <span className="font-medium">{item.value.toLocaleString()} {role === 'admin' || role === 'Platform Administrator' ? 'campaigns' : 'conversions'}</span>
         </div>
       </div>
       {showActions && (
@@ -284,7 +284,7 @@ export function UnifiedDashboard() {
   }, [router])
 
   const handleCampaignsClick = useCallback(() => {
-    if (profile?.role === 'admin') {
+    if (profile?.role === 'admin' || profile?.role === 'Platform Administrator') {
       router.push('/bot-campaigns')
     } else {
       router.push('/campaigns')
@@ -308,7 +308,7 @@ export function UnifiedDashboard() {
   }, [router])
 
   const handleViewAllCampaigns = useCallback(() => {
-    if (profile?.role === 'admin') {
+    if (profile?.role === 'admin' || profile?.role === 'Platform Administrator') {
       router.push('/bot-campaigns')
     } else {
       router.push('/campaigns')
@@ -369,6 +369,7 @@ export function UnifiedDashboard() {
 
   const getStatsIcons = () => {
     switch (profile?.role) {
+      case 'Platform Administrator':
       case 'admin':
         return [Users, Activity, BarChart3, Target]
       case 'client':
@@ -382,6 +383,7 @@ export function UnifiedDashboard() {
 
   const getQuickActions = () => {
     switch (profile?.role) {
+      case 'Platform Administrator':
       case 'admin':
         return [
           {
@@ -461,6 +463,7 @@ export function UnifiedDashboard() {
 
   const getStatClickHandler = (index: number) => {
     switch (profile?.role) {
+      case 'Platform Administrator':
       case 'admin':
         return [handleClientsClick, handleAnalyticsClick, handleAnalyticsClick, handleCampaignsClick][index]
       case 'client':
@@ -474,6 +477,7 @@ export function UnifiedDashboard() {
 
   const getViewAllHandler = () => {
     switch (profile?.role) {
+      case 'Platform Administrator':
       case 'admin':
         return handleViewAllClients
       case 'client':
@@ -491,7 +495,7 @@ export function UnifiedDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">
-            {profile?.role === 'admin' ? 'Admin Dashboard' : 
+            {profile?.role === 'admin' || profile?.role === 'Platform Administrator' ? 'Admin Dashboard' : 
              profile?.role === 'client' ? 'Client Dashboard' : 
              'Influencer Dashboard'}
           </h1>
@@ -531,12 +535,12 @@ export function UnifiedDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-xl">
-                  {profile?.role === 'admin' ? 'Recent Clients' : 
+                  {profile?.role === 'admin' || profile?.role === 'Platform Administrator' ? 'Recent Clients' : 
                    profile?.role === 'client' ? 'Active Campaigns' : 
                    'My Links'}
                 </CardTitle>
                 <CardDescription>
-                  {profile?.role === 'admin' ? 'Latest client onboardings and their status' : 
+                  {profile?.role === 'admin' || profile?.role === 'Platform Administrator' ? 'Latest client onboardings and their status' : 
                    profile?.role === 'client' ? 'Your campaign performance overview' : 
                    'Your referral links and their performance'}
                 </CardDescription>
@@ -558,12 +562,12 @@ export function UnifiedDashboard() {
                   <Users className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <h3 className="font-medium text-muted-foreground mb-2">
-                  No {profile?.role === 'admin' ? 'clients' : 
+                  No {profile?.role === 'admin' || profile?.role === 'Platform Administrator' ? 'clients' : 
                        profile?.role === 'client' ? 'campaigns' : 
                        'links'} yet
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Get started by creating your first {profile?.role === 'admin' ? 'client' : 'campaign'}.
+                  Get started by creating your first {profile?.role === 'admin' || profile?.role === 'Platform Administrator' ? 'client' : 'campaign'}.
                 </p>
                 <Button onClick={getQuickActions()[0]?.onClick} variant="outline">
                   <Plus className="mr-2 h-4 w-4" />
@@ -596,7 +600,7 @@ export function UnifiedDashboard() {
       </div>
 
       {/* Performance Insights */}
-      {profile?.role === 'admin' && data.secondaryList.length > 0 && (
+      {(profile?.role === 'admin' || profile?.role === 'Platform Administrator') && data.secondaryList.length > 0 && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
