@@ -14,7 +14,7 @@ export function useUserSettings() {
   const [isCreatingDefaults, setIsCreatingDefaults] = useState(false)
 
   // Check if user is available (no longer checking email confirmation)
-  const isUserAvailable = user?.id != null
+  const isUserAvailable = profile?.id != null
 
   // Early return for users not available - immediately set loading to false
   useEffect(() => {
@@ -39,19 +39,19 @@ export function useUserSettings() {
 
   // Fetch user settings
   const fetchSettings = async () => {
-    if (!user?.id || !isUserAvailable) {
+    if (!profile?.id || !isUserAvailable) {
       console.log('👤 useUserSettings: User not available or not confirmed, skipping fetch')
       setLoading(false)
       return
     }
 
     try {
-      console.log('👤 useUserSettings: Fetching settings for confirmed user:', user.id)
+      console.log('👤 useUserSettings: Fetching settings for confirmed user:', profile.id)
       setLoading(true)
       const { data, error } = await supabase
         .from('user_settings')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', profile.id)
         .single()
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
@@ -77,7 +77,7 @@ export function useUserSettings() {
 
   // Create default settings for new user
   const createDefaultSettings = async (): Promise<UserSettings | null> => {
-    if (!user?.id || !isUserAvailable) {
+    if (!profile?.id || !isUserAvailable) {
       console.log('👤 useUserSettings: Cannot create default settings - user not confirmed')
       return null
     }
@@ -87,7 +87,7 @@ export function useUserSettings() {
       return null
     }
 
-    console.log('👤 useUserSettings: Creating default settings for confirmed user:', user.id)
+    console.log('👤 useUserSettings: Creating default settings for confirmed user:', profile.id)
     setIsCreatingDefaults(true)
 
     try {
@@ -95,7 +95,7 @@ export function useUserSettings() {
       const { data: existingSettings } = await supabase
         .from('user_settings')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', profile.id)
         .single()
 
       if (existingSettings) {
@@ -105,7 +105,7 @@ export function useUserSettings() {
       }
 
       const defaultSettings: UserSettingsInsert = {
-        user_id: user.id,
+        user_id: profile.id,
         bio: null,
         phone_number: null,
         twitter_handle: null,
@@ -164,7 +164,7 @@ export function useUserSettings() {
         code: err?.code,
         details: err?.details,
         hint: err?.hint,
-        userId: user?.id,
+        userId: profile?.id,
         timestamp: new Date().toISOString()
       }
       
@@ -178,13 +178,13 @@ export function useUserSettings() {
 
   // Update settings
   const updateSettings = async (updates: Partial<UserSettingsUpdate>): Promise<boolean> => {
-    if (!user?.id || !settings) return false
+    if (!profile?.id || !settings) return false
 
     try {
       const { data, error } = await supabase
         .from('user_settings')
         .update(updates)
-        .eq('user_id', user.id)
+        .eq('user_id', profile.id)
         .select()
         .single()
 
@@ -239,7 +239,7 @@ export function useUserSettings() {
 
   // Delete account
   const deleteAccount = async (password: string): Promise<{ success: boolean; error?: string }> => {
-    if (!user?.id) {
+    if (!profile?.id) {
       return {
         success: false,
         error: 'User not authenticated'
@@ -255,7 +255,7 @@ export function useUserSettings() {
         },
         body: JSON.stringify({
           password,
-          userId: user.id
+          userId: profile.id
         })
       })
 
@@ -282,10 +282,10 @@ export function useUserSettings() {
 
   // Generate new API keys
   const regenerateApiKeys = async (): Promise<{ liveKey: string; testKey: string } | null> => {
-    if (!user?.id) return null
+    if (!profile?.id) return null
 
     try {
-      const keys = await generateUserApiKeys(user.id)
+      const keys = await generateUserApiKeys(profile.id)
       if (keys) {
         // Refresh settings to get updated api_key_regenerated_at
         await fetchSettings()
@@ -300,7 +300,7 @@ export function useUserSettings() {
 
   // Upload avatar
   const uploadUserAvatar = async (file: File): Promise<UploadAvatarResult> => {
-    if (!user?.id) {
+    if (!profile?.id) {
       return {
         success: false,
         error: 'User not authenticated'
@@ -308,7 +308,7 @@ export function useUserSettings() {
     }
 
     try {
-      const result = await uploadAvatar(file, user.id)
+      const result = await uploadAvatar(file, profile.id)
       if (result.success) {
         // Refresh profile to get updated avatar
         await refreshProfile()
@@ -325,7 +325,7 @@ export function useUserSettings() {
 
   // Initialize settings on user change
   useEffect(() => {
-    if (user?.id && isUserAvailable) {
+    if (profile?.id && isUserAvailable) {
       console.log('👤 useUserSettings: User confirmed, fetching settings')
       fetchSettings()
     } else {
@@ -333,7 +333,7 @@ export function useUserSettings() {
       setSettings(null)
       setLoading(false)
     }
-  }, [user?.id, isUserAvailable])
+  }, [profile?.id, isUserAvailable])
 
   return {
     settings,

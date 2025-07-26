@@ -8,13 +8,14 @@ import Cookies from "js-cookie"
 
 // Simplified User and Profile types, no longer tied to Supabase
 export type User = {
-  id: string
+  id: string // This will be the documentId
   email: string
+  documentId: string
   [key: string]: any // Allow other properties from JWT/API
 }
 
 export type UserProfile = {
-  id: string
+  id: string // This will be the documentId
   email: string
   full_name: string
   avatar_url: string | null
@@ -50,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const role = user.role === 'Authenticated' ? 'influencer' : user.role || 'influencer';
     
     const profile = {
-      id: user.id,
+      id: user.documentId, // Use documentId as the primary ID
       email: user.email,
       full_name: user.full_name || user.email?.split('@')[0] || 'User',
       avatar_url: user.avatar_url || null,
