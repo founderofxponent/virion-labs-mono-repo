@@ -1,9 +1,25 @@
 from typing import Dict, Any, List
+from datetime import datetime
 
 class ClientDomain:
     """
     Domain logic for client operations. This layer contains pure business rules.
     """
+    def create_client_with_business_logic(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Applies business rules before creating a new client.
+        """
+        # Example Rule: Set a default industry if not provided
+        if not client_data.get("industry"):
+            client_data["industry"] = "General"
+
+        # Example Rule: Add creation metadata
+        client_data["join_date"] = datetime.utcnow().isoformat()
+        client_data["client_status"] = "active" # Use the correct field name
+        client_data["influencers"] = 0 # Default value
+
+        return client_data
+
     def get_client_business_context(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Enriches client data with business-specific context.

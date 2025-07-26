@@ -50,5 +50,12 @@ class StrapiClient:
         response = await self._request("GET", "clients", params=params)
         return response.get("data", [])
 
+    async def create_client(self, client_data: Dict) -> Dict:
+        """Creates a new client in Strapi."""
+        logger.info("StrapiClient: Creating a new client in Strapi.")
+        data = {"data": client_data}
+        response = await self._request("POST", "clients", data=data)
+        return response.get("data")
+
 # Global client instance
 strapi_client = StrapiClient()

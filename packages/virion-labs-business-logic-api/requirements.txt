@@ -1,2 +1,7 @@
-
+fastapi
 pyjwt>=2.8.0
+uvicorn
+httpx
+python-dotenv
+pydantic-settings
+pydantic[email]
