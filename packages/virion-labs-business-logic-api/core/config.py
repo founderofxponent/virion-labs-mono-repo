@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # Authentication
     JWT_SECRET: str # This might be used for signing the API's own tokens later
+    JWT_ALGORITHM: str = "HS256"
     API_KEY: str
 
     class Config:

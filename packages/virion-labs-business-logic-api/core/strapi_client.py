@@ -77,5 +77,38 @@ class StrapiClient:
         response = await self._request("GET", f"clients/{document_id}")
         return response.get("data")
 
+    async def get_user_profiles(self, filters: Optional[Dict] = None) -> List[Dict]:
+        """Fetches a list of user profiles from Strapi."""
+        logger.info("StrapiClient: Fetching user profiles from Strapi.")
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        
+        response = await self._request("GET", "user-profiles", params=params)
+        return response.get("data", [])
+
+    async def update_user_profile(self, strapi_id: int, profile_data: Dict) -> Dict:
+        """Updates a user profile in Strapi using its Strapi ID."""
+        logger.info(f"StrapiClient: Updating user profile {strapi_id} in Strapi.")
+        data = {"data": profile_data}
+        response = await self._request("PUT", f"user-profiles/{strapi_id}", data=data)
+        return response.get("data")
+
+    async def update_user_setting(self, setting_id: int, setting_data: Dict) -> Dict:
+        """Updates a user setting in Strapi using its ID."""
+        logger.info(f"StrapiClient: Updating user setting {setting_id} in Strapi.")
+        data = {"data": setting_data}
+        response = await self._request("PUT", f"user-settings/{setting_id}", data=data)
+        return response.get("data")
+
+    async def get_user(self, user_id: int) -> Dict:
+        """Fetches a single user by their ID from Strapi."""
+        logger.info(f"StrapiClient: Fetching user {user_id} from Strapi.")
+        # The 'populate' parameter is crucial to get the user's role information
+        params = {"populate": "role"}
+        # Note: This endpoint is part of the Users & Permissions plugin
+        response = await self._request("GET", f"users/{user_id}", params=params)
+        return response
+
 # Global client instance
 strapi_client = StrapiClient()
