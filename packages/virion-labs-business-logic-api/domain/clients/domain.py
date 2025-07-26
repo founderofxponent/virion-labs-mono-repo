@@ -25,11 +25,13 @@ class ClientDomain:
     def get_client_business_context(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Enriches client data with business-specific context.
-        This is a simple example of a business rule.
+        This is made robust to handle receiving either the full client object
+        or just the attributes dictionary.
         """
         context = {}
-        # The status field is named 'client_status' in the response
-        status = client_data.get("client_status")
+        # Look for attributes, but fall back to the main dict if not found
+        attributes = client_data.get("attributes", client_data)
+        status = attributes.get("client_status")
 
         if status == "active":
             context["recommendation"] = "Consider an upsell campaign."

@@ -15,7 +15,7 @@ class StrapiUser(BaseModel):
     username: str
     full_name: Optional[str] = None
     role: Optional[Dict[str, Any]] = None
-    documentId: Optional[str] = None
+    document_id: Optional[str] = None
     avatar_url: Optional[str] = None
 
 def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> dict:

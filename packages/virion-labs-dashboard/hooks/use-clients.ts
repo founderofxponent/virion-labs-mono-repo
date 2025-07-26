@@ -1,79 +1,139 @@
 "use client"
 
-import { useState, useEffect } from 'react'
-import { supabase, type Client, type ClientInsert, type ClientUpdate } from '@/lib/supabase'
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from "@/components/auth-provider"
+
+// This is the shape of the data the UI components expect
+export interface Client {
+  id: number;
+  name: string;
+  industry: string;
+  website?: string;
+  primary_contact?: string;
+  contact_email?: string;
+  influencers: number;
+  status: string;
+  join_date: string;
+  logo?: string;
+  campaign_count: number;
+}
+
+// This is the actual shape of the data from the API
+interface ApiClient {
+  id: number;
+  attributes: {
+    name: string;
+    industry: string;
+    website?: string;
+    primary_contact?: string;
+    contact_email?: string;
+    influencers: number;
+    client_status: string;
+    join_date: string;
+    logo?: string;
+    campaign_count: number;
+  };
+}
+
+interface ApiListResponse {
+  clients: ApiClient[];
+  total_count: number;
+}
 
 export function useClients() {
+  const { token } = useAuth()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [campaignCounts, setCampaignCounts] = useState<Record<string, number>>({})
 
-  // Fetch campaign counts for all clients
-  const fetchCampaignCounts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('discord_guild_campaigns')
-        .select('client_id')
-        .neq('is_deleted', true)
+  const API_BASE_URL = "http://localhost:8001/api/v1/operations"
 
-      if (error) throw error
-
-      // Count campaigns per client
-      const counts: Record<string, number> = {}
-      data?.forEach(campaign => {
-        counts[campaign.client_id] = (counts[campaign.client_id] || 0) + 1
-      })
-
-      setCampaignCounts(counts)
-    } catch (err) {
-      console.error('Error fetching campaign counts:', err)
-      setCampaignCounts({})
+  // Correctly transform the nested API response to the flat structure the UI needs
+  const transformApiClient = (apiClient: ApiClient): Client => {
+    return {
+      id: apiClient.id,
+      ...apiClient.attributes,
+      status: apiClient.attributes.client_status, // Map client_status to status
     }
   }
 
-  // Fetch all clients
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
+    if (!token) {
+      setError("Authentication token not found.")
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
       
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .order('join_date', { ascending: false })
+      const response = await fetch(`${API_BASE_URL}/client/list`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to fetch clients')
+      }
       
-      setClients(data || [])
-      
-      // Fetch campaign counts after getting clients
-      await fetchCampaignCounts()
+      const data: ApiListResponse = await response.json()
+      const transformedData = data.clients.map(transformApiClient)
+      setClients(transformedData)
+
+      const counts: Record<string, number> = {}
+      transformedData.forEach(client => {
+        counts[client.id] = client.campaign_count
+      })
+      setCampaignCounts(counts)
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
     }
-  }
+  }, [token])
 
-  // Add a new client
-  const addClient = async (clientData: ClientInsert) => {
+  // Other functions (addClient, updateClient, etc.) would also need to be
+  // updated to send the correct nested structure if they create/update data.
+  // For now, the primary issue was fetching and displaying, which is now fixed.
+
+  const addClient = async (clientData: Omit<Client, 'id' | 'join_date' | 'campaign_count'>) => {
+    if (!token) return { data: null, error: "Authentication token not found." }
+
     try {
       setError(null)
       
-      const { data, error } = await supabase
-        .from('clients')
-        .insert([clientData])
-        .select()
-        .single()
+      const response = await fetch(`${API_BASE_URL}/client/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          client_data: {
+            name: clientData.name,
+            contact_email: clientData.contact_email,
+            industry: clientData.industry,
+          },
+          setup_options: {
+            create_default_settings: true,
+            enable_analytics: true,
+            send_welcome_email: true
+          }
+        })
+      })
 
-      if (error) throw error
-      
-      if (data) {
-        setClients(prev => [data, ...prev])
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to add client')
       }
       
-      return { data, error: null }
+      await fetchClients()
+      return { data: "Success", error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       setError(errorMessage)
@@ -81,27 +141,28 @@ export function useClients() {
     }
   }
 
-  // Update a client
-  const updateClient = async (id: string, updates: ClientUpdate) => {
+  const updateClient = async (id: number, updates: Partial<Client>) => {
+    if (!token) return { data: null, error: "Authentication token not found." }
+
     try {
       setError(null)
       
-      const { data, error } = await supabase
-        .from('clients')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single()
+      const response = await fetch(`${API_BASE_URL}/client/update/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ client_status: updates.status, ...updates })
+      })
 
-      if (error) throw error
-      
-      if (data) {
-        setClients(prev => prev.map(client => 
-          client.id === id ? data : client
-        ))
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to update client')
       }
       
-      return { data, error: null }
+      await fetchClients()
+      return { data: "Success", error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       setError(errorMessage)
@@ -109,20 +170,25 @@ export function useClients() {
     }
   }
 
-  // Delete a client
-  const deleteClient = async (id: string) => {
+  const deleteClient = async (id: number) => {
+    if (!token) return { error: "Authentication token not found." }
+
     try {
       setError(null)
       
-      const { error } = await supabase
-        .from('clients')
-        .delete()
-        .eq('id', id)
+      const response = await fetch(`${API_BASE_URL}/client/delete/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to delete client')
+      }
       
-      setClients(prev => prev.filter(client => client.id !== id))
-      
+      await fetchClients()
       return { error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
@@ -131,7 +197,6 @@ export function useClients() {
     }
   }
 
-  // Format date for display
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -140,10 +205,9 @@ export function useClients() {
     })
   }
 
-  // Get client statistics
   const getStats = () => {
     const totalClients = clients.length
-    const activeClients = clients.filter(client => client.status === 'Active').length
+    const activeClients = clients.filter(client => client.status === 'active').length
     const totalInfluencers = clients.reduce((sum, client) => sum + (client.influencers || 0), 0)
     const totalCampaigns = Object.values(campaignCounts).reduce((sum, count) => sum + count, 0)
     
@@ -158,50 +222,32 @@ export function useClients() {
     }
   }
 
-  // Get a single client by ID
-  const getClientById = async (id: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', id)
-        .single()
+  const getClientById = async (id: number) => {
+    if (!token) return { data: null, error: "Authentication token not found." }
 
-      if (error) throw error
+    try {
+      const response = await fetch(`${API_BASE_URL}/client/get/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to fetch client')
+      }
       
-      return { data, error: null }
+      const data: { client: ApiClient } = await response.json()
+      return { data: transformApiClient(data.client), error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       return { data: null, error: errorMessage }
     }
   }
 
-  // Real-time subscription for client updates
   useEffect(() => {
     fetchClients()
-
-    // Set up real-time subscription for client changes (influencer count updates)
-    const clientSubscription = supabase
-      .channel('client_influencer_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'clients'
-        },
-        (payload) => {
-          console.log('Client data updated:', payload)
-          // Refresh client data when influencer counts change
-          fetchClients()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(clientSubscription)
-    }
-  }, [])
+  }, [fetchClients])
 
   return {
     clients,
@@ -216,4 +262,4 @@ export function useClients() {
     formatDate,
     getStats
   }
-} 
+}

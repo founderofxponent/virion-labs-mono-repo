@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       // Sync cookie to localStorage for client-side access
       localStorage.setItem('auth_token', token);
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      // The interceptor in lib/api.ts will handle attaching the token.
       getUser()
     } else {
       setLoading(false)
@@ -129,8 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('auth_token', access_token)
       Cookies.set('auth_token', access_token, { expires: 7, secure: process.env.NODE_ENV === 'production' })
 
-      // Set the token for future API requests
-      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
+      // The interceptor in lib/api.ts will now handle attaching the token.
 
       // Fetch the user profile
       await getUser()

@@ -1,6 +1,7 @@
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from fastapi import HTTPException
+import asyncio
 from core.strapi_client import strapi_client
 from domain.clients.domain import ClientDomain
 from schemas.operation_schemas import EnrichedClient
@@ -103,7 +104,8 @@ class ClientService:
 
     async def list_clients_operation(self, filters: Optional[Dict[str, Any]] = None, current_user: StrapiUser = None) -> Dict[str, Any]:
         """
-        Business operation for listing clients with role-based filtering.
+        Business operation for listing clients.
+        This version is corrected to handle the flat data structure from Strapi.
         """
         user_role = self._get_user_role(current_user)
         logger.info(f"ClientService: Executing list_clients_operation for user with role: '{user_role}'.")
@@ -111,33 +113,48 @@ class ClientService:
         if filters is None:
             filters = {}
 
-        # Authorization & Filtering Logic
         if user_role == 'Platform Administrator':
-            # Admins can see all clients. Pass an empty filter to get all.
             logger.info("User is Admin, allowing access to all clients.")
-            pass
         elif user_role == 'Client':
-            # Clients can only see their own client entry.
             logger.info(f"User is Client, filtering for owner ID: {current_user.id}.")
             filters["filters[owner][id][$eq]"] = current_user.id
         else:
-            # Other roles (e.g., Influencer, Authenticated) are not allowed to list clients.
             logger.warning(f"Forbidden: User with role '{user_role}' attempted to list clients.")
             raise HTTPException(status_code=403, detail=f"Forbidden: Your role ('{user_role}') does not have permission to list clients.")
 
-        clients_from_db = await strapi_client.get_clients(filters)
+        clients_from_db, campaigns_from_db = await asyncio.gather(
+            strapi_client.get_clients(filters),
+            strapi_client.get_campaigns()
+        )
+
+        campaign_counts = {}
+        for campaign in campaigns_from_db:
+            client_relation = campaign.get("attributes", {}).get("client", {}).get("data")
+            if client_relation and client_relation.get("id"):
+                client_id = client_relation["id"]
+                campaign_counts[client_id] = campaign_counts.get(client_id, 0) + 1
+
         enriched_clients = []
-        for client in clients_from_db:
-            if "id" in client:
-                business_context = self.client_domain.get_client_business_context(client)
+        # Process the FLAT client objects from the database
+        for client_obj in clients_from_db:
+            if "id" in client_obj:
+                client_id = client_obj["id"]
+                
+                # Add the campaign count directly to the flat object
+                client_obj["campaign_count"] = campaign_counts.get(client_id, 0)
+                
+                # The domain function is robust enough to handle this flat structure
+                business_context = self.client_domain.get_client_business_context(client_obj)
+                
+                # Manually construct the nested structure the MCP server/schema expects
                 enriched_client_data = {
-                    "id": client["id"],
-                    "attributes": client,
+                    "id": client_id,
+                    "attributes": client_obj, # Put the entire flat object here
                     "business_context": business_context
                 }
                 enriched_clients.append(EnrichedClient(**enriched_client_data))
             else:
-                logger.warning(f"Skipping malformed client object from Strapi: {client}")
+                logger.warning(f"Skipping malformed client object from Strapi: {client_obj}")
 
         logger.info(f"Found {len(enriched_clients)} clients for role '{user_role}'.")
         return {"clients": enriched_clients, "total_count": len(enriched_clients)}

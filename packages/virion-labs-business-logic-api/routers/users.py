@@ -20,7 +20,7 @@ async def read_current_user_settings(
             detail="User has no valid identifier",
         )
         
-    settings = await get_user_settings_by_user_id(user_id=current_user.id)
+    settings = await get_user_settings_by_user_id(user=current_user)
     
     if not settings:
         raise HTTPException(

@@ -24,10 +24,6 @@ class StrapiClient:
         if params is None:
             params = {}
 
-        # For update and delete, we need to see draft content
-        if method in ["PUT", "DELETE"]:
-            params["publicationState"] = "preview"
-
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 logger.info(f"Making Strapi request: {method} {url} with params {params}")
@@ -77,6 +73,16 @@ class StrapiClient:
         response = await self._request("GET", f"clients/{document_id}")
         return response.get("data")
 
+    async def get_campaigns(self, filters: Optional[Dict] = None) -> List[Dict]:
+        """Fetches a list of campaigns from Strapi."""
+        logger.info("StrapiClient: Fetching campaigns from Strapi.")
+        params = {"populate": "client"} # Populate client to get client ID
+        if filters:
+            params.update(filters)
+        
+        response = await self._request("GET", "campaigns", params=params)
+        return response.get("data", [])
+
     async def get_user_profiles(self, filters: Optional[Dict] = None) -> List[Dict]:
         """Fetches a list of user profiles from Strapi."""
         logger.info("StrapiClient: Fetching user profiles from Strapi.")
@@ -87,11 +93,18 @@ class StrapiClient:
         response = await self._request("GET", "user-profiles", params=params)
         return response.get("data", [])
 
-    async def update_user_profile(self, strapi_id: int, profile_data: Dict) -> Dict:
-        """Updates a user profile in Strapi using its Strapi ID."""
-        logger.info(f"StrapiClient: Updating user profile {strapi_id} in Strapi.")
+    async def create_user_profile(self, profile_data: Dict) -> Dict:
+        """Creates a new user profile in Strapi."""
+        logger.info("StrapiClient: Creating new user profile in Strapi.")
         data = {"data": profile_data}
-        response = await self._request("PUT", f"user-profiles/{strapi_id}", data=data)
+        response = await self._request("POST", "user-profiles", data=data)
+        return response.get("data")
+
+    async def update_user_profile(self, profile_id: int, profile_data: Dict) -> Dict:
+        """Updates a user profile in Strapi using its ID."""
+        logger.info(f"StrapiClient: Updating user profile {profile_id} in Strapi.")
+        data = {"data": profile_data}
+        response = await self._request("PUT", f"user-profiles/{profile_id}", data=data)
         return response.get("data")
 
     async def update_user_setting(self, setting_id: int, setting_data: Dict) -> Dict:
@@ -99,6 +112,13 @@ class StrapiClient:
         logger.info(f"StrapiClient: Updating user setting {setting_id} in Strapi.")
         data = {"data": setting_data}
         response = await self._request("PUT", f"user-settings/{setting_id}", data=data)
+        return response.get("data")
+
+    async def create_user_setting(self, setting_data: Dict) -> Dict:
+        """Creates a new user setting in Strapi."""
+        logger.info("StrapiClient: Creating new user setting in Strapi.")
+        data = {"data": setting_data}
+        response = await self._request("POST", "user-settings", data=data)
         return response.get("data")
 
     async def get_user(self, user_id: int) -> Dict:

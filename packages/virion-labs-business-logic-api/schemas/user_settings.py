@@ -4,7 +4,7 @@ from datetime import datetime
 
 class UserSettings(BaseModel):
     id: int
-    user_id: str
+    documentId: Optional[str] = None
     bio: Optional[str] = None
     phone_number: Optional[str] = None
     twitter_handle: Optional[str] = None
@@ -12,30 +12,31 @@ class UserSettings(BaseModel):
     youtube_channel: Optional[str] = None
     discord_username: Optional[str] = None
     website_url: Optional[str] = None
-    email_notifications_new_referral: bool
-    email_notifications_link_clicks: bool
-    email_notifications_weekly_reports: bool
-    email_notifications_product_updates: bool
-    push_notifications_new_referral: bool
-    push_notifications_link_clicks: bool
-    push_notifications_weekly_reports: bool
-    push_notifications_product_updates: bool
-    profile_visibility: str
-    show_earnings: bool
-    show_referral_count: bool
+    email_notifications_new_referral: bool = True
+    email_notifications_link_clicks: bool = False
+    email_notifications_weekly_reports: bool = True
+    email_notifications_product_updates: bool = True
+    push_notifications_new_referral: bool = False
+    push_notifications_link_clicks: bool = False
+    push_notifications_weekly_reports: bool = False
+    push_notifications_product_updates: bool = False
+    profile_visibility: Optional[str] = None
+    show_earnings: bool = False
+    show_referral_count: bool = True
     webhook_url: Optional[str] = None
     webhook_events: Optional[List[str]] = None
-    theme: str
-    language: str
-    timezone: str
-    currency: str
-    two_factor_enabled: bool
-    login_notifications: bool
+    theme: str = "system"
+    language: str = "en"
+    timezone: str = "UTC"
+    currency: str = "USD"
+    two_factor_enabled: bool = False
+    login_notifications: bool = True
     api_key: Optional[str] = None
     api_key_test: Optional[str] = None
     api_key_regenerated_at: Optional[datetime] = None
-    created_at: datetime
-    updated_at: datetime
+    createdAt: datetime
+    updatedAt: datetime
+    publishedAt: Optional[datetime] = None
 
     class Config:
         from_attributes = True
