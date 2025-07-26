@@ -167,10 +167,12 @@ class DynamicFunctionRegistry:
                 model_name = body_schema.get("title", "DynamicModel")
                 DynamicModel = self.create_pydantic_model_from_schema(model_name, body_schema)
                 
-                # Filter only the parameters relevant for the body
-                body_params = {k: v for k, v in (parameters or {}).items() if k in DynamicModel.model_fields}
+                # Filter only the parameters relevant for the body (exclude path parameters)
+                path_param_names = set(path_params_schema.keys()) if path_params_schema else set()
+                body_params = {k: v for k, v in (parameters or {}).items() 
+                             if k in DynamicModel.model_fields and k not in path_param_names}
                 model_instance = DynamicModel(**body_params)
-                body_data = model_instance.model_dump(mode="json")
+                body_data = model_instance.model_dump(mode="json", exclude_none=True)
             except pydantic.ValidationError as e:
                 logger.error(f"Body parameter validation failed for {function_name}: {e}")
                 raise ValueError(f"Invalid body parameters for {function_name}: {e}")
