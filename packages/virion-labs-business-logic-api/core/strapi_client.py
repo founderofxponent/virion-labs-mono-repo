@@ -21,9 +21,16 @@ class StrapiClient:
         """Make an authenticated request to the Strapi API."""
         url = f"{self.base_url}/api/{endpoint}"
         
+        if params is None:
+            params = {}
+
+        # For update and delete, we need to see draft content
+        if method in ["PUT", "DELETE"]:
+            params["publicationState"] = "preview"
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
-                logger.info(f"Making Strapi request: {method} {url}")
+                logger.info(f"Making Strapi request: {method} {url} with params {params}")
                 response = await client.request(
                     method=method,
                     url=url,
@@ -55,6 +62,19 @@ class StrapiClient:
         logger.info("StrapiClient: Creating a new client in Strapi.")
         data = {"data": client_data}
         response = await self._request("POST", "clients", data=data)
+        return response.get("data")
+
+    async def update_client(self, document_id: str, client_data: Dict) -> Dict:
+        """Updates a client in Strapi using its documentId."""
+        logger.info(f"StrapiClient: Updating client {document_id} in Strapi.")
+        data = {"data": client_data}
+        response = await self._request("PUT", f"clients/{document_id}", data=data)
+        return response.get("data")
+
+    async def get_client(self, document_id: str) -> Dict:
+        """Fetches a single client by documentId from Strapi."""
+        logger.info(f"StrapiClient: Fetching client {document_id} from Strapi.")
+        response = await self._request("GET", f"clients/{document_id}")
         return response.get("data")
 
 # Global client instance

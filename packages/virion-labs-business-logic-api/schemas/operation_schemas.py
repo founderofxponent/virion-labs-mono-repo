@@ -43,3 +43,11 @@ class ClientCreateResponse(BaseModel):
     default_settings_created: Optional[bool] = None
     analytics_enabled: Optional[bool] = None
     welcome_email_sent: Optional[bool] = None
+
+# --- Client Update Operation ---
+
+class ClientUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    contact_email: Optional[EmailStr] = None
+    industry: Optional[str] = None
+    client_status: Optional[str] = None

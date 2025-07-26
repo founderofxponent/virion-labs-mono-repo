@@ -13,10 +13,12 @@ class ClientDomain:
         if not client_data.get("industry"):
             client_data["industry"] = "General"
 
-        # Example Rule: Add creation metadata
-        client_data["join_date"] = datetime.utcnow().isoformat()
-        client_data["client_status"] = "active" # Use the correct field name
-        client_data["influencers"] = 0 # Default value
+        # Example Rule: Add creation and publication metadata
+        now = datetime.utcnow().isoformat()
+        client_data["join_date"] = now
+        client_data["client_status"] = "active"
+        client_data["influencers"] = 0
+        client_data["publishedAt"] = now # Publish immediately
 
         return client_data
 
@@ -37,3 +39,11 @@ class ClientDomain:
             context["is_active"] = False
         
         return context
+
+    def update_client_with_business_logic(self, client_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Applies business rules before updating a client.
+        """
+        # This is where you would add rules, e.g. validation, enrichment.
+        # For now, we just pass the data through.
+        return client_data
