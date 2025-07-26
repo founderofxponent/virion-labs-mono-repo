@@ -5,7 +5,7 @@ from routers import health, operations, auth, users
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 # Create FastAPI application

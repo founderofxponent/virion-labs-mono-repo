@@ -27,7 +27,6 @@ class ClientService:
         """
         Business operation for client creation. (Admin Only)
         """
-        logger.info("ClientService: Executing create_client_operation.")
         
         # Authorization Check
         if self._get_user_role(current_user) != 'Platform Administrator':
@@ -36,7 +35,6 @@ class ClientService:
         client_with_logic = self.client_domain.create_client_with_business_logic(client_data)
         created_client_attrs = await strapi_client.create_client(client_with_logic)
         created_client = {"id": created_client_attrs["id"], "attributes": created_client_attrs}
-        logger.info(f"Client created and published with ID: {created_client['id']}")
 
         setup_results = {"default_settings_created": True, "analytics_enabled": True, "welcome_email_sent": True}
         business_context = self.client_domain.get_client_business_context(created_client['attributes'])
@@ -47,7 +45,6 @@ class ClientService:
         """
         Business operation for updating a client. (Admin or Owner)
         """
-        logger.info(f"ClientService: Executing update_client_operation for client {document_id}.")
         
         # Authorization Check - for now, Platform Administrators can update all clients
         user_role = self._get_user_role(current_user)
@@ -60,12 +57,10 @@ class ClientService:
         # If document_id is numeric, we need to find the actual documentId
         if document_id.isdigit():
             try:
-                logger.info(f"Searching for client with numeric ID to get documentId: {document_id}")
                 all_clients = await strapi_client.get_clients()
                 for client in all_clients:
                     if str(client.get("id")) == document_id:
                         actual_document_id = client.get("documentId")
-                        logger.info(f"Found documentId for numeric ID {document_id}: {actual_document_id}")
                         break
                 else:
                     logger.error(f"Could not find client with numeric ID: {document_id}")
@@ -89,7 +84,6 @@ class ClientService:
         """
         Business operation for fetching a single client. (Admin or Owner)
         """
-        logger.info(f"ClientService: Executing get_client_operation for client {document_id}.")
         
         # Authorization Check - for now, Platform Administrators can access all clients
         user_role = self._get_user_role(current_user)
@@ -102,7 +96,6 @@ class ClientService:
         
         # Approach 1: Try as documentId directly
         try:
-            logger.info(f"Trying to fetch client with documentId: {document_id}")
             client_attrs = await strapi_client.get_client(document_id)
         except Exception as e:
             error_messages.append(f"documentId '{document_id}': {str(e)}")
@@ -111,13 +104,11 @@ class ClientService:
         # Approach 2: If that fails and document_id is numeric, try searching by numeric ID
         if not client_attrs and document_id.isdigit():
             try:
-                logger.info(f"Searching for client with numeric ID: {document_id}")
                 # Get all clients and find the one with matching numeric ID
                 all_clients = await strapi_client.get_clients()
                 for client in all_clients:
                     if str(client.get("id")) == document_id:
                         client_attrs = client
-                        logger.info(f"Found client by numeric ID: {client.get('id')} -> documentId: {client.get('documentId')}")
                         break
                 if not client_attrs:
                     error_messages.append(f"numeric ID '{document_id}': not found in client list")
@@ -142,7 +133,6 @@ class ClientService:
         """
         Business operation for deleting a client (soft delete). (Admin Only)
         """
-        logger.info(f"ClientService: Executing delete_client_operation for client {document_id}.")
         
         # Authorization Check
         if self._get_user_role(current_user) != 'Platform Administrator':
@@ -154,12 +144,10 @@ class ClientService:
         # If document_id is numeric, we need to find the actual documentId
         if document_id.isdigit():
             try:
-                logger.info(f"Searching for client with numeric ID to get documentId: {document_id}")
                 all_clients = await strapi_client.get_clients()
                 for client in all_clients:
                     if str(client.get("id")) == document_id:
                         actual_document_id = client.get("documentId")
-                        logger.info(f"Found documentId for numeric ID {document_id}: {actual_document_id}")
                         break
                 else:
                     logger.error(f"Could not find client with numeric ID: {document_id}")
@@ -179,15 +167,13 @@ class ClientService:
         This version is corrected to handle the flat data structure from Strapi.
         """
         user_role = self._get_user_role(current_user)
-        logger.info(f"ClientService: Executing list_clients_operation for user with role: '{user_role}'.")
         
         if filters is None:
             filters = {}
 
         if user_role == 'Platform Administrator':
-            logger.info("User is Admin, allowing access to all clients.")
+            pass  # Admin can access all clients
         elif user_role == 'Client':
-            logger.info(f"User is Client, filtering for owner ID: {current_user.id}.")
             filters["filters[owner][id][$eq]"] = current_user.id
         else:
             logger.warning(f"Forbidden: User with role '{user_role}' attempted to list clients.")
@@ -211,7 +197,6 @@ class ClientService:
             if "id" in client_obj:
                 client_id = client_obj["id"]
                 document_id = client_obj.get("documentId", "NO_DOC_ID")
-                logger.info(f"Client found - ID: {client_id}, DocumentID: {document_id}")
                 
                 # Add the campaign count directly to the flat object
                 client_obj["campaign_count"] = campaign_counts.get(client_id, 0)
@@ -229,7 +214,6 @@ class ClientService:
             else:
                 logger.warning(f"Skipping malformed client object from Strapi: {client_obj}")
 
-        logger.info(f"Found {len(enriched_clients)} clients for role '{user_role}'.")
         return {"clients": enriched_clients, "total_count": len(enriched_clients)}
 
 # Global service instance

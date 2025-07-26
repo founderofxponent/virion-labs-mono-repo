@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Download, Users, Target, Activity, TrendingUp, Info } from "lucide-react"
+import { Download, Users, Target, Activity, TrendingUp, Info, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,115 +25,38 @@ import {
 } from "recharts"
 import { useToast } from "@/hooks/use-toast"
 import { ExportDialog } from "@/components/export-dialog"
+import { useAnalytics } from "@/hooks/use-analytics"
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 
-interface ComprehensiveAnalyticsData {
-  overview: {
-    total_campaigns: number
-    active_campaigns: number
-    campaigns_last_30_days: number
-    total_clients: number
-    active_clients: number
-    new_clients_30_days: number
-    total_users_responded: number  // Users who started onboarding (not completed responses)
-    users_completed: number        // Fixed: clearer naming
-    total_field_responses: number  // Optional: detailed response count
-    responses_last_7_days: number
-    responses_last_30_days: number
-    total_interactions: number
-    unique_interaction_users: number
-    onboarding_completions: number
-    interactions_24h: number
-    total_referral_links: number
-    active_referral_links: number
-    total_clicks: number
-    total_conversions: number
-    completion_rate: number | null
-    click_through_rate: number | null
-  }
-  campaigns: Array<{
-    campaign_id: string
-    campaign_name: string
-    client_name: string
-    total_fields: number
-    active_fields: number
-    required_fields: number
-    total_users_started: number
-    total_users_completed: number
-    total_interactions: number
-    interactions_last_7_days: number
-    completion_rate: number
-    is_active: boolean
-    created_at: string
-  }>
-}
-
-interface DailyMetrics {
-  date: string
-  campaigns_created: number
-  responses_received: number
-  responses_completed: number
-  interactions: number
-  referral_clicks: number
-  new_users: number
-}
-
 export function AnalyticsPage() {
-  const { profile, user } = useAuth()
+  const { profile } = useAuth()
   const { toast } = useToast()
-  const [analyticsData, setAnalyticsData] = useState<ComprehensiveAnalyticsData | null>(null)
-  const [dailyMetrics, setDailyMetrics] = useState<DailyMetrics[]>([])
-  const [loading, setLoading] = useState(true)
+  const { 
+    analyticsData, 
+    dailyMetrics, 
+    loading, 
+    error, 
+    formatNumber, 
+    formatPercentage 
+  } = useAnalytics()
 
-  const isAdmin = profile?.role === "admin"
-
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      if (!user?.id || !profile?.role) return
-
-      setLoading(true)
-      try {
-        const response = await fetch('/api/analytics/campaign-overview')
-        const result = await response.json()
-        
-        if (result.success) {
-          setAnalyticsData(result.data.overview)
-          setDailyMetrics(result.data.dailyMetrics || [])
-        } else {
-          console.error('Failed to fetch analytics:', result.error)
-        }
-      } catch (error) {
-        console.error('Error fetching analytics:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchAnalytics()
-  }, [user?.id, profile?.role])
+  const isAdmin = profile?.role === "admin" || profile?.role === "Platform Administrator"
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Business Analytics</h1>
-            <p className="text-muted-foreground">Loading analytics data...</p>
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="pb-2">
-                <div className="h-4 bg-muted rounded animate-pulse" />
-              </CardHeader>
-              <CardContent>
-                <div className="h-8 bg-muted rounded animate-pulse mb-2" />
-                <div className="h-3 bg-muted rounded animate-pulse w-2/3" />
-              </CardContent>
-            </Card>
-          ))}
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-500 mb-2">Error loading analytics</p>
+          <p className="text-sm text-muted-foreground">{error}</p>
         </div>
       </div>
     )
@@ -146,23 +68,13 @@ export function AnalyticsPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Business Analytics</h1>
-            <p className="text-muted-foreground">Failed to load analytics data.</p>
+            <p className="text-muted-foreground">No analytics data available.</p>
           </div>
         </div>
       </div>
     )
   }
 
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('en-US').format(value)
-  }
-
-  const formatPercentage = (value: number | null | undefined) => {
-    if (typeof value !== 'number' || !isFinite(value)) {
-      return "0.0%"
-    }
-    return `${value.toFixed(1)}%`
-  }
 
   return (
     <TooltipProvider>
