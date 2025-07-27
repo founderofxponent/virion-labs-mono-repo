@@ -37,7 +37,7 @@ class CampaignDomain:
             "total_interactions", "successful_onboardings", "referral_conversions",
             
             # Configuration fields
-            "onboarding_flow", "metadata", "features",
+            "onboarding_flow", "metadata", "features", "landing_page_data",
             
             # Relationship fields
             "client"  # client_id should be mapped to client relation
@@ -56,8 +56,35 @@ class CampaignDomain:
         filtered_data["successful_onboardings"] = 0
         filtered_data["referral_conversions"] = 0
         
-        if not filtered_data.get("start_date"):
-            filtered_data["start_date"] = datetime.utcnow().isoformat()
+        # Handle start_date - convert empty strings to None or set default
+        start_date = filtered_data.get("start_date")
+        if not start_date or start_date == "":
+            filtered_data["start_date"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        elif isinstance(start_date, str) and start_date:
+            # If frontend sends YYYY-MM-DD format, convert to full datetime
+            try:
+                if len(start_date) == 10:  # YYYY-MM-DD format
+                    parsed_date = datetime.strptime(start_date, "%Y-%m-%d")
+                    filtered_data["start_date"] = parsed_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            except ValueError:
+                # If parsing fails, use current datetime
+                filtered_data["start_date"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+        # Handle end_date - convert empty strings to None
+        end_date = filtered_data.get("end_date")
+        if end_date == "":
+            filtered_data.pop("end_date", None)  # Remove empty string, let Strapi handle None
+        elif isinstance(end_date, str) and end_date:
+            # If frontend sends YYYY-MM-DD format, convert to full datetime
+            try:
+                if len(end_date) == 10:  # YYYY-MM-DD format
+                    parsed_date = datetime.strptime(end_date, "%Y-%m-%d")
+                    # Set end date to end of day
+                    parsed_date = parsed_date.replace(hour=23, minute=59, second=59)
+                    filtered_data["end_date"] = parsed_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            except ValueError:
+                # If parsing fails, remove the field
+                filtered_data.pop("end_date", None)
 
         return filtered_data
 
@@ -101,7 +128,7 @@ class CampaignDomain:
             "total_interactions", "successful_onboardings", "referral_conversions",
             
             # Configuration fields
-            "onboarding_flow", "metadata", "features"
+            "onboarding_flow", "metadata", "features", "landing_page_data"
         }
         
         # Handle client relationship (but don't include it in updates as it shouldn't change)

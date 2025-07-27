@@ -159,6 +159,9 @@
     },
     "custom_commands": {
       "type": "json"
+    },
+    "landing_page_data": {
+      "type": "json"
     }
   }
 }

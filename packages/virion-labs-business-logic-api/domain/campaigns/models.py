@@ -49,6 +49,7 @@ class BotCampaign(BaseModel):
     custom_commands: Optional[List[Any]] = None
     onboarding_flow: Optional[Union[Dict[str, Any], List[Any]]] = None
     metadata: Optional[Dict[str, Any]] = None
+    landing_page_data: Optional[Dict[str, Any]] = None
 
     @field_validator('onboarding_flow', mode='before')
     @classmethod
@@ -119,6 +120,7 @@ class BotCampaignCreate(BaseModel):
     campaign_start_date: Optional[datetime] = None
     campaign_end_date: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
+    landing_page_data: Optional[Dict[str, Any]] = None
     
     @field_validator('onboarding_flow', mode='before')
     @classmethod

@@ -140,6 +140,7 @@ class StrapiClient:
                 "custom_commands": campaign.get("custom_commands"),
                 "onboarding_flow": campaign.get("onboarding_flow"),
                 "metadata": campaign.get("metadata"),
+                "landing_page_data": campaign.get("landing_page_data"),
             }
             transformed_campaigns.append(transformed_campaign)
         
@@ -205,6 +206,7 @@ class StrapiClient:
             "custom_commands": campaign_data.get("custom_commands"),
             "onboarding_flow": campaign_data.get("onboarding_flow"),
             "metadata": campaign_data.get("metadata"),
+            "landing_page_data": campaign_data.get("landing_page_data"),
         }
 
     async def create_campaign(self, campaign_data: Dict) -> Dict:
@@ -212,7 +214,78 @@ class StrapiClient:
         logger.info("StrapiClient: Creating a new campaign in Strapi.")
         data = {"data": campaign_data}
         response = await self._request("POST", "campaigns", data=data)
-        return response.get("data")
+        campaign = response.get("data")
+        
+        # Transform the response to match BotCampaign model structure
+        if campaign:
+            client_data = campaign.get("client", {})
+            
+            # Handle both case where client is an ID or a full object
+            client_id = ""
+            client_name = "Unknown Client"
+            client_industry = "Unknown"
+            
+            if client_data:
+                if isinstance(client_data, dict):
+                    client_id = str(client_data.get("id", ""))
+                    client_name = client_data.get("name", "Unknown Client")
+                    client_industry = client_data.get("industry", "Unknown")
+                else:
+                    # client_data might just be an ID
+                    client_id = str(client_data)
+            
+            transformed_campaign = {
+                "id": str(campaign.get("id", "")),
+                "documentId": campaign.get("documentId"),
+                "name": campaign.get("name", ""),
+                "type": campaign.get("campaign_type") or "standard",
+                "guild_id": campaign.get("guild_id", ""),
+                "channel_id": campaign.get("channel_id"),
+                "client_id": client_id,
+                "client_name": client_name,
+                "client_industry": client_industry,
+                "display_name": campaign.get("name", ""),
+                "template": campaign.get("template", "default"),
+                "description": campaign.get("description"),
+                "is_active": campaign.get("is_active", True),
+                "paused_at": campaign.get("paused_at"),
+                "campaign_end_date": campaign.get("end_date"),
+                "is_deleted": campaign.get("is_deleted", False),
+                "deleted_at": campaign.get("deleted_at"),
+                "campaign_start_date": campaign.get("start_date") or campaign.get("createdAt"),
+                "created_at": campaign.get("createdAt"),
+                "updated_at": campaign.get("updatedAt"),
+                "total_interactions": campaign.get("total_interactions", 0),
+                "successful_onboardings": campaign.get("successful_onboardings", 0),
+                "referral_conversions": campaign.get("referral_conversions", 0),
+                "last_activity_at": campaign.get("last_activity_at"),
+                "configuration_version": campaign.get("configuration_version"),
+                "referral_link_id": campaign.get("referral_link_id"),
+                "referral_link_title": campaign.get("referral_link_title"),
+                "referral_code": campaign.get("referral_code"),
+                "referral_platform": campaign.get("referral_platform"),
+                "auto_role_assignment": campaign.get("auto_role_assignment"),
+                "target_role_ids": campaign.get("target_role_ids"),
+                "referral_tracking_enabled": campaign.get("referral_tracking_enabled"),
+                "moderation_enabled": campaign.get("moderation_enabled"),
+                "bot_name": campaign.get("bot_name"),
+                "bot_personality": campaign.get("bot_personality"),
+                "bot_response_style": campaign.get("bot_response_style"),
+                "brand_color": campaign.get("brand_color"),
+                "brand_logo_url": campaign.get("brand_logo_url"),
+                "welcome_message": campaign.get("welcome_message"),
+                "webhook_url": campaign.get("webhook_url"),
+                "rate_limit_per_user": campaign.get("rate_limit_per_user"),
+                "features": campaign.get("features"),
+                "auto_responses": campaign.get("auto_responses"),
+                "custom_commands": campaign.get("custom_commands"),
+                "onboarding_flow": campaign.get("onboarding_flow"),
+                "metadata": campaign.get("metadata"),
+                "landing_page_data": campaign.get("landing_page_data"),
+            }
+            return transformed_campaign
+        
+        return campaign
 
     async def update_campaign(self, document_id: str, update_data: Dict) -> Dict:
         """Updates a campaign in Strapi using documentId."""
@@ -274,6 +347,7 @@ class StrapiClient:
             "custom_commands": campaign_data.get("custom_commands"),
             "onboarding_flow": campaign_data.get("onboarding_flow"),
             "metadata": campaign_data.get("metadata"),
+            "landing_page_data": campaign_data.get("landing_page_data"),
         }
 
     async def delete_campaign(self, document_id: str) -> Dict:

@@ -281,6 +281,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         webhook_url: campaign.webhook_url || '',
         campaign_start_date: campaign.campaign_start_date ? new Date(campaign.campaign_start_date).toISOString().split('T')[0] : '',
         campaign_end_date: campaign.campaign_end_date ? new Date(campaign.campaign_end_date).toISOString().split('T')[0] : '',
+        landing_page_data: campaign.landing_page_data || {},
       })
       
       // Load onboarding questions from campaign.onboarding_flow
