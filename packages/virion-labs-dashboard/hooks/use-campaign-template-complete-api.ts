@@ -1,33 +1,13 @@
 import { useState, useEffect } from 'react'
 import { type CampaignTemplate } from '@/lib/campaign-templates'
 
-export interface LandingPageTemplate {
-  id: string
-  name: string
-  description: string
-  preview_image: string
-  campaign_types: string[]
-  category?: string
-  fields: {
-    offer_title: string
-    offer_description: string
-    offer_highlights: string[]
-    offer_value: string
-    what_you_get: string
-    how_it_works: string
-    requirements: string
-    support_info: string
-  }
-  customizable_fields: string[]
-  color_scheme?: any
-  layout_config?: any
-  is_default?: boolean
-}
-
-export function useCampaignTemplateComplete(templateId: string | null) {
+export function useCampaignTemplateCompleteAPI(templateId: string | null) {
   const [template, setTemplate] = useState<CampaignTemplate | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const API_BASE_URL = "http://localhost:8000/api/v1/operations"
+
+  const getToken = () => localStorage.getItem('auth_token')
 
   useEffect(() => {
     if (!templateId) {
@@ -37,17 +17,18 @@ export function useCampaignTemplateComplete(templateId: string | null) {
       return
     }
 
+    const token = getToken()
+    if (!token) {
+      setError("Authentication token not found.")
+      setLoading(false)
+      return
+    }
+
     const fetchTemplate = async () => {
       setLoading(true)
       setError(null)
       try {
-        const token = getToken()
-        if (!token) {
-            setError("Authentication token not found.")
-            setLoading(false)
-            return
-        }
-        const response = await fetch(`http://localhost:8000/api/v1/operations/campaign-template/get/${templateId}`, {
+        const response = await fetch(`${API_BASE_URL}/campaign-template/get/${templateId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -71,21 +52,22 @@ export function useCampaignTemplateComplete(templateId: string | null) {
 
   const refresh = () => {
     if (templateId) {
-      const fetchTemplate = async () => {
-        setLoading(true)
-        setError(null)
-        try {
-          const token = getToken()
+        const token = getToken()
         if (!token) {
             setError("Authentication token not found.")
             setLoading(false)
             return
         }
-        const response = await fetch(`http://localhost:8000/api/v1/operations/campaign-template/get/${templateId}`, {
+
+      const fetchTemplate = async () => {
+        setLoading(true)
+        setError(null)
+        try {
+          const response = await fetch(`${API_BASE_URL}/campaign-template/get/${templateId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
-        })
+          })
           if (!response.ok) {
             throw new Error(`Failed to fetch template: ${response.status}`)
           }
@@ -106,9 +88,9 @@ export function useCampaignTemplateComplete(templateId: string | null) {
 
   return {
     template,
-    landingPage: template?.default_landing_page || null,
+    landingPage: template?.default_landing_page || template?.template_config?.landing_page_config || null,
     loading,
     error,
     refresh
   }
-} 
+}

@@ -86,7 +86,17 @@ async def get_user_settings_by_user_id(user: StrapiUser) -> Optional[Dict[str, A
             update_payload = {"user_setting": new_settings.get("id")}
             try:
                 logger.info(f"Attempting to update verified profile {profile_id}")
-                await strapi_client.update_user_profile(profile_id, update_payload)
+                result = await strapi_client.update_user_profile(profile_id, update_payload)
+                if result is None:
+                    logger.warning(f"Profile {profile_id} not found (404), recreating profile with settings")
+                    # Create a new profile since the old one doesn't exist
+                    profile_payload = {
+                        "email": user.email,
+                        "full_name": user.username,
+                        "publishedAt": datetime.utcnow().isoformat(),
+                        "user_setting": new_settings.get("id")
+                    }
+                    await strapi_client.create_user_profile(profile_payload)
             except Exception as update_error:
                 logger.error(f"Failed to update verified profile {profile_id}: {update_error}")
                 logger.warning("Returning unlinked settings as fallback.")

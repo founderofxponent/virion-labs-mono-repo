@@ -85,6 +85,12 @@ export function LandingPageConfig({
     ...initialData
   })
 
+  useEffect(() => {
+    if (initialData) {
+        setData(prevData => ({ ...prevData, ...initialData }));
+    }
+  }, [initialData]);
+
   // State for tracking template inheritance
   const [isInherited, setIsInherited] = useState(false)
   const [inheritedTemplateName, setInheritedTemplateName] = useState<string>('')

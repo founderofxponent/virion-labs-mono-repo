@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { useAuth } from "@/components/auth-provider"
-import { useBotCampaigns, getCampaignStatus, type CampaignStatus } from "@/hooks/use-bot-campaigns"
+import { useBotCampaignsAPI, getCampaignStatus, type CampaignStatus } from "@/hooks/use-bot-campaigns-api"
 import { useClients } from "@/hooks/use-clients"
 import { type CampaignTemplate } from "@/lib/campaign-templates"
 import { LandingPageConfig } from "@/components/landing-page-config"
@@ -83,22 +83,29 @@ export default function BotCampaignsPage() {
     const loadTemplates = async () => {
       try {
         setTemplatesLoading(true)
-        const response = await fetch('/api/campaign-templates')
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            throw new Error("Authentication token not found.");
+        }
+        const response = await fetch('http://localhost:8000/api/v1/operations/campaign-template/list', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
         if (response.ok) {
           const data = await response.json()
           setTemplates(data.templates || [])
         }
       } catch (error) {
-        console.error('Error loading templates:', error)
+        console.error("Failed to load campaign templates:", error)
       } finally {
         setTemplatesLoading(false)
       }
     }
-    
-    loadTemplates()
-  }, [])
+    loadTemplates();
+  }, []);
 
-  const filters = {
+  const filters = useMemo(() => ({
     ...(filterClient !== "all" && { client_id: filterClient }),
     ...(filterTemplate !== "all" && { template: filterTemplate }),
     // Handle status filtering with better UX logic
@@ -110,7 +117,7 @@ export default function BotCampaignsPage() {
     only_paused: filterStatus === "paused",
     include_deleted: filterStatus === "deleted",
     only_deleted: filterStatus === "deleted"
-  }
+  }), [filterClient, filterTemplate, filterStatus])
 
   const {
     campaigns,
@@ -119,15 +126,11 @@ export default function BotCampaignsPage() {
     createCampaign,
     updateCampaign,
     deleteCampaign,
-    softDeleteCampaign,
-    hardDeleteCampaign,
     pauseCampaign,
     resumeCampaign,
     archiveCampaign,
-    restoreCampaign,
-    activateCampaign,
     refresh
-  } = useBotCampaigns(filters)
+  } = useBotCampaignsAPI(filters)
 
   // Remove debug logging
   // console.log('🔍 Bot Campaigns Filter Debug:', { filterStatus, filters, campaignCount: campaigns.length })
@@ -160,43 +163,23 @@ export default function BotCampaignsPage() {
     refresh() // Refresh the campaigns list
   }
 
-  const handleDeleteCampaign = async (campaignId: string, forceHard = false) => {
-    const action = forceHard ? "permanently delete" : "delete"
-    if (!confirm(`Are you sure you want to ${action} this campaign? ${forceHard ? "This action cannot be undone." : "This will move it to the deleted items."}`)) {
+  const handleDeleteCampaign = async (campaignId: string) => {
+    if (!confirm(`Are you sure you want to delete this campaign? This will move it to the deleted items.`)) {
       return
     }
 
     try {
-      if (forceHard) {
-        await hardDeleteCampaign(campaignId)
-        toast({
-          title: "Success",
-          description: "Campaign permanently deleted successfully"
-        })
-      } else {
-        await softDeleteCampaign(campaignId)
-        toast({
-          title: "Success",
-          description: "Campaign deleted successfully"
-        })
-      }
+      await deleteCampaign(campaignId)
+      toast({
+        title: "Success",
+        description: "Campaign deleted successfully"
+      })
     } catch (error: any) {
-      // Handle referral links conflict (check for relatedRecords regardless of status)
-      if (error.relatedRecords && Array.isArray(error.relatedRecords)) {
-        const linkTitles = error.relatedRecords.map((link: any) => link.title).join(', ')
-        toast({
-          title: "Cannot Delete Campaign",
-          description: `This campaign has ${error.relatedRecords.length} active referral link${error.relatedRecords.length === 1 ? '' : 's'}: ${linkTitles}. Please deactivate or reassign these links first.`,
-          variant: "destructive",
-          duration: 8000,
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: error instanceof Error ? error.message : `Failed to ${action} campaign`,
-          variant: "destructive"
-        })
-      }
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : `Failed to delete campaign`,
+        variant: "destructive"
+      })
     }
   }
 
@@ -220,21 +203,7 @@ export default function BotCampaignsPage() {
     }
   }
 
-  const handleActivateCampaign = async (campaignId: string) => {
-    try {
-      await activateCampaign(campaignId)
-      toast({
-        title: "Success",
-        description: "Campaign activated successfully"
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to activate campaign",
-        variant: "destructive"
-      })
-    }
-  }
+  
 
   const handlePauseCampaign = async (campaignId: string) => {
     try {
@@ -268,21 +237,7 @@ export default function BotCampaignsPage() {
     }
   }
 
-  const handleRestoreCampaign = async (campaignId: string) => {
-    try {
-      await restoreCampaign(campaignId)
-      toast({
-        title: "Success",
-        description: "Campaign restored successfully"
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to restore campaign",
-        variant: "destructive"
-      })
-    }
-  }
+  
 
   const handlePreviewLandingPage = (campaign: any) => {
     // Open landing page preview in a new window
@@ -791,21 +746,7 @@ export default function BotCampaignsPage() {
                                       Export CSV
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
-                                      onClick={() => handleRestoreCampaign(campaign.id)}
-                                      className="text-green-600"
-                                    >
-                                      <RotateCcw className="h-4 w-4 mr-2" />
-                                      Restore
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
-                                      onClick={() => handleDeleteCampaign(campaign.id, true)}
-                                      className="text-red-600"
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Permanently Delete
-                                    </DropdownMenuItem>
+                                    
                                   </>
                                 )
                               }
@@ -818,14 +759,7 @@ export default function BotCampaignsPage() {
                                       Export CSV
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
-                                      onClick={() => handleRestoreCampaign(campaign.id)}
-                                      className="text-green-600"
-                                    >
-                                      <RotateCcw className="h-4 w-4 mr-2" />
-                                      Restore
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
+                                    
                                     <DropdownMenuItem 
                                       onClick={() => handleDeleteCampaign(campaign.id)}
                                       className="text-red-600"
@@ -841,7 +775,7 @@ export default function BotCampaignsPage() {
                               return (
                                 <>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.id}/edit`)}>
+                                  <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${(campaign as any).document_id || campaign.id}/edit`)}>
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit Campaign
                                   </DropdownMenuItem>
@@ -865,12 +799,7 @@ export default function BotCampaignsPage() {
                                     </DropdownMenuItem>
                                   )}
                                   
-                                  {status === 'inactive' && (
-                                    <DropdownMenuItem onClick={() => handleActivateCampaign(campaign.id)}>
-                                      <Play className="h-4 w-4 mr-2" />
-                                      Activate
-                                    </DropdownMenuItem>
-                                  )}
+                                  
                                   
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem 
@@ -905,4 +834,4 @@ export default function BotCampaignsPage() {
       </Card>
     </div>
   )
-} 
+}

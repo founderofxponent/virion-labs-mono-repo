@@ -34,7 +34,7 @@ export async function GET(
       query = query.eq('campaign_type', templateId)
     }
 
-    const { data, error } = await query.single()
+    const { data, error } = await query.limit(1).maybeSingle()
 
     if (error) {
       console.error('Error fetching campaign template:', error)

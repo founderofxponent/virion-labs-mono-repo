@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
-from typing import Optional
+from typing import Optional, Dict, Any
 from services.client_service import client_service
+from services.campaign_service import campaign_service
 from schemas.operation_schemas import ClientListResponse, ClientCreateRequest, ClientCreateResponse, ClientUpdateRequest
 from core.auth import get_current_user, StrapiUser
 import logging
@@ -9,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# region Client Operations
 @router.post("/client/create", response_model=ClientCreateResponse)
 async def create_client_operation(request: ClientCreateRequest, user: StrapiUser = Depends(get_current_user)):
     """
@@ -87,8 +89,170 @@ async def list_clients_operation(status: Optional[str] = None, user: StrapiUser 
     except Exception as e:
         logger.error(f"Client list operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+# endregion
 
-# Analytics Operations
+# region Campaign Operations
+@router.get("/campaign/list")
+async def list_campaigns_operation(user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for listing campaigns.
+    """
+    try:
+        result = await campaign_service.list_campaigns_operation(current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Campaign list operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/campaign/create")
+async def create_campaign_operation(request: Dict[str, Any], user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for campaign creation.
+    """
+    try:
+        # Assuming request contains campaign_data and setup_options
+        campaign_data = request.get("campaign_data", {})
+        setup_options = request.get("setup_options", {})
+        result = await campaign_service.create_campaign_operation(campaign_data, setup_options, current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Campaign creation operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/campaign/get/{campaign_id}")
+async def get_campaign_operation(campaign_id: str, user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for fetching a single campaign.
+    """
+    try:
+        result = await campaign_service.get_campaign_operation(campaign_id, current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Campaign get operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/campaign/update/{campaign_id}")
+async def update_campaign_operation(campaign_id: str, updates: Dict[str, Any], user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for updating a campaign.
+    """
+    try:
+        result = await campaign_service.update_campaign_operation(campaign_id, updates, current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Campaign update operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/campaign/delete/{campaign_id}")
+async def delete_campaign_operation(campaign_id: str, user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for deleting a campaign.
+    """
+    try:
+        result = await campaign_service.delete_campaign_operation(campaign_id, current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Campaign delete operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/campaign/pause/{campaign_id}")
+async def pause_campaign_operation(campaign_id: str, user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for pausing a campaign.
+    """
+    try:
+        result = await campaign_service.pause_campaign_operation(campaign_id, current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Campaign pause operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/campaign/resume/{campaign_id}")
+async def resume_campaign_operation(campaign_id: str, user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for resuming a campaign.
+    """
+    try:
+        result = await campaign_service.resume_campaign_operation(campaign_id, current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Campaign resume operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.patch("/campaign/archive/{campaign_id}")
+async def archive_campaign_operation(campaign_id: str, user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for archiving a campaign.
+    """
+    try:
+        result = await campaign_service.archive_campaign_operation(campaign_id, current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Campaign archive operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/campaign/onboarding-fields/{campaign_id}")
+async def get_onboarding_fields_operation(campaign_id: str, user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for fetching onboarding fields for a campaign.
+    """
+    try:
+        # result = await campaign_service.get_onboarding_fields_operation(campaign_id, current_user=user)
+        return {"fields": []}
+    except Exception as e:
+        logger.error(f"Onboarding fields fetch operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/campaign/onboarding-fields/{campaign_id}")
+async def create_onboarding_field_operation(campaign_id: str, field_data: Dict[str, Any], user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for creating an onboarding field for a campaign.
+    """
+    try:
+        # result = await campaign_service.create_onboarding_field_operation(campaign_id, field_data, current_user=user)
+        return {"field": {}}
+    except Exception as e:
+        logger.error(f"Onboarding field creation operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/campaign/onboarding-fields/{campaign_id}")
+async def update_onboarding_field_operation(campaign_id: str, field_data: Dict[str, Any], user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for updating an onboarding field for a campaign.
+    """
+    try:
+        # result = await campaign_service.update_onboarding_field_operation(campaign_id, field_data, current_user=user)
+        return {"field": {}}
+    except Exception as e:
+        logger.error(f"Onboarding field update operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/campaign-template/get/{document_id}")
+async def get_campaign_template_operation(document_id: str, user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for fetching a single campaign template by document ID.
+    """
+    try:
+        result = await campaign_service.get_campaign_template_operation(document_id, current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Campaign template fetch operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/campaign-template/list")
+async def list_campaign_templates_operation(user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for listing all campaign templates.
+    """
+    try:
+        result = await campaign_service.list_campaign_templates_operation(current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Campaign template list operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+# endregion
+
+# region Analytics Operations
 @router.get("/analytics/dashboard")
 async def get_analytics_dashboard(user: StrapiUser = Depends(get_current_user)):
     """
@@ -208,3 +372,5 @@ async def get_analytics_influencer_metrics(user: StrapiUser = Depends(get_curren
     except Exception as e:
         logger.error(f"Influencer metrics operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+# endregion
+

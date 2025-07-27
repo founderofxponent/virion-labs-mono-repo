@@ -1,14 +1,40 @@
 // Client-side campaign templates service
 export interface CampaignTemplate {
   id: string
+  documentId?: string
   name: string
   description: string
   category: 'referral' | 'promotion' | 'community' | 'support' | 'custom'
   campaign_type: string
   is_default: boolean
   
+  // New structure for template configuration from Strapi v5
+  template_config?: {
+    bot_config: any
+    onboarding_fields: Array<{
+      id: string
+      question: string
+      type: 'text' | 'email' | 'select' | 'multiselect' | 'number' | 'url' | 'boolean'
+      required: boolean
+      options?: string[]
+      validation?: any
+      discord_integration?: any
+    }>
+    analytics_config: any
+    landing_page_config?: {
+      offer_title: string
+      offer_description: string
+      offer_highlights: string[]
+      offer_value: string
+      what_you_get: string
+      how_it_works: string
+      requirements: string
+      support_info: string
+    }
+  }
+  
   // Comprehensive bot configuration (replaces standalone bot_configurations)
-  bot_config: {
+  bot_config?: {
     // Core bot identity
     bot_name: string
     bot_personality: 'helpful' | 'enthusiastic' | 'professional' | 'friendly' | 'casual'
@@ -145,7 +171,15 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 // Fetch all templates from API
 async function fetchTemplatesFromAPI(): Promise<CampaignTemplate[]> {
   try {
-    const response = await fetch('/api/campaign-templates')
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+        throw new Error("Authentication token not found.");
+    }
+    const response = await fetch('http://localhost:8000/api/v1/operations/campaign-template/list', {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
     
     if (!response.ok) {
       console.error('Failed to fetch campaign templates:', response.statusText)
@@ -182,7 +216,15 @@ async function getTemplatesWithCache(): Promise<CampaignTemplate[]> {
 // Get individual template by ID
 export async function getCampaignTemplateAsync(templateId: string): Promise<CampaignTemplate | undefined> {
   try {
-    const response = await fetch(`/api/campaign-templates/${encodeURIComponent(templateId)}`)
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+        throw new Error("Authentication token not found.");
+    }
+    const response = await fetch(`http://localhost:8000/api/v1/operations/campaign-template/get/${encodeURIComponent(templateId)}`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
     
     if (!response.ok) {
       console.error('Failed to fetch campaign template:', response.statusText)
@@ -200,7 +242,15 @@ export async function getCampaignTemplateAsync(templateId: string): Promise<Camp
 // Get templates by category
 export async function getCampaignTemplatesByCategoryAsync(category: string): Promise<CampaignTemplate[]> {
   try {
-    const response = await fetch(`/api/campaign-templates?category=${encodeURIComponent(category)}`)
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+        throw new Error("Authentication token not found.");
+    }
+    const response = await fetch(`http://localhost:8000/api/v1/operations/campaign-template/list?category=${encodeURIComponent(category)}`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    })
     
     if (!response.ok) {
       console.error('Failed to fetch campaign templates by category:', response.statusText)

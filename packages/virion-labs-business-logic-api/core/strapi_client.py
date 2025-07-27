@@ -79,11 +79,237 @@ class StrapiClient:
     async def get_campaigns(self, filters: Optional[Dict] = None) -> List[Dict]:
         """Fetches a list of campaigns from Strapi."""
         logger.info("StrapiClient: Fetching campaigns from Strapi.")
-        params = {"populate": "client"} # Populate client to get client ID
+        params = {"populate": "*"} # Populate all fields to get complete campaign data
         if filters:
             params.update(filters)
         
         response = await self._request("GET", "campaigns", params=params)
+        campaigns_data = response.get("data", [])
+        
+        # Transform Strapi response to match expected BotCampaign model
+        transformed_campaigns = []
+        for campaign in campaigns_data:
+            # The data is already flattened (no nested attributes structure)
+            # Transform field names to match BotCampaign model
+            client_data = campaign.get("client", {})
+            
+            transformed_campaign = {
+                "id": str(campaign.get("id", "")),
+                "documentId": campaign.get("documentId"),
+                "name": campaign.get("name", ""),
+                "type": campaign.get("campaign_type") or "standard",  # Map campaign_type to type, handle None
+                "guild_id": campaign.get("guild_id", ""),
+                "channel_id": campaign.get("channel_id"),
+                "client_id": str(client_data.get("id", "")) if client_data else "",
+                "client_name": client_data.get("name", "") if client_data else "",
+                "client_industry": client_data.get("industry", "") if client_data else "",
+                "display_name": campaign.get("name", ""),  # Use name as display_name if not specified
+                "template": campaign.get("template", "default"),  # Default template
+                "description": campaign.get("description"),
+                "is_active": campaign.get("is_active", True),
+                "paused_at": campaign.get("paused_at"),
+                "campaign_end_date": campaign.get("end_date"),
+                "is_deleted": campaign.get("is_deleted", False),  # Default to False
+                "deleted_at": campaign.get("deleted_at"),
+                "campaign_start_date": campaign.get("start_date") or campaign.get("createdAt"),
+                "created_at": campaign.get("createdAt"),
+                "updated_at": campaign.get("updatedAt"),
+                "total_interactions": campaign.get("total_interactions", 0),
+                "successful_onboardings": campaign.get("successful_onboardings", 0),
+                "referral_conversions": campaign.get("referral_conversions", 0),
+                "last_activity_at": campaign.get("last_activity_at"),
+                "configuration_version": campaign.get("configuration_version"),
+                "referral_link_id": campaign.get("referral_link_id"),
+                "referral_link_title": campaign.get("referral_link_title"),
+                "referral_code": campaign.get("referral_code"),
+                "referral_platform": campaign.get("referral_platform"),
+                "auto_role_assignment": campaign.get("auto_role_assignment"),
+                "target_role_ids": campaign.get("target_role_ids"),
+                "referral_tracking_enabled": campaign.get("referral_tracking_enabled"),
+                "moderation_enabled": campaign.get("moderation_enabled"),
+                "bot_name": campaign.get("bot_name"),
+                "bot_personality": campaign.get("bot_personality"),
+                "bot_response_style": campaign.get("bot_response_style"),
+                "brand_color": campaign.get("brand_color"),
+                "brand_logo_url": campaign.get("brand_logo_url"),
+                "welcome_message": campaign.get("welcome_message"),
+                "webhook_url": campaign.get("webhook_url"),
+                "rate_limit_per_user": campaign.get("rate_limit_per_user"),
+                "features": campaign.get("features"),
+                "auto_responses": campaign.get("auto_responses"),
+                "custom_commands": campaign.get("custom_commands"),
+            }
+            transformed_campaigns.append(transformed_campaign)
+        
+        return transformed_campaigns
+
+    async def get_campaign(self, document_id: str) -> Dict:
+        """Fetches a single campaign from Strapi using documentId."""
+        logger.info(f"StrapiClient: Fetching campaign {document_id} from Strapi.")
+        params = {"populate": "*"}
+        response = await self._request("GET", f"campaigns/{document_id}", params=params)
+        campaign_data = response.get("data")
+        
+        if not campaign_data:
+            return None
+            
+        # Apply same transformation as get_campaigns
+        client_data = campaign_data.get("client", {})
+        
+        return {
+            "id": str(campaign_data.get("id", "")),
+            "documentId": campaign_data.get("documentId"),
+            "name": campaign_data.get("name", ""),
+            "type": campaign_data.get("campaign_type") or "standard",
+            "guild_id": campaign_data.get("guild_id", ""),
+            "channel_id": campaign_data.get("channel_id"),
+            "client_id": str(client_data.get("id", "")) if client_data else "",
+            "client_name": client_data.get("name", "") if client_data else "",
+            "client_industry": client_data.get("industry", "") if client_data else "",
+            "display_name": campaign_data.get("name", ""),
+            "template": campaign_data.get("template", "default"),
+            "description": campaign_data.get("description"),
+            "is_active": campaign_data.get("is_active", True),
+            "paused_at": campaign_data.get("paused_at"),
+            "campaign_end_date": campaign_data.get("end_date"),
+            "is_deleted": campaign_data.get("is_deleted", False),
+            "deleted_at": campaign_data.get("deleted_at"),
+            "campaign_start_date": campaign_data.get("start_date") or campaign_data.get("createdAt"),
+            "created_at": campaign_data.get("createdAt"),
+            "updated_at": campaign_data.get("updatedAt"),
+            "total_interactions": campaign_data.get("total_interactions", 0),
+            "successful_onboardings": campaign_data.get("successful_onboardings", 0),
+            "referral_conversions": campaign_data.get("referral_conversions", 0),
+            "last_activity_at": campaign_data.get("last_activity_at"),
+            "configuration_version": campaign_data.get("configuration_version"),
+            "referral_link_id": campaign_data.get("referral_link_id"),
+            "referral_link_title": campaign_data.get("referral_link_title"),
+            "referral_code": campaign_data.get("referral_code"),
+            "referral_platform": campaign_data.get("referral_platform"),
+            "auto_role_assignment": campaign_data.get("auto_role_assignment"),
+            "target_role_ids": campaign_data.get("target_role_ids"),
+            "referral_tracking_enabled": campaign_data.get("referral_tracking_enabled"),
+            "moderation_enabled": campaign_data.get("moderation_enabled"),
+            "bot_name": campaign_data.get("bot_name"),
+            "bot_personality": campaign_data.get("bot_personality"),
+            "bot_response_style": campaign_data.get("bot_response_style"),
+            "brand_color": campaign_data.get("brand_color"),
+            "brand_logo_url": campaign_data.get("brand_logo_url"),
+            "welcome_message": campaign_data.get("welcome_message"),
+            "webhook_url": campaign_data.get("webhook_url"),
+            "rate_limit_per_user": campaign_data.get("rate_limit_per_user"),
+            "features": campaign_data.get("features"),
+            "auto_responses": campaign_data.get("auto_responses"),
+            "custom_commands": campaign_data.get("custom_commands"),
+        }
+
+    async def create_campaign(self, campaign_data: Dict) -> Dict:
+        """Creates a new campaign in Strapi."""
+        logger.info("StrapiClient: Creating a new campaign in Strapi.")
+        data = {"data": campaign_data}
+        response = await self._request("POST", "campaigns", data=data)
+        return response.get("data")
+
+    async def update_campaign(self, document_id: str, update_data: Dict) -> Dict:
+        """Updates a campaign in Strapi using documentId."""
+        logger.info(f"StrapiClient: Updating campaign {document_id} in Strapi.")
+        data = {"data": update_data}
+        response = await self._request("PUT", f"campaigns/{document_id}", data=data)
+        campaign_data = response.get("data")
+        
+        # Apply same transformation as get_campaign
+        if not campaign_data:
+            return None
+            
+        client_data = campaign_data.get("client", {})
+        
+        return {
+            "id": str(campaign_data.get("id", "")),
+            "documentId": campaign_data.get("documentId"),
+            "name": campaign_data.get("name", ""),
+            "type": campaign_data.get("campaign_type") or "standard",
+            "guild_id": campaign_data.get("guild_id", ""),
+            "channel_id": campaign_data.get("channel_id"),
+            "client_id": str(client_data.get("id", "")) if client_data else "",
+            "client_name": client_data.get("name", "") if client_data else "",
+            "client_industry": client_data.get("industry", "") if client_data else "",
+            "display_name": campaign_data.get("name", ""),
+            "template": campaign_data.get("template", "default"),
+            "description": campaign_data.get("description"),
+            "is_active": campaign_data.get("is_active", True),
+            "paused_at": campaign_data.get("paused_at"),
+            "campaign_end_date": campaign_data.get("end_date"),
+            "is_deleted": campaign_data.get("is_deleted", False),
+            "deleted_at": campaign_data.get("deleted_at"),
+            "campaign_start_date": campaign_data.get("start_date") or campaign_data.get("createdAt"),
+            "created_at": campaign_data.get("createdAt"),
+            "updated_at": campaign_data.get("updatedAt"),
+            "total_interactions": campaign_data.get("total_interactions", 0),
+            "successful_onboardings": campaign_data.get("successful_onboardings", 0),
+            "referral_conversions": campaign_data.get("referral_conversions", 0),
+            "last_activity_at": campaign_data.get("last_activity_at"),
+            "configuration_version": campaign_data.get("configuration_version"),
+            "referral_link_id": campaign_data.get("referral_link_id"),
+            "referral_link_title": campaign_data.get("referral_link_title"),
+            "referral_code": campaign_data.get("referral_code"),
+            "referral_platform": campaign_data.get("referral_platform"),
+            "auto_role_assignment": campaign_data.get("auto_role_assignment"),
+            "target_role_ids": campaign_data.get("target_role_ids"),
+            "referral_tracking_enabled": campaign_data.get("referral_tracking_enabled"),
+            "moderation_enabled": campaign_data.get("moderation_enabled"),
+            "bot_name": campaign_data.get("bot_name"),
+            "bot_personality": campaign_data.get("bot_personality"),
+            "bot_response_style": campaign_data.get("bot_response_style"),
+            "brand_color": campaign_data.get("brand_color"),
+            "brand_logo_url": campaign_data.get("brand_logo_url"),
+            "welcome_message": campaign_data.get("welcome_message"),
+            "webhook_url": campaign_data.get("webhook_url"),
+            "rate_limit_per_user": campaign_data.get("rate_limit_per_user"),
+            "features": campaign_data.get("features"),
+            "auto_responses": campaign_data.get("auto_responses"),
+            "custom_commands": campaign_data.get("custom_commands"),
+        }
+
+    async def delete_campaign(self, document_id: str) -> Dict:
+        """Deletes a campaign in Strapi using its documentId."""
+        logger.info(f"StrapiClient: Deleting campaign {document_id} in Strapi.")
+        response = await self._request("DELETE", f"campaigns/{document_id}")
+        return response.get("data")
+
+    async def get_onboarding_fields(self, campaign_id: str) -> List[Dict]:
+        """Fetches onboarding fields for a campaign from Strapi."""
+        logger.info(f"StrapiClient: Fetching onboarding fields for campaign {campaign_id} from Strapi.")
+        params = {"filters[campaign][id][$eq]": campaign_id}
+        response = await self._request("GET", "onboarding-fields", params=params)
+        return response.get("data", [])
+
+    async def create_onboarding_field(self, campaign_id: str, field_data: Dict) -> Dict:
+        """Creates an onboarding field for a campaign in Strapi."""
+        logger.info(f"StrapiClient: Creating onboarding field for campaign {campaign_id} in Strapi.")
+        data = {"data": {"campaign": campaign_id, **field_data}}
+        response = await self._request("POST", "onboarding-fields", data=data)
+        return response.get("data")
+
+    async def update_onboarding_field(self, field_id: str, field_data: Dict) -> Dict:
+        """Updates an onboarding field in Strapi."""
+        logger.info(f"StrapiClient: Updating onboarding field {field_id} in Strapi.")
+        data = {"data": field_data}
+        response = await self._request("PUT", f"onboarding-fields/{field_id}", data=data)
+        return response.get("data")
+
+    async def get_campaign_template(self, document_id: str) -> Dict:
+        """Fetches a single campaign template by document ID from Strapi."""
+        logger.info(f"StrapiClient: Fetching campaign template with document ID '{document_id}' from Strapi.")
+        
+        # Fetch by document ID only
+        response = await self._request("GET", f"campaign-templates/{document_id}", params={"populate": "*"})
+        return response.get("data")
+
+    async def get_campaign_templates(self) -> List[Dict]:
+        """Fetches a list of campaign templates from Strapi."""
+        logger.info("StrapiClient: Fetching campaign templates from Strapi.")
+        params = {"populate": "*"}
+        response = await self._request("GET", "campaign-templates", params=params)
         return response.get("data", [])
 
     async def get_user_profiles(self, filters: Optional[Dict] = None) -> List[Dict]:
@@ -107,8 +333,14 @@ class StrapiClient:
         """Updates a user profile in Strapi using its ID."""
         logger.info(f"StrapiClient: Updating user profile {profile_id} in Strapi.")
         data = {"data": profile_data}
-        response = await self._request("PUT", f"user-profiles/{profile_id}", data=data)
-        return response.get("data")
+        try:
+            response = await self._request("PUT", f"user-profiles/{profile_id}", data=data)
+            return response.get("data")
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"User profile {profile_id} not found (404), it may have been deleted")
+                return None
+            raise
 
     async def update_user_setting(self, setting_id: int, setting_data: Dict) -> Dict:
         """Updates a user setting in Strapi using its ID."""

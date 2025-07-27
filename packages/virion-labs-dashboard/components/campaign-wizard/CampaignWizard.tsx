@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,10 +19,11 @@ import {
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { type CampaignTemplate } from "@/lib/campaign-templates"
-import { useCampaignTemplateComplete } from "@/hooks/use-campaign-template-complete"
+import { useCampaignTemplateCompleteAPI } from "@/hooks/use-campaign-template-complete-api"
 import { useClients } from "@/hooks/use-clients"
-import { useBotCampaigns } from "@/hooks/use-bot-campaigns"
-import { useOnboardingFields, type OnboardingField } from "@/hooks/use-onboarding-fields"
+import { useBotCampaignsAPI } from "@/hooks/use-bot-campaigns-api"
+import { useOnboardingFieldsAPI, type OnboardingField } from "@/hooks/use-onboarding-fields-api"
+import { useCampaignLandingPage } from "@/hooks/use-campaign-landing-pages"
 import { OnboardingQuestionsForm } from "./OnboardingQuestionsForm"
 
 // Import Tab Components
@@ -85,19 +86,25 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [templates, setTemplates] = useState<CampaignTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>("default")
   const [userExplicitlyChangedTemplate, setUserExplicitlyChangedTemplate] = useState(false)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [localOnboardingQuestions, setLocalOnboardingQuestions] = useState<OnboardingQuestion[]>([]);
   const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [campaignDocumentId, setCampaignDocumentId] = useState<string | null>(null);
+  const [editCampaign, setEditCampaign] = useState<any>(null);
+  const [editCampaignLoading, setEditCampaignLoading] = useState(false);
+  const fetchedCampaignId = useRef<string | null>(null);
   
   const { clients, loading: clientsLoading } = useClients()
-  const { campaigns, loading: campaignsLoading } = useBotCampaigns()
+  const { campaigns, loading: campaignsLoading, createCampaign, updateCampaign, fetchSingleCampaign } = useBotCampaignsAPI()
   
   const { 
     template: templateWithLandingPage, 
     landingPage: inheritedLandingPageTemplate, 
-  } = useCampaignTemplateComplete(selectedTemplateId)
+  } = useCampaignTemplateCompleteAPI(selectedTemplateId)
+
+  const { landingPage, loading: landingPageLoading } = useCampaignLandingPage(campaignDocumentId);
 
   const {
     fields: onboardingFields,
@@ -106,7 +113,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     updateField,
     deleteField,
     fetchFields
-  } = useOnboardingFields(campaignId)
+  } = useOnboardingFieldsAPI(campaignDocumentId)
 
   useEffect(() => {
     if (onboardingFields && onboardingFields.length > 0) {
@@ -121,11 +128,15 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     if (onboardingFields && onboardingFields.length > 0) {
       return { fields: onboardingFields, source: 'database' as const, isTemplate: false }
     }
-    if (mode === 'create' && templateWithLandingPage?.onboarding_fields && templateWithLandingPage.onboarding_fields.length > 0) {
+    // Handle nested template_config structure
+    const template_config = templateWithLandingPage?.template_config || templateWithLandingPage;
+    const template_onboarding_fields = template_config?.onboarding_fields || templateWithLandingPage?.onboarding_fields;
+    
+    if (mode === 'create' && template_onboarding_fields && template_onboarding_fields.length > 0) {
       return {
-        fields: templateWithLandingPage.onboarding_fields.map((field, index) => ({
+        fields: template_onboarding_fields.map((field, index) => ({
           id: `template-${field.id}`, field_label: field.question, field_type: field.type, sort_order: index,
-          is_required: field.required, is_enabled: true, field_options: [], validation_rules: {},
+          is_required: field.required, is_enabled: true, field_options: field.options || [], validation_rules: field.validation || {},
           field_key: field.question.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '')
         })),
         source: 'template' as const, isTemplate: true
@@ -147,10 +158,23 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     const loadTemplates = async () => {
       try {
         setTemplatesLoading(true)
-        const response = await fetch('/api/campaign-templates')
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            throw new Error("Authentication token not found.");
+        }
+        const response = await fetch('http://localhost:8000/api/v1/operations/campaign-template/list', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
         if (response.ok) {
           const data = await response.json()
-          setTemplates(data.templates || [])
+          const templates = data.templates || []
+          setTemplates(templates)
+          if (mode === 'create' && templates.length > 0) {
+            setSelectedTemplateId(templates[0].documentId)
+            setFormData(prev => ({ ...prev, campaign_template: templates[0].documentId }))
+          }
         }
       } catch (error) {
         console.error('Error loading templates:', error)
@@ -168,82 +192,159 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     }
   }, [mode])
 
+  // Fetch single campaign when in edit mode
   useEffect(() => {
-    if (mode === 'edit' && campaignId && campaigns.length > 0) {
-      const campaign = campaigns.find(c => c.id === campaignId)
-      if (campaign) {
-        const campaignTemplate = (campaign as any).campaign_type || (campaign as any).template || 'custom'
-        setFormData({
-          campaign_template: campaignTemplate, client_id: campaign.client_id, campaign_name: campaign.name,
-          guild_id: campaign.guild_id, channel_id: campaign.channel_id || '',
-          bot_name: campaign.bot_name || campaign.display_name || 'Virion Bot',
-          bot_personality: campaign.bot_personality || 'helpful',
-          bot_response_style: campaign.bot_response_style || 'friendly',
-          brand_color: campaign.brand_color || '#6366f1', brand_logo_url: campaign.brand_logo_url || '',
-          description: campaign.description || '', welcome_message: campaign.welcome_message || '',
-          referral_tracking_enabled: campaign.referral_tracking_enabled || false,
-          auto_role_assignment: campaign.auto_role_assignment || false,
-          target_role_ids: campaign.target_role_ids || [],
-          moderation_enabled: campaign.moderation_enabled || true,
-          rate_limit_per_user: campaign.rate_limit_per_user || 5,
-          webhook_url: campaign.webhook_url || '',
-          campaign_start_date: campaign.campaign_start_date ? new Date(campaign.campaign_start_date).toISOString().split('T')[0] : '',
-          campaign_end_date: campaign.campaign_end_date ? new Date(campaign.campaign_end_date).toISOString().split('T')[0] : '',
-        })
-        setSelectedTemplateId(campaignTemplate)
-        setInitialLoadComplete(true)
+    if (mode === 'edit' && campaignId && fetchSingleCampaign && fetchedCampaignId.current !== campaignId) {
+      const loadCampaign = async () => {
+        try {
+          setEditCampaignLoading(true)
+          fetchedCampaignId.current = campaignId
+          const campaign = await fetchSingleCampaign(campaignId)
+          setEditCampaign(campaign)
+        } catch (error) {
+          console.error('Failed to fetch campaign:', error)
+          fetchedCampaignId.current = null // Reset on error
+          toast({
+            title: "Error",
+            description: "Failed to load campaign details",
+            variant: "destructive",
+          })
+        } finally {
+          setEditCampaignLoading(false)
+        }
       }
+      loadCampaign()
     }
-  }, [mode, campaignId, campaigns])
+  }, [mode, campaignId, fetchSingleCampaign, toast])
 
   useEffect(() => {
-    if (templateWithLandingPage) {
-      const shouldApplyTemplateOverrides = mode === 'create' || 
-        (mode === 'edit' && userExplicitlyChangedTemplate && initialLoadComplete)
+    if (mode === 'edit' && editCampaign && templates.length > 0) {
+      const campaign = editCampaign
+      setCampaignDocumentId(campaign.documentId || null);
+      // Find the correct template based on campaign.type
+      let templateId = ''
+      
+      // The campaign.type field contains the template identifier (e.g., "referral_onboarding")
+      // We need to find the template where template.campaign_type matches campaign.type
+      const campaignType = campaign.type
+      
+      if (campaignType) {
+        const matchingTemplate = templates.find(template => 
+          template.campaign_type === campaignType || template.id === campaignType
+        )
+        if (matchingTemplate) {
+          templateId = matchingTemplate.documentId || matchingTemplate.id
+        }
+      }
+      
+      // Fallback to custom template or first available template
+      if (!templateId) {
+        templateId = templates.find(t => t.campaign_type === 'custom')?.documentId || templates.find(t => t.campaign_type === 'custom')?.id || templates[0]?.documentId || templates[0]?.id || ''
+      }
+      
+      setFormData({
+        campaign_template: templateId, client_id: campaign.client_id, campaign_name: campaign.name,
+        guild_id: campaign.guild_id, channel_id: campaign.channel_id || '',
+        bot_name: campaign.bot_name || campaign.display_name || 'Virion Bot',
+        bot_personality: campaign.bot_personality || 'helpful',
+        bot_response_style: campaign.bot_response_style || 'friendly',
+        brand_color: campaign.brand_color || '#6366f1', brand_logo_url: campaign.brand_logo_url || '',
+        description: campaign.description || '', welcome_message: campaign.welcome_message || '',
+        referral_tracking_enabled: campaign.referral_tracking_enabled || false,
+        auto_role_assignment: campaign.auto_role_assignment || false,
+        target_role_ids: campaign.target_role_ids || [],
+        moderation_enabled: campaign.moderation_enabled || true,
+        rate_limit_per_user: campaign.rate_limit_per_user || 5,
+        webhook_url: campaign.webhook_url || '',
+        campaign_start_date: campaign.campaign_start_date ? new Date(campaign.campaign_start_date).toISOString().split('T')[0] : '',
+        campaign_end_date: campaign.campaign_end_date ? new Date(campaign.campaign_end_date).toISOString().split('T')[0] : '',
+      })
+      setSelectedTemplateId(templateId)
+      setInitialLoadComplete(true)
+    }
+  }, [mode, editCampaign, templates])
 
-      if (shouldApplyTemplateOverrides) {
+  useEffect(() => {
+    if (mode === 'edit' && landingPage) {
+      const { id, campaign_id, created_at, updated_at, ...rest } = landingPage;
+      setFormData(prev => ({
+        ...prev,
+        landing_page_data: {
+          ...prev.landing_page_data,
+          ...rest
+        }
+      }));
+    }
+  }, [mode, landingPage]);
+
+  useEffect(() => {
+    if (!templateWithLandingPage || !userExplicitlyChangedTemplate) return;
+
+    // Handle the nested template_config structure
+    const template_config = templateWithLandingPage.template_config || templateWithLandingPage;
+    const { bot_config, onboarding_fields, landing_page_config } = template_config;
+    const default_landing_page = templateWithLandingPage.default_landing_page;
+
+    if (bot_config) {
+      setFormData(prev => ({
+        ...prev,
+        description: bot_config.description,
+        bot_name: bot_config.bot_name,
+        bot_personality: bot_config.bot_personality,
+        bot_response_style: bot_config.bot_response_style,
+        brand_color: bot_config.brand_color,
+        welcome_message: bot_config.welcome_message,
+        referral_tracking_enabled: bot_config.features?.referral_tracking,
+        auto_role_assignment: bot_config.features?.auto_role,
+        moderation_enabled: bot_config.features?.moderation,
+        rate_limit_per_user: bot_config.rate_limit_per_user || 5,
+        target_role_ids: bot_config.onboarding_completion_requirements?.auto_role_on_completion ? [bot_config.onboarding_completion_requirements.auto_role_on_completion] : [],
+      }));
+    }
+
+    if (onboarding_fields) {
+      const templateQuestions = onboarding_fields.map((field, index) => ({
+        id: `template-${field.id}`,
+        field_label: field.question,
+        field_type: field.type,
+        sort_order: index,
+        is_required: field.required,
+        is_enabled: true,
+        field_options: field.options || [],
+        validation_rules: field.validation || {},
+        field_key: field.question.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '')
+      }));
+      setLocalOnboardingQuestions(templateQuestions);
+    }
+    
+    // Handle landing page config from template_config first, then fall back to default_landing_page
+    const landingPageSource = landing_page_config || default_landing_page?.fields;
+    if (landingPageSource) {
         setFormData(prev => ({
-          ...prev,
-          description: templateWithLandingPage.bot_config.description,
-          bot_name: templateWithLandingPage.bot_config.bot_name,
-          bot_personality: templateWithLandingPage.bot_config.bot_personality,
-          bot_response_style: templateWithLandingPage.bot_config.bot_response_style,
-          brand_color: templateWithLandingPage.bot_config.brand_color,
-          welcome_message: templateWithLandingPage.bot_config.welcome_message,
-          referral_tracking_enabled: templateWithLandingPage.bot_config.features.referral_tracking,
-          auto_role_assignment: templateWithLandingPage.bot_config.features.auto_role,
-          moderation_enabled: templateWithLandingPage.bot_config.features.moderation,
-        }))
-        
-        if (mode === 'create' && templateWithLandingPage.onboarding_fields) {
-            const templateQuestions = templateWithLandingPage.onboarding_fields.map((field, index) => ({
-                id: `template-${field.id}`, field_label: field.question, field_type: field.type,
-                sort_order: index, is_required: field.required, is_enabled: true,
-                field_options: [], validation_rules: {},
-                field_key: field.question.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '')
-            }));
-            setLocalOnboardingQuestions(templateQuestions);
-        }
-        
-        if (userExplicitlyChangedTemplate) {
-          setUserExplicitlyChangedTemplate(false)
-        }
-      }
+            ...prev,
+            landing_page_data: {
+                ...prev.landing_page_data,
+                ...landingPageSource
+            }
+        }));
     }
-  }, [templateWithLandingPage, mode, userExplicitlyChangedTemplate, initialLoadComplete])
+
+    setUserExplicitlyChangedTemplate(false);
+
+  }, [templateWithLandingPage, userExplicitlyChangedTemplate, mode]);
 
   useEffect(() => {
     if (inheritedLandingPageTemplate && mode === 'create') {
       const landingPageData = {
         landing_page_template_id: inheritedLandingPageTemplate.id,
-        offer_title: inheritedLandingPageTemplate.fields.offer_title,
-        offer_description: inheritedLandingPageTemplate.fields.offer_description,
-        offer_highlights: inheritedLandingPageTemplate.fields.offer_highlights,
-        offer_value: inheritedLandingPageTemplate.fields.offer_value,
-        what_you_get: inheritedLandingPageTemplate.fields.what_you_get,
-        how_it_works: inheritedLandingPageTemplate.fields.how_it_works,
-        requirements: inheritedLandingPageTemplate.fields.requirements,
-        support_info: inheritedLandingPageTemplate.fields.support_info,
+        offer_title: inheritedLandingPageTemplate.fields?.offer_title || inheritedLandingPageTemplate.offer_title,
+        offer_description: inheritedLandingPageTemplate.fields?.offer_description || inheritedLandingPageTemplate.offer_description,
+        offer_highlights: inheritedLandingPageTemplate.fields?.offer_highlights || inheritedLandingPageTemplate.offer_highlights,
+        offer_value: inheritedLandingPageTemplate.fields?.offer_value || inheritedLandingPageTemplate.offer_value,
+        what_you_get: inheritedLandingPageTemplate.fields?.what_you_get || inheritedLandingPageTemplate.what_you_get,
+        how_it_works: inheritedLandingPageTemplate.fields?.how_it_works || inheritedLandingPageTemplate.how_it_works,
+        requirements: inheritedLandingPageTemplate.fields?.requirements || inheritedLandingPageTemplate.requirements,
+        support_info: inheritedLandingPageTemplate.fields?.support_info || inheritedLandingPageTemplate.support_info,
       }
       setFormData(prev => ({ ...prev, landing_page_data: landingPageData }))
     }
@@ -253,14 +354,10 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleTemplateSelect = async (templateId: string) => {
+  const handleTemplateSelect = (templateId: string) => {
     setFormData(prev => ({ ...prev, campaign_template: templateId }))
     setSelectedTemplateId(templateId)
     setUserExplicitlyChangedTemplate(true)
-    
-    if (mode === 'edit' && campaignId) {
-      await applyTemplateOnboardingFields(templateId, campaignId)
-    }
   }
 
   const handleQuestionsChange = (questions: OnboardingQuestion[]) => {
@@ -330,84 +427,42 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
     setIsSaving(true)
     try {
-      const url = mode === 'create' ? '/api/bot-campaigns' : `/api/bot-campaigns/${campaignId}`
-      const method = mode === 'create' ? 'POST' : 'PUT'
       
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        const targetCampaignId = mode === 'create' ? data.campaign.id : campaignId!;
-
-        let questionsToSync = localOnboardingQuestions;
-        if (questionsToSync.length === 0 && mode === 'create' && templateWithLandingPage?.onboarding_fields) {
-            questionsToSync = effectiveOnboardingFields.fields.map(f => ({...f}));
-        }
-
-        console.log('[DEBUG] Questions to sync:', JSON.stringify(questionsToSync, null, 2));
-
-        if (questionsToSync.length > 0) {
-          const existingIds = onboardingFields.map(f => f.id);
-          const currentIds = questionsToSync.map(q => q.id).filter(id => id && !id.startsWith('template-'));
-          const toDelete = existingIds.filter(id => !currentIds.includes(id));
-          for (const id of toDelete) { await deleteField(id); }
-
-          for (const [index, question] of questionsToSync.entries()) {
-            const fieldData = { 
-              ...question, 
-              sort_order: index, 
-              field_key: question.field_key || question.field_label.toLowerCase().replace(/\s/g, '_'),
-              is_enabled: question.is_enabled === true,
-            };
-
-            if (question.id && !question.id.startsWith('template-')) {
-              await updateField({ id: question.id, ...fieldData });
-            } else {
-              const { id, ...newFieldData } = fieldData;
-              await createField({ 
-                campaign_id: targetCampaignId, 
-                ...newFieldData
-              });
-            }
-          }
-        } else if (mode === 'edit' && onboardingFields.length > 0) {
-          for (const field of onboardingFields) { await deleteField(field.id); }
-        }
+      if (mode === 'create') {
+        await createCampaign(formData)
+      } else {
+        await updateCampaign(campaignId!, formData)
+      }
         
-        if (formData.landing_page_data && Object.keys(formData.landing_page_data).length > 0) {
-          await fetch('/api/campaign-landing-pages', {
-            method: 'POST', // API route handles upsert logic
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              campaign_id: targetCampaignId,
-              ...formData.landing_page_data
-            })
-          });
-        }
+        // if (formData.landing_page_data && Object.keys(formData.landing_page_data).length > 0) {
+        //   await fetch('/api/campaign-landing-pages', {
+        //     method: 'POST', // API route handles upsert logic
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify({
+        //       campaign_id: targetCampaignId,
+        //       ...formData.landing_page_data
+        //     })
+        //   });
+        // }
         
-        // After all saves are successful, invalidate bot cache
-        if (formData.guild_id && targetCampaignId) {
-          try {
-            await fetch('/api/discord-bot/cache', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                action: 'invalidate',
-                guild_id: formData.guild_id,
-                campaign_id: targetCampaignId
-              })
-            });
-            toast({ title: "Info", description: "Bot cache refresh requested. Changes should appear in Discord shortly."});
-          } catch (cacheError) {
-            console.error("Failed to invalidate bot cache:", cacheError);
-            toast({ title: "Warning", description: "Campaign saved, but failed to refresh bot cache. Changes may be delayed in Discord."});
-          }
-        }
+        // // After all saves are successful, invalidate bot cache
+        // if (formData.guild_id && targetCampaignId) {
+        //   try {
+        //     await fetch('/api/discord-bot/cache', {
+        //       method: 'POST',
+        //       headers: { 'Content-Type': 'application/json' },
+        //       body: JSON.stringify({
+        //         action: 'invalidate',
+        //         guild_id: formData.guild_id,
+        //         campaign_id: targetCampaignId
+        //       })
+        //     });
+        //     toast({ title: "Info", description: "Bot cache refresh requested. Changes should appear in Discord shortly."});
+        //   } catch (cacheError) {
+        //     console.error("Failed to invalidate bot cache:", cacheError);
+        //     toast({ title: "Warning", description: "Campaign saved, but failed to refresh bot cache. Changes may be delayed in Discord."});
+        //   }
+        // }
         
         toast({
           title: "Success!",
@@ -415,13 +470,6 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         })
         router.push('/bot-campaigns')
         router.refresh()
-      } else {
-        toast({
-          variant: "destructive",
-          title: `Failed to ${mode} campaign`,
-          description: data.error || 'An unexpected error occurred.',
-        })
-      }
     } catch (error) {
       console.error(`Error saving campaign:`, error)
       toast({
@@ -441,12 +489,12 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       case 3: return <BotIdentityTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={localOnboardingQuestions} onQuestionsChange={handleQuestionsChange} />;
       case 5: return <AccessAndModerationTab formData={formData} handleFieldChange={handleFieldChange} />;
-      case 6: return <AdvancedTab formData={formData} handleFieldChange={handleFieldChange} inheritedLandingPageTemplate={inheritedLandingPageTemplate} mode={mode} campaignId={campaignId} />;
+      case 6: return <AdvancedTab formData={formData} handleFieldChange={handleFieldChange} inheritedLandingPageTemplate={inheritedLandingPageTemplate} mode={mode} campaignId={campaignDocumentId} />;
       default: return null;
     }
   }
   
-  if (!initialLoadComplete || (mode === 'edit' && campaignsLoading)) {
+  if (!initialLoadComplete || (mode === 'edit' && editCampaignLoading)) {
     return <CampaignWizardSkeleton />;
   }
 
