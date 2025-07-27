@@ -9,9 +9,11 @@ class CampaignDomain:
         """
         Applies business rules before creating a new campaign.
         """
+        # Handle template lookup separately - we need to resolve the template documentId to campaign_type
+        # Note: The template lookup will be handled in the service layer before calling this method
+        
         # Map frontend field names to Strapi field names
         field_mappings = {
-            "campaign_template": "campaign_type",  # Frontend sends template, Strapi expects campaign_type
             "campaign_name": "name",
             "campaign_start_date": "start_date",
             "campaign_end_date": "end_date",
@@ -70,9 +72,11 @@ class CampaignDomain:
         """
         Applies business rules before updating a campaign.
         """
+        # Handle template lookup separately - we need to resolve the template documentId to campaign_type
+        # Note: The template lookup will be handled in the service layer before calling this method
+        
         # Map frontend field names to Strapi field names
         field_mappings = {
-            "campaign_template": "campaign_type",  # Frontend sends template, Strapi expects campaign_type
             "campaign_name": "name",
             "campaign_start_date": "start_date",
             "campaign_end_date": "end_date",

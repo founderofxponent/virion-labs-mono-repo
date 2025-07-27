@@ -26,9 +26,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CalendarIcon, Plus, X, Eye, Wand2, Image, FileText, Video } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { getTemplateById, type LandingPageTemplate } from "@/lib/landing-page-templates"
 import { useCampaignLandingPage } from "@/hooks/use-campaign-landing-pages"
-import { useLandingPageTemplates } from "@/hooks/use-landing-page-templates"
+import { useLandingPageTemplatesAPI, useLandingPageTemplateAPI, type LandingPageTemplate as ApiLandingPageTemplate } from "@/hooks/use-landing-page-templates-api"
 import { CampaignLandingPageInsert } from "@/lib/supabase"
 
 interface LandingPageConfigData {
@@ -63,7 +62,7 @@ export function LandingPageConfig({
   onPreview 
 }: LandingPageConfigProps) {
   const { landingPage, loading, createOrUpdateLandingPage, refresh } = useCampaignLandingPage(campaignId)
-  const { templates: availableTemplates, loading: templatesLoading } = useLandingPageTemplates(campaignType)
+  const { templates: availableTemplates, loading: templatesLoading, fetchSingleTemplate } = useLandingPageTemplatesAPI(campaignType)
   
   // State for active tab
   const [activeTab, setActiveTab] = useState("template")
@@ -120,7 +119,7 @@ export function LandingPageConfig({
       
       // Get template name if inherited
       if (landingPageWithInheritance.inherited_from_template && landingPage.landing_page_template_id) {
-        const inheritedTemplate = availableTemplates.find(t => t.id === landingPage.landing_page_template_id)
+        const inheritedTemplate = availableTemplates.find(t => t.documentId === landingPage.landing_page_template_id)
         setInheritedTemplateName(inheritedTemplate?.name || 'Unknown Template')
       }
     }
@@ -142,18 +141,22 @@ export function LandingPageConfig({
     if (!data.landing_page_template_id) return
     
     try {
-      const template = await getTemplateById(data.landing_page_template_id)
+      const template = await fetchSingleTemplate(data.landing_page_template_id)
       if (template) {
         const templateData = {
-          landing_page_template_id: template.id,
-          offer_title: template.fields.offer_title,
-          offer_description: template.fields.offer_description,
-          offer_highlights: template.fields.offer_highlights,
-          offer_value: template.fields.offer_value,
-          what_you_get: template.fields.what_you_get,
-          how_it_works: template.fields.how_it_works,
-          requirements: template.fields.requirements,
-          support_info: template.fields.support_info,
+          landing_page_template_id: template.documentId, // Use documentId for Strapi v5
+          offer_title: template.default_offer_title,
+          offer_description: template.default_offer_description,
+          offer_highlights: template.default_offer_highlights,
+          offer_value: template.default_offer_value,
+          offer_expiry_date: template.default_offer_expiry_date,
+          hero_image_url: template.default_hero_image_url,
+          product_images: template.default_product_images,
+          video_url: template.default_video_url,
+          what_you_get: template.default_what_you_get,
+          how_it_works: template.default_how_it_works,
+          requirements: template.default_requirements,
+          support_info: template.default_support_info,
         }
         setData(prev => ({ ...prev, ...templateData }))
         setIsInherited(true)
@@ -174,11 +177,27 @@ export function LandingPageConfig({
     }
 
     try {
-      const template = await getTemplateById(templateId)
+      const template = await fetchSingleTemplate(templateId)
       if (template) {
+        // Map the template's default fields to the landing page data structure
+        const templateFields = {
+          offer_title: template.default_offer_title,
+          offer_description: template.default_offer_description,
+          offer_highlights: template.default_offer_highlights,
+          offer_value: template.default_offer_value,
+          offer_expiry_date: template.default_offer_expiry_date,
+          hero_image_url: template.default_hero_image_url,
+          product_images: template.default_product_images,
+          video_url: template.default_video_url,
+          what_you_get: template.default_what_you_get,
+          how_it_works: template.default_how_it_works,
+          requirements: template.default_requirements,
+          support_info: template.default_support_info,
+        }
+        
         updateData({
-          landing_page_template_id: templateId,
-          ...template.fields
+          landing_page_template_id: template.documentId, // Use documentId for Strapi v5
+          ...templateFields
         })
       }
     } catch (error) {
@@ -372,15 +391,15 @@ export function LandingPageConfig({
                   <SelectContent>
                     <SelectItem value="blank">Start from blank</SelectItem>
                     {availableTemplates.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        {template.name} - {template.description}
+                      <SelectItem key={template.documentId} value={template.documentId}>
+                        {template.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {data.landing_page_template_id && availableTemplates.length > 0 && (
                   <p className="text-sm text-muted-foreground">
-                    Selected: {availableTemplates.find(t => t.id === data.landing_page_template_id)?.description}
+                    Selected: {availableTemplates.find(t => t.documentId === data.landing_page_template_id)?.description}
                   </p>
                 )}
               </div>

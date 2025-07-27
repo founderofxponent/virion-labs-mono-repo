@@ -126,6 +126,39 @@
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::campaign-onboarding-start.campaign-onboarding-start"
+    },
+    "bot_personality": {
+      "type": "string",
+      "default": "helpful"
+    },
+    "bot_response_style": {
+      "type": "string",
+      "default": "friendly"
+    },
+    "auto_role_assignment": {
+      "type": "boolean",
+      "default": false
+    },
+    "target_role_ids": {
+      "type": "json"
+    },
+    "referral_tracking_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "moderation_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "rate_limit_per_user": {
+      "type": "integer",
+      "default": 5
+    },
+    "auto_responses": {
+      "type": "json"
+    },
+    "custom_commands": {
+      "type": "json"
     }
   }
 }

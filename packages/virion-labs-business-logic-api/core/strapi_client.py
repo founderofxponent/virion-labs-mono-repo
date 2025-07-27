@@ -365,5 +365,49 @@ class StrapiClient:
         response = await self._request("GET", f"users/{user_id}", params=params)
         return response
 
+    # region Landing Page Template Operations
+    async def get_landing_page_templates(self, filters: Optional[Dict] = None) -> List[Dict]:
+        """Fetches a list of landing page templates from Strapi."""
+        logger.info("StrapiClient: Fetching landing page templates from Strapi.")
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        
+        response = await self._request("GET", "landing-page-templates", params=params)
+        return response.get("data", [])
+
+    async def get_landing_page_template(self, document_id: str, populate: Optional[List[str]] = None) -> Dict:
+        """Fetches a single landing page template from Strapi using documentId."""
+        logger.info(f"StrapiClient: Fetching landing page template {document_id} from Strapi.")
+        params = {}
+        if populate:
+            params["populate"] = ",".join(populate)
+        else:
+            params["populate"] = "*"
+        
+        response = await self._request("GET", f"landing-page-templates/{document_id}", params=params)
+        return response.get("data")
+
+    async def create_landing_page_template(self, template_data: Dict) -> Dict:
+        """Creates a new landing page template in Strapi."""
+        logger.info("StrapiClient: Creating new landing page template in Strapi.")
+        data = {"data": template_data}
+        response = await self._request("POST", "landing-page-templates", data=data)
+        return response.get("data")
+
+    async def update_landing_page_template(self, document_id: str, template_data: Dict) -> Dict:
+        """Updates a landing page template in Strapi using documentId."""
+        logger.info(f"StrapiClient: Updating landing page template {document_id} in Strapi.")
+        data = {"data": template_data}
+        response = await self._request("PUT", f"landing-page-templates/{document_id}", data=data)
+        return response.get("data")
+
+    async def delete_landing_page_template(self, document_id: str) -> Dict:
+        """Deletes a landing page template in Strapi using documentId."""
+        logger.info(f"StrapiClient: Deleting landing page template {document_id} from Strapi.")
+        response = await self._request("DELETE", f"landing-page-templates/{document_id}")
+        return response.get("data")
+    # endregion
+
 # Global client instance
 strapi_client = StrapiClient()

@@ -47,6 +47,7 @@ export type OnboardingQuestion = Omit<OnboardingField, 'id' | 'campaign_id' | 'c
 
 interface CampaignFormData {
   campaign_template: string
+  campaign_type: string
   client_id: string
   campaign_name: string
   description: string
@@ -146,7 +147,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   }, [onboardingFields, mode, templateWithLandingPage, localOnboardingQuestions])
 
   const [formData, setFormData] = useState<CampaignFormData>({
-    campaign_template: '', client_id: '', campaign_name: '', guild_id: '',
+    campaign_template: '', campaign_type: 'custom', client_id: '', campaign_name: '', guild_id: '',
     channel_id: '', bot_name: 'Virion Bot', bot_personality: 'helpful',
     bot_response_style: 'friendly', brand_color: '#6366f1', brand_logo_url: '',
     description: '', welcome_message: '', referral_tracking_enabled: true,
@@ -172,8 +173,15 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           const templates = data.templates || []
           setTemplates(templates)
           if (mode === 'create' && templates.length > 0) {
-            setSelectedTemplateId(templates[0].documentId)
-            setFormData(prev => ({ ...prev, campaign_template: templates[0].documentId }))
+            const firstTemplate = templates[0]
+            const templateId = firstTemplate.documentId
+            const campaignType = firstTemplate.campaign_type || 'custom'
+            setSelectedTemplateId(templateId)
+            setFormData(prev => ({ 
+              ...prev, 
+              campaign_template: templateId,
+              campaign_type: campaignType  // Add campaign_type to form data
+            }))
           }
         }
       } catch (error) {
@@ -243,7 +251,10 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       }
       
       setFormData({
-        campaign_template: templateId, client_id: campaign.client_id, campaign_name: campaign.name,
+        campaign_template: templateId, 
+        campaign_type: campaign.type || 'custom',  // Use campaign.type field for campaign_type
+        client_id: campaign.client_id, 
+        campaign_name: campaign.name,
         guild_id: campaign.guild_id, channel_id: campaign.channel_id || '',
         bot_name: campaign.bot_name || campaign.display_name || 'Virion Bot',
         bot_personality: campaign.bot_personality || 'helpful',
@@ -324,7 +335,9 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
             ...prev,
             landing_page_data: {
                 ...prev.landing_page_data,
-                ...landingPageSource
+                ...landingPageSource,
+                // Set the landing page template ID to the documentId when inheriting from campaign template
+                landing_page_template_id: default_landing_page?.documentId || default_landing_page?.id
             }
         }));
     }
@@ -336,7 +349,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   useEffect(() => {
     if (inheritedLandingPageTemplate && mode === 'create') {
       const landingPageData = {
-        landing_page_template_id: inheritedLandingPageTemplate.id,
+        landing_page_template_id: inheritedLandingPageTemplate.documentId || inheritedLandingPageTemplate.id,
         offer_title: inheritedLandingPageTemplate.fields?.offer_title || inheritedLandingPageTemplate.offer_title,
         offer_description: inheritedLandingPageTemplate.fields?.offer_description || inheritedLandingPageTemplate.offer_description,
         offer_highlights: inheritedLandingPageTemplate.fields?.offer_highlights || inheritedLandingPageTemplate.offer_highlights,
@@ -355,7 +368,15 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   }
 
   const handleTemplateSelect = (templateId: string) => {
-    setFormData(prev => ({ ...prev, campaign_template: templateId }))
+    // Find the selected template to get its campaign_type
+    const selectedTemplate = templates.find(t => (t.documentId || t.id) === templateId)
+    const campaignType = selectedTemplate?.campaign_type || 'custom'
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      campaign_template: templateId,
+      campaign_type: campaignType  // Add campaign_type to form data
+    }))
     setSelectedTemplateId(templateId)
     setUserExplicitlyChangedTemplate(true)
   }

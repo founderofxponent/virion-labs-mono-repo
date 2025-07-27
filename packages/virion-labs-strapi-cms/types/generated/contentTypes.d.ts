@@ -661,9 +661,16 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
+    auto_responses: Schema.Attribute.JSON;
+    auto_role_assignment: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     bot_avatar_url: Schema.Attribute.String;
     bot_name: Schema.Attribute.String &
       Schema.Attribute.DefaultTo<'Virion Bot'>;
+    bot_personality: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'helpful'>;
+    bot_response_style: Schema.Attribute.String &
+      Schema.Attribute.DefaultTo<'friendly'>;
     brand_color: Schema.Attribute.String &
       Schema.Attribute.DefaultTo<'#6366f1'>;
     brand_logo_url: Schema.Attribute.String;
@@ -705,6 +712,7 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    custom_commands: Schema.Attribute.JSON;
     description: Schema.Attribute.RichText;
     end_date: Schema.Attribute.DateTime;
     features: Schema.Attribute.JSON;
@@ -717,18 +725,25 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     metadata: Schema.Attribute.JSON;
+    moderation_enabled: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<true>;
     name: Schema.Attribute.String & Schema.Attribute.Required;
     onboarding_flow: Schema.Attribute.JSON;
     publishedAt: Schema.Attribute.DateTime;
+    rate_limit_per_user: Schema.Attribute.Integer &
+      Schema.Attribute.DefaultTo<5>;
     referral_conversions: Schema.Attribute.Integer &
       Schema.Attribute.DefaultTo<0>;
     referral_links: Schema.Attribute.Relation<
       'oneToMany',
       'api::referral-link.referral-link'
     >;
+    referral_tracking_enabled: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<true>;
     start_date: Schema.Attribute.DateTime;
     successful_onboardings: Schema.Attribute.Integer &
       Schema.Attribute.DefaultTo<0>;
+    target_role_ids: Schema.Attribute.JSON;
     total_interactions: Schema.Attribute.Integer &
       Schema.Attribute.DefaultTo<0>;
     updatedAt: Schema.Attribute.DateTime;

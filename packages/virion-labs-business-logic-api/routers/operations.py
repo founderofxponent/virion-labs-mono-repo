@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, Dict, Any
 from services.client_service import client_service
 from services.campaign_service import campaign_service
+from services.landing_page_template_service import landing_page_template_service
 from schemas.operation_schemas import ClientListResponse, ClientCreateRequest, ClientCreateResponse, ClientUpdateRequest
 from core.auth import get_current_user, StrapiUser
 import logging
@@ -249,6 +250,41 @@ async def list_campaign_templates_operation(user: StrapiUser = Depends(get_curre
         return result
     except Exception as e:
         logger.error(f"Campaign template list operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+# endregion
+
+# region Landing Page Template Operations
+@router.get("/landing-page-template/list")
+async def list_landing_page_templates_operation(
+    campaign_type: Optional[str] = None,
+    category: Optional[str] = None,
+    user: StrapiUser = Depends(get_current_user)
+):
+    """
+    Business operation for listing landing page templates with optional filtering.
+    """
+    try:
+        if campaign_type:
+            result = await landing_page_template_service.list_landing_page_templates_by_campaign_type_operation(campaign_type, current_user=user)
+        elif category:
+            result = await landing_page_template_service.list_landing_page_templates_by_category_operation(category, current_user=user)
+        else:
+            result = await landing_page_template_service.list_landing_page_templates_operation(current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Landing page template list operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/landing-page-template/get/{template_id}")
+async def get_landing_page_template_operation(template_id: str, user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for fetching a single landing page template.
+    """
+    try:
+        result = await landing_page_template_service.get_landing_page_template_operation(template_id, current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Landing page template get operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 # endregion
 

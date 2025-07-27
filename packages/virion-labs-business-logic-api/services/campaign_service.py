@@ -66,6 +66,8 @@ class CampaignService:
         if user_role not in ['Platform Administrator', 'Client']:
             raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to create campaigns.")
 
+        # campaign_type is now passed directly from frontend, no need to lookup template
+
         campaign_with_logic = self.campaign_domain.create_campaign_with_business_logic(campaign_data)
         
         created_campaign_attrs = await strapi_client.create_campaign(campaign_with_logic)
@@ -129,6 +131,8 @@ class CampaignService:
         document_id = campaign_to_update.get("documentId")
         if not document_id:
             raise HTTPException(status_code=400, detail="Campaign documentId not found")
+
+        # campaign_type is now passed directly from frontend, no need to lookup template
 
         updates_with_logic = self.campaign_domain.update_campaign_with_business_logic(updates)
         
