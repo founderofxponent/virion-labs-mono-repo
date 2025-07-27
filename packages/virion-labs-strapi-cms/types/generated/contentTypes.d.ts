@@ -431,7 +431,10 @@ export interface ApiCampaignLandingPageCampaignLandingPage
     how_it_works: Schema.Attribute.RichText;
     inherited_from_template: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<false>;
-    landing_page_template_id: Schema.Attribute.String;
+    landing_page_template: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::landing-page-template.landing-page-template'
+    >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -628,6 +631,10 @@ export interface ApiCampaignTemplateCampaignTemplate
       Schema.Attribute.Private;
     description: Schema.Attribute.RichText;
     is_default: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    landing_page_template: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::landing-page-template.landing-page-template'
+    >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -766,6 +773,60 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     website: Schema.Attribute.String;
+  };
+}
+
+export interface ApiLandingPageTemplateLandingPageTemplate
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'landing_page_templates';
+  info: {
+    displayName: 'Landing Page Template';
+    pluralName: 'landing-page-templates';
+    singularName: 'landing-page-template';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    campaign_types: Schema.Attribute.JSON & Schema.Attribute.Required;
+    category: Schema.Attribute.String;
+    color_scheme: Schema.Attribute.JSON;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    customizable_fields: Schema.Attribute.JSON & Schema.Attribute.Required;
+    default_content: Schema.Attribute.JSON & Schema.Attribute.Required;
+    default_hero_image_url: Schema.Attribute.String;
+    default_how_it_works: Schema.Attribute.String;
+    default_offer_description: Schema.Attribute.String;
+    default_offer_highlights: Schema.Attribute.JSON;
+    default_offer_title: Schema.Attribute.String;
+    default_offer_value: Schema.Attribute.String;
+    default_requirements: Schema.Attribute.String;
+    default_support_info: Schema.Attribute.String;
+    default_video_url: Schema.Attribute.String;
+    default_what_you_get: Schema.Attribute.String;
+    Description: Schema.Attribute.String & Schema.Attribute.Required;
+    is_active: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
+    is_default: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<false>;
+    layout_config: Schema.Attribute.JSON;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::landing-page-template.landing-page-template'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    preview_image_url: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    template_structure: Schema.Attribute.JSON & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -1506,6 +1567,7 @@ declare module '@strapi/strapi' {
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
       'api::campaign.campaign': ApiCampaignCampaign;
       'api::client.client': ApiClientClient;
+      'api::landing-page-template.landing-page-template': ApiLandingPageTemplateLandingPageTemplate;
       'api::referral-analytic.referral-analytic': ApiReferralAnalyticReferralAnalytic;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;
       'api::user-profile.user-profile': ApiUserProfileUserProfile;

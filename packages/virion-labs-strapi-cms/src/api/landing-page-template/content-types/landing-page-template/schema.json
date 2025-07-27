@@ -1,0 +1,91 @@
+{
+  "kind": "collectionType",
+  "collectionName": "landing_page_templates",
+  "info": {
+    "singularName": "landing-page-template",
+    "pluralName": "landing-page-templates",
+    "displayName": "Landing Page Template"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "Description": {
+      "type": "string",
+      "required": true
+    },
+    "preview_image_url": {
+      "type": "string"
+    },
+    "campaign_types": {
+      "type": "json",
+      "required": true
+    },
+    "category": {
+      "type": "string"
+    },
+    "template_structure": {
+      "type": "json",
+      "required": true
+    },
+    "default_content": {
+      "type": "json",
+      "required": true
+    },
+    "customizable_fields": {
+      "type": "json",
+      "required": true
+    },
+    "default_offer_title": {
+      "type": "string"
+    },
+    "default_offer_description": {
+      "type": "string"
+    },
+    "default_offer_highlights": {
+      "type": "json"
+    },
+    "default_offer_value": {
+      "type": "string"
+    },
+    "default_hero_image_url": {
+      "type": "string"
+    },
+    "default_video_url": {
+      "type": "string"
+    },
+    "default_what_you_get": {
+      "type": "string"
+    },
+    "default_how_it_works": {
+      "type": "string"
+    },
+    "default_requirements": {
+      "type": "string"
+    },
+    "default_support_info": {
+      "type": "string"
+    },
+    "color_scheme": {
+      "type": "json"
+    },
+    "layout_config": {
+      "type": "json"
+    },
+    "is_active": {
+      "type": "boolean",
+      "required": true,
+      "default": true
+    },
+    "is_default": {
+      "type": "boolean",
+      "required": true,
+      "default": false
+    }
+  }
+}

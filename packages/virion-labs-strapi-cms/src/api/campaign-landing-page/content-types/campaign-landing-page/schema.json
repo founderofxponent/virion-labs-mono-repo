@@ -54,12 +54,14 @@
     "support_info": {
       "type": "richtext"
     },
-    "landing_page_template_id": {
-      "type": "string"
-    },
     "inherited_from_template": {
       "type": "boolean",
       "default": false
+    },
+    "landing_page_template": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::landing-page-template.landing-page-template"
     }
   }
 }
