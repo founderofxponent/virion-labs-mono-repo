@@ -50,6 +50,11 @@ class CampaignService:
             try:
                 campaign = BotCampaign(**campaign_data)
                 campaigns.append(campaign)
+                
+                # Log successful conversions of onboarding_flow
+                if campaign.onboarding_flow and isinstance(campaign.onboarding_flow, dict) and campaign.onboarding_flow.get('legacy_format'):
+                    logger.info(f"Successfully converted legacy onboarding_flow format for campaign {campaign.id} ({campaign.name})")
+                    
             except Exception as e:
                 logger.error(f"Failed to create BotCampaign from data: {campaign_data}")
                 logger.error(f"Validation error: {e}")

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 
 class BotCampaign(BaseModel):
@@ -47,6 +47,33 @@ class BotCampaign(BaseModel):
     features: Optional[Dict[str, Any]] = None
     auto_responses: Optional[Dict[str, Any]] = None
     custom_commands: Optional[List[Any]] = None
+    onboarding_flow: Optional[Union[Dict[str, Any], List[Any]]] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+    @field_validator('onboarding_flow', mode='before')
+    @classmethod
+    def validate_onboarding_flow(cls, v):
+        """
+        Support both dictionary and list formats for onboarding_flow.
+        Convert list format to dictionary format for consistency.
+        """
+        if v is None:
+            return None
+        
+        # If it's already a dictionary, return as-is
+        if isinstance(v, dict):
+            return v
+        
+        # If it's a list (legacy format), convert to dictionary
+        if isinstance(v, list):
+            # Convert list of field objects to a structured dictionary
+            return {
+                "fields": v,
+                "legacy_format": True  # Flag to indicate conversion happened
+            }
+        
+        # If it's neither dict nor list, return as-is and let normal validation handle it
+        return v
 
     class Config:
         populate_by_name = True
@@ -83,7 +110,7 @@ class BotCampaignCreate(BaseModel):
     referral_tracking_enabled: Optional[bool] = None
     auto_role_assignment: Optional[bool] = None
     target_role_ids: Optional[List[str]] = None
-    onboarding_flow: Optional[Dict[str, Any]] = None
+    onboarding_flow: Optional[Union[Dict[str, Any], List[Any]]] = None
     rate_limit_per_user: Optional[int] = None
     allowed_channels: Optional[List[str]] = None
     blocked_users: Optional[List[str]] = None
@@ -92,6 +119,31 @@ class BotCampaignCreate(BaseModel):
     campaign_start_date: Optional[datetime] = None
     campaign_end_date: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
+    
+    @field_validator('onboarding_flow', mode='before')
+    @classmethod
+    def validate_onboarding_flow_create(cls, v):
+        """
+        Support both dictionary and list formats for onboarding_flow.
+        Convert list format to dictionary format for consistency.
+        """
+        if v is None:
+            return None
+        
+        # If it's already a dictionary, return as-is
+        if isinstance(v, dict):
+            return v
+        
+        # If it's a list (legacy format), convert to dictionary
+        if isinstance(v, list):
+            # Convert list of field objects to a structured dictionary
+            return {
+                "fields": v,
+                "legacy_format": True  # Flag to indicate conversion happened
+            }
+        
+        # If it's neither dict nor list, return as-is and let normal validation handle it
+        return v
 
 class BotCampaignUpdate(BotCampaignCreate):
     id: str

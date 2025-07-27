@@ -138,6 +138,8 @@ class StrapiClient:
                 "features": campaign.get("features"),
                 "auto_responses": campaign.get("auto_responses"),
                 "custom_commands": campaign.get("custom_commands"),
+                "onboarding_flow": campaign.get("onboarding_flow"),
+                "metadata": campaign.get("metadata"),
             }
             transformed_campaigns.append(transformed_campaign)
         
@@ -201,6 +203,8 @@ class StrapiClient:
             "features": campaign_data.get("features"),
             "auto_responses": campaign_data.get("auto_responses"),
             "custom_commands": campaign_data.get("custom_commands"),
+            "onboarding_flow": campaign_data.get("onboarding_flow"),
+            "metadata": campaign_data.get("metadata"),
         }
 
     async def create_campaign(self, campaign_data: Dict) -> Dict:
@@ -268,6 +272,8 @@ class StrapiClient:
             "features": campaign_data.get("features"),
             "auto_responses": campaign_data.get("auto_responses"),
             "custom_commands": campaign_data.get("custom_commands"),
+            "onboarding_flow": campaign_data.get("onboarding_flow"),
+            "metadata": campaign_data.get("metadata"),
         }
 
     async def delete_campaign(self, document_id: str) -> Dict:

@@ -2,7 +2,108 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
-import { BotCampaign, BotCampaignsFilters, CreateBotCampaignData } from './use-bot-campaigns'
+interface BotCampaignsFilters {
+  client_id?: string
+  guild_id?: string
+  is_active?: boolean
+  template?: string
+  include_archived?: boolean
+  only_archived?: boolean
+  only_paused?: boolean
+  include_deleted?: boolean
+  only_deleted?: boolean
+}
+
+export interface BotCampaign {
+  id: string
+  name: string
+  type: string
+  guild_id: string
+  channel_id?: string
+  client_id: string
+  client_name: string
+  client_industry: string
+  display_name: string
+  template: string
+  description?: string
+  is_active: boolean
+  paused_at?: string | null
+  campaign_end_date?: string | null
+  is_deleted: boolean
+  deleted_at?: string | null
+  campaign_start_date: string
+  created_at: string
+  updated_at: string
+  total_interactions: number
+  successful_onboardings: number
+  referral_conversions: number
+  last_activity_at?: string | null
+  configuration_version?: number
+  referral_link_id?: string | null
+  referral_link_title?: string
+  referral_code?: string
+  referral_platform?: string
+  // Bot configuration fields
+  auto_role_assignment?: boolean
+  target_role_ids?: string[]
+  referral_tracking_enabled?: boolean
+  moderation_enabled?: boolean
+  bot_name?: string
+  bot_personality?: string
+  bot_response_style?: string
+  brand_color?: string
+  brand_logo_url?: string
+  welcome_message?: string
+  webhook_url?: string
+  rate_limit_per_user?: number
+  features?: Record<string, any>
+  auto_responses?: Record<string, any>
+  custom_commands?: any[]
+  documentId?: string
+}
+
+interface CreateBotCampaignData {
+  client_id: string
+  guild_id: string
+  channel_id?: string
+  campaign_name: string
+  campaign_template: string
+  campaign_type?: string
+  prefix?: string
+  description?: string
+  bot_name?: string
+  bot_avatar_url?: string
+  bot_personality?: string
+  bot_response_style?: string
+  brand_color?: string
+  brand_logo_url?: string
+  features?: Record<string, any>
+  custom_commands?: any[]
+  auto_responses?: Record<string, any>
+  response_templates?: Record<string, any>
+  embed_footer?: string
+  welcome_message?: string
+  webhook_url?: string
+  webhook_routes?: any[]
+  api_endpoints?: Record<string, any>
+  external_integrations?: Record<string, any>
+  referral_link_id?: string
+  influencer_id?: string
+  referral_tracking_enabled?: boolean
+  auto_role_assignment?: boolean
+  target_role_ids?: string[]
+  onboarding_flow?: Record<string, any>
+  onboarding_questions?: any[]
+  rate_limit_per_user?: number
+  allowed_channels?: string[]
+  blocked_users?: string[]
+  moderation_enabled?: boolean
+  content_filters?: string[]
+  campaign_start_date?: string
+  campaign_end_date?: string
+  landing_page_data?: any
+  metadata?: Record<string, any>
+}
 
 // This is the actual shape of the data from the API
 interface ApiCampaign {
@@ -83,6 +184,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
       }
       
       const data: ApiListResponse = await response.json()
+      // console.log('🔍 API Response Debug:', { url: `${API_BASE_URL}/campaign/list?${searchParams}`, response: data })
       // The backend returns BotCampaign objects directly, not nested in attributes
       // So we can use them directly without transformation
       setCampaigns(data.campaigns as BotCampaign[])

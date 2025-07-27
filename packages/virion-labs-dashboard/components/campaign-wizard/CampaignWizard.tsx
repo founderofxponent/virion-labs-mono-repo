@@ -491,11 +491,17 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
     setIsSaving(true)
     try {
+      // Include onboarding questions in the data being sent to the API
+      // Note: Backend expects onboarding_flow field, not onboarding_questions
+      const campaignDataWithOnboarding = {
+        ...formData,
+        onboarding_flow: localOnboardingQuestions
+      };
       
       if (mode === 'create') {
-        await createCampaign(formData)
+        await createCampaign(campaignDataWithOnboarding)
       } else {
-        await updateCampaign(campaignId!, formData)
+        await updateCampaign(campaignId!, campaignDataWithOnboarding)
       }
         
         // if (formData.landing_page_data && Object.keys(formData.landing_page_data).length > 0) {

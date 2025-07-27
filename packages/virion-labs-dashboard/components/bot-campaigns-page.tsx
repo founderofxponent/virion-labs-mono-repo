@@ -132,8 +132,8 @@ export default function BotCampaignsPage() {
     refresh
   } = useBotCampaignsAPI(filters)
 
-  // Remove debug logging
-  // console.log('🔍 Bot Campaigns Filter Debug:', { filterStatus, filters, campaignCount: campaigns.length })
+  // Debug logging to help troubleshoot campaigns not showing
+  // console.log('🔍 Bot Campaigns Filter Debug:', { filterStatus, filters, campaignCount: campaigns.length, campaigns, loading, error })
 
   // Filter campaigns based on search query and status
   const filteredCampaigns = campaigns.filter(campaign => {
