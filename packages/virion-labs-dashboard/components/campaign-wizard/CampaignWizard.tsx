@@ -18,6 +18,16 @@ import {
   Zap,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { type CampaignTemplate } from "@/lib/campaign-templates"
 import { useCampaignTemplateCompleteAPI } from "@/hooks/use-campaign-template-complete-api"
 import { useClients } from "@/hooks/use-clients"
@@ -96,6 +106,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const [editCampaign, setEditCampaign] = useState<any>(null);
   const [editCampaignLoading, setEditCampaignLoading] = useState(false);
   const fetchedCampaignId = useRef<string | null>(null);
+  const [showTemplateConfirmDialog, setShowTemplateConfirmDialog] = useState(false);
+  const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
   
   const { clients, loading: clientsLoading } = useClients()
   const { campaigns, loading: campaignsLoading, createCampaign, updateCampaign, fetchSingleCampaign } = useBotCampaignsAPI()
@@ -347,7 +359,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   }, [templateWithLandingPage, userExplicitlyChangedTemplate, mode]);
 
   useEffect(() => {
-    if (inheritedLandingPageTemplate && mode === 'create') {
+    if (inheritedLandingPageTemplate && (mode === 'create' || userExplicitlyChangedTemplate)) {
       const landingPageData = {
         landing_page_template_id: inheritedLandingPageTemplate.documentId || inheritedLandingPageTemplate.id,
         offer_title: inheritedLandingPageTemplate.fields?.offer_title || inheritedLandingPageTemplate.offer_title,
@@ -361,13 +373,31 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       }
       setFormData(prev => ({ ...prev, landing_page_data: landingPageData }))
     }
-  }, [inheritedLandingPageTemplate, mode])
+  }, [inheritedLandingPageTemplate, mode, userExplicitlyChangedTemplate])
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
   const handleTemplateSelect = (templateId: string) => {
+    // Check if this is the first template selection (for new campaigns) or no actual change
+    if (!userExplicitlyChangedTemplate && mode === 'create' && !formData.campaign_name && !formData.description) {
+      // First time selection in create mode with no data - apply immediately
+      applyTemplateSelection(templateId)
+      return
+    }
+    
+    // Check if selecting the same template
+    if (templateId === selectedTemplateId) {
+      return
+    }
+    
+    // Show confirmation dialog for template changes that could override existing values
+    setPendingTemplateId(templateId)
+    setShowTemplateConfirmDialog(true)
+  }
+
+  const applyTemplateSelection = (templateId: string) => {
     // Find the selected template to get its campaign_type
     const selectedTemplate = templates.find(t => (t.documentId || t.id) === templateId)
     const campaignType = selectedTemplate?.campaign_type || 'custom'
@@ -379,6 +409,19 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     }))
     setSelectedTemplateId(templateId)
     setUserExplicitlyChangedTemplate(true)
+  }
+
+  const handleConfirmTemplateChange = () => {
+    if (pendingTemplateId) {
+      applyTemplateSelection(pendingTemplateId)
+    }
+    setShowTemplateConfirmDialog(false)
+    setPendingTemplateId(null)
+  }
+
+  const handleCancelTemplateChange = () => {
+    setShowTemplateConfirmDialog(false)
+    setPendingTemplateId(null)
   }
 
   const handleQuestionsChange = (questions: OnboardingQuestion[]) => {
@@ -603,6 +646,41 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           </div>
         </div>
       </div>
+
+      {/* Template Change Confirmation Dialog */}
+      <AlertDialog open={showTemplateConfirmDialog} onOpenChange={setShowTemplateConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change Campaign Template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Changing the campaign template will override existing values in your campaign configuration, including:
+              <br /><br />
+              • Bot identity and personality settings
+              <br />
+              • Onboarding questions and flow
+              <br />
+              • Landing page template and content
+              <br />
+              • Campaign description and settings
+              <br /><br />
+              {mode === 'edit' ? 
+                'This action will modify your existing campaign configuration.' :
+                'Any changes you\'ve made will be replaced with the template defaults.'
+              }
+              <br /><br />
+              Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelTemplateChange}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmTemplateChange}>
+              {mode === 'edit' ? 'Update Campaign' : 'Apply Template'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
