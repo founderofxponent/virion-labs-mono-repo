@@ -282,6 +282,19 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         campaign_start_date: campaign.campaign_start_date ? new Date(campaign.campaign_start_date).toISOString().split('T')[0] : '',
         campaign_end_date: campaign.campaign_end_date ? new Date(campaign.campaign_end_date).toISOString().split('T')[0] : '',
       })
+      
+      // Load onboarding questions from campaign.onboarding_flow
+      if (campaign.onboarding_flow) {
+        // Handle nested structure with fields array
+        if (campaign.onboarding_flow.fields && Array.isArray(campaign.onboarding_flow.fields)) {
+          setLocalOnboardingQuestions(campaign.onboarding_flow.fields);
+        }
+        // Handle direct array format (fallback)
+        else if (Array.isArray(campaign.onboarding_flow)) {
+          setLocalOnboardingQuestions(campaign.onboarding_flow);
+        }
+      }
+      
       setSelectedTemplateId(templateId)
       setInitialLoadComplete(true)
     }
