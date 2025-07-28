@@ -28,7 +28,7 @@ export interface BotCampaign {
   description?: string
   is_active: boolean
   paused_at?: string | null
-  campaign_end_date?: string | null
+  end_date?: string | null
   is_deleted: boolean
   deleted_at?: string | null
   campaign_start_date: string
@@ -98,7 +98,7 @@ interface CreateBotCampaignData {
   moderation_enabled?: boolean;
   content_filters?: string[];
   campaign_start_date?: string;
-  campaign_end_date?: string;
+  end_date?: string;
   landing_page_data?: any;
   metadata?: Record<string, any>;
   onboarding_questions?: any[];
@@ -109,14 +109,13 @@ interface ApiListResponse {
   total_count: number;
 }
 
-export type CampaignStatus = 'active' | 'paused' | 'archived' | 'deleted' | 'inactive'
+export type CampaignStatus = 'active' | 'archived' | 'deleted' | 'inactive'
 
 // Helper function to determine campaign status
 export function getCampaignStatus(campaign: BotCampaign): CampaignStatus {
-  // Priority order: deleted > archived > paused > active
+  // Priority order: deleted > archived > active
   if (campaign.is_deleted) return 'deleted'
-  if (!campaign.is_active && campaign.campaign_end_date) return 'archived'
-  if (!campaign.is_active && campaign.paused_at) return 'paused'
+  if (!campaign.is_active && campaign.end_date) return 'archived'
   if (campaign.is_active) return 'active'
   return 'inactive' // fallback for edge cases
 }
@@ -249,11 +248,11 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
     await fetchCampaigns() // Refresh the list
   }
 
-  const pauseCampaign = async (id: string): Promise<BotCampaign> => {
+  const unarchiveCampaign = async (id: string): Promise<BotCampaign> => {
     const token = getToken()
     if (!token) throw new Error("Authentication token not found.")
 
-    const response = await fetch(`${API_BASE_URL}/campaign/pause/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/campaign/unarchive/${id}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -262,28 +261,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
     if (!response.ok) {
       const errorData = await response.json()
-      throw new Error(errorData.detail || 'Failed to pause campaign')
-    }
-
-    const result = await response.json()
-    await fetchCampaigns() // Refresh the list
-    return result.campaign;
-  }
-
-  const resumeCampaign = async (id: string): Promise<BotCampaign> => {
-    const token = getToken()
-    if (!token) throw new Error("Authentication token not found.")
-
-    const response = await fetch(`${API_BASE_URL}/campaign/resume/${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.detail || 'Failed to resume campaign')
+      throw new Error(errorData.detail || 'Failed to unarchive campaign')
     }
 
     const result = await response.json()
@@ -352,8 +330,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
     createCampaign,
     updateCampaign,
     deleteCampaign,
-    pauseCampaign,
-    resumeCampaign,
+    unarchiveCampaign,
     archiveCampaign,
     refresh: fetchCampaigns,
     fetchSingleCampaign,

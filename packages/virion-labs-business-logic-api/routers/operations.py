@@ -156,28 +156,16 @@ async def delete_campaign_operation(campaign_id: str, user: StrapiUser = Depends
         logger.error(f"Campaign delete operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.patch("/campaign/pause/{campaign_id}")
-async def pause_campaign_operation(campaign_id: str, user: StrapiUser = Depends(get_current_user)):
+@router.patch("/campaign/unarchive/{campaign_id}")
+async def unarchive_campaign_operation(campaign_id: str, user: StrapiUser = Depends(get_current_user)):
     """
-    Business operation for pausing a campaign.
-    """
-    try:
-        result = await campaign_service.pause_campaign_operation(campaign_id, current_user=user)
-        return result
-    except Exception as e:
-        logger.error(f"Campaign pause operation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.patch("/campaign/resume/{campaign_id}")
-async def resume_campaign_operation(campaign_id: str, user: StrapiUser = Depends(get_current_user)):
-    """
-    Business operation for resuming a campaign.
+    Business operation for unarchiving a campaign.
     """
     try:
-        result = await campaign_service.resume_campaign_operation(campaign_id, current_user=user)
+        result = await campaign_service.unarchive_campaign_operation(campaign_id, current_user=user)
         return result
     except Exception as e:
-        logger.error(f"Campaign resume operation failed: {e}")
+        logger.error(f"Campaign unarchive operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.patch("/campaign/archive/{campaign_id}")

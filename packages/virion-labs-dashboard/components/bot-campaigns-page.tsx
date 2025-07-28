@@ -40,7 +40,6 @@ import {
   Bot, 
   Settings, 
   Activity, 
-  Play, 
   Square, 
   Plus,
   Server,
@@ -53,7 +52,6 @@ import {
   MoreHorizontal,
   Copy,
   ExternalLink,
-  Pause,
   Target,
   TrendingUp,
   Hash,
@@ -111,10 +109,9 @@ export default function BotCampaignsPage() {
     // Handle status filtering with better UX logic
     ...(filterStatus === "active" && { is_active: true }),
     ...(filterStatus === "inactive" && { is_active: false }),
-    // Better UX: "All" shows only active/paused/inactive, not archived/deleted
+    // Better UX: "All" shows only active/inactive, not archived/deleted
     include_archived: filterStatus === "archived",
     only_archived: filterStatus === "archived",
-    only_paused: filterStatus === "paused",
     include_deleted: filterStatus === "deleted",
     only_deleted: filterStatus === "deleted"
   }), [filterClient, filterTemplate, filterStatus])
@@ -126,8 +123,7 @@ export default function BotCampaignsPage() {
     createCampaign,
     updateCampaign,
     deleteCampaign,
-    pauseCampaign,
-    resumeCampaign,
+    unarchiveCampaign,
     archiveCampaign,
     refresh
   } = useBotCampaignsAPI(filters)
@@ -205,33 +201,17 @@ export default function BotCampaignsPage() {
 
   
 
-  const handlePauseCampaign = async (campaignId: string) => {
+  const handleUnarchiveCampaign = async (campaignId: string) => {
     try {
-      await pauseCampaign(campaignId)
+      await unarchiveCampaign(campaignId)
       toast({
         title: "Success",
-        description: "Campaign paused successfully"
+        description: "Campaign unarchived successfully"
       })
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to pause campaign",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleResumeCampaign = async (campaignId: string) => {
-    try {
-      await resumeCampaign(campaignId)
-      toast({
-        title: "Success",
-        description: "Campaign resumed successfully"
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to resume campaign",
+        description: error instanceof Error ? error.message : "Failed to unarchive campaign",
         variant: "destructive"
       })
     }
@@ -553,7 +533,6 @@ export default function BotCampaignsPage() {
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
                   <SelectItem value="archived">Archived</SelectItem>
                   <SelectItem value="deleted">Deleted</SelectItem>
                 </SelectContent>
@@ -676,7 +655,6 @@ export default function BotCampaignsPage() {
                             const status = getCampaignStatus(campaign)
                             const statusConfig = {
                               active: { variant: "default" as const, label: "Active", color: "text-green-600" },
-                              paused: { variant: "secondary" as const, label: "Paused", color: "text-yellow-600" },
                               archived: { variant: "outline" as const, label: "Archived", color: "text-orange-600" },
                               deleted: { variant: "destructive" as const, label: "Deleted", color: "text-red-600" },
                               inactive: { variant: "secondary" as const, label: "Inactive", color: "text-gray-600" }
@@ -741,12 +719,11 @@ export default function BotCampaignsPage() {
                               if (status === 'deleted') {
                                 return (
                                   <>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
                                       <Download className="h-4 w-4 mr-2" />
                                       Export CSV
                                     </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    
                                   </>
                                 )
                               }
@@ -754,12 +731,17 @@ export default function BotCampaignsPage() {
                               if (status === 'archived') {
                                 return (
                                   <>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
                                       <Download className="h-4 w-4 mr-2" />
                                       Export CSV
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    
+                                    <DropdownMenuItem onClick={() => handleUnarchiveCampaign(campaign.id)}>
+                                      <RotateCcw className="h-4 w-4 mr-2" />
+                                      Unarchive
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem 
                                       onClick={() => handleDeleteCampaign(campaign.id)}
                                       className="text-red-600"
@@ -771,7 +753,7 @@ export default function BotCampaignsPage() {
                                 )
                               }
                               
-                              // Active, paused, or inactive campaigns
+                              // Active or inactive campaigns
                               return (
                                 <>
                                   <DropdownMenuSeparator />
@@ -784,24 +766,6 @@ export default function BotCampaignsPage() {
                                     Export CSV
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  
-                                  {status === 'active' && (
-                                    <DropdownMenuItem onClick={() => handlePauseCampaign(campaign.id)}>
-                                      <Pause className="h-4 w-4 mr-2" />
-                                      Pause
-                                    </DropdownMenuItem>
-                                  )}
-                                  
-                                  {status === 'paused' && (
-                                    <DropdownMenuItem onClick={() => handleResumeCampaign(campaign.id)}>
-                                      <Play className="h-4 w-4 mr-2" />
-                                      Resume
-                                    </DropdownMenuItem>
-                                  )}
-                                  
-                                  
-                                  
-                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem 
                                     onClick={() => handleArchiveCampaign(campaign.id)}
                                     className="text-orange-600"
@@ -809,7 +773,6 @@ export default function BotCampaignsPage() {
                                     <Archive className="h-4 w-4 mr-2" />
                                     Archive
                                   </DropdownMenuItem>
-                                  
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem 
                                     onClick={() => handleDeleteCampaign(campaign.id)}

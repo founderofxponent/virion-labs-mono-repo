@@ -188,68 +188,36 @@ class CampaignService:
         
         return {"status": "deleted"}
 
-    async def pause_campaign_operation(self, campaign_id: str, current_user: StrapiUser) -> Dict[str, Any]:
+    async def unarchive_campaign_operation(self, campaign_id: str, current_user: StrapiUser) -> Dict[str, Any]:
         """
-        Business operation for pausing a campaign.
+        Business operation for unarchiving a campaign.
         """
         user_role = self._get_user_role(current_user)
         if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to pause campaigns.")
+            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to unarchive campaigns.")
 
         # TODO: Add ownership check for Client role
 
         # Find the campaign to get its documentId
         campaigns = await strapi_client.get_campaigns()
-        campaign_to_pause = None
+        campaign_to_unarchive = None
         
         for campaign in campaigns:
             if str(campaign.get("id")) == str(campaign_id) or campaign.get("documentId") == campaign_id:
-                campaign_to_pause = campaign
+                campaign_to_unarchive = campaign
                 break
         
-        if not campaign_to_pause:
+        if not campaign_to_unarchive:
             raise HTTPException(status_code=404, detail="Campaign not found")
         
-        document_id = campaign_to_pause.get("documentId")
+        document_id = campaign_to_unarchive.get("documentId")
         if not document_id:
             raise HTTPException(status_code=400, detail="Campaign documentId not found")
 
-        # Note: paused_at field doesn't exist in actual schema, so just use is_active
-        update_data = {"is_active": False}
+        update_data = {"is_active": True, "end_date": None}
         await strapi_client.update_campaign(document_id, update_data)
         
-        return {"status": "paused"}
-
-    async def resume_campaign_operation(self, campaign_id: str, current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for resuming a campaign.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to resume campaigns.")
-
-        # TODO: Add ownership check for Client role
-
-        # Find the campaign to get its documentId
-        campaigns = await strapi_client.get_campaigns()
-        campaign_to_resume = None
-        
-        for campaign in campaigns:
-            if str(campaign.get("id")) == str(campaign_id) or campaign.get("documentId") == campaign_id:
-                campaign_to_resume = campaign
-                break
-        
-        if not campaign_to_resume:
-            raise HTTPException(status_code=404, detail="Campaign not found")
-        
-        document_id = campaign_to_resume.get("documentId")
-        if not document_id:
-            raise HTTPException(status_code=400, detail="Campaign documentId not found")
-
-        update_data = {"is_active": True}
-        await strapi_client.update_campaign(document_id, update_data)
-        
-        return {"status": "resumed"}
+        return {"status": "unarchived"}
 
     async def archive_campaign_operation(self, campaign_id: str, current_user: StrapiUser) -> Dict[str, Any]:
         """
