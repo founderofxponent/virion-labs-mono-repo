@@ -1,6 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
+// Import the OnboardingQuestion type from CampaignWizard
+export type OnboardingQuestion = Omit<OnboardingField, 'id' | 'campaign_id' | 'created_at' | 'updated_at'> & {
+  id?: string;
+};
 export interface OnboardingField {
   id: string;
   documentId: string;
@@ -217,6 +222,42 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
     return { success: false, error: "Not implemented" }
   }
 
+  const batchUpdateFields = async (campaign_id: string, fields: OnboardingQuestion[], deleteIds: string[] = []) => {
+    const token = getToken()
+    if (!token) return { success: false, error: "Authentication token not found." }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/campaign/${campaign_id}/onboarding-fields/batch`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          fields: fields,
+          delete_ids: deleteIds
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to batch update fields')
+      }
+
+      const data = await response.json()
+      
+      // Refresh the fields after batch update
+      if (campaign_id) {
+        await fetchFields(campaign_id)
+      }
+
+      return { success: data.success, data: data.results, summary: data.summary }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred'
+      return { success: false, error: errorMessage }
+    }
+  }
+
   useEffect(() => {
     if (campaignId) {
       fetchFields(campaignId)
@@ -237,5 +278,6 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
     deleteField,
     applyTemplate,
     reorderFields,
+    batchUpdateFields,
   }
 }

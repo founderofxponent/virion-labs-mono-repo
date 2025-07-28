@@ -377,5 +377,97 @@ class CampaignService:
         
         return {"status": "deleted"}
 
+    async def batch_update_onboarding_fields_operation(self, campaign_id: str, batch_data: Dict[str, Any], current_user: StrapiUser) -> Dict[str, Any]:
+        """
+        Business operation for batch updating onboarding fields for a campaign.
+        Processes all operations sequentially to prevent deadlocks.
+        """
+        user_role = self._get_user_role(current_user)
+        if user_role not in ['Platform Administrator', 'Client']:
+            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to update onboarding fields.")
+
+        # TODO: Add ownership check for Client role
+
+        fields_data = batch_data.get('fields', [])
+        delete_ids = batch_data.get('delete_ids', [])
+        
+        results = {
+            'created': [],
+            'updated': [],
+            'deleted': [],
+            'errors': []
+        }
+
+        try:
+            # Process deletions first
+            for document_id in delete_ids:
+                try:
+                    await strapi_client.delete_onboarding_field(document_id)
+                    results['deleted'].append(document_id)
+                    logger.info(f"Deleted onboarding field: {document_id}")
+                except Exception as e:
+                    error_msg = f"Failed to delete field {document_id}: {str(e)}"
+                    logger.error(error_msg)
+                    results['errors'].append(error_msg)
+
+            # Process creates and updates sequentially to prevent deadlocks
+            for field_data in fields_data:
+                try:
+                    # Check if this is an update (has id) or create (no id)
+                    if 'id' in field_data and field_data['id']:
+                        # This is an update operation
+                        document_id = field_data.get('documentId') or field_data['id']
+                        
+                        # Validate that the field belongs to the target campaign
+                        if 'campaign' in field_data and field_data['campaign']:
+                            field_campaign_id = field_data['campaign'].get('documentId')
+                            if field_campaign_id != campaign_id:
+                                error_msg = f"Field {field_data.get('field_label', 'Unknown')} belongs to campaign {field_campaign_id}, not {campaign_id}"
+                                logger.error(error_msg)
+                                results['errors'].append(error_msg)
+                                continue
+                        
+                        # Remove fields that shouldn't be sent to Strapi
+                        clean_data = {k: v for k, v in field_data.items() 
+                                    if k not in ['campaign', 'campaign_id', 'id', 'documentId', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'publishedAt']}
+                        
+                        updated_field = await strapi_client.update_onboarding_field(document_id, clean_data)
+                        results['updated'].append(updated_field)
+                        logger.info(f"Updated onboarding field: {document_id}")
+                    else:
+                        # This is a create operation
+                        # Ensure campaign_id is included and remove id
+                        create_data = {k: v for k, v in field_data.items() 
+                                     if k not in ['id', 'campaign', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'publishedAt']}
+                        create_data['campaign_id'] = campaign_id
+                        
+                        created_field = await strapi_client.create_onboarding_field(campaign_id, create_data)
+                        results['created'].append(created_field)
+                        logger.info(f"Created onboarding field for campaign: {campaign_id}")
+                        
+                except Exception as e:
+                    error_msg = f"Failed to process field {field_data.get('field_label', 'Unknown')}: {str(e)}"
+                    logger.error(error_msg)
+                    results['errors'].append(error_msg)
+
+            # If there were errors but some operations succeeded, log a warning
+            if results['errors'] and (results['created'] or results['updated'] or results['deleted']):
+                logger.warning(f"Batch update completed with {len(results['errors'])} errors out of {len(fields_data) + len(delete_ids)} operations")
+
+            return {
+                'success': len(results['errors']) == 0,
+                'results': results,
+                'summary': {
+                    'created': len(results['created']),
+                    'updated': len(results['updated']),
+                    'deleted': len(results['deleted']),
+                    'errors': len(results['errors'])
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Batch update operation failed completely: {e}")
+            raise HTTPException(status_code=500, detail=f"Batch update failed: {str(e)}")
+
 # Global service instance
 campaign_service = CampaignService()

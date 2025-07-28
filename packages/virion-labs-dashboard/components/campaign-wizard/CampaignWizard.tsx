@@ -124,7 +124,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     createField,
     updateField,
     deleteField,
-    fetchFields
+    fetchFields,
+    batchUpdateFields
   } = useOnboardingFieldsAPI(campaignDocumentId ?? undefined)
 
   useEffect(() => {
@@ -509,35 +510,21 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         throw new Error("Failed to get campaign ID after saving.");
       }
 
-      // Step 2: Sync onboarding questions
+      // Step 2: Batch update onboarding questions to prevent deadlocks
       const result = await fetchFields(targetCampaignId);
       const existingFields = (Array.isArray(result) ? result : []) as OnboardingField[];
-      const questionPromises = localOnboardingQuestions.map(q => {
-        const existingField = existingFields.find(f => f.id === q.id);
-        // Ensure campaign_id is included in the payload for the field
-        const fieldData = { ...q, campaign_id: targetCampaignId };
-        
-        // Remove id from the payload if it's a new question to avoid conflicts
-        if (!existingField) {
-          delete fieldData.id;
-        }
+      
+      // Identify questions to delete (existed before but not in current local questions)
+      const questionsToDelete = existingFields
+        .filter(ef => !localOnboardingQuestions.some(lq => lq.id === ef.id))
+        .map(f => f.documentId || f.id);
 
-        if (existingField) {
-          // Update existing question
-          return updateField(fieldData as any);
-        } else {
-          // Create new question
-          return createField(fieldData);
-        }
-      });
-
-      // Step 3: Delete any questions that were removed in the UI
-      const questionsToDelete = existingFields.filter(
-        ef => !localOnboardingQuestions.some(lq => lq.id === ef.id)
-      );
-      const deletePromises = questionsToDelete.map(f => deleteField(f.id));
-
-      await Promise.all([...questionPromises, ...deletePromises]);
+      // Use batch update to handle all creates, updates, and deletes in one sequential operation
+      const batchResult = await batchUpdateFields(targetCampaignId, localOnboardingQuestions, questionsToDelete);
+      
+      if (!batchResult.success) {
+        throw new Error(batchResult.error || 'Failed to update onboarding questions');
+      }
 
       toast({
         title: "Success!",

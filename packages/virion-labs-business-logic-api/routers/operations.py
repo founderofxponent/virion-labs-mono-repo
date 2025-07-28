@@ -242,6 +242,36 @@ async def delete_onboarding_field_operation(document_id: str, user: StrapiUser =
         logger.error(f"Onboarding field delete operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.put("/campaign/{campaign_id}/onboarding-fields/batch")
+async def batch_update_onboarding_fields_operation(
+    campaign_id: str, 
+    batch_data: Dict[str, Any], 
+    user: StrapiUser = Depends(get_current_user)
+):
+    """
+    Business operation for batch updating onboarding fields for a campaign.
+    Handles create, update, and delete operations sequentially to prevent deadlocks.
+    
+    Expected payload:
+    {
+        "fields": [
+            {"id": "existing_id", "field_label": "Updated Label", ...},  # Update
+            {"field_label": "New Field", ...},  # Create (no id)
+        ],
+        "delete_ids": ["id1", "id2"]  # Optional: document IDs to delete
+    }
+    """
+    try:
+        logger.info(f"Received batch update request for campaign {campaign_id} with {len(batch_data.get('fields', []))} fields")
+        result = await campaign_service.batch_update_onboarding_fields_operation(
+            campaign_id, batch_data, current_user=user
+        )
+        logger.info(f"Successfully processed batch update for campaign {campaign_id}")
+        return result
+    except Exception as e:
+        logger.error(f"Batch onboarding fields update operation failed for campaign {campaign_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/campaign-template/get/{document_id}")
 async def get_campaign_template_operation(document_id: str, user: StrapiUser = Depends(get_current_user)):
     """
