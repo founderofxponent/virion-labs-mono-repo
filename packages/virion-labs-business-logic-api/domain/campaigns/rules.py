@@ -37,7 +37,7 @@ class CampaignDomain:
             "total_interactions", "successful_onboardings", "referral_conversions",
             
             # Configuration fields
-            "metadata", "features", "landing_page_data",
+            "metadata", "features", "landing_page_data", "auto_role_assignment", "target_role_ids",
             
             # Relationship fields
             "client",  # client_id should be mapped to client relation
@@ -129,7 +129,7 @@ class CampaignDomain:
             "total_interactions", "successful_onboardings", "referral_conversions",
             
             # Configuration fields
-            "metadata", "features", "landing_page_data"
+            "metadata", "features", "landing_page_data", "auto_role_assignment", "target_role_ids"
         }
         
         # Handle client relationship (but don't include it in updates as it shouldn't change)
