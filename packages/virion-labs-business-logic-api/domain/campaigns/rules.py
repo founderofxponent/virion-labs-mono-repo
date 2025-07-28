@@ -118,23 +118,32 @@ class CampaignDomain:
         # From schema.json in virion-labs-strapi-cms/src/api/campaign/content-types/campaign/
         valid_strapi_fields = {
             # Core campaign fields
-            "name", "description", "campaign_type", "is_active", 
-            "start_date", "end_date", "guild_id", "channel_id", 
+            "name", "description", "campaign_type", "is_active",
+            "start_date", "end_date", "guild_id", "channel_id",
             "webhook_url", "welcome_message",
             
             # Bot configuration fields
             "bot_name", "bot_avatar_url", "brand_color", "brand_logo_url",
+            "bot_personality", "bot_response_style",
             
             # Stats fields (read-only but included in schema)
             "total_interactions", "successful_onboardings", "referral_conversions",
             
             # Configuration fields
-            "metadata", "features", "landing_page_data", "auto_role_assignment", "target_role_ids"
+            "metadata", "features", "landing_page_data", "auto_role_assignment", "target_role_ids",
+            "referral_tracking_enabled", "moderation_enabled", "rate_limit_per_user",
+            
+            # Relationship fields
+            "client"
         }
         
-        # Handle client relationship (but don't include it in updates as it shouldn't change)
-        if "client_id" in campaign_data:
-            campaign_data.pop("client_id")  # Remove from updates
+        # Handle client relationship
+        if "client_id" in campaign_data and campaign_data["client_id"]:
+            try:
+                campaign_data["client"] = int(campaign_data.pop("client_id"))
+            except (ValueError, TypeError):
+                # If client_id is not a valid integer, remove it to avoid errors
+                campaign_data.pop("client_id", None)
         
         # Filter to only include valid fields
         filtered_data = {k: v for k, v in campaign_data.items() if k in valid_strapi_fields}

@@ -98,13 +98,7 @@ class CampaignService:
 
         # For campaign operations, we need to find the campaign by ID first to get its documentId
         # Since the frontend might be using numeric ID, we need to search for it
-        campaigns = await strapi_client.get_campaigns()
-        campaign_attrs = None
-        
-        for campaign in campaigns:
-            if str(campaign.get("id")) == str(campaign_id) or campaign.get("documentId") == campaign_id:
-                campaign_attrs = campaign
-                break
+        campaign_attrs = await strapi_client.get_campaign(campaign_id)
         
         if not campaign_attrs:
             raise HTTPException(status_code=404, detail="Campaign not found")
@@ -125,13 +119,7 @@ class CampaignService:
         # TODO: Add ownership check for Client role
 
         # Find the campaign to get its documentId for the update
-        campaigns = await strapi_client.get_campaigns()
-        campaign_to_update = None
-        
-        for campaign in campaigns:
-            if str(campaign.get("id")) == str(campaign_id) or campaign.get("documentId") == campaign_id:
-                campaign_to_update = campaign
-                break
+        campaign_to_update = await strapi_client.get_campaign(campaign_id)
         
         if not campaign_to_update:
             raise HTTPException(status_code=404, detail="Campaign not found")
@@ -168,13 +156,7 @@ class CampaignService:
         # TODO: Add ownership check for Client role
 
         # Find the campaign to get its documentId for deletion
-        campaigns = await strapi_client.get_campaigns()
-        campaign_to_delete = None
-        
-        for campaign in campaigns:
-            if str(campaign.get("id")) == str(campaign_id) or campaign.get("documentId") == campaign_id:
-                campaign_to_delete = campaign
-                break
+        campaign_to_delete = await strapi_client.get_campaign(campaign_id)
         
         if not campaign_to_delete:
             raise HTTPException(status_code=404, detail="Campaign not found")
@@ -199,13 +181,7 @@ class CampaignService:
         # TODO: Add ownership check for Client role
 
         # Find the campaign to get its documentId
-        campaigns = await strapi_client.get_campaigns()
-        campaign_to_unarchive = None
-        
-        for campaign in campaigns:
-            if str(campaign.get("id")) == str(campaign_id) or campaign.get("documentId") == campaign_id:
-                campaign_to_unarchive = campaign
-                break
+        campaign_to_unarchive = await strapi_client.get_campaign(campaign_id)
         
         if not campaign_to_unarchive:
             raise HTTPException(status_code=404, detail="Campaign not found")
@@ -230,13 +206,7 @@ class CampaignService:
         # TODO: Add ownership check for Client role
 
         # Find the campaign to get its documentId
-        campaigns = await strapi_client.get_campaigns()
-        campaign_to_archive = None
-        
-        for campaign in campaigns:
-            if str(campaign.get("id")) == str(campaign_id) or campaign.get("documentId") == campaign_id:
-                campaign_to_archive = campaign
-                break
+        campaign_to_archive = await strapi_client.get_campaign(campaign_id)
         
         if not campaign_to_archive:
             raise HTTPException(status_code=404, detail="Campaign not found")

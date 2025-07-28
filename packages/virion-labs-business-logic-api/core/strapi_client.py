@@ -319,7 +319,8 @@ class StrapiClient:
         
         logger.info(f"Cleaned update data: {cleaned_update_data}")
         data = {"data": cleaned_update_data}
-        response = await self._request("PUT", f"campaigns/{document_id}", data=data)
+        params = {"populate": "*"}  # Ensure relations are populated in the response
+        response = await self._request("PUT", f"campaigns/{document_id}", data=data, params=params)
         campaign_data = response.get("data")
         
         # Apply same transformation as get_campaign
