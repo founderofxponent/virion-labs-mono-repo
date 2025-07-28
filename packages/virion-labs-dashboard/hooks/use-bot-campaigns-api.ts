@@ -59,61 +59,53 @@ export interface BotCampaign {
   features?: Record<string, any>
   auto_responses?: Record<string, any>
   custom_commands?: any[]
-  documentId?: string
+  document_id?: string;
 }
 
 interface CreateBotCampaignData {
-  client_id: string
-  guild_id: string
-  channel_id?: string
-  campaign_name: string
-  campaign_template: string
-  campaign_type?: string
-  prefix?: string
-  description?: string
-  bot_name?: string
-  bot_avatar_url?: string
-  bot_personality?: string
-  bot_response_style?: string
-  brand_color?: string
-  brand_logo_url?: string
-  features?: Record<string, any>
-  custom_commands?: any[]
-  auto_responses?: Record<string, any>
-  response_templates?: Record<string, any>
-  embed_footer?: string
-  welcome_message?: string
-  webhook_url?: string
-  webhook_routes?: any[]
-  api_endpoints?: Record<string, any>
-  external_integrations?: Record<string, any>
-  referral_link_id?: string
-  influencer_id?: string
-  referral_tracking_enabled?: boolean
-  auto_role_assignment?: boolean
-  target_role_ids?: string[]
-  onboarding_flow?: Record<string, any>
-  onboarding_questions?: any[]
-  rate_limit_per_user?: number
-  allowed_channels?: string[]
-  blocked_users?: string[]
-  moderation_enabled?: boolean
-  content_filters?: string[]
-  campaign_start_date?: string
-  campaign_end_date?: string
-  landing_page_data?: any
-  metadata?: Record<string, any>
-}
-
-// This is the actual shape of the data from the API
-interface ApiCampaign {
-  id: string;
-  documentId?: string;
-  attributes: Omit<BotCampaign, 'id' | 'documentId'>;
+  client_id: string;
+  guild_id: string;
+  channel_id?: string;
+  campaign_name: string;
+  campaign_template: string;
+  campaign_type?: string;
+  prefix?: string;
+  description?: string;
+  bot_name?: string;
+  bot_avatar_url?: string;
+  bot_personality?: string;
+  bot_response_style?: string;
+  brand_color?: string;
+  brand_logo_url?: string;
+  features?: Record<string, any>;
+  custom_commands?: any[];
+  auto_responses?: Record<string, any>;
+  response_templates?: Record<string, any>;
+  embed_footer?: string;
+  welcome_message?: string;
+  webhook_url?: string;
+  webhook_routes?: any[];
+  api_endpoints?: Record<string, any>;
+  external_integrations?: Record<string, any>;
+  referral_link_id?: string;
+  influencer_id?: string;
+  referral_tracking_enabled?: boolean;
+  auto_role_assignment?: boolean;
+  target_role_ids?: string[];
+  rate_limit_per_user?: number;
+  allowed_channels?: string[];
+  blocked_users?: string[];
+  moderation_enabled?: boolean;
+  content_filters?: string[];
+  campaign_start_date?: string;
+  campaign_end_date?: string;
+  landing_page_data?: any;
+  metadata?: Record<string, any>;
+  onboarding_questions?: any[];
 }
 
 interface ApiListResponse {
-  campaigns: ApiCampaign[];
+  campaigns: BotCampaign[];
   total_count: number;
 }
 
@@ -139,13 +131,6 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
   const getToken = () => localStorage.getItem('auth_token')
 
-  const transformApiCampaign = (apiCampaign: ApiCampaign): BotCampaign => {
-    return {
-      id: apiCampaign.id,
-      documentId: apiCampaign.documentId,
-      ...apiCampaign.attributes,
-    }
-  }
 
   const fetchCampaigns = useCallback(async () => {
     const token = getToken()
@@ -219,7 +204,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
     const result = await response.json()
     await fetchCampaigns() // Refresh the list
-    return transformApiCampaign(result.campaign)
+    return result.campaign;
   }
 
   const updateCampaign = async (id: string, data: Partial<CreateBotCampaignData>): Promise<BotCampaign> => {
@@ -242,7 +227,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
     const result = await response.json()
     await fetchCampaigns() // Refresh the list
-    return transformApiCampaign(result.campaign)
+    return result.campaign;
   }
 
   const deleteCampaign = async (id: string): Promise<void> => {
@@ -282,7 +267,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
     const result = await response.json()
     await fetchCampaigns() // Refresh the list
-    return transformApiCampaign(result.campaign)
+    return result.campaign;
   }
 
   const resumeCampaign = async (id: string): Promise<BotCampaign> => {
@@ -303,7 +288,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
     const result = await response.json()
     await fetchCampaigns() // Refresh the list
-    return transformApiCampaign(result.campaign)
+    return result.campaign;
   }
 
   const archiveCampaign = async (id: string): Promise<BotCampaign> => {
@@ -324,7 +309,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
     const result = await response.json()
     await fetchCampaigns() // Refresh the list
-    return transformApiCampaign(result.campaign)
+    return result.campaign;
   }
 
   const fetchSingleCampaign = useCallback(async (campaignId: string): Promise<BotCampaign> => {

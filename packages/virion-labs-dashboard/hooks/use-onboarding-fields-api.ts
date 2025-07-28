@@ -1,7 +1,27 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { OnboardingField, CreateOnboardingFieldData, UpdateOnboardingFieldData } from './use-onboarding-fields'
+export interface OnboardingField {
+  id: string;
+  documentId: string;
+  campaign_id: string;
+  field_key: string;
+  field_label: string;
+  field_type: 'text' | 'email' | 'number' | 'boolean' | 'url' | 'select' | 'multiselect';
+  field_placeholder?: string;
+  field_description?: string;
+  field_options?: any;  // JSON type in schema
+  is_required: boolean;
+  is_enabled: boolean;
+  sort_order: number;
+  validation_rules?: any;  // JSON type in schema
+  discord_integration?: any;  // JSON type in schema
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateOnboardingFieldData = Omit<OnboardingField, 'id' | 'created_at' | 'updated_at'>;
+export type UpdateOnboardingFieldData = Partial<Omit<OnboardingField, 'id'>> & { id: string };
 
 export function useOnboardingFieldsAPI(campaignId?: string) {
   const [fields, setFields] = useState<OnboardingField[]>([])
@@ -11,7 +31,7 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
 
   const getToken = () => localStorage.getItem('auth_token')
 
-  const fetchFields = async (campaign_id?: string) => {
+  const fetchFields = async (campaign_id?: string): Promise<OnboardingField[] | void> => {
     if (!campaign_id) {
       setLoading(false)
       setFields([])
@@ -41,7 +61,9 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
       }
 
       const data = await response.json()
-      setFields(data.fields || [])
+      const fields = data.fields || [];
+      setFields(fields);
+      return fields;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       setError(errorMessage)
@@ -56,13 +78,13 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
     if (!token) throw new Error("Authentication token not found.")
 
     try {
-      const response = await fetch(`${API_BASE_URL}/campaign/onboarding-fields/${fieldData.campaign_id}`, {
+      const response = await fetch(`${API_BASE_URL}/campaign/${fieldData.campaign_id}/onboarding-fields`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(fieldData),
+        body: JSON.stringify({ ...fieldData, id: undefined }),
       })
 
       if (!response.ok) {
@@ -88,15 +110,32 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
     if (!token) throw new Error("Authentication token not found.")
 
     try {
-      const response = await fetch(`${API_BASE_URL}/campaign/onboarding-fields/${campaignId}`, {
+      const { documentId } = updateData;
+      if (!documentId) throw new Error("documentId is required for updating a field.");
+
+      // Create clean payload - backend now handles complex detach-update-reattach logic
+      const payload = { ...updateData };
+      
+      // Remove fields that shouldn't be sent to the API
+      delete (payload as any).id;
+      delete (payload as any).documentId;
+      delete (payload as any).campaign_id;
+      delete (payload as any).createdAt;
+      delete (payload as any).updatedAt;
+      delete (payload as any).publishedAt;
+      delete (payload as any).campaign;
+      delete (payload as any).created_at;
+      delete (payload as any).updated_at;
+
+      const response = await fetch(`${API_BASE_URL}/campaign/onboarding-fields/${documentId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(updateData),
-      })
-
+        body: JSON.stringify(payload),
+      });
+      
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to update field')
@@ -104,7 +143,8 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
 
       const data = await response.json()
       
-      setFields(fields.map(field => 
+      // Update local state with the updated field
+      setFields(fields.map(field =>
         field.id === updateData.id ? { ...field, ...data.field } : field
       ))
 
@@ -115,9 +155,29 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
     }
   }
 
-  const deleteField = async (fieldId: string) => {
-    // This will require a new endpoint
-    return { success: false, error: "Not implemented" }
+  const deleteField = async (documentId: string) => {
+    const token = getToken()
+    if (!token) throw new Error("Authentication token not found.")
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/campaign/onboarding-fields/${documentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete field')
+      }
+
+      setFields(fields.filter(field => field.documentId !== documentId))
+      return { success: true }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred'
+      return { success: false, error: errorMessage }
+    }
   }
 
   const applyTemplate = async (campaign_id: string, template_id: string) => {

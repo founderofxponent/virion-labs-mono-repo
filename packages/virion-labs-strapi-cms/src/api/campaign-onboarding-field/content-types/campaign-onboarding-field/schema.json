@@ -25,6 +25,9 @@
       "enum": [
         "text",
         "email",
+        "number",
+        "boolean",
+        "url",
         "select",
         "multiselect"
       ]
@@ -55,6 +58,12 @@
     },
     "discord_integration": {
       "type": "json"
+    },
+    "campaign": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::campaign.campaign",
+      "inversedBy": "campaign_onboarding_fields"
     }
   }
 }

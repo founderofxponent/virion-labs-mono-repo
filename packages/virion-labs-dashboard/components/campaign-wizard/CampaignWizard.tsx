@@ -32,7 +32,7 @@ import { type CampaignTemplate } from "@/lib/campaign-templates"
 import { useCampaignTemplateCompleteAPI } from "@/hooks/use-campaign-template-complete-api"
 import { useClients } from "@/hooks/use-clients"
 import { useBotCampaignsAPI } from "@/hooks/use-bot-campaigns-api"
-import { useOnboardingFieldsAPI, type OnboardingField } from "@/hooks/use-onboarding-fields-api"
+import { useOnboardingFieldsAPI, type OnboardingField, type UpdateOnboardingFieldData } from "@/hooks/use-onboarding-fields-api"
 import { useCampaignLandingPage } from "@/hooks/use-campaign-landing-pages"
 import { OnboardingQuestionsForm } from "./OnboardingQuestionsForm"
 
@@ -50,9 +50,8 @@ interface CampaignWizardProps {
   campaignId?: string
 }
 
-export type OnboardingQuestion = Omit<OnboardingField, 'id' | 'campaign_id' | 'created_at' | 'updated_at' | 'field_key'> & {
+export type OnboardingQuestion = Omit<OnboardingField, 'id' | 'campaign_id' | 'created_at' | 'updated_at'> & {
   id?: string;
-  field_key?: string;
 };
 
 interface CampaignFormData {
@@ -126,7 +125,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     updateField,
     deleteField,
     fetchFields
-  } = useOnboardingFieldsAPI(campaignDocumentId)
+  } = useOnboardingFieldsAPI(campaignDocumentId ?? undefined)
 
   useEffect(() => {
     if (onboardingFields && onboardingFields.length > 0) {
@@ -240,7 +239,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   useEffect(() => {
     if (mode === 'edit' && editCampaign && templates.length > 0) {
       const campaign = editCampaign
-      setCampaignDocumentId(campaign.documentId || null);
+      setCampaignDocumentId(campaign.document_id || null);
       // Find the correct template based on campaign.type
       let templateId = ''
       
@@ -284,17 +283,9 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         landing_page_data: campaign.landing_page_data || {},
       })
       
-      // Load onboarding questions from campaign.onboarding_flow
-      if (campaign.onboarding_flow) {
-        // Handle nested structure with fields array
-        if (campaign.onboarding_flow.fields && Array.isArray(campaign.onboarding_flow.fields)) {
-          setLocalOnboardingQuestions(campaign.onboarding_flow.fields);
-        }
-        // Handle direct array format (fallback)
-        else if (Array.isArray(campaign.onboarding_flow)) {
-          setLocalOnboardingQuestions(campaign.onboarding_flow);
-        }
-      }
+      // Onboarding questions are now loaded via the useOnboardingFieldsAPI hook,
+      // which is triggered by setting the campaignDocumentId.
+      // This section is no longer needed.
       
       setSelectedTemplateId(templateId)
       setInitialLoadComplete(true)
@@ -319,7 +310,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
     // Handle the nested template_config structure
     const template_config = templateWithLandingPage.template_config || templateWithLandingPage;
-    const { bot_config, onboarding_fields, landing_page_config } = template_config;
+    const { bot_config, onboarding_fields, landing_page_config } = template_config as any;
     const default_landing_page = templateWithLandingPage.default_landing_page;
 
     if (bot_config) {
@@ -340,7 +331,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     }
 
     if (onboarding_fields) {
-      const templateQuestions = onboarding_fields.map((field, index) => ({
+      const templateQuestions = onboarding_fields.map((field: any, index: number) => ({
         id: `template-${field.id}`,
         field_label: field.question,
         field_type: field.type,
@@ -351,7 +342,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         validation_rules: field.validation || {},
         field_key: field.question.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '')
       }));
-      setLocalOnboardingQuestions(templateQuestions);
+      setLocalOnboardingQuestions(templateQuestions as any);
     }
     
     // Handle landing page config from template_config first, then fall back to default_landing_page
@@ -363,7 +354,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
                 ...prev.landing_page_data,
                 ...landingPageSource,
                 // Set the landing page template ID to the documentId when inheriting from campaign template
-                landing_page_template_id: default_landing_page?.documentId || default_landing_page?.id
+                landing_page_template_id: (default_landing_page as any)?.documentId || (default_landing_page as any)?.id
             }
         }));
     }
@@ -375,15 +366,15 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   useEffect(() => {
     if (inheritedLandingPageTemplate && (mode === 'create' || userExplicitlyChangedTemplate)) {
       const landingPageData = {
-        landing_page_template_id: inheritedLandingPageTemplate.documentId || inheritedLandingPageTemplate.id,
-        offer_title: inheritedLandingPageTemplate.fields?.offer_title || inheritedLandingPageTemplate.offer_title,
-        offer_description: inheritedLandingPageTemplate.fields?.offer_description || inheritedLandingPageTemplate.offer_description,
-        offer_highlights: inheritedLandingPageTemplate.fields?.offer_highlights || inheritedLandingPageTemplate.offer_highlights,
-        offer_value: inheritedLandingPageTemplate.fields?.offer_value || inheritedLandingPageTemplate.offer_value,
-        what_you_get: inheritedLandingPageTemplate.fields?.what_you_get || inheritedLandingPageTemplate.what_you_get,
-        how_it_works: inheritedLandingPageTemplate.fields?.how_it_works || inheritedLandingPageTemplate.how_it_works,
-        requirements: inheritedLandingPageTemplate.fields?.requirements || inheritedLandingPageTemplate.requirements,
-        support_info: inheritedLandingPageTemplate.fields?.support_info || inheritedLandingPageTemplate.support_info,
+        landing_page_template_id: (inheritedLandingPageTemplate as any).documentId || (inheritedLandingPageTemplate as any).id,
+        offer_title: (inheritedLandingPageTemplate as any).fields?.offer_title || (inheritedLandingPageTemplate as any).offer_title,
+        offer_description: (inheritedLandingPageTemplate as any).fields?.offer_description || (inheritedLandingPageTemplate as any).offer_description,
+        offer_highlights: (inheritedLandingPageTemplate as any).fields?.offer_highlights || (inheritedLandingPageTemplate as any).offer_highlights,
+        offer_value: (inheritedLandingPageTemplate as any).fields?.offer_value || (inheritedLandingPageTemplate as any).offer_value,
+        what_you_get: (inheritedLandingPageTemplate as any).fields?.what_you_get || (inheritedLandingPageTemplate as any).what_you_get,
+        how_it_works: (inheritedLandingPageTemplate as any).fields?.how_it_works || (inheritedLandingPageTemplate as any).how_it_works,
+        requirements: (inheritedLandingPageTemplate as any).fields?.requirements || (inheritedLandingPageTemplate as any).requirements,
+        support_info: (inheritedLandingPageTemplate as any).fields?.support_info || (inheritedLandingPageTemplate as any).support_info,
       }
       setFormData(prev => ({ ...prev, landing_page_data: landingPageData }))
     }
@@ -503,77 +494,77 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         }
     }
 
-    setIsSaving(true)
+    setIsSaving(true);
     try {
-      // Include onboarding questions in the data being sent to the API
-      // Note: Backend expects onboarding_flow field, not onboarding_questions
-      const campaignDataWithOnboarding = {
-        ...formData,
-        onboarding_flow: localOnboardingQuestions
-      };
-      
+      // Step 1: Create or update the campaign without onboarding questions
+      let savedCampaign;
       if (mode === 'create') {
-        await createCampaign(campaignDataWithOnboarding)
+        savedCampaign = await createCampaign(formData);
       } else {
-        await updateCampaign(campaignId!, campaignDataWithOnboarding)
+        savedCampaign = await updateCampaign(campaignId!, formData);
       }
+
+      const targetCampaignId = savedCampaign.document_id || (savedCampaign as any).documentId;
+      if (!targetCampaignId) {
+        throw new Error("Failed to get campaign ID after saving.");
+      }
+
+      // Step 2: Sync onboarding questions
+      const result = await fetchFields(targetCampaignId);
+      const existingFields = (Array.isArray(result) ? result : []) as OnboardingField[];
+      const questionPromises = localOnboardingQuestions.map(q => {
+        const existingField = existingFields.find(f => f.id === q.id);
+        // Ensure campaign_id is included in the payload for the field
+        const fieldData = { ...q, campaign_id: targetCampaignId };
         
-        // if (formData.landing_page_data && Object.keys(formData.landing_page_data).length > 0) {
-        //   await fetch('/api/campaign-landing-pages', {
-        //     method: 'POST', // API route handles upsert logic
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify({
-        //       campaign_id: targetCampaignId,
-        //       ...formData.landing_page_data
-        //     })
-        //   });
-        // }
-        
-        // // After all saves are successful, invalidate bot cache
-        // if (formData.guild_id && targetCampaignId) {
-        //   try {
-        //     await fetch('/api/discord-bot/cache', {
-        //       method: 'POST',
-        //       headers: { 'Content-Type': 'application/json' },
-        //       body: JSON.stringify({
-        //         action: 'invalidate',
-        //         guild_id: formData.guild_id,
-        //         campaign_id: targetCampaignId
-        //       })
-        //     });
-        //     toast({ title: "Info", description: "Bot cache refresh requested. Changes should appear in Discord shortly."});
-        //   } catch (cacheError) {
-        //     console.error("Failed to invalidate bot cache:", cacheError);
-        //     toast({ title: "Warning", description: "Campaign saved, but failed to refresh bot cache. Changes may be delayed in Discord."});
-        //   }
-        // }
-        
-        toast({
-          title: "Success!",
-          description: `Campaign ${mode === 'create' ? 'created' : 'updated'} successfully!`,
-        })
-        router.push('/bot-campaigns')
-        router.refresh()
+        // Remove id from the payload if it's a new question to avoid conflicts
+        if (!existingField) {
+          delete fieldData.id;
+        }
+
+        if (existingField) {
+          // Update existing question
+          return updateField(fieldData as any);
+        } else {
+          // Create new question
+          return createField(fieldData);
+        }
+      });
+
+      // Step 3: Delete any questions that were removed in the UI
+      const questionsToDelete = existingFields.filter(
+        ef => !localOnboardingQuestions.some(lq => lq.id === ef.id)
+      );
+      const deletePromises = questionsToDelete.map(f => deleteField(f.id));
+
+      await Promise.all([...questionPromises, ...deletePromises]);
+
+      toast({
+        title: "Success!",
+        description: `Campaign ${mode === 'create' ? 'created' : 'updated'} successfully!`,
+      });
+      router.push('/bot-campaigns');
+      router.refresh();
     } catch (error) {
-      console.error(`Error saving campaign:`, error)
+      console.error(`Error saving campaign:`, error);
       toast({
         variant: "destructive",
         title: "Error",
         description: "An unexpected error occurred while saving.",
-      })
+      });
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
   }
 
   const renderContent = () => {
     switch (currentStep) {
-      case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} handleTemplateSelect={handleTemplateSelect} clients={clients} templates={templates} clientsLoading={clientsLoading} templatesLoading={templatesLoading} />;
+      case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} handleTemplateSelect={handleTemplateSelect} clients={clients as any} templates={templates} clientsLoading={clientsLoading} templatesLoading={templatesLoading} />;
       case 2: return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 3: return <BotIdentityTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={localOnboardingQuestions} onQuestionsChange={handleQuestionsChange} />;
       case 5: return <AccessAndModerationTab formData={formData} handleFieldChange={handleFieldChange} />;
-      case 6: return <AdvancedTab formData={formData} handleFieldChange={handleFieldChange} inheritedLandingPageTemplate={inheritedLandingPageTemplate} mode={mode} campaignId={campaignDocumentId} />;
+      case 6: return <AdvancedTab formData={formData} handleFieldChange={handleFieldChange} inheritedLandingPageTemplate={inheritedLandingPageTemplate} mode={mode} campaignId={campaignDocumentId ?? undefined} />;
       default: return null;
     }
   }

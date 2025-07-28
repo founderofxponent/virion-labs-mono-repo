@@ -51,10 +51,6 @@ class CampaignService:
                 campaign = BotCampaign(**campaign_data)
                 campaigns.append(campaign)
                 
-                # Log successful conversions of onboarding_flow
-                if campaign.onboarding_flow and isinstance(campaign.onboarding_flow, dict) and campaign.onboarding_flow.get('legacy_format'):
-                    logger.info(f"Successfully converted legacy onboarding_flow format for campaign {campaign.id} ({campaign.name})")
-                    
             except Exception as e:
                 logger.error(f"Failed to create BotCampaign from data: {campaign_data}")
                 logger.error(f"Validation error: {e}")
@@ -75,8 +71,16 @@ class CampaignService:
 
         campaign_with_logic = self.campaign_domain.create_campaign_with_business_logic(campaign_data)
         
-        created_campaign_attrs = await strapi_client.create_campaign(campaign_with_logic)
+        document_id = campaign_with_logic.get("documentId")
+        if not document_id:
+            raise HTTPException(status_code=400, detail="documentId is required to create a campaign.")
         
+        created_campaign_attrs = await strapi_client.create_campaign(campaign_with_logic, document_id)
+        
+        # Manually add documentId to the response attributes if it's missing
+        if 'documentId' not in created_campaign_attrs and 'documentId' in campaign_with_logic:
+            created_campaign_attrs['documentId'] = campaign_with_logic['documentId']
+
         # Assuming the created_campaign_attrs has the full campaign data.
         created_campaign = BotCampaign(**created_campaign_attrs)
 
@@ -143,6 +147,10 @@ class CampaignService:
         
         updated_campaign_attrs = await strapi_client.update_campaign(document_id, updates_with_logic)
         
+        # Manually add documentId to the response attributes if it's missing
+        if 'documentId' not in updated_campaign_attrs:
+            updated_campaign_attrs['documentId'] = document_id
+
         updated_campaign = BotCampaign(**updated_campaign_attrs)
 
         business_context = self.campaign_domain.get_campaign_business_context(updated_campaign.model_dump())
@@ -302,9 +310,10 @@ class CampaignService:
         
         return {"field": field}
 
-    async def update_onboarding_field_operation(self, campaign_id: str, field_data: Dict[str, Any], current_user: StrapiUser) -> Dict[str, Any]:
+    async def update_onboarding_field_operation(self, document_id: str, field_data: Dict[str, Any], current_user: StrapiUser) -> Dict[str, Any]:
         """
         Business operation for updating an onboarding field for a campaign.
+        Uses detach-update-reattach logic to handle Strapi v5 relationship constraints.
         """
         user_role = self._get_user_role(current_user)
         if user_role not in ['Platform Administrator', 'Client']:
@@ -312,10 +321,23 @@ class CampaignService:
 
         # TODO: Add ownership check for Client role
 
-        field_id = field_data.pop("id")
-        field = await strapi_client.update_onboarding_field(field_id, field_data)
-        
-        return {"field": field}
+        try:
+            # Use the updated Strapi client method that handles detach-update-reattach internally
+            updated_field = await strapi_client.update_onboarding_field(document_id, field_data)
+            
+            if not updated_field:
+                raise HTTPException(status_code=404, detail="Onboarding field not found")
+                
+            logger.info(f"Successfully updated onboarding field {document_id}")
+            return {"field": updated_field}
+            
+        except ValueError as e:
+            # Handle specific validation errors from the Strapi client
+            logger.error(f"Validation error updating onboarding field: {e}")
+            raise HTTPException(status_code=404, detail=str(e))
+        except Exception as e:
+            logger.error(f"Error updating onboarding field {document_id}: {e}")
+            raise HTTPException(status_code=500, detail="Could not update onboarding field.")
 
     async def get_campaign_template_operation(self, document_id: str, current_user: StrapiUser) -> Dict[str, Any]:
         """
@@ -340,6 +362,20 @@ class CampaignService:
         templates = await strapi_client.get_campaign_templates()
         
         return {"templates": templates}
+
+    async def delete_onboarding_field_operation(self, document_id: str, current_user: StrapiUser) -> Dict[str, Any]:
+        """
+        Business operation for deleting an onboarding field for a campaign.
+        """
+        user_role = self._get_user_role(current_user)
+        if user_role not in ['Platform Administrator', 'Client']:
+            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to delete onboarding fields.")
+
+        # TODO: Add ownership check for Client role
+
+        await strapi_client.delete_onboarding_field(document_id)
+        
+        return {"status": "deleted"}
 
 # Global service instance
 campaign_service = CampaignService()

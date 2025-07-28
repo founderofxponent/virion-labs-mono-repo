@@ -198,34 +198,48 @@ async def get_onboarding_fields_operation(campaign_id: str, user: StrapiUser = D
     Business operation for fetching onboarding fields for a campaign.
     """
     try:
-        # result = await campaign_service.get_onboarding_fields_operation(campaign_id, current_user=user)
-        return {"fields": []}
+        result = await campaign_service.get_onboarding_fields_operation(campaign_id, current_user=user)
+        return result
     except Exception as e:
         logger.error(f"Onboarding fields fetch operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/campaign/onboarding-fields/{campaign_id}")
+@router.post("/campaign/{campaign_id}/onboarding-fields")
 async def create_onboarding_field_operation(campaign_id: str, field_data: Dict[str, Any], user: StrapiUser = Depends(get_current_user)):
     """
     Business operation for creating an onboarding field for a campaign.
     """
     try:
-        # result = await campaign_service.create_onboarding_field_operation(campaign_id, field_data, current_user=user)
-        return {"field": {}}
+        result = await campaign_service.create_onboarding_field_operation(campaign_id, field_data, current_user=user)
+        return result
     except Exception as e:
         logger.error(f"Onboarding field creation operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/campaign/onboarding-fields/{campaign_id}")
-async def update_onboarding_field_operation(campaign_id: str, field_data: Dict[str, Any], user: StrapiUser = Depends(get_current_user)):
+@router.put("/campaign/onboarding-fields/{document_id}")
+async def update_onboarding_field_operation(document_id: str, field_data: Dict[str, Any], user: StrapiUser = Depends(get_current_user)):
     """
     Business operation for updating an onboarding field for a campaign.
     """
     try:
-        # result = await campaign_service.update_onboarding_field_operation(campaign_id, field_data, current_user=user)
-        return {"field": {}}
+        logger.info(f"Received request to update onboarding field {document_id} with data: {field_data}")
+        result = await campaign_service.update_onboarding_field_operation(document_id, field_data, current_user=user)
+        logger.info(f"Successfully updated onboarding field {document_id}. Result: {result}")
+        return result
     except Exception as e:
-        logger.error(f"Onboarding field update operation failed: {e}")
+        logger.error(f"Onboarding field update operation failed for document {document_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/campaign/onboarding-fields/{document_id}")
+async def delete_onboarding_field_operation(document_id: str, user: StrapiUser = Depends(get_current_user)):
+    """
+    Business operation for deleting an onboarding field for a campaign.
+    """
+    try:
+        result = await campaign_service.delete_onboarding_field_operation(document_id, current_user=user)
+        return result
+    except Exception as e:
+        logger.error(f"Onboarding field delete operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/campaign-template/get/{document_id}")

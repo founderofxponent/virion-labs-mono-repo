@@ -5,7 +5,14 @@ from routers import health, operations, auth, users
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Console output
+        logging.FileHandler('api.log')  # File output
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Create FastAPI application

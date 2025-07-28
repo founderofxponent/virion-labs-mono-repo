@@ -502,6 +502,7 @@ export interface ApiCampaignOnboardingFieldCampaignOnboardingField
     draftAndPublish: true;
   };
   attributes: {
+    campaign: Schema.Attribute.Relation<'manyToOne', 'api::campaign.campaign'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -512,7 +513,7 @@ export interface ApiCampaignOnboardingFieldCampaignOnboardingField
     field_options: Schema.Attribute.JSON;
     field_placeholder: Schema.Attribute.String;
     field_type: Schema.Attribute.Enumeration<
-      ['text', 'email', 'select', 'multiselect']
+      ['text', 'email', 'number', 'boolean', 'url', 'select', 'multiselect']
     > &
       Schema.Attribute.Required;
     is_enabled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
@@ -729,7 +730,6 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     moderation_enabled: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<true>;
     name: Schema.Attribute.String & Schema.Attribute.Required;
-    onboarding_flow: Schema.Attribute.JSON;
     publishedAt: Schema.Attribute.DateTime;
     rate_limit_per_user: Schema.Attribute.Integer &
       Schema.Attribute.DefaultTo<5>;
