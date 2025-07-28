@@ -381,7 +381,7 @@ class StrapiClient:
         """Deletes a campaign in Strapi using its documentId."""
         logger.info(f"StrapiClient: Deleting campaign {document_id} in Strapi.")
         response = await self._request("DELETE", f"campaigns/{document_id}")
-        return response.get("data")
+        return response.get("data") if response else {"status": "deleted"}
 
     async def get_onboarding_fields(self, campaign_id: str) -> List[Dict]:
         """Fetches onboarding fields for a campaign from Strapi."""
@@ -466,7 +466,7 @@ class StrapiClient:
         """Deletes an onboarding field in Strapi."""
         logger.info(f"StrapiClient: Deleting onboarding field {document_id} in Strapi.")
         response = await self._request("DELETE", f"campaign-onboarding-fields/{document_id}")
-        return response.get("data")
+        return response.get("data") if response else {"status": "deleted"}
 
     async def get_campaign_template(self, document_id: str) -> Dict:
         """Fetches a single campaign template by document ID from Strapi."""
@@ -577,7 +577,7 @@ class StrapiClient:
         """Deletes a landing page template in Strapi using documentId."""
         logger.info(f"StrapiClient: Deleting landing page template {document_id} from Strapi.")
         response = await self._request("DELETE", f"landing-page-templates/{document_id}")
-        return response.get("data")
+        return response.get("data") if response else {"status": "deleted"}
     # endregion
 
 # Global client instance
