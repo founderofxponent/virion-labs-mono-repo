@@ -1,0 +1,72 @@
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const { ApiService } = require('../services/ApiService');
+
+class OnboardingHandler {
+  constructor(config, logger) {
+    this.config = config;
+    this.logger = logger;
+    this.apiService = new ApiService(config, logger);
+  }
+
+  async handleStartButton(interaction) {
+    try {
+      const parts = interaction.customId.split('_');
+      const userId = parts[parts.length - 1];
+      const campaignId = parts.slice(2, -1).join('_');
+
+      if (interaction.user.id !== userId) {
+        return interaction.reply({ content: 'This button is not for you.', ephemeral: true });
+      }
+
+      const response = await this.apiService.startOnboarding(campaignId, userId);
+      if (!response.success) {
+        return interaction.reply({ content: 'Failed to start onboarding.', ephemeral: true });
+      }
+
+      const modal = new ModalBuilder()
+        .setCustomId(`onboarding_modal_${campaignId}_${userId}`)
+        .setTitle('Onboarding');
+
+      response.data.questions.forEach(question => {
+        const textInput = new TextInputBuilder()
+          .setCustomId(question.field_key)
+          .setLabel(question.field_label)
+          .setStyle(TextInputStyle.Short);
+        modal.addComponents(new ActionRowBuilder().addComponents(textInput));
+      });
+
+      await interaction.showModal(modal);
+
+    } catch (error) {
+      this.logger.error('❌ Error in OnboardingHandler.handleStartButton:', error);
+    }
+  }
+
+  async handleModalSubmission(interaction) {
+    try {
+      await interaction.deferReply({ ephemeral: true });
+
+      const parts = interaction.customId.split('_');
+      const userId = parts[parts.length - 1];
+      const campaignId = parts.slice(2, -1).join('_');
+      const responses = {};
+      interaction.fields.fields.forEach((value, key) => {
+        responses[key] = value.value;
+      });
+
+      const payload = {
+        campaign_id: campaignId,
+        discord_user_id: userId,
+        responses,
+      };
+
+      const response = await this.apiService.submitOnboarding(payload);
+      await interaction.editReply(response.data.message);
+
+    } catch (error) {
+      this.logger.error('❌ Error in OnboardingHandler.handleModalSubmission:', error);
+    }
+  }
+}
+
+module.exports = { OnboardingHandler };
