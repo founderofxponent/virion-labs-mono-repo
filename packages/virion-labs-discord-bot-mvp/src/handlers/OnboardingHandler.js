@@ -22,11 +22,19 @@ class OnboardingHandler {
       if (!response.success) {
         return interaction.reply({ content: 'Failed to start onboarding.', ephemeral: true });
       }
-
+  
+      // Check if there are any onboarding fields configured
+      if (!response.data || !response.data.questions || response.data.questions.length === 0) {
+        return interaction.reply({
+          content: '⚠️ This campaign has no onboarding fields configured. Please contact the campaign administrator.',
+          ephemeral: true
+        });
+      }
+  
       const modal = new ModalBuilder()
         .setCustomId(`onboarding_modal_${campaignId}_${userId}`)
         .setTitle('Onboarding');
-
+  
       response.data.questions.forEach(question => {
         const textInput = new TextInputBuilder()
           .setCustomId(question.field_key)

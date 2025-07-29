@@ -40,7 +40,31 @@ class ApiService {
     if (joinCampaignsChannelId) {
       url += `&join_campaigns_channel_id=${joinCampaignsChannelId}`;
     }
-    return this._request(url);
+    
+    const response = await this._request(url);
+    
+    // Log the API response details
+    this.logger.info(`[ApiService] API Response: ${JSON.stringify(response, null, 2)}`);
+    
+    if (response.campaigns) {
+      this.logger.info(`[ApiService] Received ${response.campaigns.length} campaigns`);
+      response.campaigns.forEach((campaign, index) => {
+        this.logger.info(`[ApiService] Campaign ${index + 1}: id=${campaign.id}, documentId=${campaign.documentId}, name="${campaign.campaign_name}"`);
+      });
+      
+      // Check for duplicate documentIds in API response
+      const documentIds = response.campaigns.map(c => c.documentId);
+      const uniqueDocumentIds = [...new Set(documentIds)];
+      if (documentIds.length !== uniqueDocumentIds.length) {
+        this.logger.error(`[ApiService] ⚠️  DUPLICATE DOCUMENT IDs IN API RESPONSE!`);
+        this.logger.error(`[ApiService] Total campaigns: ${documentIds.length}, Unique documentIds: ${uniqueDocumentIds.length}`);
+        this.logger.error(`[ApiService] DocumentIds: ${JSON.stringify(documentIds)}`);
+      }
+    } else {
+      this.logger.warn(`[ApiService] No campaigns array in response`);
+    }
+    
+    return response;
   }
 
   // --- Onboarding Endpoints ---

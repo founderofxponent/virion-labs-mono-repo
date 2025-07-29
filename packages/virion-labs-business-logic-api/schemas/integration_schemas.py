@@ -5,7 +5,8 @@ from typing import List, Optional, Dict, Any
 
 class Campaign(BaseModel):
     id: int
-    campaign_name: str
+    documentId: str
+    name: str  # Changed from campaign_name to match Strapi client transformation
     description: Optional[str] = None
     channel_id: Optional[str] = None
 

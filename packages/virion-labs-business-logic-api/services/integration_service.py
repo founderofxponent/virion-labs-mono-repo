@@ -18,13 +18,42 @@ class IntegrationService:
         Business operation for fetching Discord campaigns.
         """
         try:
+            logger.info(f"🔍 Fetching campaigns for guild_id: {guild_id}, channel_id: {channel_id}, join_campaigns_channel_id: {join_campaigns_channel_id}")
+            
             all_campaigns = await strapi_client.get_campaigns({"filters[guild_id][$eq]": guild_id})
+            logger.info(f"📊 Retrieved {len(all_campaigns)} total campaigns from Strapi")
+            
+            # Log all campaign details for debugging
+            for i, campaign in enumerate(all_campaigns):
+                logger.debug(f"Campaign {i+1}: id={campaign.get('id')}, documentId={campaign.get('documentId')}, name={campaign.get('campaign_name')}, channel_id={campaign.get('channel_id')}")
             
             filtered_campaigns = self.discord_domain.filter_campaigns_for_channel(
                 all_campaigns, channel_id, join_campaigns_channel_id
             )
+            logger.info(f"🎯 After filtering: {len(filtered_campaigns)} campaigns remain")
             
-            return [Campaign(**c) for c in filtered_campaigns]
+            # Log filtered campaign details
+            for i, campaign in enumerate(filtered_campaigns):
+                logger.info(f"Filtered Campaign {i+1}: id={campaign.get('id')}, documentId={campaign.get('documentId')}, name={campaign.get('campaign_name')}")
+            
+            # Check for duplicate documentIds
+            document_ids = [c.get('documentId') for c in filtered_campaigns]
+            unique_document_ids = set(document_ids)
+            if len(document_ids) != len(unique_document_ids):
+                logger.warning(f"⚠️  DUPLICATE DOCUMENT IDs DETECTED!")
+                logger.warning(f"Total campaigns: {len(document_ids)}, Unique documentIds: {len(unique_document_ids)}")
+                logger.warning(f"DocumentIds: {document_ids}")
+                
+                # Log which documentIds are duplicated
+                from collections import Counter
+                id_counts = Counter(document_ids)
+                duplicates = {doc_id: count for doc_id, count in id_counts.items() if count > 1}
+                logger.warning(f"Duplicate documentIds: {duplicates}")
+            
+            result_campaigns = [Campaign(**c) for c in filtered_campaigns]
+            logger.info(f"✅ Returning {len(result_campaigns)} campaigns to Discord bot")
+            
+            return result_campaigns
         except Exception as e:
             logger.error(f"Failed to get Discord campaigns: {e}")
             raise
@@ -58,8 +87,23 @@ class IntegrationService:
         Business operation for starting Discord onboarding and fetching campaign fields.
         """
         try:
-            # Fetch onboarding fields from Strapi using existing method
-            fields_data = await strapi_client.get_onboarding_fields(campaign_id)
+            # First, check if campaign_id is numeric ID or documentId
+            # If it's numeric, we need to get the campaign first to get its documentId
+            document_id = campaign_id
+            
+            # If campaign_id looks like a numeric ID, fetch the campaign to get its documentId
+            if campaign_id.isdigit():
+                logger.info(f"Campaign ID {campaign_id} appears to be numeric, fetching campaign to get documentId")
+                campaigns = await strapi_client.get_campaigns({"filters[id][$eq]": campaign_id})
+                if campaigns:
+                    document_id = campaigns[0].get("documentId")
+                    logger.info(f"Found documentId {document_id} for campaign ID {campaign_id}")
+                else:
+                    logger.error(f"Campaign with ID {campaign_id} not found")
+                    return {"success": False, "fields": [], "message": "Campaign not found"}
+            
+            # Fetch onboarding fields from Strapi using documentId
+            fields_data = await strapi_client.get_onboarding_fields(document_id)
             
             # Transform Strapi field data to match our schema format
             transformed_fields = []
@@ -91,11 +135,26 @@ class IntegrationService:
         This creates a user profile with the onboarding responses.
         """
         try:
+            # First, check if campaign_id is numeric ID or documentId
+            # If it's numeric, we need to get the campaign first to get its documentId
+            document_id = campaign_id
+            
+            # If campaign_id looks like a numeric ID, fetch the campaign to get its documentId
+            if campaign_id.isdigit():
+                logger.info(f"Campaign ID {campaign_id} appears to be numeric, fetching campaign to get documentId")
+                campaigns = await strapi_client.get_campaigns({"filters[id][$eq]": campaign_id})
+                if campaigns:
+                    document_id = campaigns[0].get("documentId")
+                    logger.info(f"Found documentId {document_id} for campaign ID {campaign_id}")
+                else:
+                    logger.error(f"Campaign with ID {campaign_id} not found")
+                    return {"success": False, "message": "Campaign not found"}
+            
             # Create user profile data from onboarding responses
             profile_data = {
                 "discord_user_id": discord_user_id,
                 "discord_username": discord_username,
-                "campaign_id": campaign_id,
+                "campaign_id": document_id,  # Use documentId here
                 "is_verified": True,  # Auto-verify on onboarding completion
                 **responses  # Include all onboarding field responses
             }
@@ -105,10 +164,10 @@ class IntegrationService:
             
             # Update campaign statistics (increment successful_onboardings)
             try:
-                campaign_data = await strapi_client.get_campaign(campaign_id)
+                campaign_data = await strapi_client.get_campaign(document_id)  # Use documentId here
                 if campaign_data:
                     current_count = campaign_data.get("successful_onboardings", 0)
-                    await strapi_client.update_campaign(campaign_id, {
+                    await strapi_client.update_campaign(document_id, {  # Use documentId here
                         "successful_onboardings": current_count + 1,
                         "last_activity_at": "new Date().toISOString()"
                     })
