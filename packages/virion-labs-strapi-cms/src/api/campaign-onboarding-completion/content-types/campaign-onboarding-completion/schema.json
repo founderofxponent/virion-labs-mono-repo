@@ -24,6 +24,12 @@
     },
     "completed_at": {
       "type": "datetime"
+    },
+    "campaign": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::campaign.campaign",
+      "inversedBy": "campaign_onboarding_completions"
     }
   }
 }

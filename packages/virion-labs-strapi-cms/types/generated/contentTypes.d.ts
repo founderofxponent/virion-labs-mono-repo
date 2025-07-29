@@ -470,6 +470,7 @@ export interface ApiCampaignOnboardingCompletionCampaignOnboardingCompletion
     draftAndPublish: true;
   };
   attributes: {
+    campaign: Schema.Attribute.Relation<'manyToOne', 'api::campaign.campaign'>;
     completed_at: Schema.Attribute.DateTime;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -554,7 +555,6 @@ export interface ApiCampaignOnboardingResponseCampaignOnboardingResponse
     field_key: Schema.Attribute.String & Schema.Attribute.Required;
     field_value: Schema.Attribute.String;
     interaction_id: Schema.Attribute.String;
-    is_completed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

@@ -31,10 +31,6 @@
     "interaction_id": {
       "type": "string"
     },
-    "is_completed": {
-      "type": "boolean",
-      "default": false
-    },
     "referral_link": {
       "type": "relation",
       "relation": "manyToOne",

@@ -105,12 +105,11 @@ class IntegrationService:
                     return {"success": False, "fields": [], "message": "Campaign not found"}
 
             # Check if user has already completed onboarding for this campaign
-            existing_responses = await strapi_client.get_onboarding_responses({
+            existing_completions = await strapi_client.get_onboarding_completions({
                 "filters[discord_user_id][$eq]": discord_user_id,
-                "filters[campaign][documentId]": document_id,
-                "filters[is_completed][$eq]": True
+                "filters[campaign][documentId][$eq]": document_id
             })
-            if existing_responses:
+            if existing_completions:
                 logger.info(f"User {discord_user_id} has already completed onboarding for campaign {document_id}")
                 return {"success": False, "fields": [], "message": "You have already completed the onboarding for this campaign."}
             
@@ -169,10 +168,18 @@ class IntegrationService:
                     "discord_username": discord_username,
                     "field_key": field_key,
                     "field_value": field_value,
-                    "is_completed": True,
                     "campaign": document_id
                 }
                 await strapi_client.create_onboarding_response(response_data)
+
+            # Create a single record to mark the onboarding as complete
+            completion_data = {
+                "discord_user_id": discord_user_id,
+                "discord_username": discord_username,
+                "campaign": document_id,
+                "completed_at": datetime.now(timezone.utc).isoformat()
+            }
+            await strapi_client.create_onboarding_completion(completion_data)
 
             # Update campaign statistics (increment successful_onboardings)
             try:

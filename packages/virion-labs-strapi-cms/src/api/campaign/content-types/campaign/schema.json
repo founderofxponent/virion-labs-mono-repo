@@ -115,11 +115,6 @@
       "target": "api::campaign-onboarding-response.campaign-onboarding-response",
       "mappedBy": "campaign"
     },
-    "campaign_onboarding_completions": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::campaign-onboarding-completion.campaign-onboarding-completion"
-    },
     "campaign_onboarding_starts": {
       "type": "relation",
       "relation": "oneToMany",
@@ -160,6 +155,12 @@
     },
     "landing_page_data": {
       "type": "json"
+    },
+    "campaign_onboarding_completions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-completion.campaign-onboarding-completion",
+      "mappedBy": "campaign"
     }
   }
 }
