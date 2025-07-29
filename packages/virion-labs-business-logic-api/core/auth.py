@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 import jwt
 from pydantic import BaseModel, EmailStr, ValidationError
 from typing import Optional, Dict, Any
@@ -8,6 +8,7 @@ from core.config import settings
 from core.strapi_client import strapi_client
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
+api_key_header = APIKeyHeader(name="Authorization")
 
 class StrapiUser(BaseModel):
     id: int
@@ -18,52 +19,76 @@ class StrapiUser(BaseModel):
     document_id: Optional[str] = None
     avatar_url: Optional[str] = None
 
-def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> dict:
+async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> dict:
     """
-    Decodes the JWT token and returns the payload.
+    Validates the OAuth2 token against Strapi (for dashboard authentication).
+    """
+    import httpx
+    
+    strapi_users_me_url = f"{settings.STRAPI_URL}/api/users/me"
+    headers = {"Authorization": f"Bearer {token}"}
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(strapi_users_me_url, headers=headers)
+            response.raise_for_status()
+            user_data = response.json()
+            
+            # Get user's role for compatibility with existing code
+            user_id = user_data.get("id")
+            if user_id:
+                strapi_user_details_url = f"{settings.STRAPI_URL}/api/users/{user_id}?populate=role"
+                role_response = await client.get(strapi_user_details_url, headers=headers)
+                role_response.raise_for_status()
+                
+                role_data = role_response.json().get("role")
+                if role_data:
+                    user_data["role"] = role_data
+            
+            return user_data
+        except httpx.HTTPStatusError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except httpx.RequestError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Authentication service unavailable",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+async def get_current_user(user_data: dict = Depends(get_current_user_from_token)) -> StrapiUser:
+    """
+    Dependency to get the current active user from validated Strapi user data.
     """
     try:
-        payload = jwt.decode(
-            token, 
-            settings.JWT_SECRET, 
-            algorithms=[settings.JWT_ALGORITHM]
-        )
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except (jwt.PyJWTError, ValidationError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-async def get_current_user(payload: dict = Depends(get_current_user_from_token)) -> StrapiUser:
-    """
-    Dependency to get the current active user from the token payload.
-    Queries Strapi to get the full user object.
-    """
-    user_id = payload.get("id")
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload",
-        )
-
-    try:
-        strapi_user_data = await strapi_client.get_user(user_id)
-        
-        if not strapi_user_data:
-            raise HTTPException(status_code=404, detail="User not found in Strapi")
-
-        user = StrapiUser(**strapi_user_data)
+        user = StrapiUser(**user_data)
         return user
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching user from Strapi: {e}"
+            detail=f"Error creating user object: {e}"
         )
+
+async def get_api_key(key: str = Depends(api_key_header)):
+    """
+    Dependency to validate a static API key for service-to-service communication.
+    """
+    parts = key.split()
+
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header. Expected 'Bearer <key>'",
+        )
+    
+    token = parts[1]
+    if token == settings.API_KEY:
+        return token
+    
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid API Key",
+    )

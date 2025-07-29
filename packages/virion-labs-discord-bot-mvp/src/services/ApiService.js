@@ -18,25 +18,29 @@ class ApiService {
 
     this.logger.debug(`📡 Making API request to ${url}`);
 
-    // This is a placeholder for the actual fetch call.
-    // In a real implementation, you would use node-fetch or a similar library.
-    // For the MVP, we will return mock data.
-    return this._getMockData(endpoint, options);
+    try {
+      const response = await fetch(url, { ...options, headers });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+        this.logger.error(`API request failed with status ${response.status}:`, errorData);
+        throw new Error(errorData.detail || 'API request failed');
+      }
+      return response.json();
+    } catch (error) {
+      this.logger.error('API request error:', error);
+      throw error;
+    }
   }
 
   // --- Campaign Endpoints ---
 
-  async getAvailableCampaigns(channelId) {
-    this.logger.info(`[ApiService] Fetching available campaigns for channel: ${channelId}`);
-    // In a real implementation, this would be:
-    // return this._request(`/operations/discord/available-campaigns?channel_id=${channelId}`);
-    return {
-      success: true,
-      data: [
-        { id: 'campaign_1', campaign_name: 'MVP Campaign Alpha' },
-        { id: 'campaign_2', campaign_name: 'MVP Campaign Beta' },
-      ],
-    };
+  async getAvailableCampaigns(guildId, channelId, joinCampaignsChannelId) {
+    this.logger.info(`[ApiService] Fetching available campaigns for guild ${guildId}, channel: ${channelId}`);
+    let url = `/api/v1/integrations/discord/campaigns/${guildId}?channel_id=${channelId}`;
+    if (joinCampaignsChannelId) {
+      url += `&join_campaigns_channel_id=${joinCampaignsChannelId}`;
+    }
+    return this._request(url);
   }
 
   // --- Onboarding Endpoints ---
@@ -75,18 +79,16 @@ class ApiService {
   // --- Access Request Endpoints ---
 
   async submitAccessRequest(payload) {
-    this.logger.info(`[ApiService] Submitting access request for user ${payload.discord_user_id}`);
-    // return this._request('/workflows/access-request/submit', {
-    //   method: 'POST',
-    //   body: JSON.stringify(payload),
-    // });
-    return {
-      success: true,
-      data: {
-        message: 'Your access request has been submitted.',
-        role_to_assign: 'verified_role_id_from_api',
-      },
-    };
+    this.logger.info(`[ApiService] Submitting access request for user ${payload.user_id}`);
+    return this._request('/api/v1/integrations/discord/request-access', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async hasVerifiedRole(userId, guildId) {
+    this.logger.info(`[ApiService] Checking verified role for user ${userId} in guild ${guildId}`);
+    return this._request(`/api/v1/integrations/discord/user/${userId}/has-verified-role/${guildId}`);
   }
 
   // --- Referral Endpoints ---

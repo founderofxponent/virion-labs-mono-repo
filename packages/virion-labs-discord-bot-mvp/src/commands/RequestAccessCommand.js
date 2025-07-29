@@ -1,13 +1,21 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ApiService } = require('../services/ApiService');
 
 class RequestAccessCommand {
   constructor(config, logger) {
     this.config = config;
     this.logger = logger;
+    this.apiService = new ApiService(config, logger);
   }
 
   async execute(interaction) {
     try {
+      const hasRole = await this.apiService.hasVerifiedRole(interaction.user.id, interaction.guildId);
+
+      if (hasRole.has_role) {
+        return interaction.reply({ content: 'You already have the verified role.', ephemeral: true });
+      }
+
       const embed = new EmbedBuilder()
         .setTitle('🔑 Request Access')
         .setDescription('Click the button below to complete the access request form.')

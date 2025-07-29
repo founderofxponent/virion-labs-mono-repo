@@ -6,7 +6,7 @@ from schemas.integration_schemas import (
     HasVerifiedRoleResponse,
 )
 from services.integration_service import integration_service
-from core.auth import get_current_user, StrapiUser
+from core.auth import get_api_key
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,19 +14,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.get("/discord/campaigns/{guild_id}", response_model=GetCampaignsResponse)
-async def get_discord_campaigns(guild_id: str, channel_id: str, user: StrapiUser = Depends(get_current_user)):
+async def get_discord_campaigns(guild_id: str, channel_id: str, join_campaigns_channel_id: str = None, api_key: str = Depends(get_api_key)):
     """
     Get campaigns for a Discord guild, filtered by channel.
     """
     try:
-        campaigns = await integration_service.get_discord_campaigns(guild_id, channel_id)
+        campaigns = await integration_service.get_discord_campaigns(guild_id, channel_id, join_campaigns_channel_id)
         return GetCampaignsResponse(campaigns=campaigns)
     except Exception as e:
         logger.error(f"Failed to get Discord campaigns: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve campaigns.")
 
 @router.post("/discord/request-access", response_model=RequestAccessResponse)
-async def request_discord_access(request: RequestAccessRequest, user: StrapiUser = Depends(get_current_user)):
+async def request_discord_access(request: RequestAccessRequest, api_key: str = Depends(get_api_key)):
     """
     Handle a user's request for access in Discord.
     """
@@ -38,7 +38,7 @@ async def request_discord_access(request: RequestAccessRequest, user: StrapiUser
         raise HTTPException(status_code=500, detail="Failed to process access request.")
 
 @router.get("/discord/user/{user_id}/has-verified-role/{guild_id}", response_model=HasVerifiedRoleResponse)
-async def has_verified_role(user_id: str, guild_id: str, user: StrapiUser = Depends(get_current_user)):
+async def has_verified_role(user_id: str, guild_id: str, api_key: str = Depends(get_api_key)):
     """
     Check if a Discord user has the verified role in a guild.
     """

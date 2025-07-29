@@ -2,6 +2,7 @@ from typing import Dict, Any, List
 from core.strapi_client import strapi_client
 from domain.integrations.discord.domain import DiscordDomain
 from schemas.integration_schemas import Campaign
+from core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,22 +13,18 @@ class IntegrationService:
     def __init__(self):
         self.discord_domain = DiscordDomain()
 
-    async def get_discord_campaigns(self, guild_id: str, channel_id: str) -> List[Campaign]:
+    async def get_discord_campaigns(self, guild_id: str, channel_id: str, join_campaigns_channel_id: str) -> List[Campaign]:
         """
         Business operation for fetching Discord campaigns.
         """
         try:
-            # For now, we assume a single config for the guild.
-            # This could be expanded to fetch guild-specific configs.
-            join_campaigns_channel_id = "YOUR_DEFAULT_JOIN_CHANNEL_ID" # This should come from a config service
-            
-            all_campaigns = await strapi_client.get_campaigns({"filters[discord_guild_id][$eq]": guild_id})
+            all_campaigns = await strapi_client.get_campaigns({"filters[guild_id][$eq]": guild_id})
             
             filtered_campaigns = self.discord_domain.filter_campaigns_for_channel(
                 all_campaigns, channel_id, join_campaigns_channel_id
             )
             
-            return [Campaign(**c["attributes"]) for c in filtered_campaigns]
+            return [Campaign(**c) for c in filtered_campaigns]
         except Exception as e:
             logger.error(f"Failed to get Discord campaigns: {e}")
             raise
@@ -55,22 +52,5 @@ class IntegrationService:
         except Exception as e:
             logger.error(f"Failed to process Discord access request: {e}")
             return {"success": False, "message": "An error occurred."}
-
-    async def has_verified_role(self, user_id: str, guild_id: str) -> bool:
-        """
-        Business operation to check if a user has the verified role.
-        """
-        try:
-            # This should come from a config service for the guild
-            verified_role_id = "YOUR_VERIFIED_ROLE_ID" 
-            
-            # This is a placeholder. In a real implementation, you would get the user's
-            # roles from a Discord API client.
-            user_roles = [] 
-            
-            return self.discord_domain.has_verified_role(user_roles, verified_role_id)
-        except Exception as e:
-            logger.error(f"Failed to check for verified role: {e}")
-            return False
 
 integration_service = IntegrationService()

@@ -89,60 +89,28 @@ class StrapiClient:
         response = await self._request("GET", "campaigns", params=params)
         campaigns_data = response.get("data", [])
         
-        # Transform Strapi response to match expected BotCampaign model
+        # Transform each campaign to match the expected schema
         transformed_campaigns = []
-        for campaign in campaigns_data:
-            # The data is already flattened (no nested attributes structure)
-            # Transform field names to match BotCampaign model
-            client_data = campaign.get("client", {})
+        for campaign_data in campaigns_data:
+            client_data = campaign_data.get("client", {})
             
             transformed_campaign = {
-                "id": str(campaign.get("id", "")),
-                "documentId": campaign.get("documentId"),
-                "name": campaign.get("name", ""),
-                "type": campaign.get("campaign_type") or "standard",  # Map campaign_type to type, handle None
-                "guild_id": campaign.get("guild_id", ""),
-                "channel_id": campaign.get("channel_id"),
+                "id": str(campaign_data.get("id", "")),
+                "documentId": campaign_data.get("documentId"),
+                "campaign_name": campaign_data.get("name", ""),  # Map 'name' to 'campaign_name'
+                "type": campaign_data.get("campaign_type") or "standard",
+                "guild_id": campaign_data.get("guild_id", ""),
+                "channel_id": campaign_data.get("channel_id"),
                 "client_id": str(client_data.get("id", "")) if client_data else "",
                 "client_name": client_data.get("name", "") if client_data else "",
                 "client_industry": client_data.get("industry", "") if client_data else "",
-                "display_name": campaign.get("name", ""),  # Use name as display_name if not specified
-                "template": campaign.get("template", "default"),  # Default template
-                "description": campaign.get("description"),
-                "is_active": campaign.get("is_active", True),
-                "paused_at": campaign.get("paused_at"),
-                "campaign_end_date": campaign.get("end_date"),
-                "is_deleted": campaign.get("is_deleted", False),  # Default to False
-                "deleted_at": campaign.get("deleted_at"),
-                "campaign_start_date": campaign.get("start_date") or campaign.get("createdAt"),
-                "created_at": campaign.get("createdAt"),
-                "updated_at": campaign.get("updatedAt"),
-                "total_interactions": campaign.get("total_interactions", 0),
-                "successful_onboardings": campaign.get("successful_onboardings", 0),
-                "referral_conversions": campaign.get("referral_conversions", 0),
-                "last_activity_at": campaign.get("last_activity_at"),
-                "configuration_version": campaign.get("configuration_version"),
-                "referral_link_id": campaign.get("referral_link_id"),
-                "referral_link_title": campaign.get("referral_link_title"),
-                "referral_code": campaign.get("referral_code"),
-                "referral_platform": campaign.get("referral_platform"),
-                "auto_role_assignment": campaign.get("auto_role_assignment"),
-                "target_role_ids": campaign.get("target_role_ids"),
-                "referral_tracking_enabled": campaign.get("referral_tracking_enabled"),
-                "moderation_enabled": campaign.get("moderation_enabled"),
-                "bot_name": campaign.get("bot_name"),
-                "bot_personality": campaign.get("bot_personality"),
-                "bot_response_style": campaign.get("bot_response_style"),
-                "brand_color": campaign.get("brand_color"),
-                "brand_logo_url": campaign.get("brand_logo_url"),
-                "welcome_message": campaign.get("welcome_message"),
-                "webhook_url": campaign.get("webhook_url"),
-                "rate_limit_per_user": campaign.get("rate_limit_per_user"),
-                "features": campaign.get("features"),
-                "auto_responses": campaign.get("auto_responses"),
-                "custom_commands": campaign.get("custom_commands"),
-                "metadata": campaign.get("metadata"),
-                "landing_page_data": campaign.get("landing_page_data"),
+                "display_name": campaign_data.get("name", ""),
+                "template": campaign_data.get("template", "default"),
+                "description": campaign_data.get("description"),
+                "is_active": campaign_data.get("is_active", True),
+                "paused_at": campaign_data.get("paused_at"),
+                "campaign_end_date": campaign_data.get("end_date"),
+                "is_deleted": campaign_data.get("is_deleted", False),
             }
             transformed_campaigns.append(transformed_campaign)
         

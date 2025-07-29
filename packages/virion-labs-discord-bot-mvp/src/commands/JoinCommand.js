@@ -12,13 +12,14 @@ class JoinCommand {
     try {
       await interaction.deferReply({ ephemeral: true });
 
-      const campaignsResponse = await this.apiService.getAvailableCampaigns(interaction.channelId);
+      const joinCampaignsChannelId = this.config.discord.joinCampaignsChannelId;
+      const campaignsResponse = await this.apiService.getAvailableCampaigns(interaction.guildId, interaction.channelId, joinCampaignsChannelId);
 
-      if (!campaignsResponse.success || campaignsResponse.data.length === 0) {
+      if (!campaignsResponse.campaigns || campaignsResponse.campaigns.length === 0) {
         return interaction.editReply('No active campaigns found.');
       }
 
-      const campaigns = campaignsResponse.data;
+      const campaigns = campaignsResponse.campaigns;
       const embed = new EmbedBuilder()
         .setTitle('🚀 Join a Campaign')
         .setDescription('Choose a campaign to start the onboarding process.')

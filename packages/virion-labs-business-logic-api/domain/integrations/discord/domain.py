@@ -13,10 +13,10 @@ class DiscordDomain:
 
         if is_join_campaigns_channel:
             # Show public campaigns (no channel_id)
-            return [c for c in campaigns if not c.get("attributes", {}).get("channel_id")]
+            return [c for c in campaigns if not c.get("channel_id")]
         else:
             # Show campaigns specific to this channel
-            return [c for c in campaigns if c.get("attributes", {}).get("channel_id") == channel_id]
+            return [c for c in campaigns if c.get("channel_id") == channel_id]
 
     def has_verified_role(self, user_roles: List[str], verified_role_id: str) -> bool:
         """
