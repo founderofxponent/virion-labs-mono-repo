@@ -47,6 +47,7 @@ class OnboardingStartRequest(BaseModel):
 class OnboardingStartResponse(BaseModel):
     success: bool
     fields: List[OnboardingField]
+    message: Optional[str] = None
 
 class OnboardingSubmitRequest(BaseModel):
     campaign_id: str

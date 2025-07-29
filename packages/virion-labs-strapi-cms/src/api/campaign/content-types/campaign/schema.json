@@ -112,7 +112,8 @@
     "campaign_onboarding_responses": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::campaign-onboarding-response.campaign-onboarding-response"
+      "target": "api::campaign-onboarding-response.campaign-onboarding-response",
+      "mappedBy": "campaign"
     },
     "campaign_onboarding_completions": {
       "type": "relation",

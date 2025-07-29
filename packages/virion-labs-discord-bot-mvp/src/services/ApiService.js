@@ -20,15 +20,14 @@ class ApiService {
 
     try {
       const response = await fetch(url, { ...options, headers });
+      const data = await response.json();
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
-        this.logger.error(`API request failed with status ${response.status}:`, errorData);
-        throw new Error(errorData.detail || 'API request failed');
+        this.logger.warn(`API request to ${url} returned status ${response.status}:`, data);
       }
-      return response.json();
+      return data;
     } catch (error) {
-      this.logger.error('API request error:', error);
-      throw error;
+      this.logger.error(`API request error during request to ${url}: ${error.message}`);
+      return { success: false, message: 'Failed to communicate with the API.' };
     }
   }
 
@@ -81,8 +80,12 @@ class ApiService {
     });
     
     // Transform the response to match expected format
+    if (!response.success) {
+      return { success: false, message: response.message };
+    }
+    
     return {
-      success: response.success,
+      success: true,
       data: {
         questions: response.fields || []
       }

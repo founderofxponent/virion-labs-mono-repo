@@ -103,6 +103,16 @@ class IntegrationService:
                 else:
                     logger.error(f"Campaign with ID {campaign_id} not found")
                     return {"success": False, "fields": [], "message": "Campaign not found"}
+
+            # Check if user has already completed onboarding for this campaign
+            existing_responses = await strapi_client.get_onboarding_responses({
+                "filters[discord_user_id][$eq]": discord_user_id,
+                "filters[campaign][documentId]": document_id,
+                "filters[is_completed][$eq]": True
+            })
+            if existing_responses:
+                logger.info(f"User {discord_user_id} has already completed onboarding for campaign {document_id}")
+                return {"success": False, "fields": [], "message": "You have already completed the onboarding for this campaign."}
             
             # Fetch onboarding fields from Strapi using documentId
             fields_data = await strapi_client.get_onboarding_fields(document_id)
@@ -159,7 +169,8 @@ class IntegrationService:
                     "discord_username": discord_username,
                     "field_key": field_key,
                     "field_value": field_value,
-                    "is_completed": True
+                    "is_completed": True,
+                    "campaign": document_id
                 }
                 await strapi_client.create_onboarding_response(response_data)
 

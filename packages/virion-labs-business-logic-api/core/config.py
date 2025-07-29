@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -7,6 +8,9 @@ class Settings(BaseSettings):
     # Strapi Configuration
     STRAPI_URL: str = "http://localhost:1337"
     STRAPI_API_TOKEN: str
+
+    # Discord Configuration
+    DISCORD_BOT_TOKEN: Optional[str] = None
 
     # API Configuration
     API_TITLE: str = "Virion Labs Unified Business Logic API"

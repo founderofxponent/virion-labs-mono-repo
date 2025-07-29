@@ -40,6 +40,12 @@
       "relation": "manyToOne",
       "target": "api::referral-link.referral-link",
       "inversedBy": "campaign_onboarding_responses"
+    },
+    "campaign": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::campaign.campaign",
+      "inversedBy": "campaign_onboarding_responses"
     }
   }
 }
