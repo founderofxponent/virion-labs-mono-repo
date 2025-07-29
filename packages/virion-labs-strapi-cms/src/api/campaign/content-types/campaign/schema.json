@@ -118,7 +118,8 @@
     "campaign_onboarding_starts": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::campaign-onboarding-start.campaign-onboarding-start"
+      "target": "api::campaign-onboarding-start.campaign-onboarding-start",
+      "mappedBy": "campaign"
     },
     "bot_personality": {
       "type": "string",

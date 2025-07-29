@@ -113,6 +113,20 @@ class IntegrationService:
                 logger.info(f"User {discord_user_id} has already completed onboarding for campaign {document_id}")
                 return {"success": False, "fields": [], "message": "You have already completed the onboarding for this campaign."}
             
+            # Create a record to signify the start of the onboarding process
+            try:
+                start_data = {
+                    "discord_user_id": discord_user_id,
+                    "discord_username": discord_username,
+                    "campaign": document_id,
+                    "started_at": datetime.now(timezone.utc).isoformat()
+                }
+                await strapi_client.create_onboarding_start(start_data)
+                logger.info(f"Successfully created onboarding_start record for user {discord_user_id} on campaign {document_id}")
+            except Exception as e:
+                # Log a warning but don't fail the entire process
+                logger.warning(f"Could not create onboarding_start record for user {discord_user_id} on campaign {document_id}: {e}")
+
             # Fetch onboarding fields from Strapi using documentId
             fields_data = await strapi_client.get_onboarding_fields(document_id)
             
@@ -130,9 +144,6 @@ class IntegrationService:
                     "validation_rules": field.get("validation_rules")
                 }
                 transformed_fields.append(transformed_field)
-            
-            # Log onboarding start (could be expanded to track analytics)
-            logger.info(f"Discord onboarding started for user {discord_user_id} on campaign {campaign_id}")
             
             return {"success": True, "fields": transformed_fields}
             

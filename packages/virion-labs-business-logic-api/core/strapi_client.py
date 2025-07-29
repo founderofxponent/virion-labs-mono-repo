@@ -510,6 +510,13 @@ class StrapiClient:
         response = await self._request("POST", "campaign-onboarding-completions", data=data)
         return response.get("data")
 
+    async def create_onboarding_start(self, start_data: Dict) -> Dict:
+        """Creates a new campaign onboarding start event in Strapi."""
+        logger.info("StrapiClient: Creating new campaign onboarding start event in Strapi.")
+        data = {"data": start_data}
+        response = await self._request("POST", "campaign-onboarding-starts", data=data)
+        return response.get("data")
+
     async def get_campaign_templates(self) -> List[Dict]:
         """Fetches a list of campaign templates from Strapi."""
         logger.info("StrapiClient: Fetching campaign templates from Strapi.")
