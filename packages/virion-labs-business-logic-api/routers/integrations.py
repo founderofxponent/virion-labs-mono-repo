@@ -4,6 +4,10 @@ from schemas.integration_schemas import (
     RequestAccessRequest,
     RequestAccessResponse,
     HasVerifiedRoleResponse,
+    OnboardingStartRequest,
+    OnboardingStartResponse,
+    OnboardingSubmitRequest,
+    OnboardingSubmitResponse,
 )
 from services.integration_service import integration_service
 from core.auth import get_api_key
@@ -48,3 +52,36 @@ async def has_verified_role(user_id: str, guild_id: str, api_key: str = Depends(
     except Exception as e:
         logger.error(f"Failed to check for verified role: {e}")
         raise HTTPException(status_code=500, detail="Failed to check user role.")
+
+@router.post("/discord/onboarding/start", response_model=OnboardingStartResponse)
+async def start_discord_onboarding(request: OnboardingStartRequest, api_key: str = Depends(get_api_key)):
+    """
+    Start Discord onboarding process and get campaign onboarding fields.
+    """
+    try:
+        result = await integration_service.start_discord_onboarding(
+            request.campaign_id,
+            request.discord_user_id,
+            request.discord_username
+        )
+        return OnboardingStartResponse(**result)
+    except Exception as e:
+        logger.error(f"Failed to start Discord onboarding: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start onboarding process.")
+
+@router.post("/discord/onboarding/submit", response_model=OnboardingSubmitResponse)
+async def submit_discord_onboarding(request: OnboardingSubmitRequest, api_key: str = Depends(get_api_key)):
+    """
+    Submit Discord onboarding responses and complete the onboarding process.
+    """
+    try:
+        result = await integration_service.submit_discord_onboarding(
+            request.campaign_id,
+            request.discord_user_id,
+            request.discord_username,
+            request.responses
+        )
+        return OnboardingSubmitResponse(**result)
+    except Exception as e:
+        logger.error(f"Failed to submit Discord onboarding: {e}")
+        raise HTTPException(status_code=500, detail="Failed to complete onboarding.")

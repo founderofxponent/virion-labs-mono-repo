@@ -18,7 +18,7 @@ class OnboardingHandler {
         return interaction.reply({ content: 'This button is not for you.', ephemeral: true });
       }
 
-      const response = await this.apiService.startOnboarding(campaignId, userId);
+      const response = await this.apiService.startOnboarding(campaignId, userId, interaction.user.username);
       if (!response.success) {
         return interaction.reply({ content: 'Failed to start onboarding.', ephemeral: true });
       }
@@ -31,7 +31,14 @@ class OnboardingHandler {
         const textInput = new TextInputBuilder()
           .setCustomId(question.field_key)
           .setLabel(question.field_label)
-          .setStyle(TextInputStyle.Short);
+          .setStyle(this._getInputStyle(question.field_type))
+          .setRequired(question.is_required || false);
+        
+        // Add placeholder if provided
+        if (question.field_placeholder) {
+          textInput.setPlaceholder(question.field_placeholder);
+        }
+        
         modal.addComponents(new ActionRowBuilder().addComponents(textInput));
       });
 
@@ -57,6 +64,7 @@ class OnboardingHandler {
       const payload = {
         campaign_id: campaignId,
         discord_user_id: userId,
+        discord_username: interaction.user.username,
         responses,
       };
 
@@ -65,6 +73,28 @@ class OnboardingHandler {
 
     } catch (error) {
       this.logger.error('❌ Error in OnboardingHandler.handleModalSubmission:', error);
+    }
+  }
+
+  /**
+   * Convert Strapi field types to Discord TextInputStyle
+   * @param {string} fieldType - The Strapi field type
+   * @returns {TextInputStyle} Discord input style
+   * @private
+   */
+  _getInputStyle(fieldType) {
+    switch (fieldType) {
+      case 'multiselect':
+      case 'textarea':
+        return TextInputStyle.Paragraph;
+      case 'text':
+      case 'email':
+      case 'number':
+      case 'url':
+      case 'select':
+      case 'boolean':
+      default:
+        return TextInputStyle.Short;
     }
   }
 }

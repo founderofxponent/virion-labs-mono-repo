@@ -45,34 +45,39 @@ class ApiService {
 
   // --- Onboarding Endpoints ---
 
-  async startOnboarding(campaignId, userId) {
+  async startOnboarding(campaignId, userId, username) {
     this.logger.info(`[ApiService] Starting onboarding for user ${userId} in campaign ${campaignId}`);
-    // return this._request('/workflows/onboarding/start', {
-    //   method: 'POST',
-    //   body: JSON.stringify({ campaign_id: campaignId, discord_user_id: userId }),
-    // });
+    const response = await this._request('/api/v1/integrations/discord/onboarding/start', {
+      method: 'POST',
+      body: JSON.stringify({
+        campaign_id: campaignId,
+        discord_user_id: userId,
+        discord_username: username
+      }),
+    });
+    
+    // Transform the response to match expected format
     return {
-      success: true,
+      success: response.success,
       data: {
-        questions: [
-          { field_key: 'full_name', field_label: 'Full Name', field_type: 'text' },
-          { field_key: 'email', field_label: 'Email Address', field_type: 'email' },
-        ],
-      },
+        questions: response.fields || []
+      }
     };
   }
 
   async submitOnboarding(payload) {
     this.logger.info(`[ApiService] Submitting onboarding for user ${payload.discord_user_id}`);
-    // return this._request('/workflows/onboarding/submit-responses', {
-    //   method: 'POST',
-    //   body: JSON.stringify(payload),
-    // });
+    const response = await this._request('/api/v1/integrations/discord/onboarding/submit', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    
+    // Transform the response to match expected format
     return {
-      success: true,
+      success: response.success,
       data: {
-        message: 'Onboarding complete! A team member will review your application.',
-      },
+        message: response.message || 'Onboarding completed successfully!'
+      }
     };
   }
 
