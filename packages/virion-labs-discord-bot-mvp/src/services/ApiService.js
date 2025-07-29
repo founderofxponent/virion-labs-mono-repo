@@ -49,7 +49,7 @@ class ApiService {
     if (response.campaigns) {
       this.logger.info(`[ApiService] Received ${response.campaigns.length} campaigns`);
       response.campaigns.forEach((campaign, index) => {
-        this.logger.info(`[ApiService] Campaign ${index + 1}: id=${campaign.id}, documentId=${campaign.documentId}, name="${campaign.campaign_name}"`);
+        this.logger.info(`[ApiService] Campaign ${index + 1}: id=${campaign.id}, documentId=${campaign.documentId}, name="${campaign.name}"`);
       });
       
       // Check for duplicate documentIds in API response
@@ -100,7 +100,8 @@ class ApiService {
     return {
       success: response.success,
       data: {
-        message: response.message || 'Onboarding completed successfully!'
+        message: response.message || 'Onboarding completed successfully!',
+        role_assigned: response.role_assigned || false
       }
     };
   }

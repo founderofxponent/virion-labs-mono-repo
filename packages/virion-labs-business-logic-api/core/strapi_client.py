@@ -40,10 +40,10 @@ class StrapiClient:
                     return None
                 return response.json()
             except httpx.HTTPStatusError as e:
-                logger.error(f"Strapi API HTTP error: {e.response.status_code} - {e.response.text}")
+                logger.exception(f"Strapi API HTTP error: {e.response.status_code} - {e.response.text}")
                 raise
             except httpx.RequestError as e:
-                logger.error(f"Strapi API request error: {e}")
+                logger.exception("Strapi API request error")
                 raise
 
     async def get_clients(self, filters: Optional[Dict] = None) -> List[Dict]:
@@ -290,6 +290,7 @@ class StrapiClient:
         logger.info(f"StrapiClient: Updating campaign {document_id} in Strapi.")
         
         # Defensive timestamp validation to prevent validation errors
+        logger.info(f"StrapiClient: Received raw update data: {update_data}")
         cleaned_update_data = update_data.copy()
         timestamp_fields = ['start_date', 'end_date', 'paused_at', 'deleted_at', 'last_activity_at']
         
@@ -305,9 +306,9 @@ class StrapiClient:
                             if len(value) == 10:  # YYYY-MM-DD format
                                 parsed_date = datetime.strptime(value, "%Y-%m-%d")
                                 cleaned_update_data[field] = parsed_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                            elif not value.endswith('Z') and 'T' in value:
-                                # Add Z if missing from ISO format
-                                cleaned_update_data[field] = value + 'Z' if not value.endswith('Z') else value
+                            elif 'T' in value and not value.endswith('Z') and '+' not in value and '-' not in value[10:]:
+                                # Add Z if missing from a naive ISO format
+                                cleaned_update_data[field] = value + 'Z'
                         except (ValueError, TypeError) as e:
                             logger.warning(f"Invalid timestamp format for {field}: {value}. Removing from update.")
                             cleaned_update_data.pop(field, None)
@@ -315,7 +316,7 @@ class StrapiClient:
                     # Remove empty string timestamps
                     cleaned_update_data.pop(field, None)
         
-        logger.info(f"Cleaned update data: {cleaned_update_data}")
+        logger.info(f"StrapiClient: Sending cleaned update data: {cleaned_update_data}")
         data = {"data": cleaned_update_data}
         params = {"populate": "*"}  # Ensure relations are populated in the response
         response = await self._request("PUT", f"campaigns/{document_id}", data=data, params=params)
@@ -466,6 +467,13 @@ class StrapiClient:
         logger.info(f"StrapiClient: Deleting onboarding field {document_id} in Strapi.")
         response = await self._request("DELETE", f"campaign-onboarding-fields/{document_id}")
         return response.get("data") if response else {"status": "deleted"}
+
+    async def create_onboarding_response(self, response_data: Dict) -> Dict:
+        """Creates a new campaign onboarding response in Strapi."""
+        logger.info("StrapiClient: Creating new campaign onboarding response in Strapi.")
+        data = {"data": response_data}
+        response = await self._request("POST", "campaign-onboarding-responses", data=data)
+        return response.get("data")
 
     async def get_campaign_template(self, document_id: str) -> Dict:
         """Fetches a single campaign template by document ID from Strapi."""

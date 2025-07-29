@@ -1,9 +1,11 @@
 from typing import Dict, Any, List
+import httpx
 from core.strapi_client import strapi_client
 from domain.integrations.discord.domain import DiscordDomain
 from schemas.integration_schemas import Campaign
 from core.config import settings
 import logging
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ class IntegrationService:
             
             # Log all campaign details for debugging
             for i, campaign in enumerate(all_campaigns):
-                logger.debug(f"Campaign {i+1}: id={campaign.get('id')}, documentId={campaign.get('documentId')}, name={campaign.get('campaign_name')}, channel_id={campaign.get('channel_id')}")
+                logger.debug(f"Campaign {i+1}: id={campaign.get('id')}, documentId={campaign.get('documentId')}, name={campaign.get('name')}, channel_id={campaign.get('channel_id')}")
             
             filtered_campaigns = self.discord_domain.filter_campaigns_for_channel(
                 all_campaigns, channel_id, join_campaigns_channel_id
@@ -34,7 +36,7 @@ class IntegrationService:
             
             # Log filtered campaign details
             for i, campaign in enumerate(filtered_campaigns):
-                logger.info(f"Filtered Campaign {i+1}: id={campaign.get('id')}, documentId={campaign.get('documentId')}, name={campaign.get('campaign_name')}")
+                logger.info(f"Filtered Campaign {i+1}: id={campaign.get('id')}, documentId={campaign.get('documentId')}, name={campaign.get('name')}")
             
             # Check for duplicate documentIds
             document_ids = [c.get('documentId') for c in filtered_campaigns]
@@ -150,33 +152,42 @@ class IntegrationService:
                     logger.error(f"Campaign with ID {campaign_id} not found")
                     return {"success": False, "message": "Campaign not found"}
             
-            # Create user profile data from onboarding responses
-            profile_data = {
-                "discord_user_id": discord_user_id,
-                "discord_username": discord_username,
-                "campaign_id": document_id,  # Use documentId here
-                "is_verified": True,  # Auto-verify on onboarding completion
-                **responses  # Include all onboarding field responses
-            }
-            
-            # Create user profile in Strapi
-            await strapi_client.create_user_profile(profile_data)
-            
+            # Save each onboarding response
+            for field_key, field_value in responses.items():
+                response_data = {
+                    "discord_user_id": discord_user_id,
+                    "discord_username": discord_username,
+                    "field_key": field_key,
+                    "field_value": field_value,
+                    "is_completed": True
+                }
+                await strapi_client.create_onboarding_response(response_data)
+
             # Update campaign statistics (increment successful_onboardings)
             try:
                 campaign_data = await strapi_client.get_campaign(document_id)  # Use documentId here
                 if campaign_data:
                     current_count = campaign_data.get("successful_onboardings", 0)
-                    await strapi_client.update_campaign(document_id, {  # Use documentId here
-                        "successful_onboardings": current_count + 1,
-                        "last_activity_at": "new Date().toISOString()"
-                    })
+                    update_data = {
+                        "successful_onboardings": current_count + 1
+                    }
+                    logger.info(f"IntegrationService: Preparing to update campaign {document_id} with data: {update_data}")
+                    await strapi_client.update_campaign(document_id, update_data)
             except Exception as stats_error:
                 logger.warning(f"Failed to update campaign statistics: {stats_error}")
                 # Don't fail the entire operation if statistics update fails
             
+            # Assign Discord role if configured
+            role_assigned = False
+            if campaign_data.get("auto_role_assignment") and campaign_data.get("target_role_ids"):
+                guild_id = campaign_data.get("guild_id")
+                for role_id in campaign_data["target_role_ids"]:
+                    role_assigned = await self._assign_discord_role(guild_id, discord_user_id, role_id)
+                    if not role_assigned:
+                        logger.warning(f"Failed to assign role {role_id} to user {discord_user_id}")
+
             logger.info(f"Discord onboarding completed for user {discord_user_id} on campaign {campaign_id}")
-            return {"success": True, "message": "Onboarding completed successfully!"}
+            return {"success": True, "message": "Onboarding completed successfully!", "role_assigned": role_assigned}
             
         except Exception as e:
             logger.error(f"Failed to submit Discord onboarding: {e}")
@@ -200,5 +211,31 @@ class IntegrationService:
         except Exception as e:
             logger.error(f"Failed to check verified role: {e}")
             return False
+
+    async def _assign_discord_role(self, guild_id: str, user_id: str, role_id: str) -> bool:
+        """
+        Assigns a role to a user in a specific guild using the Discord API.
+        """
+        if not settings.DISCORD_BOT_TOKEN:
+            logger.warning("DISCORD_BOT_TOKEN is not configured. Cannot assign roles.")
+            return False
+
+        url = f"https://discord.com/api/v10/guilds/{guild_id}/members/{user_id}/roles/{role_id}"
+        headers = {
+            "Authorization": f"Bot {settings.DISCORD_BOT_TOKEN}"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.put(url, headers=headers)
+                response.raise_for_status()
+                logger.info(f"Successfully assigned role {role_id} to user {user_id} in guild {guild_id}")
+                return True
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Failed to assign role {role_id} to user {user_id} in guild {guild_id}. Status: {e.response.status_code}, Response: {e.response.text}")
+                return False
+            except Exception as e:
+                logger.error(f"An unexpected error occurred while assigning a Discord role: {e}")
+                return False
 
 integration_service = IntegrationService()

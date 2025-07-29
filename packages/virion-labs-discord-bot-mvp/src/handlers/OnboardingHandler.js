@@ -77,10 +77,17 @@ class OnboardingHandler {
       };
 
       const response = await this.apiService.submitOnboarding(payload);
-      await interaction.editReply(response.data.message);
+      
+      let replyMessage = response.data.message;
+      if (response.data.role_assigned) {
+        replyMessage += ' You have been granted a new role!';
+      }
+
+      await interaction.editReply(replyMessage);
 
     } catch (error) {
       this.logger.error('❌ Error in OnboardingHandler.handleModalSubmission:', error);
+      await interaction.editReply('An error occurred while submitting your onboarding information.');
     }
   }
 
