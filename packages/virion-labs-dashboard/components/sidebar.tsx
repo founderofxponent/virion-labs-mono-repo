@@ -17,14 +17,15 @@ import { cn, generateInitials } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/components/auth-provider"
-import { useAccessRequests } from "@/hooks/use-access-requests"
+import { useAccessRequestsApi } from "@/hooks/use-access-requests-api"
 
 export function Sidebar() {
   const { profile } = useAuth()
   const pathname = usePathname()
   const isAdmin = profile?.role === "admin" || profile?.role === "Platform Administrator"
   const isClient = profile?.role === "client"
-  const { pendingCount } = useAccessRequests()
+  const { requests } = useAccessRequestsApi()
+  const pendingCount = requests.filter(r => r.request_status === 'pending').length
 
   const influencerNavItems = [
     {

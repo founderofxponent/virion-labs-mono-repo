@@ -33,7 +33,7 @@ import { useCampaignTemplateCompleteAPI } from "@/hooks/use-campaign-template-co
 import { useClients } from "@/hooks/use-clients"
 import { useBotCampaignsAPI } from "@/hooks/use-bot-campaigns-api"
 import { useOnboardingFieldsAPI, type OnboardingField, type UpdateOnboardingFieldData } from "@/hooks/use-onboarding-fields-api"
-import { useCampaignLandingPage } from "@/hooks/use-campaign-landing-pages"
+import { useCampaignLandingPagesApi } from "@/hooks/use-campaign-landing-pages-api"
 import { OnboardingQuestionsForm } from "./OnboardingQuestionsForm"
 
 // Import Tab Components
@@ -116,7 +116,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     landingPage: inheritedLandingPageTemplate, 
   } = useCampaignTemplateCompleteAPI(selectedTemplateId)
 
-  const { landingPage, loading: landingPageLoading } = useCampaignLandingPage(campaignDocumentId);
+  const { pages: landingPages, loading: landingPageLoading, createPage, updatePage, fetchPages } = useCampaignLandingPagesApi()
+  const landingPage = landingPages[0]
 
   const {
     fields: onboardingFields,
@@ -127,6 +128,12 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     fetchFields,
     batchUpdateFields
   } = useOnboardingFieldsAPI(campaignDocumentId ?? undefined)
+
+  useEffect(() => {
+    if (campaignDocumentId) {
+      fetchPages(campaignDocumentId)
+    }
+  }, [campaignDocumentId, fetchPages])
 
   useEffect(() => {
     if (onboardingFields && onboardingFields.length > 0) {

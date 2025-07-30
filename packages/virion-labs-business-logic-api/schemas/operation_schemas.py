@@ -51,3 +51,22 @@ class ClientUpdateRequest(BaseModel):
     contact_email: Optional[EmailStr] = None
     industry: Optional[str] = None
     client_status: Optional[str] = None
+
+# --- Campaign List Operation ---
+
+class CampaignListResponse(BaseModel):
+    """
+    Defines the structure for the response of the campaign list operation.
+    """
+    campaigns: List[Dict[str, Any]]
+    total_count: int
+    page: int
+    limit: int
+
+# --- Campaign Update Operation ---
+
+class CampaignUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    status: Optional[str] = None
+    budget: Optional[float] = None
+    duration_days: Optional[int] = None

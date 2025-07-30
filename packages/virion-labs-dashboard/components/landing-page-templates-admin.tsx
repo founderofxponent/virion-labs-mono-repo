@@ -46,8 +46,7 @@ import {
   Palette
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useLandingPageTemplates } from "@/hooks/use-landing-page-templates"
-import { LandingPageTemplate } from "@/lib/landing-page-templates"
+import { useLandingPageTemplatesAPI, type LandingPageTemplate } from "@/hooks/use-landing-page-templates-api"
 import { useToast } from "@/hooks/use-toast"
 
 interface TemplateFormData {
@@ -134,7 +133,7 @@ const CUSTOMIZABLE_FIELD_OPTIONS = [
 ]
 
 export function LandingPageTemplatesAdmin() {
-  const { templates, loading, error, refresh } = useLandingPageTemplates()
+  const { templates, loading, error, refresh, createTemplate, updateTemplate, deleteTemplate } = useLandingPageTemplatesAPI()
   const { toast } = useToast()
   
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -158,14 +157,14 @@ export function LandingPageTemplatesAdmin() {
       campaign_types: template.campaign_types,
       category: template.category || 'custom',
       customizable_fields: template.customizable_fields || [],
-      default_offer_title: template.fields.offer_title,
-      default_offer_description: template.fields.offer_description,
-      default_offer_highlights: template.fields.offer_highlights,
-      default_offer_value: template.fields.offer_value,
-      default_what_you_get: template.fields.what_you_get,
-      default_how_it_works: template.fields.how_it_works,
-      default_requirements: template.fields.requirements,
-      default_support_info: template.fields.support_info,
+      default_offer_title: template.default_offer_title || '',
+      default_offer_description: template.default_offer_description || '',
+      default_offer_highlights: template.default_offer_highlights || [],
+      default_offer_value: template.default_offer_value || '',
+      default_what_you_get: template.default_what_you_get || '',
+      default_how_it_works: template.default_how_it_works || '',
+      default_requirements: template.default_requirements || '',
+      default_support_info: template.default_support_info || '',
       color_scheme: template.color_scheme || {},
       layout_config: template.layout_config || {},
       is_default: template.is_default || false,
@@ -176,7 +175,7 @@ export function LandingPageTemplatesAdmin() {
   }
 
   const handleSave = async () => {
-    if (!formData.template_id || !formData.name || !formData.description) {
+    if (!formData.name || !formData.description) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -187,20 +186,10 @@ export function LandingPageTemplatesAdmin() {
 
     setIsSaving(true)
     try {
-      const method = editingTemplate ? 'PUT' : 'POST'
-      const url = editingTemplate 
-        ? `/api/landing-page-templates?template_id=${formData.template_id}`
-        : '/api/landing-page-templates'
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to save template')
+      if (editingTemplate) {
+        await updateTemplate(editingTemplate.documentId, formData)
+      } else {
+        await createTemplate(formData)
       }
 
       toast({
@@ -228,14 +217,7 @@ export function LandingPageTemplatesAdmin() {
     }
 
     try {
-      const response = await fetch(`/api/landing-page-templates?template_id=${template.id}`, {
-        method: 'DELETE'
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to delete template')
-      }
+      await deleteTemplate(template.documentId)
 
       toast({
         title: "Success",
@@ -254,16 +236,7 @@ export function LandingPageTemplatesAdmin() {
 
   const handleToggleDefault = async (template: LandingPageTemplate) => {
     try {
-      const response = await fetch(`/api/landing-page-templates?template_id=${template.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_default: !template.is_default })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to update template')
-      }
+      await updateTemplate(template.documentId, { is_default: !template.is_default })
 
       toast({
         title: "Success",
@@ -644,4 +617,4 @@ export function LandingPageTemplatesAdmin() {
       </Dialog>
     </div>
   )
-} 
+}

@@ -1,411 +1,162 @@
 from typing import Dict, Any, List, Optional
-from fastapi import HTTPException
 from core.strapi_client import strapi_client
-from domain.campaigns.models import BotCampaign, BotCampaignCreate, BotCampaignUpdate
-from domain.campaigns.rules import CampaignDomain
-from core.auth import StrapiUser
-from datetime import datetime
+from domain.campaigns.domain import CampaignDomain
 import logging
 
 logger = logging.getLogger(__name__)
 
 class CampaignService:
-    """
-    Service layer for campaign operations with authorization.
-    """
+    """Service layer for campaign operations."""
+    
     def __init__(self):
         self.campaign_domain = CampaignDomain()
-
-    def _get_user_role(self, current_user: StrapiUser) -> str:
-        """Safely gets the user's role name."""
-        if current_user.role and isinstance(current_user.role, dict):
-            return current_user.role.get('name', 'Authenticated')
-        return 'Authenticated'
-
-    async def list_campaigns_operation(self, filters: Optional[Dict[str, Any]] = None, current_user: StrapiUser = None) -> Dict[str, Any]:
-        """
-        Business operation for listing campaigns.
-        """
-        user_role = self._get_user_role(current_user)
+    
+    async def create_campaign_workflow(self, campaign_data: Dict[str, Any], automation_options: Dict[str, Any]) -> Dict[str, Any]:
+        """Multi-step workflow for campaign creation."""
         
-        if filters is None:
-            filters = {}
-
-        if user_role == 'Platform Administrator':
-            pass  # Admin can access all campaigns
-        elif user_role == 'Client':
-            # This is a simplified filter. You might need to adjust based on your data model.
-            # This assumes campaigns are directly linked to a user (client).
-            filters["filters[client][owner][id][$eq]"] = current_user.id
-        else:
-            logger.warning(f"Forbidden: User with role '{user_role}' attempted to list campaigns.")
-            raise HTTPException(status_code=403, detail=f"Forbidden: Your role ('{user_role}') does not have permission to list campaigns.")
-
-        campaigns_from_db = await strapi_client.get_campaigns(filters)
-
-        # The strapi_client.get_campaigns() already returns transformed data
-        # that should match our BotCampaign model
-        campaigns = []
-        for campaign_data in campaigns_from_db:
-            try:
-                campaign = BotCampaign(**campaign_data)
-                campaigns.append(campaign)
-                
-            except Exception as e:
-                logger.error(f"Failed to create BotCampaign from data: {campaign_data}")
-                logger.error(f"Validation error: {e}")
-                # Skip invalid campaigns for now
-                continue
-
-        return {"campaigns": campaigns, "total_count": len(campaigns)}
-
-    async def create_campaign_operation(self, campaign_data: Dict[str, Any], setup_options: Dict[str, Any], current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for campaign creation.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to create campaigns.")
-
-        # campaign_type is now passed directly from frontend, no need to lookup template
-
-        campaign_with_logic = self.campaign_domain.create_campaign_with_business_logic(campaign_data)
+        workflow_results = {
+            "workflow_id": f"campaign_create_{secrets.token_hex(4)}",
+            "steps_completed": [],
+            "campaign": None
+        }
         
-        document_id = campaign_with_logic.get("documentId")
-        if not document_id:
-            raise HTTPException(status_code=400, detail="documentId is required to create a campaign.")
+        # Step 1: Apply domain logic and create campaign
+        business_campaign = self.campaign_domain.create_campaign_with_business_logic(campaign_data)
+        created_campaign = await strapi_client.create_campaign(business_campaign)
+        workflow_results["campaign"] = created_campaign
+        workflow_results["steps_completed"].append("campaign_created")
         
-        created_campaign_attrs = await strapi_client.create_campaign(campaign_with_logic, document_id)
+        # Step 2: Setup Discord bot (if enabled)
+        if automation_options.get("setup_discord_bot", False):
+            discord_setup = await self._setup_discord_bot(created_campaign["id"])
+            workflow_results["discord_setup"] = discord_setup
+            workflow_results["steps_completed"].append("discord_bot_setup")
         
-        # Manually add documentId to the response attributes if it's missing
-        if 'documentId' not in created_campaign_attrs and 'documentId' in campaign_with_logic:
-            created_campaign_attrs['documentId'] = campaign_with_logic['documentId']
-
-        # Assuming the created_campaign_attrs has the full campaign data.
-        created_campaign = BotCampaign(**created_campaign_attrs)
-
-        business_context = self.campaign_domain.get_campaign_business_context(created_campaign.model_dump())
-
-        return {"campaign": created_campaign, "business_context": business_context}
-
-    async def get_campaign_operation(self, campaign_id: str, current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for fetching a single campaign.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to view this campaign.")
-
-        # For campaign operations, we need to find the campaign by ID first to get its documentId
-        # Since the frontend might be using numeric ID, we need to search for it
-        campaign_attrs = await strapi_client.get_campaign(campaign_id)
+        # Step 3: Generate referral links (if enabled)
+        if automation_options.get("generate_referral_links", False):
+            referral_links = await self._generate_referral_links(created_campaign["id"])
+            workflow_results["referral_links"] = referral_links
+            workflow_results["steps_completed"].append("referral_links_generated")
         
-        if not campaign_attrs:
-            raise HTTPException(status_code=404, detail="Campaign not found")
-
-        # TODO: Add ownership check for Client role
-
-        campaign = BotCampaign(**campaign_attrs)
-        return {"campaign": campaign}
-
-    async def update_campaign_operation(self, campaign_id: str, updates: Dict[str, Any], current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for updating a campaign.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to update campaigns.")
-
-        # TODO: Add ownership check for Client role
-
-        # Find the campaign to get its documentId for the update
-        campaign_to_update = await strapi_client.get_campaign(campaign_id)
+        # Step 4: Setup analytics (if enabled)
+        if automation_options.get("setup_analytics", False):
+            analytics_setup = await self._setup_analytics(created_campaign["id"])
+            workflow_results["analytics_setup"] = analytics_setup
+            workflow_results["steps_completed"].append("analytics_setup")
         
-        if not campaign_to_update:
-            raise HTTPException(status_code=404, detail="Campaign not found")
+        # Step 5: Send notifications (if enabled)
+        if automation_options.get("notify_influencers", False):
+            notifications = await self._send_notifications(created_campaign["id"])
+            workflow_results["notifications_sent"] = notifications
+            workflow_results["steps_completed"].append("notifications_sent")
         
-        # Use documentId for the update
-        document_id = campaign_to_update.get("documentId")
-        if not document_id:
-            raise HTTPException(status_code=400, detail="Campaign documentId not found")
-
-        # campaign_type is now passed directly from frontend, no need to lookup template
-
-        updates_with_logic = self.campaign_domain.update_campaign_with_business_logic(updates)
+        workflow_results["status"] = "completed"
+        workflow_results["completed_at"] = datetime.utcnow().isoformat()
         
-        updated_campaign_attrs = await strapi_client.update_campaign(document_id, updates_with_logic)
+        logger.info(f"Campaign creation workflow completed: {workflow_results['workflow_id']}")
         
-        # Manually add documentId to the response attributes if it's missing
-        if 'documentId' not in updated_campaign_attrs:
-            updated_campaign_attrs['documentId'] = document_id
-
-        updated_campaign = BotCampaign(**updated_campaign_attrs)
-
-        business_context = self.campaign_domain.get_campaign_business_context(updated_campaign.model_dump())
-
-        return {"campaign": updated_campaign, "business_context": business_context}
-
-    async def delete_campaign_operation(self, campaign_id: str, current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for deleting a campaign.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to delete campaigns.")
-
-        # TODO: Add ownership check for Client role
-
-        # Find the campaign to get its documentId for deletion
-        campaign_to_delete = await strapi_client.get_campaign(campaign_id)
+        return workflow_results
+    
+    async def list_campaigns_operation(self, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Business operation for listing campaigns."""
         
-        if not campaign_to_delete:
-            raise HTTPException(status_code=404, detail="Campaign not found")
+        # Get campaigns from Strapi
+        campaigns = await strapi_client.get_campaigns(filters)
         
-        # Use documentId for the delete
-        document_id = campaign_to_delete.get("documentId")
-        if not document_id:
-            raise HTTPException(status_code=400, detail="Campaign documentId not found")
-
-        await strapi_client.delete_campaign(document_id)
-        
-        return {"status": "deleted"}
-
-    async def unarchive_campaign_operation(self, campaign_id: str, current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for unarchiving a campaign.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to unarchive campaigns.")
-
-        # TODO: Add ownership check for Client role
-
-        # Find the campaign to get its documentId
-        campaign_to_unarchive = await strapi_client.get_campaign(campaign_id)
-        
-        if not campaign_to_unarchive:
-            raise HTTPException(status_code=404, detail="Campaign not found")
-        
-        document_id = campaign_to_unarchive.get("documentId")
-        if not document_id:
-            raise HTTPException(status_code=400, detail="Campaign documentId not found")
-
-        update_data = {"is_active": True, "end_date": None}
-        await strapi_client.update_campaign(document_id, update_data)
-        
-        return {"status": "unarchived"}
-
-    async def archive_campaign_operation(self, campaign_id: str, current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for archiving a campaign.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to archive campaigns.")
-
-        # TODO: Add ownership check for Client role
-
-        # Find the campaign to get its documentId
-        campaign_to_archive = await strapi_client.get_campaign(campaign_id)
-        
-        if not campaign_to_archive:
-            raise HTTPException(status_code=404, detail="Campaign not found")
-        
-        document_id = campaign_to_archive.get("documentId")
-        if not document_id:
-            raise HTTPException(status_code=400, detail="Campaign documentId not found")
-
-        update_data = {"is_active": False, "end_date": datetime.utcnow().isoformat()}
-        await strapi_client.update_campaign(document_id, update_data)
-        
-        return {"status": "archived"}
-
-    async def get_onboarding_fields_operation(self, campaign_id: str, current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for fetching onboarding fields for a campaign.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to view onboarding fields.")
-
-        # TODO: Add ownership check for Client role
-
-        fields = await strapi_client.get_onboarding_fields(campaign_id)
-        
-        return {"fields": fields}
-
-    async def create_onboarding_field_operation(self, campaign_id: str, field_data: Dict[str, Any], current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for creating an onboarding field for a campaign.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to create onboarding fields.")
-
-        # TODO: Add ownership check for Client role
-
-        field = await strapi_client.create_onboarding_field(campaign_id, field_data)
-        
-        return {"field": field}
-
-    async def update_onboarding_field_operation(self, document_id: str, field_data: Dict[str, Any], current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for updating an onboarding field for a campaign.
-        Uses detach-update-reattach logic to handle Strapi v5 relationship constraints.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to update onboarding fields.")
-
-        # TODO: Add ownership check for Client role
-
-        try:
-            # Use the updated Strapi client method that handles detach-update-reattach internally
-            updated_field = await strapi_client.update_onboarding_field(document_id, field_data)
-            
-            if not updated_field:
-                raise HTTPException(status_code=404, detail="Onboarding field not found")
-                
-            logger.info(f"Successfully updated onboarding field {document_id}")
-            return {"field": updated_field}
-            
-        except ValueError as e:
-            # Handle specific validation errors from the Strapi client
-            logger.error(f"Validation error updating onboarding field: {e}")
-            raise HTTPException(status_code=404, detail=str(e))
-        except Exception as e:
-            logger.error(f"Error updating onboarding field {document_id}: {e}")
-            raise HTTPException(status_code=500, detail="Could not update onboarding field.")
-
-    async def get_campaign_template_operation(self, document_id: str, current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for fetching a single campaign template by document ID.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to view campaign templates.")
-
-        template = await strapi_client.get_campaign_template(document_id)
-        
-        return {"template": template}
-
-    async def list_campaign_templates_operation(self, current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for listing all campaign templates.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to view campaign templates.")
-
-        templates = await strapi_client.get_campaign_templates()
-        
-        return {"templates": templates}
-
-    async def delete_onboarding_field_operation(self, document_id: str, current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for deleting an onboarding field for a campaign.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to delete onboarding fields.")
-
-        # TODO: Add ownership check for Client role
-
-        await strapi_client.delete_onboarding_field(document_id)
-        
-        return {"status": "deleted"}
-
-    async def batch_update_onboarding_fields_operation(self, campaign_id: str, batch_data: Dict[str, Any], current_user: StrapiUser) -> Dict[str, Any]:
-        """
-        Business operation for batch updating onboarding fields for a campaign.
-        Processes all operations sequentially to prevent deadlocks.
-        """
-        user_role = self._get_user_role(current_user)
-        if user_role not in ['Platform Administrator', 'Client']:
-            raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to update onboarding fields.")
-
-        # TODO: Add ownership check for Client role
-
-        fields_data = batch_data.get('fields', [])
-        delete_ids = batch_data.get('delete_ids', [])
-        
-        results = {
-            'created': [],
-            'updated': [],
-            'deleted': [],
-            'errors': []
+        return {
+            "campaigns": campaigns,
+            "total_count": len(campaigns),
+            "filters_applied": filters or {}
         }
 
-        try:
-            # Process deletions first
-            for document_id in delete_ids:
-                try:
-                    await strapi_client.delete_onboarding_field(document_id)
-                    results['deleted'].append(document_id)
-                    logger.info(f"Deleted onboarding field: {document_id}")
-                except Exception as e:
-                    error_msg = f"Failed to delete field {document_id}: {str(e)}"
-                    logger.error(error_msg)
-                    results['errors'].append(error_msg)
+    async def list_landing_pages_operation(self, campaign_id: str) -> Dict[str, Any]:
+        """Business operation for listing landing pages for a campaign."""
+        
+        # Get landing pages from Strapi
+        landing_pages = await strapi_client.get_campaign_landing_pages(campaign_id)
+        
+        return {
+            "pages": landing_pages,
+            "total_count": len(landing_pages),
+            "campaign_id": campaign_id
+        }
 
-            # Process creates and updates sequentially to prevent deadlocks
-            for field_data in fields_data:
-                try:
-                    # Check if this is an update (has id) or create (no id)
-                    if 'id' in field_data and field_data['id']:
-                        # This is an update operation
-                        document_id = field_data.get('documentId') or field_data['id']
-                        
-                        # Validate that the field belongs to the target campaign
-                        if 'campaign' in field_data and field_data['campaign']:
-                            field_campaign_id = field_data['campaign'].get('documentId')
-                            if field_campaign_id != campaign_id:
-                                error_msg = f"Field {field_data.get('field_label', 'Unknown')} belongs to campaign {field_campaign_id}, not {campaign_id}"
-                                logger.error(error_msg)
-                                results['errors'].append(error_msg)
-                                continue
-                        
-                        # Remove fields that shouldn't be sent to Strapi
-                        clean_data = {k: v for k, v in field_data.items() 
-                                    if k not in ['campaign', 'campaign_id', 'id', 'documentId', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'publishedAt']}
-                        
-                        updated_field = await strapi_client.update_onboarding_field(document_id, clean_data)
-                        results['updated'].append(updated_field)
-                        logger.info(f"Updated onboarding field: {document_id}")
-                    else:
-                        # This is a create operation
-                        # Ensure campaign_id is included and remove id
-                        create_data = {k: v for k, v in field_data.items() 
-                                     if k not in ['id', 'campaign', 'created_at', 'updated_at', 'createdAt', 'updatedAt', 'publishedAt']}
-                        create_data['campaign_id'] = campaign_id
-                        
-                        created_field = await strapi_client.create_onboarding_field(campaign_id, create_data)
-                        results['created'].append(created_field)
-                        logger.info(f"Created onboarding field for campaign: {campaign_id}")
-                        
-                except Exception as e:
-                    error_msg = f"Failed to process field {field_data.get('field_label', 'Unknown')}: {str(e)}"
-                    logger.error(error_msg)
-                    results['errors'].append(error_msg)
+    async def create_landing_page_operation(self, campaign_id: str, page_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Business operation for creating a new landing page for a campaign."""
+        logger.info(f"Executing create landing page operation for campaign: {campaign_id}")
 
-            # If there were errors but some operations succeeded, log a warning
-            if results['errors'] and (results['created'] or results['updated'] or results['deleted']):
-                logger.warning(f"Batch update completed with {len(results['errors'])} errors out of {len(fields_data) + len(delete_ids)} operations")
+        # Add the campaign to the page data
+        page_data['campaign'] = campaign_id
 
-            return {
-                'success': len(results['errors']) == 0,
-                'results': results,
-                'summary': {
-                    'created': len(results['created']),
-                    'updated': len(results['updated']),
-                    'deleted': len(results['deleted']),
-                    'errors': len(results['errors'])
-                }
+        created_page = await strapi_client.create_campaign_landing_page(page_data)
+
+        return {
+            "page": created_page,
+            "message": "Campaign landing page created successfully."
+        }
+
+    async def update_landing_page_operation(self, page_id: str, page_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Business operation for updating a landing page."""
+        logger.info(f"Executing update landing page operation for page: {page_id}")
+
+        updated_page = await strapi_client.update_campaign_landing_page(page_id, page_data)
+
+        return {
+            "page": updated_page,
+            "message": "Campaign landing page updated successfully."
+        }
+
+    async def delete_landing_page_operation(self, page_id: str) -> Dict[str, Any]:
+        """Business operation for deleting a landing page."""
+        logger.info(f"Executing delete landing page operation for page: {page_id}")
+
+        await strapi_client.delete_campaign_landing_page(page_id)
+
+        return {
+            "message": "Campaign landing page deleted successfully."
+        }
+
+    async def _setup_discord_bot(self, campaign_id: int) -> Dict[str, Any]:
+        """Setup Discord bot for campaign."""
+        # Mock implementation - replace with actual Discord integration
+        return {
+            "bot_configured": True,
+            "roles_created": ["Influencer", "VIP"],
+            "channels_setup": ["#announcements", "#referrals"]
+        }
+    
+    async def _generate_referral_links(self, campaign_id: int, quantity: int = 10) -> List[Dict[str, Any]]:
+        """Generate referral links for campaign."""
+        links = []
+        for i in range(quantity):
+            link_data = {
+                "code": f"REF{campaign_id}_{i+1:03d}",
+                "campaign": campaign_id,
+                "created_at": datetime.utcnow().isoformat(),
+                "is_active": True
             }
-
-        except Exception as e:
-            logger.error(f"Batch update operation failed completely: {e}")
-            raise HTTPException(status_code=500, detail=f"Batch update failed: {str(e)}")
+            created_link = await strapi_client.create_referral_link(link_data)
+            links.append(created_link)
+        
+        return links
+    
+    async def _setup_analytics(self, campaign_id: int) -> Dict[str, Any]:
+        """Setup analytics tracking for campaign."""
+        # Mock implementation - replace with actual analytics setup
+        return {
+            "tracking_enabled": True,
+            "dashboard_created": True,
+            "metrics_configured": ["views", "clicks", "conversions"]
+        }
+    
+    async def _send_notifications(self, campaign_id: int) -> Dict[str, Any]:
+        """Send notifications for new campaign."""
+        # Mock implementation - replace with actual notification system
+        return {
+            "stakeholders_notified": 5,
+            "influencers_notified": 25,
+            "emails_sent": 30
+        }
 
 # Global service instance
 campaign_service = CampaignService()

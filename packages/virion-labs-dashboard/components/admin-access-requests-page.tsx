@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { useAccessRequests } from "@/hooks/use-access-requests"
+import { useAccessRequestsApi, type AccessRequest } from "@/hooks/use-access-requests-api"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -24,92 +24,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-interface AccessRequest {
-  id: string
-  campaign_id: string
-  influencer_id: string
-  request_status: string
-  requested_at: string
-  request_message: string
-  access_granted_at: string | null
-  access_granted_by: string | null
-  admin_response: string | null
-  discord_guild_campaigns: {
-    id: string
-    campaign_name: string
-    campaign_type: string
-    clients: {
-      name: string
-      industry: string
-    }
-  }
-  user_profiles: {
-    id: string
-    full_name: string
-    email: string
-    avatar_url: string | null
-  }
-}
 
 export function AdminAccessRequestsPage() {
   const { profile } = useAuth()
-  const { refreshCount } = useAccessRequests()
-  const [requests, setRequests] = useState<AccessRequest[]>([])
-  const [loading, setLoading] = useState(true)
+  const { requests, loading, error, approveRequest, denyRequest, refetch } = useAccessRequestsApi()
   const [selectedRequest, setSelectedRequest] = useState<AccessRequest | null>(null)
   const [showResponseDialog, setShowResponseDialog] = useState(false)
   const [responseAction, setResponseAction] = useState<'approve' | 'deny'>('approve')
   const [adminResponse, setAdminResponse] = useState('')
   const [processingId, setProcessingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchAccessRequests()
-  }, [])
-
-  const fetchAccessRequests = async () => {
-    try {
-      const response = await fetch('/api/admin/access-requests?status=pending')
-      const data = await response.json()
-      
-      if (response.ok) {
-        setRequests(data.requests || [])
-      } else {
-        console.error('Failed to fetch access requests:', data.error)
-      }
-    } catch (error) {
-      console.error('Error fetching access requests:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleQuickAction = async (request: AccessRequest, action: 'approve' | 'deny') => {
-    if (!profile?.id) return
-    
     setProcessingId(request.id)
-    
     try {
-      const response = await fetch('/api/admin/access-requests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          request_id: request.id,
-          action: action,
-          admin_id: profile.id,
-          admin_response: action === 'approve' ? 'Access granted' : 'Access denied'
-        })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        fetchAccessRequests()
-        refreshCount()
-        console.log(`Access request ${action}d successfully`)
+      if (action === 'approve') {
+        await approveRequest(request.id)
       } else {
-        console.error('Failed to respond to request:', data.error)
+        await denyRequest(request.id)
       }
     } catch (error) {
       console.error('Error responding to request:', error)
@@ -126,33 +57,16 @@ export function AdminAccessRequestsPage() {
   }
 
   const submitResponse = async () => {
-    if (!selectedRequest || !profile?.id) return
+    if (!selectedRequest) return
 
     try {
-      const response = await fetch('/api/admin/access-requests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          request_id: selectedRequest.id,
-          action: responseAction,
-          admin_id: profile.id,
-          admin_response: adminResponse
-        })
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        fetchAccessRequests()
-        refreshCount()
-        setShowResponseDialog(false)
-        setSelectedRequest(null)
-        console.log(`Access request ${responseAction}d successfully`)
+      if (responseAction === 'approve') {
+        await approveRequest(selectedRequest.id)
       } else {
-        console.error('Failed to respond to request:', data.error)
+        await denyRequest(selectedRequest.id)
       }
+      setShowResponseDialog(false)
+      setSelectedRequest(null)
     } catch (error) {
       console.error('Error responding to request:', error)
     }

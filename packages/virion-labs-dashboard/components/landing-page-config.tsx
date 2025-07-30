@@ -26,8 +26,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CalendarIcon, Plus, X, Eye, Wand2, Image, FileText, Video } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { useCampaignLandingPage } from "@/hooks/use-campaign-landing-pages"
-import { useLandingPageTemplatesAPI, useLandingPageTemplateAPI, type LandingPageTemplate as ApiLandingPageTemplate } from "@/hooks/use-landing-page-templates-api"
+import { useCampaignLandingPagesApi } from "@/hooks/use-campaign-landing-pages-api"
+import { useLandingPageTemplatesAPI, type LandingPageTemplate as ApiLandingPageTemplate } from "@/hooks/use-landing-page-templates-api"
 import { CampaignLandingPageInsert } from "@/lib/supabase"
 
 interface LandingPageConfigData {
@@ -61,7 +61,8 @@ export function LandingPageConfig({
   onChange, 
   onPreview 
 }: LandingPageConfigProps) {
-  const { landingPage, loading, createOrUpdateLandingPage, refresh } = useCampaignLandingPage(campaignId)
+  const { pages: landingPages, loading, createPage, updatePage, fetchPages } = useCampaignLandingPagesApi()
+  const landingPage = landingPages[0]
   const { templates: availableTemplates, loading: templatesLoading, fetchSingleTemplate } = useLandingPageTemplatesAPI(campaignType)
   
   // State for active tab
@@ -85,6 +86,12 @@ export function LandingPageConfig({
   })
 
   useEffect(() => {
+    if (campaignId) {
+      fetchPages(campaignId)
+    }
+  }, [campaignId, fetchPages])
+
+  useEffect(() => {
     if (initialData) {
         setData(prevData => ({ ...prevData, ...initialData }));
     }
@@ -98,19 +105,19 @@ export function LandingPageConfig({
   useEffect(() => {
     if (landingPage) {
       setData({
-        landing_page_template_id: landingPage.landing_page_template_id || '',
-        offer_title: landingPage.offer_title || '',
-        offer_description: landingPage.offer_description || '',
-        offer_highlights: landingPage.offer_highlights || [],
-        offer_value: landingPage.offer_value || '',
-        offer_expiry_date: landingPage.offer_expiry_date ? new Date(landingPage.offer_expiry_date) : null,
-        hero_image_url: landingPage.hero_image_url || '',
-        product_images: landingPage.product_images || [],
-        video_url: landingPage.video_url || '',
-        what_you_get: landingPage.what_you_get || '',
-        how_it_works: landingPage.how_it_works || '',
-        requirements: landingPage.requirements || '',
-        support_info: landingPage.support_info || '',
+        landing_page_template_id: landingPage.template_id || '',
+        offer_title: landingPage.content?.offer_title || '',
+        offer_description: landingPage.content?.offer_description || '',
+        offer_highlights: landingPage.content?.offer_highlights || [],
+        offer_value: landingPage.content?.offer_value || '',
+        offer_expiry_date: landingPage.content?.offer_expiry_date ? new Date(landingPage.content.offer_expiry_date) : null,
+        hero_image_url: landingPage.content?.hero_image_url || '',
+        product_images: landingPage.content?.product_images || [],
+        video_url: landingPage.content?.video_url || '',
+        what_you_get: landingPage.content?.what_you_get || '',
+        how_it_works: landingPage.content?.how_it_works || '',
+        requirements: landingPage.content?.requirements || '',
+        support_info: landingPage.content?.support_info || '',
       })
       
       // Track if this landing page was inherited from a template
@@ -118,8 +125,8 @@ export function LandingPageConfig({
       setIsInherited(landingPageWithInheritance.inherited_from_template || false)
       
       // Get template name if inherited
-      if (landingPageWithInheritance.inherited_from_template && landingPage.landing_page_template_id) {
-        const inheritedTemplate = availableTemplates.find(t => t.documentId === landingPage.landing_page_template_id)
+      if (landingPageWithInheritance.inherited_from_template && landingPage.template_id) {
+        const inheritedTemplate = availableTemplates.find(t => t.documentId === landingPage.template_id)
         setInheritedTemplateName(inheritedTemplate?.name || 'Unknown Template')
       }
     }
@@ -149,7 +156,7 @@ export function LandingPageConfig({
           offer_description: template.default_offer_description,
           offer_highlights: template.default_offer_highlights,
           offer_value: template.default_offer_value,
-          offer_expiry_date: template.default_offer_expiry_date,
+          offer_expiry_date: template.default_offer_expiry_date ? new Date(template.default_offer_expiry_date) : null,
           hero_image_url: template.default_hero_image_url,
           product_images: template.default_product_images,
           video_url: template.default_video_url,
@@ -185,7 +192,7 @@ export function LandingPageConfig({
           offer_description: template.default_offer_description,
           offer_highlights: template.default_offer_highlights,
           offer_value: template.default_offer_value,
-          offer_expiry_date: template.default_offer_expiry_date,
+          offer_expiry_date: template.default_offer_expiry_date ? new Date(template.default_offer_expiry_date) : null,
           hero_image_url: template.default_hero_image_url,
           product_images: template.default_product_images,
           video_url: template.default_video_url,
@@ -666,4 +673,4 @@ export function LandingPageConfig({
       )}
     </div>
   )
-} 
+}

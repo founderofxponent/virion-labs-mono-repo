@@ -16,8 +16,8 @@ import { Switch } from "@/components/ui/switch"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { useReferralLinks } from "@/hooks/use-referral-links"
-import { useAvailableCampaigns } from "@/hooks/use-available-campaigns"
+import { useReferralLinksApi } from "@/hooks/use-referral-links-api"
+import { useAvailableCampaignsApi } from "@/hooks/use-available-campaigns-api"
 import { type ReferralLink, type Platform } from "@/lib/supabase"
 import { toast } from "sonner"
 
@@ -43,8 +43,8 @@ interface ReferralLinkFormProps {
 
 export function ReferralLinkForm({ link, onSuccess, onCancel, preselectedCampaignId }: ReferralLinkFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { addLink, updateLink } = useReferralLinks()
-  const { campaigns: availableCampaigns } = useAvailableCampaigns()
+  const { addLink, updateLink } = useReferralLinksApi()
+  const { campaigns: availableCampaigns } = useAvailableCampaignsApi()
   const isEditing = !!link
 
   const form = useForm<LinkFormData>({
@@ -65,12 +65,14 @@ export function ReferralLinkForm({ link, onSuccess, onCancel, preselectedCampaig
     setIsSubmitting(true)
     
     try {
+      const selectedCampaign = availableCampaigns.find(c => c.id === data.campaign_id)
       const formData = {
         ...data,
         expires_at: data.expires_at?.toISOString() || null,
         thumbnail_url: data.thumbnail_url || null,
         description: data.description || null,
         campaign_id: data.campaign_id || null,
+        campaign_name: selectedCampaign?.campaign_name || null,
       }
 
       let result

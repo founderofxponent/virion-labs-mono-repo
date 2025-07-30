@@ -27,8 +27,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { useReferrals } from "@/hooks/use-referrals"
-import { type ReferralWithLink } from "@/lib/supabase"
+import { useReferralsApi } from "@/hooks/use-referrals-api"
+import { type Referral } from "@/hooks/use-referrals-api"
 import { toast } from "sonner"
 
 export function ReferralsPage() {
@@ -39,16 +39,48 @@ export function ReferralsPage() {
     error,
     updateReferralStatus,
     deleteReferral,
-    getReferralsSummary,
-    formatDate,
     refetch,
-  } = useReferrals()
+  } = useReferralsApi()
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const getReferralsSummary = () => {
+    const totalReferrals = referrals.length
+    const completedReferrals = referrals.filter(r => r.status === 'completed').length
+    const conversionRate = totalReferrals > 0 ? (completedReferrals / totalReferrals) * 100 : 0
+    
+    // This logic will need to be adapted once the full Referral type is available
+    const platformCounts = referrals.reduce((acc, referral) => {
+      const platform = referral.source_platform
+      acc[platform] = (acc[platform] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    const topPlatform = Object.entries(platformCounts)
+      .sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A'
+
+    return {
+      totalReferrals,
+      activeReferrals: referrals.filter(r => r.status === 'active').length,
+      completedReferrals,
+      pendingReferrals: referrals.filter(r => r.status === 'pending').length,
+      conversionRate,
+      topPlatform,
+      platformCounts,
+    }
+  }
 
   const [searchQuery, setSearchQuery] = useState("")
   const [filterSource, setFilterSource] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const [sortBy, setSortBy] = useState("newest")
-  const [deletingReferral, setDeletingReferral] = useState<ReferralWithLink | null>(null)
+  const [deletingReferral, setDeletingReferral] = useState<Referral | null>(null)
 
   const filteredReferrals = referrals
     .filter((referral) => {
@@ -84,22 +116,22 @@ export function ReferralsPage() {
 
   const summary = getReferralsSummary()
 
-  const handleStatusUpdate = async (referral: ReferralWithLink, newStatus: string) => {
-    const result = await updateReferralStatus(referral.id, newStatus)
-    if (result.error) {
-      toast.error(result.error)
-    } else {
+  const handleStatusUpdate = async (referral: Referral, newStatus: string) => {
+    try {
+      await updateReferralStatus(referral.id, newStatus)
       toast.success(`Referral status updated to ${newStatus}`)
+    } catch (error) {
+      toast.error("Failed to update referral status")
     }
   }
 
-  const handleDeleteReferral = async (referral: ReferralWithLink) => {
-    const result = await deleteReferral(referral.id)
-    if (result.error) {
-      toast.error(result.error)
-    } else {
+  const handleDeleteReferral = async (referral: Referral) => {
+    try {
+      await deleteReferral(referral.id)
       toast.success("Referral deleted successfully!")
       setDeletingReferral(null)
+    } catch (error) {
+      toast.error("Failed to delete referral")
     }
   }
 

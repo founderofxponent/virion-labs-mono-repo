@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
-from routers import health, operations, auth, users, integrations
+from routers import health, operations, auth, users, integrations, influencer, admin
 import logging
 
 # Configure logging
@@ -37,6 +37,8 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api", tags=["Users"])
 app.include_router(operations.router, prefix="/api/v1/operations", tags=["Operations"])
 app.include_router(integrations.router, prefix="/api/v1/integrations", tags=["Integrations"])
+app.include_router(influencer.router, prefix="/api/v1/influencer", tags=["Influencer"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 
 
 @app.get("/")

@@ -17,6 +17,8 @@ export interface LandingPageTemplate {
   layout_config: any;
   category?: string;
   is_active: boolean;
+  is_default?: boolean;
+  preview_image?: string;
   created_at: string;
   updated_at: string;
   // Default template fields for populating forms
@@ -171,6 +173,61 @@ export function useLandingPageTemplatesAPI(campaignType?: string, category?: str
     error,
     refresh: fetchTemplates,
     fetchSingleTemplate,
+    createTemplate: useCallback(async (templateData: any) => {
+      const token = getToken()
+      if (!token) {
+        throw new Error("Authentication token not found.")
+      }
+      const response = await fetch(`${API_BASE_URL}/landing-page-template/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(templateData)
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to create template')
+      }
+      fetchTemplates()
+    }, [fetchTemplates]),
+    updateTemplate: useCallback(async (templateId: string, templateData: any) => {
+      const token = getToken()
+      if (!token) {
+        throw new Error("Authentication token not found.")
+      }
+      const response = await fetch(`${API_BASE_URL}/landing-page-template/update/${templateId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(templateData)
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to update template')
+      }
+      fetchTemplates()
+    }, [fetchTemplates]),
+    deleteTemplate: useCallback(async (templateId: string) => {
+      const token = getToken()
+      if (!token) {
+        throw new Error("Authentication token not found.")
+      }
+      const response = await fetch(`${API_BASE_URL}/landing-page-template/delete/${templateId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to delete template')
+      }
+      fetchTemplates()
+    }, [fetchTemplates]),
   }
 }
 

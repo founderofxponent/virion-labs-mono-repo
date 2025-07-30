@@ -3,10 +3,12 @@ from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 import jwt
 from pydantic import BaseModel, EmailStr, ValidationError
 from typing import Optional, Dict, Any
-
+import logging
+ 
 from core.config import settings
 from core.strapi_client import strapi_client
-
+ 
+logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 api_key_header = APIKeyHeader(name="Authorization")
 
@@ -27,17 +29,20 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> di
     
     strapi_users_me_url = f"{settings.STRAPI_URL}/api/users/me?populate=role"
     headers = {"Authorization": f"Bearer {token}"}
-
+    logger.info(f"Validating token. URL: {strapi_users_me_url}")
+ 
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(strapi_users_me_url, headers=headers)
             response.raise_for_status()
-            return response.json()
+            user_data = response.json()
+            logger.info(f"Token validation successful. User data received: {user_data}")
+            return user_data
         except httpx.HTTPStatusError as e:
+            logger.error(f"Token validation failed. Status: {e.response.status_code}, Response: {e.response.text}")
             if e.response.status_code == 403:
                 # Add a warning for permission issues
-                import logging
-                logging.warning(f"Token validation failed. Strapi returned status 403")
+                logger.warning(f"Token validation failed. Strapi returned status 403")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token",
@@ -55,9 +60,15 @@ async def get_current_user(user_data: dict = Depends(get_current_user_from_token
     Dependency to get the current active user from validated Strapi user data.
     """
     try:
+        if not user_data:
+            logger.warning("get_current_user received empty user_data.")
+            return None
+        logger.info(f"Creating StrapiUser object from user_data: {user_data}")
         user = StrapiUser(**user_data)
+        logger.info(f"Successfully created StrapiUser object: {user}")
         return user
     except Exception as e:
+        logger.error(f"Error creating StrapiUser object: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating user object: {e}"

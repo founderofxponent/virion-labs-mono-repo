@@ -639,5 +639,104 @@ class StrapiClient:
         response = await self._request("GET", "referral-links", params=params)
         return response.get("data", [])
 
+    async def get_referral_links_by_user(self, user_id: str) -> List[Dict]:
+        """
+        Retrieves all referral links for a specific user.
+        """
+        filters = {
+            "filters[influencer][id][$eq]": user_id,
+            "populate": "campaign"
+        }
+        response = await self._request("GET", "referral-links", params=filters)
+        return response.get("data", [])
+
+    async def create_referral_link(self, link_data: Dict) -> Dict:
+        """Creates a new referral link in Strapi."""
+        logger.info("StrapiClient: Creating a new referral link in Strapi.")
+        data = {"data": link_data}
+        response = await self._request("POST", "referral-links", data=data)
+        return response.get("data")
+
+    async def update_referral_link(self, link_id: str, link_data: Dict) -> Dict:
+        """Updates a referral link in Strapi."""
+        logger.info(f"StrapiClient: Updating referral link {link_id} in Strapi.")
+        data = {"data": link_data}
+        response = await self._request("PUT", f"referral-links/{link_id}", data=data)
+        return response.get("data")
+
+    async def delete_referral_link(self, link_id: str) -> Dict:
+        """Deletes a referral link in Strapi."""
+        logger.info(f"StrapiClient: Deleting referral link {link_id} in Strapi.")
+        response = await self._request("DELETE", f"referral-links/{link_id}")
+        return response if response else {"status": "deleted"}
+
+    async def get_referrals_by_user(self, user_id: str) -> List[Dict]:
+        """
+        Retrieves all referrals for a specific user.
+        """
+        filters = {
+            "filters[influencer][id][$eq]": user_id,
+            "populate": "referral_link"
+        }
+        response = await self._request("GET", "referrals", params=filters)
+        return response.get("data", [])
+
+    async def update_referral(self, referral_id: str, referral_data: Dict) -> Dict:
+        """Updates a referral in Strapi."""
+        logger.info(f"StrapiClient: Updating referral {referral_id} in Strapi.")
+        data = {"data": referral_data}
+        response = await self._request("PUT", f"referrals/{referral_id}", data=data)
+        return response.get("data")
+
+    async def delete_referral(self, referral_id: str) -> Dict:
+        """Deletes a referral in Strapi."""
+        logger.info(f"StrapiClient: Deleting referral {referral_id} in Strapi.")
+        response = await self._request("DELETE", f"referrals/{referral_id}")
+        return response if response else {"status": "deleted"}
+
+    async def get_access_requests(self, filters: Optional[Dict] = None) -> List[Dict]:
+        """Fetches a list of campaign influencer access requests from Strapi."""
+        logger.info("StrapiClient: Fetching campaign influencer access requests from Strapi.")
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        
+        response = await self._request("GET", "campaign-influencer-accesses", params=params)
+        return response.get("data", [])
+
+    async def update_access_request(self, request_id: str, data: Dict) -> Dict:
+        """Updates a campaign influencer access request in Strapi."""
+        logger.info(f"StrapiClient: Updating campaign influencer access request {request_id} in Strapi.")
+        request_data = {"data": data}
+        response = await self._request("PUT", f"campaign-influencer-accesses/{request_id}", data=request_data)
+        return response.get("data")
+
+    async def get_campaign_landing_pages(self, campaign_id: str) -> List[Dict]:
+        """Fetches a list of landing pages for a campaign from Strapi."""
+        logger.info(f"StrapiClient: Fetching landing pages for campaign {campaign_id} from Strapi.")
+        params = {"filters[campaign][id][$eq]": campaign_id, "populate": "*"}
+        response = await self._request("GET", "campaign-landing-pages", params=params)
+        return response.get("data", [])
+
+    async def create_campaign_landing_page(self, page_data: Dict) -> Dict:
+        """Creates a new campaign landing page in Strapi."""
+        logger.info("StrapiClient: Creating a new campaign landing page in Strapi.")
+        data = {"data": page_data}
+        response = await self._request("POST", "campaign-landing-pages", data=data)
+        return response.get("data")
+
+    async def update_campaign_landing_page(self, page_id: str, page_data: Dict) -> Dict:
+        """Updates a campaign landing page in Strapi."""
+        logger.info(f"StrapiClient: Updating campaign landing page {page_id} in Strapi.")
+        data = {"data": page_data}
+        response = await self._request("PUT", f"campaign-landing-pages/{page_id}", data=data)
+        return response.get("data")
+
+    async def delete_campaign_landing_page(self, page_id: str) -> Dict:
+        """Deletes a campaign landing page in Strapi."""
+        logger.info(f"StrapiClient: Deleting campaign landing page {page_id} in Strapi.")
+        response = await self._request("DELETE", f"campaign-landing-pages/{page_id}")
+        return response if response else {"status": "deleted"}
+
 # Global client instance
 strapi_client = StrapiClient()
