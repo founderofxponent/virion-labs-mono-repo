@@ -65,7 +65,7 @@ export function CreateReferralLinkDialog({
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/campaigns/${campaign.id}/referral-links`, {
+      const response = await fetch(`/api/campaigns/${campaign.documentId}/referral-links`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

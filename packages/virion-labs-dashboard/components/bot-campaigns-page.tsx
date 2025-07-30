@@ -221,7 +221,7 @@ export default function BotCampaignsPage() {
 
   const handlePreviewLandingPage = (campaign: any) => {
     // Open landing page preview in a new window
-    const previewUrl = `/api/referral/preview/${campaign.id}`
+    const previewUrl = `/api/referral/preview/${campaign.documentId || campaign.id}`
     window.open(previewUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes')
   }
 
@@ -593,7 +593,7 @@ export default function BotCampaignsPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredCampaigns.map((campaign) => (
-                    <TableRow key={campaign.id}>
+                    <TableRow key={campaign.documentId || campaign.id}>
                       <TableCell>
                         <div className="flex items-center space-x-3">
                           <div className="flex-shrink-0">
@@ -720,7 +720,7 @@ export default function BotCampaignsPage() {
                                 return (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
+                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.documentId || campaign.id, campaign.name)}>
                                       <Download className="h-4 w-4 mr-2" />
                                       Export CSV
                                     </DropdownMenuItem>
@@ -732,18 +732,18 @@ export default function BotCampaignsPage() {
                                 return (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
+                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.documentId || campaign.id, campaign.name)}>
                                       <Download className="h-4 w-4 mr-2" />
                                       Export CSV
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleUnarchiveCampaign(campaign.id)}>
+                                    <DropdownMenuItem onClick={() => handleUnarchiveCampaign(campaign.documentId || campaign.id)}>
                                       <RotateCcw className="h-4 w-4 mr-2" />
                                       Unarchive
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem 
-                                      onClick={() => handleDeleteCampaign(campaign.id)}
+                                      onClick={() => handleDeleteCampaign(campaign.documentId || campaign.id)}
                                       className="text-red-600"
                                     >
                                       <Trash2 className="h-4 w-4 mr-2" />
@@ -757,17 +757,17 @@ export default function BotCampaignsPage() {
                               return (
                                 <>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${(campaign as any).document_id || campaign.id}/edit`)}>
+                                  <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/edit`)}>
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit Campaign
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.id, campaign.name)}>
+                                  <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.documentId || campaign.id, campaign.name)}>
                                     <Download className="h-4 w-4 mr-2" />
                                     Export CSV
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem 
-                                    onClick={() => handleArchiveCampaign(campaign.id)}
+                                    onClick={() => handleArchiveCampaign(campaign.documentId || campaign.id)}
                                     className="text-orange-600"
                                   >
                                     <Archive className="h-4 w-4 mr-2" />
@@ -775,7 +775,7 @@ export default function BotCampaignsPage() {
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem 
-                                    onClick={() => handleDeleteCampaign(campaign.id)}
+                                    onClick={() => handleDeleteCampaign(campaign.documentId || campaign.id)}
                                     className="text-red-600"
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />

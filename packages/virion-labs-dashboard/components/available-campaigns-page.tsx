@@ -31,7 +31,7 @@ export function AvailableCampaignsPage() {
 
     try {
       // This still uses a legacy endpoint. This should be updated in a future task.
-      const response = await fetch(`/api/campaigns/${campaign.id}/request-access`, {
+      const response = await fetch(`/api/campaigns/${campaign.documentId}/request-access`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -164,7 +164,7 @@ export function AvailableCampaignsPage() {
           const StatusIcon = statusInfo.icon
 
           return (
-            <div key={campaign.id} className="bg-white border rounded-lg p-6 hover:shadow-sm transition-shadow">
+            <div key={campaign.documentId} className="bg-white border rounded-lg p-6 hover:shadow-sm transition-shadow">
               <div className="flex items-start justify-between gap-8">
                 {/* Left side - Campaign info - Better distributed */}
                 <div className="flex-1 min-w-0">

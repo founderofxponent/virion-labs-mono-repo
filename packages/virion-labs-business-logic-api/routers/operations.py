@@ -3,15 +3,20 @@ from typing import Dict, Any, Optional, List
 from services.client_service import client_service
 from services.campaign_service import campaign_service
 from services.campaign_template_service import campaign_template_service
+from services.landing_page_template_service import landing_page_template_service
 from schemas.operation_schemas import (
     ClientCreateRequest, ClientCreateResponse,
     ClientListResponse, ClientUpdateRequest,
-    CampaignListResponse, CampaignUpdateRequest
+    CampaignListResponse, CampaignUpdateRequest,
+    LandingPageTemplateListResponse, LandingPageTemplateResponse,
+    LandingPageTemplateCreateRequest, LandingPageTemplateUpdateRequest
 )
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
 from core.strapi_client import strapi_client
 import logging
+from datetime import datetime
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +190,7 @@ async def list_campaigns_operation(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/campaign/get/{campaign_id}")
-async def get_campaign_operation(campaign_id: int):
+async def get_campaign_operation(campaign_id: str):
     """Business operation for getting campaign details."""
     try:
         campaign = await strapi_client.get_campaign(campaign_id)
@@ -195,8 +200,8 @@ async def get_campaign_operation(campaign_id: int):
         # Add business context
         business_context = {
             "performance_metrics": await _get_campaign_metrics(campaign_id),
-            "status_insights": _get_status_insights(campaign["attributes"]),
-            "recommendations": _get_campaign_recommendations(campaign["attributes"])
+            "status_insights": _get_status_insights(campaign),
+            "recommendations": _get_campaign_recommendations(campaign)
         }
         
         return {
@@ -206,12 +211,17 @@ async def get_campaign_operation(campaign_id: int):
         
     except HTTPException:
         raise
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        logger.error(f"Get campaign operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         logger.error(f"Get campaign operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/campaign/update/{campaign_id}")
-async def update_campaign_operation(campaign_id: int, request: CampaignUpdateRequest):
+async def update_campaign_operation(campaign_id: str, request: CampaignUpdateRequest):
     """Business operation for updating campaign."""
     try:
         # Add update metadata
@@ -230,7 +240,7 @@ async def update_campaign_operation(campaign_id: int, request: CampaignUpdateReq
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/campaign/update-stats/{campaign_id}")
-async def update_campaign_stats_operation(campaign_id: int, stats: Dict[str, Any]):
+async def update_campaign_stats_operation(campaign_id: str, stats: Dict[str, Any]):
     """Business operation for updating campaign statistics."""
     try:
         # Add timestamp to stats
@@ -316,7 +326,7 @@ async def delete_campaign_landing_page_operation(page_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Helper functions
-async def _get_campaign_metrics(campaign_id: int) -> Dict[str, Any]:
+async def _get_campaign_metrics(campaign_id: str) -> Dict[str, Any]:
     """Get performance metrics for campaign."""
     # Mock implementation - replace with actual metrics calculation
     return {
@@ -330,11 +340,15 @@ def _get_status_insights(campaign_data: Dict[str, Any]) -> List[str]:
     """Get status insights for campaign."""
     insights = []
     
-    status = campaign_data.get("status", "")
-    if status == "active":
+    is_active = campaign_data.get("is_active", True)
+    paused_at = campaign_data.get("paused_at")
+    
+    if is_active and not paused_at:
         insights.append("Campaign is currently active and receiving traffic")
-    elif status == "paused":
+    elif paused_at:
         insights.append("Campaign is paused - consider resuming for continued performance")
+    elif not is_active:
+        insights.append("Campaign is inactive")
     
     return insights
 
@@ -342,13 +356,18 @@ def _get_campaign_recommendations(campaign_data: Dict[str, Any]) -> List[str]:
     """Get recommendations for campaign optimization."""
     recommendations = []
     
-    budget = campaign_data.get("budget", 0)
-    if budget < 1000:
-        recommendations.append("Consider increasing budget for better reach")
+    total_interactions = campaign_data.get("total_interactions", 0)
+    if total_interactions < 50:
+        recommendations.append("Consider increasing promotional activities to boost engagement")
     
-    duration = campaign_data.get("duration_days", 0)
-    if duration > 60:
-        recommendations.append("Long campaigns may benefit from mid-point optimization")
+    referral_conversions = campaign_data.get("referral_conversions", 0)
+    successful_onboardings = campaign_data.get("successful_onboardings", 0)
+    
+    if total_interactions > 0 and referral_conversions == 0:
+        recommendations.append("Review referral tracking setup - no conversions detected")
+    
+    if successful_onboardings > 0 and referral_conversions < successful_onboardings * 0.5:
+        recommendations.append("Consider optimizing referral funnel to improve conversion rate")
     
     return recommendations
 
@@ -389,4 +408,154 @@ async def get_campaign_template_operation(
         raise
     except Exception as e:
         logger.error(f"Get campaign template operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Landing Page Template Operations
+@router.get("/landing-page-template/list", response_model=LandingPageTemplateListResponse)
+async def list_landing_page_templates_operation(
+    campaign_type: Optional[str] = None,
+    category: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Business operation for listing landing page templates."""
+    try:
+        filters = {}
+        
+        # Handle campaign_type filter
+        if campaign_type:
+            result = await landing_page_template_service.list_landing_page_templates_by_campaign_type_operation(
+                campaign_type=campaign_type, 
+                current_user=current_user
+            )
+        # Handle category filter
+        elif category:
+            result = await landing_page_template_service.list_landing_page_templates_by_category_operation(
+                category=category,
+                current_user=current_user
+            )
+        # No filters - list all
+        else:
+            result = await landing_page_template_service.list_landing_page_templates_operation(
+                filters=filters,
+                current_user=current_user
+            )
+        
+        return LandingPageTemplateListResponse(**result)
+        
+    except Exception as e:
+        logger.error(f"Landing page template list operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/landing-page-template/get/{template_id}", response_model=LandingPageTemplateResponse)
+async def get_landing_page_template_operation(
+    template_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Business operation for getting a specific landing page template."""
+    try:
+        result = await landing_page_template_service.get_landing_page_template_operation(
+            template_id=template_id,
+            current_user=current_user
+        )
+        
+        return LandingPageTemplateResponse(**result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get landing page template operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/landing-page-template/create", response_model=LandingPageTemplateResponse)
+async def create_landing_page_template_operation(
+    request: LandingPageTemplateCreateRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Business operation for creating a landing page template."""
+    try:
+        # Check admin permissions for creation
+        user_role = current_user.role.get('name') if current_user.role else 'Authenticated'
+        if user_role not in ['Platform Administrator']:
+            raise HTTPException(
+                status_code=403, 
+                detail="Forbidden: Only administrators can create landing page templates."
+            )
+        
+        template_data = request.model_dump(exclude_unset=True)
+        created_template = await strapi_client.create_landing_page_template(template_data)
+        
+        return LandingPageTemplateResponse(landing_page_template=created_template)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Create landing page template operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/landing-page-template/update/{template_id}", response_model=LandingPageTemplateResponse)
+async def update_landing_page_template_operation(
+    template_id: str,
+    request: LandingPageTemplateUpdateRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Business operation for updating a landing page template."""
+    try:
+        # Check admin permissions for updates
+        user_role = current_user.role.get('name') if current_user.role else 'Authenticated'
+        if user_role not in ['Platform Administrator']:
+            raise HTTPException(
+                status_code=403, 
+                detail="Forbidden: Only administrators can update landing page templates."
+            )
+        
+        # First verify the template exists
+        await landing_page_template_service.get_landing_page_template_operation(
+            template_id=template_id,
+            current_user=current_user
+        )
+        
+        update_data = request.model_dump(exclude_unset=True)
+        updated_template = await strapi_client.update_landing_page_template(template_id, update_data)
+        
+        return LandingPageTemplateResponse(landing_page_template=updated_template)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update landing page template operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/landing-page-template/delete/{template_id}")
+async def delete_landing_page_template_operation(
+    template_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Business operation for deleting a landing page template."""
+    try:
+        # Check admin permissions for deletion
+        user_role = current_user.role.get('name') if current_user.role else 'Authenticated'
+        if user_role not in ['Platform Administrator']:
+            raise HTTPException(
+                status_code=403, 
+                detail="Forbidden: Only administrators can delete landing page templates."
+            )
+        
+        # First verify the template exists
+        await landing_page_template_service.get_landing_page_template_operation(
+            template_id=template_id,
+            current_user=current_user
+        )
+        
+        result = await strapi_client.delete_landing_page_template(template_id)
+        
+        return {
+            "success": True,
+            "message": "Landing page template deleted successfully",
+            "template_id": template_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete landing page template operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

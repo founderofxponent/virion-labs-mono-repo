@@ -1,5 +1,6 @@
 export type Campaign = {
-  id: string; // Corresponds to campaign_id
+  id: string; // Corresponds to campaign_id (numeric ID from Strapi)
+  documentId: string; // Corresponds to documentId (string ID for API calls)
   name: string; // Corresponds to campaign_name
   type: string;
   client_name: string;
