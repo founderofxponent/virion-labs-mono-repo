@@ -105,4 +105,75 @@ class AnalyticsService:
                 "daily_metrics": []
             }
 
+    async def get_influencer_metrics(self, user_id: int) -> Dict[str, Any]:
+        """
+        Calculates the performance metrics for a specific influencer.
+        """
+        try:
+            logger.info(f"Calculating influencer metrics for user {user_id}")
+
+            # 1. Fetch all referral links for the user
+            link_filters = {"filters[influencer][id][$eq]": user_id}
+            referral_links = await strapi_client.get_referral_links(link_filters)
+
+            # 2. Aggregate the metrics
+            total_links = len(referral_links)
+            active_links = len([link for link in referral_links if link.get('is_active')])
+            total_clicks = sum(link.get('clicks', 0) for link in referral_links)
+            total_conversions = sum(link.get('conversions', 0) for link in referral_links)
+            total_earnings = sum(link.get('earnings', 0) for link in referral_links)
+
+            if total_clicks > 0:
+                overall_conversion_rate = (total_conversions / total_clicks) * 100
+            else:
+                overall_conversion_rate = 0
+
+            # 3. Format for the response
+            metrics = {
+                "total_links": total_links,
+                "active_links": active_links,
+                "total_clicks": total_clicks,
+                "total_conversions": total_conversions,
+                "total_earnings": total_earnings,
+                "overall_conversion_rate": round(overall_conversion_rate, 2),
+                "links": [
+                    {
+                        "id": link.get('id'),
+                        "title": link.get('title'),
+                        "platform": link.get('platform'),
+                        "clicks": link.get('clicks', 0),
+                        "conversions": link.get('conversions', 0),
+                        "earnings": link.get('earnings', 0),
+                        "conversion_rate": link.get('conversion_rate', 0),
+                        "referral_url": link.get('referral_url'),
+                        "original_url": link.get('original_url'),
+                        "thumbnail_url": link.get('thumbnail_url'),
+                        "is_active": link.get('is_active'),
+                        "created_at": link.get('createdAt'),
+                        "expires_at": link.get('expires_at'),
+                        "description": link.get('description'),
+                        "referral_code": link.get('referral_code'),
+                        "campaign_context": {
+                            "campaign_name": link.get('campaign', {}).get('name') if link.get('campaign') else None,
+                            "client_name": link.get('campaign', {}).get('client', {}).get('name') if link.get('campaign') and link.get('campaign').get('client') else None
+                        }
+                    }
+                    for link in referral_links
+                ]
+            }
+
+            return metrics
+
+        except Exception as e:
+            logger.error(f"Failed to calculate influencer metrics for user {user_id}: {e}")
+            return {
+                "total_links": 0,
+                "active_links": 0,
+                "total_clicks": 0,
+                "total_conversions": 0,
+                "total_earnings": 0,
+                "overall_conversion_rate": 0,
+                "links": []
+            }
+
 analytics_service = AnalyticsService()

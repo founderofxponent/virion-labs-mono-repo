@@ -427,16 +427,8 @@ async def get_analytics_influencer_metrics(user: StrapiUser = Depends(get_curren
     (Protected)
     """
     try:
-        # Mock influencer metrics data
-        influencer_data = {
-            "personal_stats": {
-                "total_referrals": 0,
-                "successful_conversions": 0,
-                "earnings": 0.0,
-                "performance_score": 0.0
-            },
-            "campaign_performance": []
-        }
+        # The user object from the dependency contains the user's ID
+        influencer_data = await analytics_service.get_influencer_metrics(user.id)
         return influencer_data
         
     except Exception as e:

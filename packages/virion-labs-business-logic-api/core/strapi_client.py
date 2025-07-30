@@ -631,5 +631,15 @@ class StrapiClient:
         return response.get("data") if response else {"status": "deleted"}
     # endregion
 
+    async def get_referral_links(self, filters: Optional[Dict] = None) -> List[Dict]:
+        """Fetches a list of referral links from Strapi."""
+        logger.info("StrapiClient: Fetching referral links from Strapi.")
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        
+        response = await self._request("GET", "referral-links", params=params)
+        return response.get("data", [])
+
 # Global client instance
 strapi_client = StrapiClient()

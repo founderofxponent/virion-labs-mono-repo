@@ -40,8 +40,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { useReferralLinks } from "@/hooks/use-referral-links"
-import { type ReferralLinkWithAnalytics } from "@/lib/supabase"
+import { useReferralLinksApi, type InfluencerLink } from "@/hooks/useReferralLinks-api"
 import { useToast } from "@/hooks/use-toast"
 import { ReferralLinkSuccessModal } from "./referral-link-success-modal"
 import { QRCodeSVG } from "qrcode.react"
@@ -50,76 +49,34 @@ export function LinksPage() {
   const { profile } = useAuth()
   const { toast } = useToast()
   const {
-    links,
+    metrics,
     loading,
     error,
-    deleteLink,
-    toggleLinkStatus,
-    getAnalyticsSummary,
-    formatDate,
-    fetchLinks,
-  } = useReferralLinks()
+    refresh,
+  } = useReferralLinksApi()
 
   const [showLinkForm, setShowLinkForm] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [createdLink, setCreatedLink] = useState<ReferralLinkWithAnalytics | null>(null)
-  const [editingLink, setEditingLink] = useState<ReferralLinkWithAnalytics | null>(null)
-  const [deletingLink, setDeletingLink] = useState<ReferralLinkWithAnalytics | null>(null)
+  const [createdLink, setCreatedLink] = useState<InfluencerLink | null>(null)
+  const [editingLink, setEditingLink] = useState<InfluencerLink | null>(null)
+  const [deletingLink, setDeletingLink] = useState<InfluencerLink | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterPlatform, setFilterPlatform] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterCampaign, setFilterCampaign] = useState("all")
   const [sortBy, setSortBy] = useState("newest")
 
-  // Get unique campaigns for filter dropdown
-  const uniqueCampaigns = Array.from(
-    new Set(
-      links
-        .filter(link => link.campaign_context)
-        .map(link => link.campaign_context!.campaign_name)
-    )
-  ).sort()
+  // TODO: Re-implement filtering and sorting with the new data structure
+  const filteredLinks = metrics?.links || []
+  const uniqueCampaigns: string[] = [] // Placeholder
 
-  const filteredLinks = links
-    .filter((link) => {
-      if (filterPlatform !== "all" && link.platform.toLowerCase() !== filterPlatform) {
-        return false
-      }
-      if (filterStatus === "active" && !link.is_active) {
-        return false
-      }
-      if (filterStatus === "inactive" && link.is_active) {
-        return false
-      }
-      if (filterCampaign !== "all") {
-        if (filterCampaign === "no-campaign" && link.campaign_context) {
-          return false
-        }
-        if (filterCampaign !== "no-campaign" && (!link.campaign_context || link.campaign_context.campaign_name !== filterCampaign)) {
-          return false
-        }
-      }
-      if (searchQuery && !link.title.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false
-      }
-      return true
-    })
-    .sort((a, b) => {
-      if (sortBy === "newest") {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      } else if (sortBy === "oldest") {
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      } else if (sortBy === "most-clicks") {
-        return b.clicks - a.clicks
-      } else if (sortBy === "most-conversions") {
-        return b.conversions - a.conversions
-      } else if (sortBy === "highest-rate") {
-        return (b.conversion_rate || 0) - (a.conversion_rate || 0)
-      }
-      return 0
-    })
-
-  const analytics = getAnalyticsSummary()
+  const analytics = {
+    totalLinks: metrics?.total_links || 0,
+    activeLinks: metrics?.active_links || 0,
+    totalClicks: metrics?.total_clicks || 0,
+    totalConversions: metrics?.total_conversions || 0,
+    averageConversionRate: metrics?.overall_conversion_rate || 0,
+  }
 
   const handleCopyLink = async (url: string) => {
     try {
@@ -137,40 +94,16 @@ export function LinksPage() {
     }
   }
 
-  const handleDeleteLink = async (link: ReferralLinkWithAnalytics) => {
-    const result = await deleteLink(link.id)
-    if (result.error) {
-      toast({
-        title: "Error",
-        description: result.error,
-        variant: "destructive"
-      })
-    } else {
-      toast({
-        title: "Success",
-        description: "Link deleted successfully!"
-      })
-      setDeletingLink(null)
-    }
+  // TODO: Re-implement mutation handlers
+  const handleDeleteLink = async (link: InfluencerLink) => {
+    toast({ title: "Action Disabled", description: "Delete functionality is temporarily disabled during migration." })
   }
 
-  const handleToggleStatus = async (link: ReferralLinkWithAnalytics) => {
-    const result = await toggleLinkStatus(link.id)
-    if (result.error) {
-      toast({
-        title: "Error",
-        description: result.error,
-        variant: "destructive"
-      })
-    } else {
-      toast({
-        title: "Success",
-        description: `Link ${link.is_active ? 'deactivated' : 'activated'} successfully!`
-      })
-    }
+  const handleToggleStatus = async (link: InfluencerLink) => {
+    toast({ title: "Action Disabled", description: "Status toggle is temporarily disabled during migration." })
   }
 
-  const handleLinkCreated = (link: ReferralLinkWithAnalytics) => {
+  const handleLinkCreated = (link: any) => { // TODO: Use correct type
     setCreatedLink(link)
     setShowLinkForm(false)
     setShowSuccessModal(true)
@@ -178,20 +111,28 @@ export function LinksPage() {
       title: "Success",
       description: "Referral link created successfully!"
     })
-    fetchLinks()
+    refresh()
   }
 
   const handleCreateAnother = () => {
     setShowSuccessModal(false)
     setCreatedLink(null)
     setShowLinkForm(true)
-    fetchLinks()
+    refresh()
   }
 
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false)
     setCreatedLink(null)
-    fetchLinks()
+    refresh()
+  }
+  
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })
   }
 
   if (loading) {
@@ -249,7 +190,7 @@ export function LinksPage() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={async () => {
             try {
-              await fetchLinks()
+              await refresh()
               toast({
                 title: "Success",
                 description: "Links refreshed successfully!"
@@ -503,7 +444,7 @@ export function LinksPage() {
           </DialogHeader>
           {editingLink && (
             <ReferralLinkForm 
-              link={editingLink}
+              link={editingLink as any} // TODO: Fix type
               onSuccess={() => setEditingLink(null)}
               onCancel={() => setEditingLink(null)}
             />
@@ -536,7 +477,7 @@ export function LinksPage() {
       <ReferralLinkSuccessModal
         isOpen={showSuccessModal}
         onClose={handleSuccessModalClose}
-        link={createdLink}
+        link={createdLink as any} // TODO: Fix type
         campaignName={createdLink?.campaign_context?.campaign_name}
         clientName={createdLink?.campaign_context?.client_name}
         onCreateAnother={handleCreateAnother}
@@ -547,11 +488,11 @@ export function LinksPage() {
 }
 
 interface LinkCardProps {
-  link: ReferralLinkWithAnalytics
+  link: InfluencerLink
   onCopy: (url: string) => void
-  onEdit: (link: ReferralLinkWithAnalytics) => void
-  onDelete: (link: ReferralLinkWithAnalytics) => void
-  onToggleStatus: (link: ReferralLinkWithAnalytics) => void
+  onEdit: (link: InfluencerLink) => void
+  onDelete: (link: InfluencerLink) => void
+  onToggleStatus: (link: InfluencerLink) => void
   formatDate: (date: string) => string
 }
 
