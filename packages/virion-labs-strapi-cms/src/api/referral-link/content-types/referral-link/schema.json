@@ -110,7 +110,7 @@
     "influencer": {
       "type": "relation",
       "relation": "manyToOne",
-      "target": "api::user-profile.user-profile",
+      "target": "plugin::users-permissions.user",
       "inversedBy": "referral_links"
     }
   }

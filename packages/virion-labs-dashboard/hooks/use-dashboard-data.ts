@@ -327,6 +327,7 @@ export function useDashboardData() {
           break
         }
 
+        case 'Influencer':
         case 'influencer': {
           // Fetch user settings for influencer dashboard
           const settingsResponse = await fetch(`${API_BASE_URL}/api/users/me/settings`, {

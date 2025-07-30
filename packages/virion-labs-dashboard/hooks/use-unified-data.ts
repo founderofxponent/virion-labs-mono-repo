@@ -339,6 +339,7 @@ export function useUnifiedData() {
       let transformedData: UnifiedData
 
       switch (profile.role) {
+        case 'Influencer':
         case 'influencer': {
           const [linksResponse, referralsResponse, campaignsResponse] = await Promise.all([
             supabase
@@ -454,22 +455,26 @@ export function useUnifiedData() {
           if (clientError) throw clientError;
           if (!clientData) throw new Error("Client not found");
 
-          const [campaignsResponse, influencersResponse, conversionsResponse] = await Promise.all([
-            supabase
-              .from('discord_guild_campaigns')
-              .select(`
-                *,
-                clients!inner(name)
-              `)
-              .eq('client_id', clientData.id)
-              .order('created_at', { ascending: false })
-              .limit(50),
+          const { data: campaignsData, error: campaignsError } = await supabase
+            .from('discord_guild_campaigns')
+            .select(`
+              *,
+              clients!inner(name),
+              referral_links(influencer_id)
+            `)
+            .eq('client_id', clientData.id)
+            .order('created_at', { ascending: false })
+            .limit(50);
 
+          if (campaignsError) throw campaignsError;
+
+          const influencerIds = [...new Set(campaignsData.flatMap(c => c.referral_links.map((rl: { influencer_id: string }) => rl.influencer_id)))];
+
+          const [influencersResponse, conversionsResponse] = await Promise.all([
             supabase
-              .from('user_profiles')
+              .from('users')
               .select('id, full_name, email, created_at, role')
-              // .in('id', campaign.influencer_ids) // This would be ideal but needs a way to get all influencer IDs first
-              .eq('role', 'influencer')
+              .in('id', influencerIds)
               .limit(50),
 
             supabase
@@ -481,12 +486,11 @@ export function useUnifiedData() {
               .limit(100)
           ]);
 
-          if (campaignsResponse.error) throw campaignsResponse.error;
           if (influencersResponse.error) throw influencersResponse.error;
           if (conversionsResponse.error) throw conversionsResponse.error;
 
           transformedData = transformClientData(
-            campaignsResponse.data || [],
+            campaignsData || [],
             influencersResponse.data || [],
             conversionsResponse.data || []
           );

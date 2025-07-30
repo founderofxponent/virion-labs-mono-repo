@@ -920,7 +920,7 @@ export interface ApiReferralLinkReferralLink
     expires_at: Schema.Attribute.DateTime;
     influencer: Schema.Attribute.Relation<
       'manyToOne',
-      'api::user-profile.user-profile'
+      'plugin::users-permissions.user'
     >;
     is_active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
     landing_page_enabled: Schema.Attribute.Boolean &
@@ -955,54 +955,6 @@ export interface ApiReferralLinkReferralLink
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-  };
-}
-
-export interface ApiUserProfileUserProfile extends Struct.CollectionTypeSchema {
-  collectionName: 'user_profiles';
-  info: {
-    displayName: 'User Profile';
-    pluralName: 'user-profiles';
-    singularName: 'user-profile';
-  };
-  options: {
-    draftAndPublish: true;
-  };
-  attributes: {
-    avatar_url: Schema.Attribute.Media<
-      'images' | 'files' | 'videos' | 'audios'
-    >;
-    campaign_influencer_accesses: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::campaign-influencer-access.campaign-influencer-access'
-    >;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    email: Schema.Attribute.Email &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique;
-    full_name: Schema.Attribute.String & Schema.Attribute.Required;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::user-profile.user-profile'
-    > &
-      Schema.Attribute.Private;
-    publishedAt: Schema.Attribute.DateTime;
-    referral_links: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::referral-link.referral-link'
-    >;
-    role: Schema.Attribute.Enumeration<['influencer', 'client', 'admin']> &
-      Schema.Attribute.DefaultTo<'influencer'>;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    user_setting: Schema.Attribute.Relation<
-      'oneToOne',
-      'api::user-setting.user-setting'
-    >;
   };
 }
 
@@ -1529,10 +1481,16 @@ export interface PluginUsersPermissionsUser
   };
   options: {
     draftAndPublish: false;
-    timestamps: true;
   };
   attributes: {
+    avatar_url: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    campaign_influencer_accesses: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-influencer-access.campaign-influencer-access'
+    >;
     confirmationToken: Schema.Attribute.String & Schema.Attribute.Private;
     confirmed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     createdAt: Schema.Attribute.DateTime;
@@ -1543,6 +1501,7 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    full_name: Schema.Attribute.String;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -1556,6 +1515,10 @@ export interface PluginUsersPermissionsUser
       }>;
     provider: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
+    referral_links: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::referral-link.referral-link'
+    >;
     resetPasswordToken: Schema.Attribute.String & Schema.Attribute.Private;
     role: Schema.Attribute.Relation<
       'manyToOne',
@@ -1564,6 +1527,10 @@ export interface PluginUsersPermissionsUser
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    user_setting: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::user-setting.user-setting'
+    >;
     username: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique &
@@ -1595,7 +1562,6 @@ declare module '@strapi/strapi' {
       'api::landing-page-template.landing-page-template': ApiLandingPageTemplateLandingPageTemplate;
       'api::referral-analytic.referral-analytic': ApiReferralAnalyticReferralAnalytic;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;
-      'api::user-profile.user-profile': ApiUserProfileUserProfile;
       'api::user-setting.user-setting': ApiUserSettingUserSetting;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;

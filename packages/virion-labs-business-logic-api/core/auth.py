@@ -25,28 +25,19 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> di
     """
     import httpx
     
-    strapi_users_me_url = f"{settings.STRAPI_URL}/api/users/me"
+    strapi_users_me_url = f"{settings.STRAPI_URL}/api/users/me?populate=role"
     headers = {"Authorization": f"Bearer {token}"}
 
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(strapi_users_me_url, headers=headers)
             response.raise_for_status()
-            user_data = response.json()
-            
-            # Get user's role for compatibility with existing code
-            user_id = user_data.get("id")
-            if user_id:
-                strapi_user_details_url = f"{settings.STRAPI_URL}/api/users/{user_id}?populate=role"
-                role_response = await client.get(strapi_user_details_url, headers=headers)
-                role_response.raise_for_status()
-                
-                role_data = role_response.json().get("role")
-                if role_data:
-                    user_data["role"] = role_data
-            
-            return user_data
-        except httpx.HTTPStatusError:
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 403:
+                # Add a warning for permission issues
+                import logging
+                logging.warning(f"Token validation failed. Strapi returned status 403")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token",

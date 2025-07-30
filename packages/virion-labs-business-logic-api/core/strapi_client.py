@@ -534,33 +534,31 @@ class StrapiClient:
         response = await self._request("GET", "campaign-templates", params=params)
         return response.get("data", [])
 
-    async def get_user_profiles(self, filters: Optional[Dict] = None) -> List[Dict]:
-        """Fetches a list of user profiles from Strapi."""
-        logger.info("StrapiClient: Fetching user profiles from Strapi.")
+    async def get_users(self, filters: Optional[Dict] = None) -> List[Dict]:
+        """Fetches a list of users from Strapi."""
+        logger.info("StrapiClient: Fetching users from Strapi.")
         params = {"populate": "*"}
         if filters:
             params.update(filters)
         
-        response = await self._request("GET", "user-profiles", params=params)
-        return response.get("data", [])
+        response = await self._request("GET", "users", params=params)
+        return response
 
-    async def create_user_profile(self, profile_data: Dict) -> Dict:
-        """Creates a new user profile in Strapi."""
-        logger.info("StrapiClient: Creating new user profile in Strapi.")
-        data = {"data": profile_data}
-        response = await self._request("POST", "user-profiles", data=data)
-        return response.get("data")
+    async def create_user(self, user_data: Dict) -> Dict:
+        """Creates a new user in Strapi."""
+        logger.info("StrapiClient: Creating new user in Strapi.")
+        response = await self._request("POST", "users", data=user_data)
+        return response
 
-    async def update_user_profile(self, profile_id: int, profile_data: Dict) -> Dict:
-        """Updates a user profile in Strapi using its ID."""
-        logger.info(f"StrapiClient: Updating user profile {profile_id} in Strapi.")
-        data = {"data": profile_data}
+    async def update_user(self, user_id: int, user_data: Dict) -> Dict:
+        """Updates a user in Strapi using its ID."""
+        logger.info(f"StrapiClient: Updating user {user_id} in Strapi.")
         try:
-            response = await self._request("PUT", f"user-profiles/{profile_id}", data=data)
-            return response.get("data")
+            response = await self._request("PUT", f"users/{user_id}", data=user_data)
+            return response
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                logger.warning(f"User profile {profile_id} not found (404), it may have been deleted")
+                logger.warning(f"User {user_id} not found (404), it may have been deleted")
                 return None
             raise
 

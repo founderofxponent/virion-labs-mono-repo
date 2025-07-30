@@ -44,17 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   const createProfileFromUser = (user: User): UserProfile => {
-    // Determine the role based on the name provided by the API.
-    // If the role is the generic 'Authenticated', we default to 'influencer' for the dashboard view.
-    // Specific roles like 'Platform Administrator' will be preserved.
-    const role = user.role === 'Authenticated' ? 'influencer' : user.role || 'influencer';
-    
     const profile = {
       id: user.id,
       email: user.email,
       full_name: user.full_name || user.email?.split('@')[0] || 'User',
       avatar_url: user.avatar_url || null,
-      role: role,
+      role: user.role || 'influencer', // Use the role from the API directly
     };
     console.log("Created profile object:", profile); // Log the created profile
     return profile;

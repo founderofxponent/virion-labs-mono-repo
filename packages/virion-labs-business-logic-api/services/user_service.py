@@ -16,91 +16,50 @@ async def get_user_settings_by_user_id(user: StrapiUser) -> Optional[Dict[str, A
     try:
         # 1. Find the user-profile by the user's unique email.
         filters = {"filters[email][$eq]": user.email, "populate": "user_setting"}
-        logger.info(f"Searching for user profile with filters: {filters}")
-        user_profiles = await strapi_client.get_user_profiles(filters=filters)
+        logger.info(f"Searching for user with filters: {filters}")
+        users = await strapi_client.get_users(filters=filters)
         
-        if not user_profiles:
-            # Case 1: No profile exists. Create both profile and settings.
-            logger.warning(f"No profile found for {user.email}. Creating both.")
+        if not users:
+            # Case 1: No user exists. Create both user and settings.
+            logger.warning(f"No user found for {user.email}. Creating both.")
             
             # a. Create the setting first.
             settings_payload = {"publishedAt": datetime.utcnow().isoformat()}
             new_settings = await strapi_client.create_user_setting(settings_payload)
             
-            # b. Create the profile and link the new setting in the same call.
-            profile_payload = {
+            # b. Create the user and link the new setting in the same call.
+            user_payload = {
                 "email": user.email,
+                "username": user.username,
                 "full_name": user.username,
                 "publishedAt": datetime.utcnow().isoformat(),
                 "user_setting": new_settings.get("id")
             }
-            await strapi_client.create_user_profile(profile_payload)
+            await strapi_client.create_user(user_payload)
             
-            logger.info(f"SUCCESS: Atomically created profile and settings for {user.email}.")
+            logger.info(f"SUCCESS: Atomically created user and settings for {user.email}.")
             return new_settings
 
-        # Case 2: Profile exists.
-        profile = user_profiles[0]
-        profile_id = profile.get("id")
-        profile_attrs = profile
+        # Case 2: User exists.
+        user_data = users[0]
+        user_id = user_data.get("id")
         
-        logger.info(f"Found profile ID: {profile_id} for user {user.email}")
+        logger.info(f"Found user ID: {user_id} for user {user.email}")
         
         # Check if the settings relation is missing or null
-        user_setting_relation = profile_attrs.get("user_setting", {}).get("data")
-        if user_setting_relation:
+        user_setting = user_data.get("user_setting")
+        if user_setting:
             logger.info(f"SUCCESS: Found existing settings for user {user.email}.")
-            return user_setting_relation
+            return user_setting
         else:
-            # Case 3: Profile exists, but settings are missing. Create and link.
-            logger.warning(f"Profile exists but no settings for {user.email}. Creating and linking.")
-            
-            # Re-fetch the profile immediately before creating settings to ensure it still exists
-            logger.info(f"Re-verifying profile {profile_id} exists before creating settings...")
-            verification_profiles = await strapi_client.get_user_profiles(filters=filters)
-            if not verification_profiles:
-                logger.error(f"Profile disappeared during verification. Creating new profile and settings.")
-                # Profile disappeared, create both
-                settings_payload = {"publishedAt": datetime.utcnow().isoformat()}
-                new_settings = await strapi_client.create_user_setting(settings_payload)
-                
-                profile_payload = {
-                    "email": user.email,
-                    "full_name": user.username,
-                    "publishedAt": datetime.utcnow().isoformat(),
-                    "user_setting": new_settings.get("id")
-                }
-                await strapi_client.create_user_profile(profile_payload)
-                return new_settings
-            
-            verified_profile = verification_profiles[0]
-            verified_profile_id = verified_profile.get("id")
-            
-            if verified_profile_id != profile_id:
-                logger.warning(f"Profile ID changed from {profile_id} to {verified_profile_id}")
-                profile_id = verified_profile_id
+            # Case 3: User exists, but settings are missing. Create and link.
+            logger.warning(f"User exists but no settings for {user.email}. Creating and linking.")
             
             settings_payload = {"publishedAt": datetime.utcnow().isoformat()}
             new_settings = await strapi_client.create_user_setting(settings_payload)
             
             update_payload = {"user_setting": new_settings.get("id")}
-            try:
-                logger.info(f"Attempting to update verified profile {profile_id}")
-                result = await strapi_client.update_user_profile(profile_id, update_payload)
-                if result is None:
-                    logger.warning(f"Profile {profile_id} not found (404), recreating profile with settings")
-                    # Create a new profile since the old one doesn't exist
-                    profile_payload = {
-                        "email": user.email,
-                        "full_name": user.username,
-                        "publishedAt": datetime.utcnow().isoformat(),
-                        "user_setting": new_settings.get("id")
-                    }
-                    await strapi_client.create_user_profile(profile_payload)
-            except Exception as update_error:
-                logger.error(f"Failed to update verified profile {profile_id}: {update_error}")
-                logger.warning("Returning unlinked settings as fallback.")
-                return new_settings
+            await strapi_client.update_user(user_id, update_payload)
             
             logger.info(f"SUCCESS: Created and linked new settings for {user.email}.")
             return new_settings
