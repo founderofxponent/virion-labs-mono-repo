@@ -21,7 +21,7 @@ interface ClientDetailPageProps {
   clientId: string
 }
 
-type ClientStatus = "active" | "inactive" | "pending"
+type ClientStatus = "active" | "inactive"
 
 interface ClientUpdate {
   name?: string
@@ -371,7 +371,6 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
                     <SelectContent>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

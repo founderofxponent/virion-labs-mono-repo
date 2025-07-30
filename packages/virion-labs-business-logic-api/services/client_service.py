@@ -172,6 +172,7 @@ class ClientService:
         if filters is None:
             filters = {}
 
+
         if user_role == 'Platform Administrator':
             pass  # Admin can access all clients
         elif user_role == 'Client':

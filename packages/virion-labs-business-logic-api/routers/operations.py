@@ -104,6 +104,20 @@ async def update_client_operation(client_id: str, request: ClientUpdateRequest, 
         logger.error(f"Client update operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.delete("/client/delete/{client_id}")
+async def delete_client_operation(client_id: str, current_user: User = Depends(get_current_user)):
+    """Business operation for deleting client with cleanup."""
+    try:
+        result = await client_service.delete_client_operation(
+            document_id=client_id,
+            current_user=current_user
+        )
+        return result
+        
+    except Exception as e:
+        logger.error(f"Client delete operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/client/archive/{client_id}")
 async def archive_client_operation(client_id: int):
     """Business operation for archiving client with cleanup."""
