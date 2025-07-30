@@ -493,6 +493,16 @@ class StrapiClient:
         response = await self._request("GET", "campaign-onboarding-responses", params=params)
         return response.get("data", [])
 
+    async def get_onboarding_starts(self, filters: Optional[Dict] = None) -> List[Dict]:
+        """Fetches a list of campaign onboarding starts from Strapi."""
+        logger.info("StrapiClient: Fetching campaign onboarding starts from Strapi.")
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        
+        response = await self._request("GET", "campaign-onboarding-starts", params=params)
+        return response.get("data", [])
+
     async def get_onboarding_completions(self, filters: Optional[Dict] = None) -> List[Dict]:
         """Fetches a list of campaign onboarding completions from Strapi."""
         logger.info("StrapiClient: Fetching campaign onboarding completions from Strapi.")

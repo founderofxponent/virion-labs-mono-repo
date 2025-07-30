@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional, Dict, Any
 from services.client_service import client_service
 from services.campaign_service import campaign_service
+from services.analytics_service import analytics_service
 from services.landing_page_template_service import landing_page_template_service
 from schemas.operation_schemas import ClientListResponse, ClientCreateRequest, ClientCreateResponse, ClientUpdateRequest
 from core.auth import get_current_user, StrapiUser
@@ -328,43 +329,50 @@ async def get_analytics_dashboard(user: StrapiUser = Depends(get_current_user)):
     (Protected)
     """
     try:
-        # Mock analytics data for now - replace with actual analytics service
+        # Get all campaigns to aggregate analytics
+        all_campaigns_result = await campaign_service.list_campaigns_operation(current_user=user)
+        all_campaigns = all_campaigns_result.get("campaigns", [])
+
+        total_starts = 0
+        total_completions = 0
+        
+        campaign_analytics_list = []
+
+        for campaign in all_campaigns:
+            campaign_id = campaign.documentId
+            if campaign_id:
+                funnel_data = await analytics_service.get_onboarding_funnel_analytics(campaign_id)
+                total_starts += funnel_data.get("total_starts", 0)
+                total_completions += funnel_data.get("total_completions", 0)
+                campaign_analytics_list.append({
+                    "campaign_id": campaign_id,
+                    "name": campaign.name,
+                    **funnel_data
+                })
+
+        # Calculate overall completion rate
+        overall_completion_rate = (total_completions / total_starts) * 100 if total_starts > 0 else 0
+
         analytics_data = {
             "overview": {
-                "total_campaigns": 0,
-                "active_campaigns": 0,
-                "campaigns_last_30_days": 0,
-                "total_clients": 0,
-                "active_clients": 0,
-                "new_clients_30_days": 0,
-                "total_users_responded": 0,
-                "users_completed": 0,
-                "total_field_responses": 0,
-                "responses_last_7_days": 0,
-                "responses_last_30_days": 0,
-                "total_interactions": 0,
-                "unique_interaction_users": 0,
-                "onboarding_completions": 0,
-                "interactions_24h": 0,
-                "total_referral_links": 0,
-                "active_referral_links": 0,
-                "total_clicks": 0,
-                "total_conversions": 0,
-                "completion_rate": 0.0,
-                "click_through_rate": 0.0
+                "total_campaigns": len(all_campaigns),
+                "active_campaigns": len([c for c in all_campaigns if c.is_active]),
+                "total_onboarding_starts": total_starts,
+                "total_onboarding_completions": total_completions,
+                "overall_completion_rate": round(overall_completion_rate, 2),
             },
-            "campaigns": [],
-            "dailyMetrics": []
+            "campaigns": campaign_analytics_list,
+            "dailyMetrics": [] # Placeholder for future implementation
         }
-        
+
         # Get actual client count from the client service
         client_result = await client_service.list_clients_operation({}, current_user=user)
         analytics_data["overview"]["total_clients"] = client_result.get("total_count", 0)
         analytics_data["overview"]["active_clients"] = len([
-            c for c in client_result.get("clients", []) 
+            c for c in client_result.get("clients", [])
             if c.attributes.get("client_status") == "active"
         ])
-        
+
         return analytics_data
         
     except Exception as e:
