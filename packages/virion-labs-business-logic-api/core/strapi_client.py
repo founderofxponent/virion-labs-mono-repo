@@ -403,7 +403,7 @@ class StrapiClient:
         """Creates an onboarding field for a campaign in Strapi."""
         logger.info(f"StrapiClient: Creating onboarding field for campaign {campaign_id} in Strapi.")
         
-        payload = {key: value for key, value in field_data.items() if key not in ['campaign_id', 'id']}
+        payload = {key: value for key, value in field_data.items() if key not in ['campaign_id', 'id', 'documentId']}
         
         data = {"data": {"campaign": {"connect": [{"documentId": campaign_id}]}, **payload}}
         response = await self._request("POST", "campaign-onboarding-fields", data=data)

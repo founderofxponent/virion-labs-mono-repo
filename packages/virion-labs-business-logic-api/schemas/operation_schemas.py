@@ -1,6 +1,5 @@
-from pydantic import BaseModel, EmailStr
-from typing import List, Optional, Dict, Any
-
+from pydantic import BaseModel, EmailStr, Field
+from typing import List, Optional, Dict, Any, Union
 # --- Base Models ---
 
 class BusinessContext(BaseModel):
@@ -74,8 +73,28 @@ class CampaignUpdateRequest(BaseModel):
     budget: Optional[float] = None
     duration_days: Optional[int] = None
 
-# --- Landing Page Template Operations ---
+# --- Onboarding Fields Batch Update ---
 
+
+
+class OnboardingFieldData(BaseModel):
+    id: Optional[Union[str, int]] = None
+    documentId: Optional[str] = None
+    field_key: str
+    field_label: str
+    field_type: str
+    is_required: bool
+    is_enabled: bool
+    sort_order: int
+    field_options: Optional[List[Any]] = []
+    validation_rules: Optional[Dict[str, Any]] = {}
+
+class OnboardingFieldsBatchUpdateRequest(BaseModel):
+    fields: List[OnboardingFieldData]
+    delete_ids: Optional[List[str]] = []
+ 
+# --- Landing Page Template Operations ---
+ 
 class LandingPageTemplateListResponse(BaseModel):
     """
     Defines the structure for the response of the landing page template list operation.

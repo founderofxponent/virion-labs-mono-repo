@@ -160,6 +160,66 @@ class CampaignService:
             "message": "Campaign landing page deleted successfully."
         }
 
+    async def get_onboarding_fields_operation(self, campaign_id: str) -> Dict[str, Any]:
+        """Business operation for getting campaign onboarding fields."""
+        logger.info(f"Executing get onboarding fields operation for campaign: {campaign_id}")
+
+        fields = await strapi_client.get_onboarding_fields(campaign_id)
+
+        return {
+            "fields": fields,
+            "campaign_id": campaign_id,
+            "total_count": len(fields)
+        }
+
+    async def update_onboarding_fields_batch_operation(self, campaign_id: str, fields_data: List[Dict[str, Any]], delete_ids: List[str] = []) -> Dict[str, Any]:
+        """Business operation for batch updating campaign onboarding fields."""
+        logger.info(f"Executing batch update onboarding fields operation for campaign: {campaign_id}")
+
+        updated_fields = []
+        deleted_count = 0
+        errors = []
+
+        # Process deletions
+        for field_id in delete_ids:
+            try:
+                await strapi_client.delete_onboarding_field(field_id)
+                deleted_count += 1
+            except Exception as e:
+                errors.append({
+                    "field_id": field_id,
+                    "error": f"Failed to delete: {e}"
+                })
+
+        # Process updates and creates
+        for field_data in fields_data:
+            try:
+                field_dict = field_data.model_dump()
+                document_id = field_dict.get('documentId')
+                if document_id:
+                    # Update existing field
+                    updated_field = await strapi_client.update_onboarding_field(document_id, field_dict)
+                    updated_fields.append(updated_field)
+                else:
+                    # Create new field
+                    field_dict['campaign'] = campaign_id
+                    created_field = await strapi_client.create_onboarding_field(campaign_id, field_dict)
+                    updated_fields.append(created_field)
+            except Exception as e:
+                errors.append({
+                    "field_data": field_data,
+                    "error": str(e)
+                })
+
+        return {
+            "updated_fields": updated_fields,
+            "deleted_count": deleted_count,
+            "errors": errors,
+            "campaign_id": campaign_id,
+            "success_count": len(updated_fields),
+            "error_count": len(errors)
+        }
+
     async def _setup_discord_bot(self, campaign_id: int) -> Dict[str, Any]:
         """Setup Discord bot for campaign."""
         # Mock implementation - replace with actual Discord integration

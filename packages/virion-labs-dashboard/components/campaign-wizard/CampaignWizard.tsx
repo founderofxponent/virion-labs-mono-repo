@@ -247,7 +247,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   useEffect(() => {
     if (mode === 'edit' && editCampaign && templates.length > 0) {
       const campaign = editCampaign
-      setCampaignDocumentId(campaign.document_id || null);
+      setCampaignDocumentId(campaign.documentId || null);
       // Find the correct template based on campaign.type
       let templateId = ''
       
@@ -529,8 +529,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       // Use batch update to handle all creates, updates, and deletes in one sequential operation
       const batchResult = await batchUpdateFields(targetCampaignId, localOnboardingQuestions, questionsToDelete);
       
-      if (!batchResult.success) {
-        throw new Error(batchResult.error || 'Failed to update onboarding questions');
+      if (!batchResult || !batchResult.success) {
+        throw new Error(batchResult?.error || 'Failed to update onboarding questions');
       }
 
       toast({

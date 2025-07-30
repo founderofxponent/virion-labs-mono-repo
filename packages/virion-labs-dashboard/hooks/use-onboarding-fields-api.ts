@@ -251,7 +251,7 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
         await fetchFields(campaign_id)
       }
 
-      return { success: data.success, data: data.results, summary: data.summary }
+      return { success: data.error_count === 0, ...data }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       return { success: false, error: errorMessage }

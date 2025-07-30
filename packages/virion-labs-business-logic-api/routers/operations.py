@@ -9,7 +9,8 @@ from schemas.operation_schemas import (
     ClientListResponse, ClientUpdateRequest,
     CampaignListResponse, CampaignUpdateRequest,
     LandingPageTemplateListResponse, LandingPageTemplateResponse,
-    LandingPageTemplateCreateRequest, LandingPageTemplateUpdateRequest
+    LandingPageTemplateCreateRequest, LandingPageTemplateUpdateRequest,
+    OnboardingFieldsBatchUpdateRequest
 )
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
@@ -224,9 +225,8 @@ async def get_campaign_operation(campaign_id: str):
 async def update_campaign_operation(campaign_id: str, request: CampaignUpdateRequest):
     """Business operation for updating campaign."""
     try:
-        # Add update metadata
+        # Get updates without adding updated_at (Strapi manages this automatically)
         updates = request.model_dump(exclude_unset=True)
-        updates["updated_at"] = datetime.utcnow().isoformat()
         
         updated_campaign = await strapi_client.update_campaign(campaign_id, updates)
         
@@ -323,6 +323,36 @@ async def delete_campaign_landing_page_operation(page_id: str):
         
     except Exception as e:
         logger.error(f"Delete campaign landing page operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/campaign/onboarding-fields/{campaign_id}", summary="Get Campaign Onboarding Fields")
+async def get_campaign_onboarding_fields_operation(campaign_id: str):
+    """
+    Business operation for getting campaign onboarding fields.
+    """
+    try:
+        result = await campaign_service.get_onboarding_fields_operation(campaign_id=campaign_id)
+        return result
+        
+    except Exception as e:
+        logger.error(f"Get campaign onboarding fields operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/campaign/{campaign_id}/onboarding-fields/batch", summary="Batch Update Campaign Onboarding Fields")
+async def batch_update_campaign_onboarding_fields_operation(campaign_id: str, request: OnboardingFieldsBatchUpdateRequest):
+    """
+    Business operation for batch updating campaign onboarding fields.
+    """
+    try:
+        result = await campaign_service.update_onboarding_fields_batch_operation(
+            campaign_id=campaign_id,
+            fields_data=request.fields,
+            delete_ids=request.delete_ids
+        )
+        return result
+        
+    except Exception as e:
+        logger.error(f"Batch update campaign onboarding fields operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Helper functions
