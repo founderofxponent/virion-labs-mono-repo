@@ -96,7 +96,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [templates, setTemplates] = useState<CampaignTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>("default")
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [userExplicitlyChangedTemplate, setUserExplicitlyChangedTemplate] = useState(false)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [localOnboardingQuestions, setLocalOnboardingQuestions] = useState<OnboardingQuestion[]>([]);

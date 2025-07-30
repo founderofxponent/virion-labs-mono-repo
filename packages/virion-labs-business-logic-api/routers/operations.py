@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any, Optional, List
 from services.client_service import client_service
 from services.campaign_service import campaign_service
+from services.campaign_template_service import campaign_template_service
 from schemas.operation_schemas import (
     ClientCreateRequest, ClientCreateResponse,
     ClientListResponse, ClientUpdateRequest,
@@ -350,3 +351,42 @@ def _get_campaign_recommendations(campaign_data: Dict[str, Any]) -> List[str]:
         recommendations.append("Long campaigns may benefit from mid-point optimization")
     
     return recommendations
+
+# Campaign Template Operations
+@router.get("/campaign-template/list")
+async def list_campaign_templates_operation(
+    category: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Business operation for listing campaign templates."""
+    try:
+        filters = {}
+        if category:
+            filters["category"] = category
+        
+        result = await campaign_template_service.list_campaign_templates_operation(filters)
+        return result
+        
+    except Exception as e:
+        logger.error(f"Campaign template list operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/campaign-template/get/{template_id}")
+async def get_campaign_template_operation(
+    template_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Business operation for getting a specific campaign template."""
+    try:
+        result = await campaign_template_service.get_campaign_template_operation(template_id)
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Campaign template not found")
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get campaign template operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
