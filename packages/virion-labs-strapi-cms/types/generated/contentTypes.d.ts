@@ -749,9 +749,12 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     target_role_ids: Schema.Attribute.JSON;
     total_interactions: Schema.Attribute.Integer &
       Schema.Attribute.DefaultTo<0>;
+    total_investment: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    value_per_conversion: Schema.Attribute.Decimal &
+      Schema.Attribute.DefaultTo<0>;
     webhook_url: Schema.Attribute.String;
     welcome_message: Schema.Attribute.RichText;
   };
@@ -915,6 +918,10 @@ export interface ApiReferralLinkReferralLink
     discord_invite_url: Schema.Attribute.String;
     earnings: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
     expires_at: Schema.Attribute.DateTime;
+    influencer: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::user-profile.user-profile'
+    >;
     is_active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
     landing_page_enabled: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<true>;

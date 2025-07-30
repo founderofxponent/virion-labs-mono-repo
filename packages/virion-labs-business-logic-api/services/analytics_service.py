@@ -176,4 +176,56 @@ class AnalyticsService:
                 "links": []
             }
 
+    async def get_roi_analytics(self) -> Dict[str, Any]:
+        """
+        Calculates the ROI for all campaigns.
+        """
+        try:
+            logger.info("Calculating ROI analytics for all campaigns")
+
+            # 1. Fetch all campaigns
+            all_campaigns = await strapi_client.get_campaigns()
+
+            # 2. Aggregate the metrics
+            total_investment = sum(campaign.get('total_investment', 0) for campaign in all_campaigns)
+            total_return = sum(
+                campaign.get('successful_onboardings', 0) * campaign.get('value_per_conversion', 0)
+                for campaign in all_campaigns
+            )
+
+            if total_investment > 0:
+                roi_percentage = ((total_return - total_investment) / total_investment) * 100
+            else:
+                roi_percentage = 0
+
+            # 3. Format for the response
+            analytics_data = {
+                "total_investment": total_investment,
+                "total_return": total_return,
+                "roi_percentage": round(roi_percentage, 2),
+                "campaigns_roi": [
+                    {
+                        "campaign_id": campaign.get('documentId'),
+                        "name": campaign.get('name'),
+                        "investment": campaign.get('total_investment', 0),
+                        "return": campaign.get('successful_onboardings', 0) * campaign.get('value_per_conversion', 0),
+                        "roi":
+                            ((campaign.get('successful_onboardings', 0) * campaign.get('value_per_conversion', 0) - campaign.get('total_investment', 0)) / campaign.get('total_investment', 0)) * 100
+                            if campaign.get('total_investment', 0) > 0 else 0
+                    }
+                    for campaign in all_campaigns
+                ]
+            }
+
+            return analytics_data
+
+        except Exception as e:
+            logger.error(f"Failed to calculate ROI analytics: {e}")
+            return {
+                "total_investment": 0,
+                "total_return": 0,
+                "roi_percentage": 0,
+                "campaigns_roi": []
+            }
+
 analytics_service = AnalyticsService()

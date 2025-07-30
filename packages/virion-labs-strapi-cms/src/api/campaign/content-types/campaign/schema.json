@@ -162,6 +162,14 @@
       "relation": "oneToMany",
       "target": "api::campaign-onboarding-completion.campaign-onboarding-completion",
       "mappedBy": "campaign"
+    },
+    "total_investment": {
+      "type": "decimal",
+      "default": 0
+    },
+    "value_per_conversion": {
+      "type": "decimal",
+      "default": 0
     }
   }
 }

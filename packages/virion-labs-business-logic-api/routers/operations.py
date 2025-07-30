@@ -386,13 +386,7 @@ async def get_analytics_roi(user: StrapiUser = Depends(get_current_user)):
     (Protected)
     """
     try:
-        # Mock ROI data for now
-        roi_data = {
-            "total_investment": 0.0,
-            "total_return": 0.0,
-            "roi_percentage": 0.0,
-            "campaigns_roi": []
-        }
+        roi_data = await analytics_service.get_roi_analytics()
         return roi_data
         
     except Exception as e:
