@@ -68,6 +68,50 @@ class CampaignService:
             "total_count": len(campaigns),
             "filters_applied": filters or {}
         }
+    async def list_available_campaigns_for_influencer(self, influencer_id: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """
+        Lists campaigns available to a specific influencer, enriching them with access status.
+        """
+        logger.info(f"Fetching available campaigns for influencer {influencer_id}")
+        
+        # 1. Get all active campaigns based on provided filters
+        all_campaigns_filters = filters.copy() if filters else {}
+        all_campaigns_filters["filters[is_active][$eq]"] = True
+        all_campaigns = await strapi_client.get_campaigns(all_campaigns_filters)
+
+        # 2. Get all access requests for that influencer
+        access_requests_filters = {
+            "filters[user][id][$eq]": influencer_id,
+            "populate": "campaign"
+        }
+        access_requests = await strapi_client.get_access_requests(access_requests_filters)
+        
+        # 3. Create a map of campaign_id to request_status and has_access
+        access_map = {}
+        for req in access_requests:
+            req_attrs = req.get('attributes', {})
+            campaign_relation = req_attrs.get('campaign', {})
+            if campaign_relation and campaign_relation.get('data'):
+                campaign_id = str(campaign_relation['data']['id'])
+                access_map[campaign_id] = {
+                    "request_status": req_attrs.get('request_status'),
+                    "has_access": req_attrs.get('request_status') == 'approved'
+                }
+
+        # 4. Augment campaign data
+        for campaign in all_campaigns:
+            campaign_id = str(campaign['id'])
+            access_info = access_map.get(campaign_id)
+            if access_info:
+                campaign['has_access'] = access_info['has_access']
+                campaign['request_status'] = access_info['request_status']
+                campaign['can_request_access'] = False
+            else:
+                campaign['has_access'] = False
+                campaign['request_status'] = None
+                campaign['can_request_access'] = True
+                
+        return all_campaigns
 
     async def list_landing_pages_operation(self, campaign_id: str) -> Dict[str, Any]:
         """Business operation for listing landing pages for a campaign."""

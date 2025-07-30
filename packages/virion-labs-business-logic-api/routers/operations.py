@@ -118,32 +118,53 @@ async def archive_client_operation(client_id: int):
 async def list_campaigns_operation(
     client_id: Optional[str] = None,
     status: Optional[str] = None,
+    influencer_id: Optional[str] = None,
     page: int = 1,
-    limit: int = 50
+    limit: int = 50,
+    current_user: User = Depends(get_current_user)
 ):
-    """Business operation for listing campaigns."""
+    """
+    Business operation for listing campaigns.
+    If influencer_id is provided, it lists campaigns available to that influencer.
+    Otherwise, it lists campaigns based on administrative filters.
+    """
     try:
         filters = {
             "pagination[page]": page,
             "pagination[pageSize]": limit
         }
-        
+
         if client_id:
-            filters["filters[client_id][$eq]"] = client_id
+            filters["filters[client.id][$eq]"] = client_id
         if status:
             filters["filters[status][$eq]"] = status
-        
-        campaigns = await strapi_client.get_campaigns(filters)
-        
+
+        if influencer_id:
+            # Logic for influencer-specific campaigns
+            # Ensure the current user is the influencer they are requesting for, or an admin
+            if str(current_user.id) != influencer_id and current_user.role.get('name') not in ["Platform Administrator", "admin"]:
+                raise HTTPException(status_code=403, detail="You can only view your own available campaigns.")
+            
+            campaigns = await campaign_service.list_available_campaigns_for_influencer(influencer_id, filters)
+            total_count = len(campaigns)
+        else:
+            # Administrative listing
+            if current_user.role.get('name') not in ["Platform Administrator", "admin"]:
+                raise HTTPException(status_code=403, detail="Access forbidden: This endpoint is for administrators only.")
+            
+            result = await campaign_service.list_campaigns_operation(filters)
+            campaigns = result.get("campaigns", [])
+            total_count = result.get("total_count", 0)
+
         return CampaignListResponse(
             campaigns=campaigns,
-            total_count=len(campaigns),
+            total_count=total_count,
             page=page,
             limit=limit
         )
-        
+
     except Exception as e:
-        logger.error(f"Campaign list operation failed: {e}")
+        logger.error(f"Campaign list operation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/campaign/get/{campaign_id}")

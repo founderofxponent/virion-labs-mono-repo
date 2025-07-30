@@ -35,6 +35,18 @@
     },
     "admin_response": {
       "type": "richtext"
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "campaign_influencer_accesses"
+    },
+    "campaign": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::campaign.campaign",
+      "inversedBy": "campaign_influencer_accesses"
     }
   }
 }

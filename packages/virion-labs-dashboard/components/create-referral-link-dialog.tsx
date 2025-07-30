@@ -25,16 +25,7 @@ import { Separator } from "@/components/ui/separator"
 import { MessageSquare, Users, Copy, ExternalLink, CheckCircle, Download, QrCode } from "lucide-react"
 import { toast } from "sonner"
 import { QRCodeSVG } from "qrcode.react"
-
-interface Campaign {
-  campaign_id: string
-  campaign_name: string
-  campaign_type: string
-  client_name: string
-  client_industry: string
-  discord_server_name: string
-  has_access: boolean
-}
+import { Campaign } from "@/types/campaign"
 
 interface CreateReferralLinkDialogProps {
   campaign: Campaign | null
@@ -74,7 +65,7 @@ export function CreateReferralLinkDialog({
 
     setLoading(true)
     try {
-      const response = await fetch(`/api/campaigns/${campaign.campaign_id}/referral-links`, {
+      const response = await fetch(`/api/campaigns/${campaign.id}/referral-links`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -163,7 +154,7 @@ export function CreateReferralLinkDialog({
           <DialogDescription>
             {createdLink 
               ? "Your referral link has been created and is ready to share"
-              : `Create a referral link for ${campaign.campaign_name}`
+              : `Create a referral link for ${campaign.name}`
             }
           </DialogDescription>
         </DialogHeader>
@@ -179,9 +170,9 @@ export function CreateReferralLinkDialog({
             {/* Campaign Info */}
             <div className="p-4 border rounded-lg bg-muted/50">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium">{campaign.campaign_name}</h4>
+                <h4 className="font-medium">{campaign.name}</h4>
                 <Badge className="bg-blue-500 text-white">
-                  {campaign.campaign_type.replace('_', ' ').toUpperCase()}
+                  {campaign.type.replace('_', ' ').toUpperCase()}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -282,9 +273,9 @@ export function CreateReferralLinkDialog({
             {/* Campaign Info */}
             <div className="p-4 border rounded-lg bg-muted/50">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium">{campaign.campaign_name}</h4>
+                <h4 className="font-medium">{campaign.name}</h4>
                 <Badge className="bg-blue-500 text-white">
-                  {campaign.campaign_type.replace('_', ' ').toUpperCase()}
+                  {campaign.type.replace('_', ' ').toUpperCase()}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">

@@ -387,6 +387,7 @@ export interface ApiCampaignInfluencerAccessCampaignInfluencerAccess
   attributes: {
     access_granted_at: Schema.Attribute.DateTime;
     admin_response: Schema.Attribute.RichText;
+    campaign: Schema.Attribute.Relation<'manyToOne', 'api::campaign.campaign'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -407,6 +408,10 @@ export interface ApiCampaignInfluencerAccessCampaignInfluencerAccess
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
   };
 }
 

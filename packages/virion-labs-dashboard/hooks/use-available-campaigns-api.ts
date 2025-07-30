@@ -1,92 +1,38 @@
-"use client"
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/components/auth-provider';
+import { Campaign } from '@/types/campaign';
+import api from '@/lib/api';
 
-import { useState, useEffect, useCallback } from 'react'
-import { useAuth } from "@/components/auth-provider"
+export const useAvailableCampaignsApi = () => {
+  const { profile } = useAuth();
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-// TODO: Define the new API-based types for available campaigns
-export interface AvailableCampaign {
-  id: string;
-  campaign_name: string;
-  client_name: string;
-  description: string;
-  status: string;
-}
-
-export function useAvailableCampaignsApi() {
-  const { user } = useAuth()
-  const [campaigns, setCampaigns] = useState<AvailableCampaign[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const API_BASE_URL = "http://localhost:8000"
-  const getToken = () => localStorage.getItem('auth_token')
-
-  const fetchCampaigns = useCallback(async () => {
-    if (!user) {
-      setLoading(false)
-      return
+  const fetchAvailableCampaigns = useCallback(async () => {
+    if (!profile?.id) {
+      setLoading(false);
+      return;
     }
 
-    setLoading(true)
-    setError(null)
-    const token = getToken()
-
+    setLoading(true);
+    setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/available`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to fetch available campaigns')
+      const response = await api.get(`/api/v1/operations/campaign/list?influencer_id=${profile.id}`);
+      if (response.status !== 200) {
+        throw new Error('Failed to fetch available campaigns');
       }
-      const data = await response.json()
-      setCampaigns(data.campaigns || [])
+      setCampaigns(response.data.campaigns || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
+      setError(err instanceof Error ? err : new Error('An unknown error occurred'));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [user])
+  }, [profile?.id]);
 
   useEffect(() => {
-    fetchCampaigns()
-  }, [fetchCampaigns])
+    fetchAvailableCampaigns();
+  }, [fetchAvailableCampaigns]);
 
-  const createReferralLink = useCallback(async (campaignId: string, linkData: any) => {
-    const token = getToken()
-    if (!token) {
-      setError("Authentication token not found.")
-      return
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/influencer/campaigns/${campaignId}/referral-links`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(linkData)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to create referral link')
-      }
-
-      // No need to refetch campaigns, as this doesn't change the list of available campaigns.
-      // The component that uses this function will handle the success case.
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
-    }
-  }, [])
-
-  return {
-    campaigns,
-    createReferralLink,
-    loading,
-    error,
-    refetch: fetchCampaigns,
-  }
-}
+  return { campaigns, loading, error, refetch: fetchAvailableCampaigns };
+};
