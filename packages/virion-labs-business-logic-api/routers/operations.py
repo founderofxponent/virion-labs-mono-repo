@@ -9,6 +9,7 @@ from schemas.operation_schemas import (
 )
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
+from core.strapi_client import strapi_client
 import logging
 
 logger = logging.getLogger(__name__)
@@ -68,14 +69,14 @@ async def list_clients_operation(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/client/get/{client_id}")
-async def get_client_operation(client_id: int):
+async def get_client_operation(client_id: str):
     """Business operation for getting client details with business context."""
     try:
         client = await strapi_client.get_client(client_id)
         if not client:
             raise HTTPException(status_code=404, detail="Client not found")
         
-        business_context = client_service.client_domain.get_client_business_context(client["attributes"])
+        business_context = client_service.client_domain.get_client_business_context(client)
         
         return {
             "client": client,
@@ -89,12 +90,13 @@ async def get_client_operation(client_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/client/update/{client_id}")
-async def update_client_operation(client_id: int, request: ClientUpdateRequest):
+async def update_client_operation(client_id: str, request: ClientUpdateRequest, current_user: User = Depends(get_current_user)):
     """Business operation for updating client with business logic."""
     try:
         result = await client_service.update_client_operation(
-            client_id=client_id,
-            updates=request.model_dump(exclude_unset=True)
+            document_id=client_id,
+            updates=request.model_dump(exclude_unset=True),
+            current_user=current_user
         )
         return result
         

@@ -21,7 +21,7 @@ interface ClientDetailPageProps {
   clientId: string
 }
 
-type ClientStatus = "Active" | "Inactive" | "Pending"
+type ClientStatus = "active" | "inactive" | "pending"
 
 interface ClientUpdate {
   name?: string
@@ -65,7 +65,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
     primary_contact: "",
     contact_email: "",
     influencers: 0,
-    status: "Active"
+    status: "active"
   })
 
   // Check for edit query parameter
@@ -92,9 +92,9 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
       const updates: ClientUpdate = {
         name: editForm.name,
         industry: editForm.industry,
-        website: editForm.website || null,
-        primary_contact: editForm.primary_contact || null,
-        contact_email: editForm.contact_email || null,
+        website: editForm.website.trim() || null,
+        primary_contact: editForm.primary_contact.trim() || null,
+        contact_email: editForm.contact_email.trim() || null,
         influencers: editForm.influencers,
         status: editForm.status
       }
@@ -269,9 +269,9 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
         <div className="flex items-center gap-2">
           <Badge
             variant={
-              client.status === "Active" 
+              client.status === "active" 
                 ? "default" 
-                : client.status === "Inactive" 
+                : client.status === "inactive" 
                   ? "secondary" 
                   : "outline"
             }
@@ -369,9 +369,9 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Inactive">Inactive</SelectItem>
-                      <SelectItem value="Pending">Pending</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

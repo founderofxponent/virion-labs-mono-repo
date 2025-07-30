@@ -71,12 +71,13 @@ class ClientService:
 
         updates_with_logic = self.client_domain.update_client_with_business_logic(updates)
         updated_client_attrs = await strapi_client.update_client(actual_document_id, updates_with_logic)
+        # Return flat structure to match get_client_operation format
         updated_client = {
             "id": updated_client_attrs["id"], 
             "documentId": updated_client_attrs.get("documentId", actual_document_id),
-            "attributes": updated_client_attrs
+            **updated_client_attrs  # Flatten the attributes
         }
-        business_context = self.client_domain.get_client_business_context(updated_client['attributes'])
+        business_context = self.client_domain.get_client_business_context(updated_client_attrs)
 
         return {"client": updated_client, "business_context": business_context, "documentId": actual_document_id}
 

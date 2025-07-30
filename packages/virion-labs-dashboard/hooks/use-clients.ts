@@ -165,7 +165,15 @@ export function useClients() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ client_status: updates.status, ...updates })
+        body: JSON.stringify({ 
+          ...updates,
+          client_status: updates.status?.toLowerCase(),
+          status: undefined, // Remove status to avoid duplication
+          // Ensure null values are preserved for optional fields
+          website: updates.website,
+          primary_contact: updates.primary_contact,
+          contact_email: updates.contact_email
+        })
       })
 
       if (!response.ok) {
@@ -252,8 +260,25 @@ export function useClients() {
         throw new Error(errorData.detail || 'Failed to fetch client')
       }
       
-      const data: { client: ApiClient } = await response.json()
-      return { data: transformApiClient(data.client), error: null }
+      const data: { client: any } = await response.json()
+      // Strapi v5 returns flat structure, transform to match Client interface
+      const transformedClient: Client = {
+        id: data.client.id,
+        documentId: data.client.documentId,
+        name: data.client.name,
+        industry: data.client.industry,
+        website: data.client.website,
+        primary_contact: data.client.primary_contact,
+        contact_email: data.client.contact_email,
+        influencers: data.client.influencers,
+        status: data.client.client_status, // Map client_status to status
+        join_date: data.client.join_date,
+        logo: data.client.logo,
+        campaign_count: data.client.campaign_count || 0,
+        created_at: data.client.createdAt,
+        updated_at: data.client.updatedAt,
+      }
+      return { data: transformedClient, error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       return { data: null, error: errorMessage }

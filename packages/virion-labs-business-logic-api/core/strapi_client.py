@@ -66,8 +66,11 @@ class StrapiClient:
     async def update_client(self, document_id: str, client_data: Dict) -> Dict:
         """Updates a client in Strapi using its documentId."""
         logger.info(f"StrapiClient: Updating client {document_id} in Strapi.")
+        logger.info(f"StrapiClient: Client data being sent: {client_data}")
         data = {"data": client_data}
+        logger.info(f"StrapiClient: Full payload: {data}")
         response = await self._request("PUT", f"clients/{document_id}", data=data)
+        logger.info(f"StrapiClient: Strapi response: {response}")
         return response.get("data")
 
     async def get_client(self, document_id: str, populate: Optional[List[str]] = None) -> Dict:

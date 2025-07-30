@@ -51,6 +51,9 @@ class ClientUpdateRequest(BaseModel):
     contact_email: Optional[EmailStr] = None
     industry: Optional[str] = None
     client_status: Optional[str] = None
+    website: Optional[str] = None
+    primary_contact: Optional[str] = None
+    influencers: Optional[int] = None
 
 # --- Campaign List Operation ---
 
