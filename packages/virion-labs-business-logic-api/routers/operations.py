@@ -409,17 +409,11 @@ async def get_analytics_performance_report(
     (Protected)
     """
     try:
-        # Mock performance report data
-        performance_data = {
-            "timeframe": timeframe,
-            "metrics": {
-                "total_views": 0,
-                "total_clicks": 0,
-                "conversion_rate": 0.0,
-                "engagement_rate": 0.0
-            },
-            "trends": []
-        }
+        # Convert timeframe string (e.g., "30d") to integer days
+        timeframe_days = int(timeframe.replace('d', ''))
+        
+        performance_data = await analytics_service.get_performance_over_time(timeframe_days)
+        
         return performance_data
         
     except Exception as e:

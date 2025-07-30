@@ -236,8 +236,8 @@ export function AnalyticsPage() {
                     data={dailyMetrics.map(day => ({
                       date: format(new Date(day.date), 'MMM dd'),
                       campaigns: day.campaigns_created,
-                      responses: day.responses_received,
-                      completions: day.responses_completed
+                      responses: day.users_started,
+                      completions: day.users_completed
                     }))}
                     margin={{
                       top: 5,

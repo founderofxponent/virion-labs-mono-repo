@@ -47,12 +47,12 @@ export interface CampaignAnalytics {
 
 export interface DailyMetrics {
   date: string
-  campaigns_created: number
-  responses_received: number
-  responses_completed: number
-  interactions: number
-  referral_clicks: number
-  new_users: number
+  campaigns_created?: number // Optional as it might not be in the new performance report
+  users_started: number
+  users_completed: number
+  interactions?: number // Optional
+  referral_clicks?: number // Optional
+  new_users?: number // Optional
 }
 
 export interface ComprehensiveAnalyticsData {
@@ -115,8 +115,17 @@ export function useAnalytics() {
         campaigns: data.campaigns
       })
       
-      if (data.dailyMetrics) {
-        setDailyMetrics(data.dailyMetrics)
+      // We will now fetch daily metrics from the dedicated performance report endpoint
+      // This call can happen in parallel for efficiency in the future, but for now, it's sequential
+      const performanceResponse = await fetch(`${API_BASE_URL}/analytics/performance-report?timeframe=30d`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (performanceResponse.ok) {
+        const performanceData = await performanceResponse.json();
+        setDailyMetrics(performanceData.daily_metrics || []);
       }
 
     } catch (err) {
