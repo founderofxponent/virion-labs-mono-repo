@@ -7,41 +7,42 @@ import { useAuth } from "@/components/auth-provider"
 export interface AnalyticsOverview {
   total_campaigns: number
   active_campaigns: number
-  campaigns_last_30_days: number
+  total_onboarding_starts: number
+  total_onboarding_completions: number
+  overall_completion_rate: number
   total_clients: number
   active_clients: number
-  new_clients_30_days: number
-  total_users_responded: number
-  users_completed: number
-  total_field_responses: number
-  responses_last_7_days: number
-  responses_last_30_days: number
-  total_interactions: number
-  unique_interaction_users: number
-  onboarding_completions: number
-  interactions_24h: number
-  total_referral_links: number
-  active_referral_links: number
-  total_clicks: number
-  total_conversions: number
-  completion_rate: number | null
-  click_through_rate: number | null
+  // The following are placeholders until the API provides them
+  campaigns_last_30_days?: number
+  new_clients_30_days?: number
+  total_field_responses?: number
+  responses_last_7_days?: number
+  responses_last_30_days?: number
+  total_interactions?: number
+  unique_interaction_users?: number
+  interactions_24h?: number
+  total_referral_links?: number
+  active_referral_links?: number
+  total_clicks?: number
+  total_conversions?: number
+  click_through_rate?: number | null
 }
 
 export interface CampaignAnalytics {
   campaign_id: string
-  campaign_name: string
-  client_name: string
-  total_fields: number
-  active_fields: number
-  required_fields: number
-  total_users_started: number
-  total_users_completed: number
-  total_interactions: number
-  interactions_last_7_days: number
+  name: string // Changed from campaign_name
+  total_starts: number
+  total_completions: number
   completion_rate: number
-  is_active: boolean
-  created_at: string
+  // The following are placeholders until the API provides them
+  client_name?: string
+  total_fields?: number
+  active_fields?: number
+  required_fields?: number
+  total_interactions?: number
+  interactions_last_7_days?: number
+  is_active?: boolean
+  created_at?: string
 }
 
 export interface DailyMetrics {
@@ -235,12 +236,12 @@ export function useAnalytics() {
       activeClients: overview.active_clients,
       totalCampaigns: overview.total_campaigns,
       activeCampaigns: overview.active_campaigns,
-      totalUsersStarted: overview.total_users_responded,
-      totalUsersCompleted: overview.users_completed,
-      completionRate: overview.completion_rate,
-      totalInteractions: overview.total_interactions,
-      clientGrowthRate: overview.new_clients_30_days,
-      campaignGrowthRate: overview.campaigns_last_30_days
+      totalUsersStarted: overview.total_onboarding_starts,
+      totalUsersCompleted: overview.total_onboarding_completions,
+      completionRate: overview.overall_completion_rate,
+      totalInteractions: overview.total_interactions || 0,
+      clientGrowthRate: overview.new_clients_30_days || 0,
+      campaignGrowthRate: overview.campaigns_last_30_days || 0
     }
   }
 

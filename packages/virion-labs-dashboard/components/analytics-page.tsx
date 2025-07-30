@@ -173,9 +173,9 @@ export function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatNumber(analyticsData.overview.total_users_responded)}</div>
+            <div className="text-2xl font-bold">{formatNumber(analyticsData.overview.total_onboarding_starts)}</div>
             <p className="text-xs text-muted-foreground">
-              {analyticsData.overview.total_users_responded > 0 ? "Users who started onboarding" : "No users started yet"}
+              {analyticsData.overview.total_onboarding_starts > 0 ? "Users who started onboarding" : "No users started yet"}
             </p>
           </CardContent>
         </Card>
@@ -196,9 +196,9 @@ export function AnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatPercentage(analyticsData.overview.completion_rate)}</div>
+            <div className="text-2xl font-bold">{formatPercentage(analyticsData.overview.overall_completion_rate)}</div>
             <p className="text-xs text-muted-foreground">
-              {analyticsData.overview.completion_rate > 0 ? "Average onboarding completion" : "No completions yet"}
+              {analyticsData.overview.overall_completion_rate > 0 ? "Average onboarding completion" : "No completions yet"}
             </p>
           </CardContent>
         </Card>
@@ -302,7 +302,7 @@ export function AnalyticsPage() {
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                       >
                         {['Active', 'Total'].map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -391,9 +391,9 @@ export function AnalyticsPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={analyticsData.campaigns.slice(0, 10).map(campaign => ({
-                      name: campaign.campaign_name,
-                      responses: campaign.total_users_started,
-                      completions: campaign.total_users_completed,
+                      name: campaign.name,
+                      responses: campaign.total_starts,
+                      completions: campaign.total_completions,
                       completion_rate: campaign.completion_rate
                     }))}
                     margin={{
@@ -454,13 +454,13 @@ export function AnalyticsPage() {
                             campaign.is_active ? 'bg-green-500' : 'bg-gray-400'
                           }`} />
                           <div>
-                            <p className="font-medium">{campaign.campaign_name}</p>
+                            <p className="font-medium">{campaign.name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {campaign.client_name} • 
+                              {campaign.client_name || 'N/A'} •
                               <UITooltip>
                                 <TooltipTrigger asChild>
                                   <span className="cursor-help underline decoration-dotted">
-                                    {campaign.total_interactions} interactions
+                                    {campaign.total_interactions || 0} interactions
                                   </span>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -468,7 +468,7 @@ export function AnalyticsPage() {
                                   <p>messages, and access requests</p>
                                 </TooltipContent>
                               </UITooltip>
-                              • {campaign.interactions_last_7_days} in last 7 days
+                              • {campaign.interactions_last_7_days || 0} in last 7 days
                             </p>
                           </div>
                         </div>
