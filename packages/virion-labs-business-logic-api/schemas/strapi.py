@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional, Dict, Any, Literal, Union
 from datetime import datetime
 
@@ -88,8 +88,7 @@ class CampaignOnboardingResponse(BaseModel):
     referral_link: Optional[ReferralLink] = None
     campaign: Optional['Campaign'] = None
 
-class CampaignOnboardingField(BaseModel):
-    id: int
+class CampaignOnboardingFieldBase(BaseModel):
     field_key: str
     field_label: str
     field_type: Literal['text', 'email', 'number', 'boolean', 'url', 'select', 'multiselect']
@@ -101,7 +100,27 @@ class CampaignOnboardingField(BaseModel):
     sort_order: Optional[int] = 0
     validation_rules: Optional[Dict[str, Any]] = None
     discord_integration: Optional[Dict[str, Any]] = None
+
+    @field_validator('field_options', mode='before')
+    @classmethod
+    def empty_list_to_dict(cls, v: Any) -> Optional[Dict[str, Any]]:
+        if isinstance(v, list) and not v:
+            return {}
+        return v
+
+class CampaignOnboardingField(CampaignOnboardingFieldBase):
+    id: int
+    documentId: Optional[str] = None
     campaign: Optional['Campaign'] = None
+
+class StrapiCampaignOnboardingFieldCreate(CampaignOnboardingFieldBase):
+    campaign: int # Expecting the campaign ID
+
+class StrapiCampaignOnboardingFieldUpdate(CampaignOnboardingFieldBase):
+    field_key: Optional[str] = None
+    field_label: Optional[str] = None
+    field_type: Optional[Literal['text', 'email', 'number', 'boolean', 'url', 'select', 'multiselect']] = None
+    campaign: Optional[int] = None
 
 class CampaignOnboardingStart(BaseModel):
     id: int
@@ -280,6 +299,8 @@ class UserSetting(BaseModel):
 ReferralLink.update_forward_refs()
 CampaignOnboardingResponse.update_forward_refs()
 CampaignOnboardingField.update_forward_refs()
+StrapiCampaignOnboardingFieldCreate.update_forward_refs()
+StrapiCampaignOnboardingFieldUpdate.update_forward_refs()
 CampaignOnboardingStart.update_forward_refs()
 CampaignOnboardingCompletion.update_forward_refs()
 Client.update_forward_refs()

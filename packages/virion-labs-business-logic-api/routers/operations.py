@@ -10,9 +10,17 @@ from schemas.operation_schemas import (
     CampaignListResponse, CampaignUpdateRequest, CampaignLandingPageUpdateRequest,
     LandingPageTemplateListResponse, LandingPageTemplateResponse,
     LandingPageTemplateCreateRequest, LandingPageTemplateUpdateRequest,
-    OnboardingFieldsBatchUpdateRequest
+    OnboardingFieldsBatchUpdateRequest,
+    OnboardingFieldCreateRequest,
+    OnboardingFieldUpdateRequest,
+    OnboardingFieldResponse,
+    OnboardingFieldListResponse,
 )
-from domain.campaigns.schemas import CampaignLandingPageUpdate
+from domain.campaigns.schemas import (
+    CampaignLandingPageUpdate,
+    CampaignOnboardingFieldCreate,
+    CampaignOnboardingFieldUpdate,
+)
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
 from core.strapi_client import strapi_client
@@ -335,34 +343,71 @@ async def delete_campaign_landing_page_operation(page_id: str):
         logger.error(f"Delete campaign landing page operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/campaign/onboarding-fields/{campaign_id}", summary="Get Campaign Onboarding Fields")
-async def get_campaign_onboarding_fields_operation(campaign_id: str):
-    """
-    Business operation for getting campaign onboarding fields.
-    """
+# --- Campaign Onboarding Fields CRUD ---
+
+@router.post("/campaign/onboarding-fields", summary="Create Campaign Onboarding Field", response_model=OnboardingFieldResponse)
+async def create_campaign_onboarding_field_operation(request: OnboardingFieldCreateRequest):
+    """Creates a new onboarding field for a campaign."""
     try:
-        result = await campaign_service.get_onboarding_fields_operation(campaign_id=campaign_id)
+        service_data = CampaignOnboardingFieldCreate(**request.model_dump())
+        result = await campaign_service.create_onboarding_field_operation(field_data=service_data)
         return result
-        
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error(f"Get campaign onboarding fields operation failed: {e}")
+        logger.error(f"Create campaign onboarding field operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/campaign/{campaign_id}/onboarding-fields/batch", summary="Batch Update Campaign Onboarding Fields")
-async def batch_update_campaign_onboarding_fields_operation(campaign_id: str, request: OnboardingFieldsBatchUpdateRequest):
-    """
-    Business operation for batch updating campaign onboarding fields.
-    """
+@router.get("/campaign/{campaign_id}/onboarding-fields", summary="List Campaign Onboarding Fields", response_model=OnboardingFieldListResponse)
+async def list_campaign_onboarding_fields_operation(campaign_id: str):
+    """Lists all onboarding fields for a specific campaign."""
     try:
-        result = await campaign_service.update_onboarding_fields_batch_operation(
-            campaign_id=campaign_id,
-            fields_data=request.fields,
-            delete_ids=request.delete_ids
-        )
-        return result
-        
+        fields = await campaign_service.get_onboarding_fields_operation(campaign_id=campaign_id)
+        return {"onboarding_fields": fields, "total_count": len(fields)}
     except Exception as e:
-        logger.error(f"Batch update campaign onboarding fields operation failed: {e}")
+        logger.error(f"List campaign onboarding fields operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/campaign/onboarding-fields/{field_id}", summary="Get Campaign Onboarding Field", response_model=OnboardingFieldResponse)
+async def get_campaign_onboarding_field_operation(field_id: str):
+    """Gets a single onboarding field by its ID or documentId."""
+    try:
+        result = await campaign_service.get_onboarding_field_operation(field_id=field_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Onboarding field not found")
+        
+        # Manually construct the response to ensure validators are applied
+        response_data = result.model_dump()
+        return OnboardingFieldResponse(**response_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get campaign onboarding field operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/campaign/onboarding-fields/{field_id}", summary="Update Campaign Onboarding Field", response_model=OnboardingFieldResponse)
+async def update_campaign_onboarding_field_operation(field_id: int, request: OnboardingFieldUpdateRequest):
+    """Updates an existing onboarding field."""
+    try:
+        service_data = CampaignOnboardingFieldUpdate(**request.model_dump(exclude_unset=True))
+        result = await campaign_service.update_onboarding_field_operation(field_id=field_id, field_data=service_data)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Update campaign onboarding field operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/campaign/onboarding-fields/{field_id}", summary="Delete Campaign Onboarding Field")
+async def delete_campaign_onboarding_field_operation(field_id: int):
+    """Deletes an onboarding field."""
+    try:
+        result = await campaign_service.delete_onboarding_field_operation(field_id=field_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Delete campaign onboarding field operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Helper functions

@@ -17,3 +17,25 @@ class CampaignLandingPageUpdate(BaseModel):
     inherited_from_template: Optional[bool] = None
     landing_page_template: Optional[Any] = None
     campaign: Optional[Any] = None
+
+class CampaignOnboardingFieldBase(BaseModel):
+    field_key: Optional[str] = None
+    field_label: Optional[str] = None
+    field_type: Optional[str] = None
+    field_placeholder: Optional[str] = None
+    field_description: Optional[str] = None
+    field_options: Optional[Dict[str, Any]] = None
+    is_required: Optional[bool] = None
+    is_enabled: Optional[bool] = None
+    sort_order: Optional[int] = None
+    validation_rules: Optional[Dict[str, Any]] = None
+    discord_integration: Optional[Dict[str, Any]] = None
+
+class CampaignOnboardingFieldCreate(CampaignOnboardingFieldBase):
+    field_key: str
+    field_label: str
+    field_type: str
+    campaign: Any # Can be documentId string or ID int
+
+class CampaignOnboardingFieldUpdate(CampaignOnboardingFieldBase):
+    pass

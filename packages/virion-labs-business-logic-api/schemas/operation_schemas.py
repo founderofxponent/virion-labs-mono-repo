@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import List, Optional, Dict, Any, Union
 # --- Base Models ---
 
@@ -126,12 +126,57 @@ class CampaignLandingPageUpdateRequest(BaseModel):
     landing_page_template: Optional[Any] = None
     campaign: Optional[Any] = None
 
+# --- Onboarding Fields Operations ---
+
+class OnboardingFieldBase(BaseModel):
+    field_key: Optional[str] = None
+    field_label: Optional[str] = None
+    field_type: Optional[str] = None
+    field_placeholder: Optional[str] = None
+    field_description: Optional[str] = None
+    field_options: Optional[Dict[str, Any]] = None
+    is_required: Optional[bool] = None
+    is_enabled: Optional[bool] = None
+    sort_order: Optional[int] = None
+    validation_rules: Optional[Dict[str, Any]] = None
+    discord_integration: Optional[Dict[str, Any]] = None
+
+    @field_validator('field_options', mode='before')
+    @classmethod
+    def empty_list_to_dict(cls, v: Any) -> Optional[Dict[str, Any]]:
+        if isinstance(v, list) and not v:
+            return {}
+        return v
+
+class OnboardingFieldCreateRequest(OnboardingFieldBase):
+    field_key: str
+    field_label: str
+    field_type: str
+    campaign: str # The documentId of the campaign
+
+class OnboardingFieldUpdateRequest(OnboardingFieldBase):
+    pass
+
+class OnboardingFieldResponse(OnboardingFieldBase):
+    id: str
+    documentId: Optional[str] = None
+    campaign: Optional[Dict[str, Any]] = None # Populated campaign data
+
+    @field_validator('id', mode='before')
+    @classmethod
+    def convert_id_to_string(cls, v: Any) -> str:
+        if isinstance(v, int):
+            return str(v)
+        return v
+
+class OnboardingFieldListResponse(BaseModel):
+    onboarding_fields: List[OnboardingFieldResponse]
+    total_count: int
+
 # --- Onboarding Fields Batch Update ---
 
-
-
 class OnboardingFieldData(BaseModel):
-    id: Optional[Union[str, int]] = None
+    id: Optional[str] = None
     documentId: Optional[str] = None
     field_key: str
     field_label: str
@@ -139,13 +184,13 @@ class OnboardingFieldData(BaseModel):
     is_required: bool
     is_enabled: bool
     sort_order: int
-    field_options: Optional[List[Any]] = []
+    field_options: Optional[Dict[str, Any]] = {}
     validation_rules: Optional[Dict[str, Any]] = {}
 
 class OnboardingFieldsBatchUpdateRequest(BaseModel):
     fields: List[OnboardingFieldData]
     delete_ids: Optional[List[str]] = []
- 
+
 # --- Landing Page Template Operations ---
  
 class LandingPageTemplateListResponse(BaseModel):

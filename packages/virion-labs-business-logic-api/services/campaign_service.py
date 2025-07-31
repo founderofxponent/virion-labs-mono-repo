@@ -1,8 +1,17 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from core.strapi_client import strapi_client
 from domain.campaigns.domain import CampaignDomain
-from domain.campaigns.schemas import CampaignLandingPageUpdate
-from schemas.strapi import StrapiCampaignLandingPageUpdate
+from domain.campaigns.schemas import (
+    CampaignLandingPageUpdate,
+    CampaignOnboardingFieldCreate,
+    CampaignOnboardingFieldUpdate,
+)
+from schemas.strapi import (
+    StrapiCampaignLandingPageUpdate,
+    StrapiCampaignOnboardingFieldCreate,
+    StrapiCampaignOnboardingFieldUpdate,
+    CampaignOnboardingField,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -216,65 +225,52 @@ class CampaignService:
             "message": "Campaign landing page deleted successfully."
         }
 
-    async def get_onboarding_fields_operation(self, campaign_id: str) -> Dict[str, Any]:
+    async def get_onboarding_fields_operation(self, campaign_id: str) -> List[CampaignOnboardingField]:
         """Business operation for getting campaign onboarding fields."""
         logger.info(f"Executing get onboarding fields operation for campaign: {campaign_id}")
+        return await strapi_client.get_onboarding_fields_by_campaign(campaign_id)
 
-        fields = await strapi_client.get_onboarding_fields(campaign_id)
+    async def create_onboarding_field_operation(self, field_data: CampaignOnboardingFieldCreate) -> CampaignOnboardingField:
+        """Business operation for creating a campaign onboarding field."""
+        logger.info(f"Executing create onboarding field operation.")
+        
+        # Convert campaign documentId to numeric ID for Strapi
+        campaign_doc_id = field_data.campaign
+        campaign_id = await strapi_client.get_campaign_id_by_document_id(campaign_doc_id)
+        if not campaign_id:
+            raise ValueError(f"Campaign with documentId {campaign_doc_id} not found.")
 
-        return {
-            "fields": fields,
-            "campaign_id": campaign_id,
-            "total_count": len(fields)
-        }
+        create_payload = field_data.model_dump()
+        create_payload['campaign'] = campaign_id
 
-    async def update_onboarding_fields_batch_operation(self, campaign_id: str, fields_data: List[Dict[str, Any]], delete_ids: List[str] = []) -> Dict[str, Any]:
-        """Business operation for batch updating campaign onboarding fields."""
-        logger.info(f"Executing batch update onboarding fields operation for campaign: {campaign_id}")
+        strapi_data = StrapiCampaignOnboardingFieldCreate(**create_payload)
+        return await strapi_client.create_onboarding_field(strapi_data)
 
-        updated_fields = []
-        deleted_count = 0
-        errors = []
+    async def get_onboarding_field_operation(self, field_id: Union[int, str]) -> Optional[CampaignOnboardingField]:
+        """
+        Business operation for getting a single campaign onboarding field by its numeric ID or documentId.
+        """
+        logger.info(f"Executing get onboarding field operation for field: {field_id}")
+        
+        if isinstance(field_id, int) or field_id.isdigit():
+            return await strapi_client.get_onboarding_field(int(field_id))
+        else:
+            return await strapi_client.get_onboarding_field_by_document_id(field_id)
 
-        # Process deletions
-        for field_id in delete_ids:
-            try:
-                await strapi_client.delete_onboarding_field(field_id)
-                deleted_count += 1
-            except Exception as e:
-                errors.append({
-                    "field_id": field_id,
-                    "error": f"Failed to delete: {e}"
-                })
+    async def update_onboarding_field_operation(self, field_id: int, field_data: CampaignOnboardingFieldUpdate) -> CampaignOnboardingField:
+        """Business operation for updating a campaign onboarding field."""
+        logger.info(f"Executing update onboarding field operation for field: {field_id}")
+        
+        update_dict = field_data.model_dump(exclude_unset=True)
+        
+        strapi_data = StrapiCampaignOnboardingFieldUpdate(**update_dict)
+        return await strapi_client.update_onboarding_field(field_id, strapi_data)
 
-        # Process updates and creates
-        for field_data in fields_data:
-            try:
-                field_dict = field_data.model_dump()
-                document_id = field_dict.get('documentId')
-                if document_id:
-                    # Update existing field
-                    updated_field = await strapi_client.update_onboarding_field(document_id, field_dict)
-                    updated_fields.append(updated_field)
-                else:
-                    # Create new field
-                    field_dict['campaign'] = campaign_id
-                    created_field = await strapi_client.create_onboarding_field(campaign_id, field_dict)
-                    updated_fields.append(created_field)
-            except Exception as e:
-                errors.append({
-                    "field_data": field_data,
-                    "error": str(e)
-                })
-
-        return {
-            "updated_fields": updated_fields,
-            "deleted_count": deleted_count,
-            "errors": errors,
-            "campaign_id": campaign_id,
-            "success_count": len(updated_fields),
-            "error_count": len(errors)
-        }
+    async def delete_onboarding_field_operation(self, field_id: int) -> Dict[str, Any]:
+        """Business operation for deleting a campaign onboarding field."""
+        logger.info(f"Executing delete onboarding field operation for field: {field_id}")
+        await strapi_client.delete_onboarding_field(field_id)
+        return {"message": f"Onboarding field {field_id} deleted successfully."}
 
     async def _setup_discord_bot(self, campaign_id: int) -> Dict[str, Any]:
         """Setup Discord bot for campaign."""

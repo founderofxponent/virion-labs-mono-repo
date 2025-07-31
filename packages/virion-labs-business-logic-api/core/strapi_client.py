@@ -3,7 +3,12 @@ from typing import Dict, List, Optional, Any
 from .config import settings
 import logging
 import json
-from schemas.strapi import StrapiCampaignLandingPageUpdate
+from schemas.strapi import (
+    StrapiCampaignLandingPageUpdate,
+    StrapiCampaignOnboardingFieldCreate,
+    StrapiCampaignOnboardingFieldUpdate,
+    CampaignOnboardingField
+)
 
 logger = logging.getLogger(__name__)
 
@@ -422,89 +427,60 @@ class StrapiClient:
         response = await self._request("DELETE", f"campaigns/{document_id}")
         return response.get("data") if response else {"status": "deleted"}
 
-    async def get_onboarding_fields(self, campaign_id: str) -> List[Dict]:
+    async def get_onboarding_fields_by_campaign(self, campaign_id: str) -> List[CampaignOnboardingField]:
         """Fetches onboarding fields for a campaign from Strapi."""
         logger.info(f"StrapiClient: Fetching onboarding fields for campaign {campaign_id} from Strapi.")
         params = {"filters[campaign][documentId][$eq]": campaign_id, "populate": "*"}
         response = await self._request("GET", "campaign-onboarding-fields", params=params)
-        return response.get("data", [])
+        return [CampaignOnboardingField(**item) for item in response.get("data", [])]
 
-    async def get_onboarding_field(self, document_id: str) -> Dict:
-        """Fetches a single onboarding field by its document ID."""
-        logger.info(f"StrapiClient: Fetching onboarding field {document_id} from Strapi.")
-        response = await self._request("GET", f"campaign-onboarding-fields/{document_id}", params={"populate": "*"})
-        return response.get("data")
-
-    async def create_onboarding_field(self, campaign_id: str, field_data: Dict) -> Dict:
-        """Creates an onboarding field for a campaign in Strapi."""
-        logger.info(f"StrapiClient: Creating onboarding field for campaign {campaign_id} in Strapi.")
-        
-        payload = {key: value for key, value in field_data.items() if key not in ['campaign_id', 'id', 'documentId']}
-        
-        data = {"data": {"campaign": {"connect": [{"documentId": campaign_id}]}, **payload}}
-        response = await self._request("POST", "campaign-onboarding-fields", data=data)
-        
-        return response.get("data")
-
-    async def update_onboarding_field(self, document_id: str, field_data: Dict) -> Dict:
-        """
-        Updates an onboarding field using detach-update-reattach logic to avoid constraint violations.
-        This works around Strapi v5's relationship constraint issues.
-        """
-        logger.info(f"StrapiClient: Updating onboarding field {document_id} using detach-update-reattach logic.")
-        
-        # Step 1: Get the existing field to determine its campaign relationship
+    async def get_onboarding_field(self, field_id: int) -> Optional[CampaignOnboardingField]:
+        """Fetches a single onboarding field by its ID."""
+        logger.info(f"StrapiClient: Fetching onboarding field {field_id} from Strapi.")
         try:
-            existing_entity = await self._request("GET", f"campaign-onboarding-fields/{document_id}", params={"populate": "campaign"})
-            existing_data = existing_entity.get("data", {})
-            campaign_info = existing_data.get("campaign", {})
-            campaign_document_id = campaign_info.get("documentId") if campaign_info else None
+            response = await self._request("GET", f"campaign-onboarding-fields/{field_id}", params={"populate": "*"})
+            if response and response.get("data"):
+                return CampaignOnboardingField(**response.get("data"))
+            return None
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                logger.error(f"Onboarding field with document ID {document_id} not found.")
-                raise ValueError(f"Onboarding field with document ID {document_id} does not exist.")
+                logger.warning(f"Onboarding field with ID {field_id} not found.")
+                return None
             raise
 
-        logger.info(f"Found existing field attached to campaign: {campaign_document_id}")
+    async def get_onboarding_field_by_document_id(self, document_id: str) -> Optional[CampaignOnboardingField]:
+        """Fetches a single onboarding field by its documentId."""
+        logger.info(f"StrapiClient: Fetching onboarding field with documentId {document_id} from Strapi.")
+        params = {
+            "filters[documentId][$eq]": document_id,
+            "populate": "*"
+        }
+        response = await self._request("GET", "campaign-onboarding-fields", params=params)
+        fields = response.get("data", [])
+        if fields:
+            return CampaignOnboardingField(**fields[0])
+        return None
 
-        # Step 2: Detach from campaign by setting campaign to null
-        if campaign_document_id:
-            logger.info("Step 2: Detaching field from campaign...")
-            detach_data = {"data": {"campaign": None}}
-            await self._request("PUT", f"campaign-onboarding-fields/{document_id}", data=detach_data)
-            logger.info("Successfully detached field from campaign")
+    async def create_onboarding_field(self, field_data: StrapiCampaignOnboardingFieldCreate) -> CampaignOnboardingField:
+        """Creates an onboarding field for a campaign in Strapi."""
+        logger.info(f"StrapiClient: Creating onboarding field for campaign {field_data.campaign} in Strapi.")
+        payload = field_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
+        response = await self._request("POST", "campaign-onboarding-fields", data=data)
+        return CampaignOnboardingField(**response.get("data"))
 
-        # Step 3: Update the field with new data (without campaign relationship)
-        logger.info("Step 3: Updating field with new data...")
-        update_data = {}
-        for key, value in field_data.items():
-            if key not in ['campaign', 'campaign_id', 'id', 'documentId', 'createdAt', 'updatedAt', 'publishedAt']:
-                update_data[key] = value
+    async def update_onboarding_field(self, field_id: int, field_data: StrapiCampaignOnboardingFieldUpdate) -> CampaignOnboardingField:
+        """Updates an onboarding field in Strapi."""
+        logger.info(f"StrapiClient: Updating onboarding field {field_id} in Strapi.")
+        payload = field_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
+        response = await self._request("PUT", f"campaign-onboarding-fields/{field_id}", data=data)
+        return CampaignOnboardingField(**response.get("data"))
 
-        if update_data:
-            request_data = {"data": update_data}
-            updated_response = await self._request("PUT", f"campaign-onboarding-fields/{document_id}", data=request_data)
-            logger.info("Successfully updated field data")
-        else:
-            # If no data to update, just get the current state
-            updated_response = await self._request("GET", f"campaign-onboarding-fields/{document_id}")
-
-        # Step 4: Reattach to campaign if it was originally attached
-        if campaign_document_id:
-            logger.info("Step 4: Reattaching field to campaign...")
-            # Update the campaign to include this field in its onboarding fields
-            reattach_data = {"data": {"campaign_onboarding_fields": {"connect": [document_id]}}}
-            await self._request("PUT", f"campaigns/{campaign_document_id}", data=reattach_data)
-            logger.info("Successfully reattached field to campaign")
-
-        # Return the updated field with populated campaign relationship
-        final_response = await self._request("GET", f"campaign-onboarding-fields/{document_id}", params={"populate": "campaign"})
-        return final_response.get("data")
-
-    async def delete_onboarding_field(self, document_id: str) -> Dict:
+    async def delete_onboarding_field(self, field_id: int) -> Dict:
         """Deletes an onboarding field in Strapi."""
-        logger.info(f"StrapiClient: Deleting onboarding field {document_id} in Strapi.")
-        response = await self._request("DELETE", f"campaign-onboarding-fields/{document_id}")
+        logger.info(f"StrapiClient: Deleting onboarding field {field_id} in Strapi.")
+        response = await self._request("DELETE", f"campaign-onboarding-fields/{field_id}")
         return response.get("data") if response else {"status": "deleted"}
 
     async def create_onboarding_response(self, response_data: Dict) -> Dict:
