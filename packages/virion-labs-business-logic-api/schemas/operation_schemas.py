@@ -6,44 +6,31 @@ class BusinessContext(BaseModel):
     recommendation: str
     is_active: bool
 
-class EnrichedClient(BaseModel):
-    id: int
-    attributes: Dict[str, Any]
-    business_context: BusinessContext
+# --- Client Operations ---
 
-# --- Client List Operation ---
+class ClientResponse(BaseModel):
+    id: int
+    documentId: Optional[str] = None
+    name: str
+    contact_email: Optional[EmailStr] = None
+    industry: Optional[str] = None
+    client_status: Optional[str] = None
+    website: Optional[str] = None
+    primary_contact: Optional[str] = None
+    campaign_count: Optional[int] = 0
+    business_context: Optional[BusinessContext] = None
 
 class ClientListResponse(BaseModel):
-    """
-    Defines the structure for the response of the client list operation.
-    """
-    clients: List[EnrichedClient]
+    """Defines the structure for the response of the client list operation."""
+    clients: List[ClientResponse]
     total_count: int
 
-# --- Client Create Operation ---
-
-class ClientData(BaseModel):
+class ClientCreateRequest(BaseModel):
     name: str
     contact_email: EmailStr
     industry: Optional[str] = None
-
-class SetupOptions(BaseModel):
-    create_default_settings: bool = True
-    enable_analytics: bool = True
-    send_welcome_email: bool = True
-
-class ClientCreateRequest(BaseModel):
-    client_data: ClientData
-    setup_options: SetupOptions
-
-class ClientCreateResponse(BaseModel):
-    client: Dict[str, Any]
-    business_context: BusinessContext
-    default_settings_created: Optional[bool] = None
-    analytics_enabled: Optional[bool] = None
-    welcome_email_sent: Optional[bool] = None
-
-# --- Client Update Operation ---
+    website: Optional[str] = None
+    primary_contact: Optional[str] = None
 
 class ClientUpdateRequest(BaseModel):
     name: Optional[str] = None
@@ -52,7 +39,6 @@ class ClientUpdateRequest(BaseModel):
     client_status: Optional[str] = None
     website: Optional[str] = None
     primary_contact: Optional[str] = None
-    influencers: Optional[int] = None
 
 # --- Campaign List Operation ---
 

@@ -4,6 +4,9 @@ from .config import settings
 import logging
 import json
 from schemas.strapi import (
+    Client,
+    StrapiClientCreate,
+    StrapiClientUpdate,
     StrapiCampaignLandingPageUpdate,
     StrapiCampaignOnboardingFieldCreate,
     StrapiCampaignOnboardingFieldUpdate,
@@ -75,41 +78,49 @@ class StrapiClient:
                 logger.exception("Strapi API request error")
                 raise
 
-    async def get_clients(self, filters: Optional[Dict] = None) -> List[Dict]:
-        """Fetches a list of clients from Strapi."""
+    async def get_clients(self, filters: Optional[Dict] = None) -> List[Client]:
+        """Fetches a list of clients from Strapi, returning them as validated Pydantic models."""
         logger.info("StrapiClient: Fetching real clients from Strapi.")
         params = {"populate": "*"}
         if filters:
             params.update(filters)
         
         response = await self._request("GET", "clients", params=params)
-        return response.get("data", [])
+        return [Client(**item) for item in response.get("data", [])]
 
-    async def create_client(self, client_data: Dict) -> Dict:
-        """Creates a new client in Strapi."""
+    async def create_client(self, client_data: StrapiClientCreate) -> Client:
+        """Creates a new client in Strapi using a validated Pydantic model."""
         logger.info("StrapiClient: Creating a new client in Strapi.")
-        data = {"data": client_data}
+        payload = client_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         response = await self._request("POST", "clients", data=data)
-        return response.get("data")
+        return Client(**response.get("data"))
 
-    async def update_client(self, document_id: str, client_data: Dict) -> Dict:
-        """Updates a client in Strapi using its documentId."""
+    async def update_client(self, document_id: str, client_data: StrapiClientUpdate) -> Client:
+        """Updates a client in Strapi using its documentId and a validated Pydantic model."""
         logger.info(f"StrapiClient: Updating client {document_id} in Strapi.")
-        logger.info(f"StrapiClient: Client data being sent: {client_data}")
-        data = {"data": client_data}
-        logger.info(f"StrapiClient: Full payload: {data}")
+        payload = client_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         response = await self._request("PUT", f"clients/{document_id}", data=data)
-        logger.info(f"StrapiClient: Strapi response: {response}")
-        return response.get("data")
+        return Client(**response.get("data"))
 
-    async def get_client(self, document_id: str, populate: Optional[List[str]] = None) -> Dict:
-        """Fetches a single client by documentId from Strapi."""
+    async def get_client(self, document_id: str, populate: Optional[List[str]] = None) -> Optional[Client]:
+        """Fetches a single client by documentId from Strapi, returning a validated Pydantic model."""
         logger.info(f"StrapiClient: Fetching client {document_id} from Strapi.")
         params = {}
         if populate:
             params["populate"] = ",".join(populate)
-        response = await self._request("GET", f"clients/{document_id}", params=params)
-        return response.get("data")
+        
+        try:
+            response = await self._request("GET", f"clients/{document_id}", params=params)
+            if response and response.get("data"):
+                return Client(**response.get("data"))
+            return None
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"Client with documentId {document_id} not found.")
+                return None
+            raise
 
     async def get_campaigns(self, filters: Optional[Dict] = None) -> List[Dict]:
         """Fetches a list of campaigns from Strapi."""

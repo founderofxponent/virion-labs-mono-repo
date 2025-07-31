@@ -173,18 +173,27 @@ class CampaignTemplate(BaseModel):
     is_default: Optional[bool] = False
     landing_page_template: Optional[LandingPageTemplate] = None
 
-class Client(BaseModel):
-    id: int
+class ClientBase(BaseModel):
     name: str
-    industry: str
-    logo: Optional[Media] = None
-    influencers: Optional[int] = 0
-    client_status: Optional[Literal['active', 'inactive']] = None
-    join_date: Optional[datetime] = None
+    industry: Optional[str] = None
+    client_status: Optional[Literal['active', 'inactive']] = 'active'
     website: Optional[str] = None
     primary_contact: Optional[str] = None
     contact_email: Optional[str] = None
+
+class Client(ClientBase):
+    id: int
+    documentId: Optional[str] = None
+    logo: Optional[Media] = None
+    influencers: Optional[int] = 0
+    join_date: Optional[datetime] = None
     campaigns: Optional[List['Campaign']] = None
+
+class StrapiClientCreate(ClientBase):
+    pass
+
+class StrapiClientUpdate(ClientBase):
+    name: Optional[str] = None # All fields are optional for updates
 
 class CampaignInfluencerAccess(BaseModel):
     id: int

@@ -5,7 +5,7 @@ from services.campaign_service import campaign_service
 from services.campaign_template_service import campaign_template_service
 from services.landing_page_template_service import landing_page_template_service
 from schemas.operation_schemas import (
-    ClientCreateRequest, ClientCreateResponse,
+    ClientCreateRequest, ClientResponse,
     ClientListResponse, ClientUpdateRequest,
     CampaignListResponse, CampaignUpdateRequest, CampaignLandingPageUpdateRequest,
     LandingPageTemplateListResponse, LandingPageTemplateResponse,
@@ -21,6 +21,7 @@ from domain.campaigns.schemas import (
     CampaignOnboardingFieldCreate,
     CampaignOnboardingFieldUpdate,
 )
+from domain.clients.schemas import ClientCreate, ClientUpdate
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
 from core.strapi_client import strapi_client
@@ -33,16 +34,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Client Operations
-@router.post("/client/create", response_model=ClientCreateResponse)
-async def create_client_operation(request: ClientCreateRequest):
-    """Business operation for client creation with setup options."""
+@router.post("/client/create", response_model=ClientResponse, status_code=201)
+async def create_client_operation(request: ClientCreateRequest, current_user: User = Depends(get_current_user)):
+    """Creates a new client."""
     try:
-        result = await client_service.create_client_operation(
-            client_data=request.client_data.model_dump(),
-            setup_options=request.setup_options.model_dump()
-        )
-        return ClientCreateResponse(**result)
-        
+        client_data = ClientCreate(**request.model_dump())
+        created_client = await client_service.create_client_operation(client_data, current_user)
+        return created_client
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Client creation operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -54,21 +54,8 @@ async def list_clients_operation(
     status: Optional[str] = None,
     current_user: User = Depends(get_current_user)
 ):
-    """Business operation for listing clients with business context."""
+    """Lists all clients with optional filters."""
     try:
-        logger.info(f"list_clients_operation called. Current user: {current_user}")
-        if not current_user:
-            logger.warning("list_clients_operation: current_user is None.")
-            raise HTTPException(status_code=401, detail="Could not validate credentials for this operation.")
-        
-        logger.info(f"Current user role: {current_user.role}")
-        if not current_user.role or current_user.role.get('name') not in ["Platform Administrator", "admin"]:
-            logger.warning(f"list_clients_operation: User {current_user.email} with role {current_user.role.get('name') if current_user.role else 'None'} attempted to access admin endpoint.")
-            raise HTTPException(
-                status_code=403,
-                detail="Access forbidden: This endpoint is for administrators only."
-            )
-
         filters = {}
         if industry:
             filters["filters[industry][$eq]"] = industry
@@ -76,60 +63,55 @@ async def list_clients_operation(
             filters["filters[budget_tier][$eq]"] = tier
         if status:
             filters["filters[status][$eq]"] = status
+            
         result = await client_service.list_clients_operation(filters=filters, current_user=current_user)
-        return ClientListResponse(**result)
-        
-        
+        return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Client list operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/client/get/{client_id}")
-async def get_client_operation(client_id: str):
-    """Business operation for getting client details with business context."""
+@router.get("/client/get/{client_id}", response_model=ClientResponse)
+async def get_client_operation(client_id: str, current_user: User = Depends(get_current_user)):
+    """Gets a single client by its documentId."""
     try:
-        client = await strapi_client.get_client(client_id)
-        if not client:
-            raise HTTPException(status_code=404, detail="Client not found")
-        
-        business_context = client_service.client_domain.get_client_business_context(client)
-        
-        return {
-            "client": client,
-            "business_context": business_context
-        }
-        
+        client = await client_service.get_client_operation(client_id, current_user)
+        return client
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Get client operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/client/update/{client_id}")
+@router.put("/client/update/{client_id}", response_model=ClientResponse)
 async def update_client_operation(client_id: str, request: ClientUpdateRequest, current_user: User = Depends(get_current_user)):
-    """Business operation for updating client with business logic."""
+    """Updates a client."""
     try:
-        result = await client_service.update_client_operation(
+        update_data = ClientUpdate(**request.model_dump(exclude_unset=True))
+        updated_client = await client_service.update_client_operation(
             document_id=client_id,
-            updates=request.model_dump(exclude_unset=True),
+            updates=update_data,
             current_user=current_user
         )
-        return result
-        
+        return updated_client
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Client update operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/client/delete/{client_id}")
+@router.delete("/client/delete/{client_id}", status_code=200)
 async def delete_client_operation(client_id: str, current_user: User = Depends(get_current_user)):
-    """Business operation for deleting client with cleanup."""
+    """Deletes a client (soft delete)."""
     try:
         result = await client_service.delete_client_operation(
             document_id=client_id,
             current_user=current_user
         )
         return result
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Client delete operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
