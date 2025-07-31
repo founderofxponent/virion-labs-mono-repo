@@ -13,7 +13,7 @@ export interface Client {
   primary_contact?: string;
   contact_email?: string;
   influencers: number;
-  status: string;
+  client_status: string;
   join_date: string;
   logo?: string;
   campaign_count: number;
@@ -21,28 +21,8 @@ export interface Client {
   updated_at?: string;
 }
 
-// This is the actual shape of the data from the API
-interface ApiClient {
-  id: number;
-  documentId?: string;
-  attributes: {
-    name: string;
-    industry: string;
-    website?: string;
-    primary_contact?: string;
-    contact_email?: string;
-    influencers: number;
-    client_status: string;
-    join_date: string;
-    logo?: string;
-    campaign_count: number;
-    created_at?: string;
-    updated_at?: string;
-  };
-}
-
 interface ApiListResponse {
-  clients: ApiClient[];
+  clients: Client[];
   total_count: number;
 }
 
@@ -57,15 +37,6 @@ export function useClients() {
 
   const getToken = () => localStorage.getItem('auth_token')
 
-  // Correctly transform the nested API response to the flat structure the UI needs
-  const transformApiClient = (apiClient: ApiClient): Client => {
-    return {
-      id: apiClient.id,
-      documentId: apiClient.documentId,
-      ...apiClient.attributes,
-      status: apiClient.attributes.client_status, // Map client_status to status
-    }
-  }
 
   const fetchClients = useCallback(async () => {
     const token = getToken()
@@ -91,11 +62,10 @@ export function useClients() {
       }
       
       const data: ApiListResponse = await response.json()
-      const transformedData = data.clients.map(transformApiClient)
-      setClients(transformedData)
+      setClients(data.clients)
 
       const counts: Record<string, number> = {}
-      transformedData.forEach(client => {
+      data.clients.forEach(client => {
         counts[client.id] = client.campaign_count
       })
       setCampaignCounts(counts)
@@ -125,16 +95,11 @@ export function useClients() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          client_data: {
-            name: clientData.name,
-            contact_email: clientData.contact_email,
-            industry: clientData.industry,
-          },
-          setup_options: {
-            create_default_settings: true,
-            enable_analytics: true,
-            send_welcome_email: true
-          }
+          name: clientData.name,
+          contact_email: clientData.contact_email,
+          industry: clientData.industry,
+          website: clientData.website,
+          primary_contact: clientData.primary_contact,
         })
       })
 
@@ -165,14 +130,9 @@ export function useClients() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           ...updates,
-          client_status: updates.status?.toLowerCase(),
-          status: undefined, // Remove status to avoid duplication
-          // Ensure null values are preserved for optional fields
-          website: updates.website,
-          primary_contact: updates.primary_contact,
-          contact_email: updates.contact_email
+          client_status: updates.client_status?.toLowerCase(),
         })
       })
 
@@ -229,7 +189,7 @@ export function useClients() {
 
   const getStats = () => {
     const totalClients = clients.length
-    const activeClients = clients.filter(client => client.status === 'active').length
+    const activeClients = clients.filter(client => client.client_status === 'active').length
     const totalInfluencers = clients.reduce((sum, client) => sum + (client.influencers || 0), 0)
     const totalCampaigns = Object.values(campaignCounts).reduce((sum, count) => sum + count, 0)
     
@@ -261,24 +221,7 @@ export function useClients() {
       }
       
       const data: { client: any } = await response.json()
-      // Strapi v5 returns flat structure, transform to match Client interface
-      const transformedClient: Client = {
-        id: data.client.id,
-        documentId: data.client.documentId,
-        name: data.client.name,
-        industry: data.client.industry,
-        website: data.client.website,
-        primary_contact: data.client.primary_contact,
-        contact_email: data.client.contact_email,
-        influencers: data.client.influencers,
-        status: data.client.client_status, // Map client_status to status
-        join_date: data.client.join_date,
-        logo: data.client.logo,
-        campaign_count: data.client.campaign_count || 0,
-        created_at: data.client.createdAt,
-        updated_at: data.client.updatedAt,
-      }
-      return { data: transformedClient, error: null }
+      return { data: data.client, error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       return { data: null, error: errorMessage }

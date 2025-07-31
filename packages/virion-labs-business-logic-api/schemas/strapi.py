@@ -237,7 +237,7 @@ class Campaign(BaseModel):
     bot_personality: Optional[str] = 'helpful'
     bot_response_style: Optional[str] = 'friendly'
     auto_role_assignment: Optional[bool] = False
-    target_role_ids: Optional[Dict[str, Any]] = None
+    target_role_ids: Optional[List[str]] = None
     referral_tracking_enabled: Optional[bool] = True
     moderation_enabled: Optional[bool] = True
     rate_limit_per_user: Optional[int] = 5

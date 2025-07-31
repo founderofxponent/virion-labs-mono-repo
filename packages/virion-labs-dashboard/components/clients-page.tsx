@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { useClients } from "@/hooks/use-clients"
+import { useClients, Client } from "@/hooks/use-clients"
 import { toast } from "sonner"
 
 export function ClientsPage() {
@@ -62,7 +62,7 @@ export function ClientsPage() {
 
   const filteredClients = clients
     .filter((client) => {
-      if (filterStatus !== "all" && client.status.toLowerCase() !== filterStatus) {
+      if (filterStatus !== "all" && client.client_status.toLowerCase() !== filterStatus) {
         return false
       }
       if (
@@ -100,11 +100,11 @@ export function ClientsPage() {
       const { error } = await addClient({
         name: newClient.name,
         industry: newClient.industry,
-        website: newClient.website || null,
-        primary_contact: newClient.primary_contact || null,
-        contact_email: newClient.contact_email || null,
+        website: newClient.website || undefined,
+        primary_contact: newClient.primary_contact || undefined,
+        contact_email: newClient.contact_email || undefined,
         influencers: newClient.influencers,
-        status: "Active"
+        client_status: "active"
       })
 
       if (error) {
@@ -344,14 +344,14 @@ export function ClientsPage() {
                       <TableCell onClick={() => handleViewClient(client)}>
                         <Badge
                           variant={
-                            client.status === "Active"
+                            client.client_status === "active"
                               ? "default"
-                              : client.status === "Inactive"
+                              : client.client_status === "inactive"
                                 ? "secondary"
                                 : "outline"
                           }
                         >
-                          {client.status}
+                          {client.client_status}
                         </Badge>
                       </TableCell>
                       <TableCell onClick={() => handleViewClient(client)}>{formatDate(client.join_date)}</TableCell>
@@ -404,10 +404,10 @@ export function ClientsPage() {
                     </div>
                     <Badge
                       variant={
-                        client.status === "Active" ? "default" : client.status === "Inactive" ? "secondary" : "outline"
+                        client.client_status === "active" ? "default" : client.client_status === "inactive" ? "secondary" : "outline"
                       }
                     >
-                      {client.status}
+                      {client.client_status}
                     </Badge>
                   </div>
                   <CardDescription>{client.industry}</CardDescription>
@@ -432,7 +432,7 @@ export function ClientsPage() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleViewClient(client.id)
+                        handleViewClient(client)
                       }}
                     >
                       View
@@ -442,7 +442,7 @@ export function ClientsPage() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleEditClient(client.id)
+                        handleEditClient(client)
                       }}
                     >
                       Edit

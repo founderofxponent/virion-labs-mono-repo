@@ -93,6 +93,7 @@ class CampaignUpdateRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     onboarding_questions: Optional[List[Any]] = None
 
+
 # --- Campaign Landing Page Update Operation ---
 
 class CampaignLandingPageUpdateRequest(BaseModel):
