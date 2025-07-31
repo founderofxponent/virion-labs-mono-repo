@@ -14,12 +14,8 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { X, ArrowUp, ArrowDown, Plus, AlertCircle } from 'lucide-react';
-import { type OnboardingQuestion } from './CampaignWizard';
-
-interface OnboardingQuestionsFormProps {
-  questions: OnboardingQuestion[];
-  onQuestionsChange: (questions: OnboardingQuestion[]) => void;
-}
+import { OnboardingQuestionsFormProps } from '@/schemas/campaign-wizard';
+import { OnboardingQuestion } from '@/schemas/campaign-onboarding-field';
 
 export function OnboardingQuestionsForm({ questions, onQuestionsChange }: OnboardingQuestionsFormProps) {
   const isLimitReached = questions.length >= 5;

@@ -2,15 +2,7 @@ import React from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-interface PlacementAndScheduleTabProps {
-  formData: {
-    guild_id: string
-    channel_id: string
-    campaign_start_date: string
-    campaign_end_date: string
-  }
-  handleFieldChange: (field: string, value: any) => void
-}
+import { PlacementAndScheduleTabProps } from "@/schemas/campaign-wizard";
 
 export function PlacementAndScheduleTab({
   formData,
@@ -38,24 +30,24 @@ export function PlacementAndScheduleTab({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <Label htmlFor="campaign_start_date">Campaign Start Date</Label>
+          <Label htmlFor="start_date">Campaign Start Date</Label>
           <Input
-            id="campaign_start_date"
+            id="start_date"
             type="date"
-            value={formData.campaign_start_date}
+            value={formData.start_date}
             onChange={e =>
-              handleFieldChange("campaign_start_date", e.target.value)
+              handleFieldChange("start_date", e.target.value)
             }
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="campaign_end_date">Campaign End Date</Label>
+          <Label htmlFor="end_date">Campaign End Date</Label>
           <Input
-            id="campaign_end_date"
+            id="end_date"
             type="date"
-            value={formData.campaign_end_date}
+            value={formData.end_date}
             onChange={e =>
-              handleFieldChange("campaign_end_date", e.target.value)
+              handleFieldChange("end_date", e.target.value)
             }
           />
         </div>

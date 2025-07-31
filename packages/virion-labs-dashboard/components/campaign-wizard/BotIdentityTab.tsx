@@ -9,16 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-interface BotIdentityTabProps {
-  formData: {
-    bot_name: string
-    brand_logo_url: string
-    brand_color: string
-    bot_personality: string
-    bot_response_style: string
-  }
-  handleFieldChange: (field: string, value: any) => void
-}
+import { BotIdentityTabProps } from "@/schemas/campaign-wizard";
 
 export function BotIdentityTab({
   formData,

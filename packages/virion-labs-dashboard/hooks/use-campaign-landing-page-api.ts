@@ -5,24 +5,46 @@ import { useAuth } from "@/components/auth-provider"
 
 // TODO: Define the new API-based types for campaign landing pages
 export interface CampaignLandingPage {
-  id: string;
-  campaign_id: string;
-  template_id: string;
-  content: any;
-  created_at: string;
-  updated_at: string;
+  id: number;
+  documentId: string;
+  offer_title: string[];
+  offer_description: string;
+  offer_highlights: string[];
+  offer_value: string;
+  offer_expiry_date: string | null;
+  product_images: string[] | null;
+  video_url: string | null;
+  what_you_get: string;
+  how_it_works: string;
+  requirements: string;
+  support_info: string;
+  inherited_from_template: boolean;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string;
+  hero_image_url: string | null;
+  landing_page_template: {
+    id: number;
+    documentId: string;
+    name: string;
+  } | null;
+  campaign: {
+    id: number;
+    documentId: string;
+    name: string;
+  };
 }
 
-export function useCampaignLandingPagesApi() {
+export function useCampaignLandingPageApi() {
   const { user } = useAuth()
-  const [pages, setPages] = useState<CampaignLandingPage[]>([])
+  const [page, setPage] = useState<CampaignLandingPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const API_BASE_URL = "http://localhost:8000"
   const getToken = () => localStorage.getItem('auth_token')
 
-  const fetchPages = useCallback(async (campaignId: string) => {
+  const fetchPage = useCallback(async (campaignId: string) => {
     if (!user) {
       setLoading(false)
       return
@@ -33,15 +55,15 @@ export function useCampaignLandingPagesApi() {
     const token = getToken()
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/${campaignId}/landing-pages`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/${campaignId}/landing-page`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to fetch campaign landing pages')
+        throw new Error(errorData.detail || 'Failed to fetch campaign landing page')
       }
       const data = await response.json()
-      setPages(data.pages || [])
+      setPage(data.page || null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {
@@ -71,13 +93,13 @@ export function useCampaignLandingPagesApi() {
         throw new Error(errorData.detail || 'Failed to create campaign landing page')
       }
 
-      // Refetch the list to include the new page
-      fetchPages(campaignId)
+      // Refetch the page to include the new page
+      fetchPage(campaignId)
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     }
-  }, [fetchPages])
+  }, [fetchPage])
 
   const updatePage = useCallback(async (pageId: string, pageData: any) => {
     const token = getToken()
@@ -101,7 +123,7 @@ export function useCampaignLandingPagesApi() {
         throw new Error(errorData.detail || 'Failed to update campaign landing page')
       }
 
-      // Refetch the list to reflect the updated page
+      // Refetch the page to reflect the updated page
       // This assumes the component knows the campaignId to refetch
       // A more robust solution might involve a global state manager.
       // For now, we will rely on the component to trigger a refetch.
@@ -131,21 +153,21 @@ export function useCampaignLandingPagesApi() {
         throw new Error(errorData.detail || 'Failed to delete campaign landing page')
       }
 
-      // Refetch the list to reflect the deletion
-      fetchPages(campaignId)
+      // Refetch the page to reflect the deletion
+      fetchPage(campaignId)
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     }
-  }, [fetchPages])
+  }, [fetchPage])
 
   return {
-    pages,
+    page,
     createPage,
     updatePage,
     deletePage,
     loading,
     error,
-    fetchPages,
+    fetchPage,
   }
 }

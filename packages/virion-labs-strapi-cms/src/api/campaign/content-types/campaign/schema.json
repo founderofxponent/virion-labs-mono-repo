@@ -154,9 +154,6 @@
     "custom_commands": {
       "type": "json"
     },
-    "landing_page_data": {
-      "type": "json"
-    },
     "campaign_onboarding_completions": {
       "type": "relation",
       "relation": "oneToMany",

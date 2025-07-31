@@ -1,96 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-
-export interface OnboardingField {
-  id: string
-  campaign_id: string
-  field_key: string
-  field_label: string
-  field_type: 'text' | 'email' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'url' | 'boolean'
-  field_placeholder?: string
-  field_description?: string
-  field_options: string[]
-  is_required: boolean
-  is_enabled: boolean
-  sort_order: number
-  validation_rules: Record<string, any>
-  discord_integration?: {
-    collect_in_dm: boolean
-    show_in_embed: boolean
-    trigger_after?: string
-  }
-  created_at: string
-  updated_at: string
-}
-
-export interface OnboardingTemplate {
-  id: string
-  template_name: string
-  template_description?: string
-  field_config: OnboardingFieldConfig[]
-  is_default: boolean
-  created_by?: string
-  created_at: string
-  updated_at: string
-}
-
-export interface OnboardingFieldConfig {
-  key: string
-  label: string
-  type: 'text' | 'email' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'url' | 'boolean'
-  placeholder?: string
-  description?: string
-  options?: string[]
-  required: boolean
-  enabled: boolean
-  sort_order: number
-  discord_integration?: {
-    collect_in_dm: boolean
-    show_in_embed: boolean
-    trigger_after?: string
-  }
-}
-
-export interface CreateOnboardingFieldData {
-  campaign_id: string
-  field_key: string
-  field_label: string
-  field_type: 'text' | 'email' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'url' | 'boolean'
-  field_placeholder?: string
-  field_description?: string
-  field_options?: string[]
-  is_required?: boolean
-  is_enabled?: boolean
-  sort_order?: number
-  validation_rules?: Record<string, any>
-  discord_integration?: {
-    collect_in_dm: boolean
-    show_in_embed: boolean
-    trigger_after?: string
-  }
-}
-
-export interface UpdateOnboardingFieldData {
-  id: string
-  field_label?: string
-  field_type?: 'text' | 'email' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'url' | 'boolean'
-  field_placeholder?: string
-  field_description?: string
-  field_options?: string[]
-  is_required?: boolean
-  is_enabled?: boolean
-  sort_order?: number
-  validation_rules?: Record<string, any>
-  discord_integration?: {
-    collect_in_dm: boolean
-    show_in_embed: boolean
-    trigger_after?: string
-  }
-}
+import {
+  CampaignOnboardingField,
+  CreateOnboardingFieldData,
+  UpdateOnboardingFieldData,
+  OnboardingTemplate,
+  OnboardingFieldConfig
+} from '@/schemas/campaign-onboarding-field'
 
 export function useOnboardingFields(campaignId?: string) {
-  const [fields, setFields] = useState<OnboardingField[]>([])
+  const [fields, setFields] = useState<CampaignOnboardingField[]>([])
   const [templates, setTemplates] = useState<OnboardingTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -184,8 +104,8 @@ export function useOnboardingFields(campaignId?: string) {
       const data = await response.json()
       
       // Update local state
-      setFields(fields.map(field => 
-        field.id === updateData.id ? { ...field, ...data.field } : field
+      setFields(fields.map(field =>
+        field.documentId === updateData.documentId ? { ...field, ...data.field } : field
       ))
 
       return { success: true, field: data.field }
@@ -207,7 +127,7 @@ export function useOnboardingFields(campaignId?: string) {
       }
 
       // Update local state
-      setFields(fields.filter(field => field.id !== fieldId))
+      setFields(fields.filter(field => field.documentId !== fieldId))
 
       return { success: true }
     } catch (err) {
@@ -244,11 +164,11 @@ export function useOnboardingFields(campaignId?: string) {
     }
   }
 
-  const reorderFields = async (reorderedFields: OnboardingField[]) => {
+  const reorderFields = async (reorderedFields: CampaignOnboardingField[]) => {
     try {
       // Update sort_order for all fields
       const updatePromises = reorderedFields.map((field, index) =>
-        updateField({ id: field.id, sort_order: index })
+        updateField({ documentId: field.documentId, sort_order: index })
       )
 
       await Promise.all(updatePromises)

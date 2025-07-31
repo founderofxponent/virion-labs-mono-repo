@@ -1,42 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-
-// Import the OnboardingQuestion type from CampaignWizard
-export type OnboardingQuestion = Omit<OnboardingField, 'id' | 'campaign_id' | 'created_at' | 'updated_at'> & {
-  id?: string;
-};
-export interface OnboardingField {
-  id: string;
-  documentId: string;
-  campaign_id: string;
-  field_key: string;
-  field_label: string;
-  field_type: 'text' | 'email' | 'number' | 'boolean' | 'url' | 'select' | 'multiselect';
-  field_placeholder?: string;
-  field_description?: string;
-  field_options?: any;  // JSON type in schema
-  is_required: boolean;
-  is_enabled: boolean;
-  sort_order: number;
-  validation_rules?: any;  // JSON type in schema
-  discord_integration?: any;  // JSON type in schema
-  created_at: string;
-  updated_at: string;
-}
-
-export type CreateOnboardingFieldData = Omit<OnboardingField, 'id' | 'created_at' | 'updated_at'>;
-export type UpdateOnboardingFieldData = Partial<Omit<OnboardingField, 'id'>> & { id: string };
+import { CampaignOnboardingField, OnboardingQuestion, UpdateOnboardingFieldData } from "@/schemas/campaign-onboarding-field";
+import { CreateOnboardingFieldData } from "@/schemas/campaign-onboarding-field";
 
 export function useOnboardingFieldsAPI(campaignId?: string) {
-  const [fields, setFields] = useState<OnboardingField[]>([])
+  const [fields, setFields] = useState<CampaignOnboardingField[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const API_BASE_URL = "http://localhost:8000/api/v1/operations"
 
   const getToken = () => localStorage.getItem('auth_token')
 
-  const fetchFields = async (campaign_id?: string): Promise<OnboardingField[] | void> => {
+  const fetchFields = async (campaign_id?: string): Promise<CampaignOnboardingField[] | void> => {
     if (!campaign_id) {
       setLoading(false)
       setFields([])
@@ -150,7 +126,7 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
       
       // Update local state with the updated field
       setFields(fields.map(field =>
-        field.id === updateData.id ? { ...field, ...data.field } : field
+        field.documentId === (updateData as any).documentId ? { ...field, ...data.field } : field
       ))
 
       return { success: true, field: data.field }
@@ -217,7 +193,7 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
     }
   }
 
-  const reorderFields = async (reorderedFields: OnboardingField[]) => {
+  const reorderFields = async (reorderedFields: CampaignOnboardingField[]) => {
     // This will require a new endpoint
     return { success: false, error: "Not implemented" }
   }

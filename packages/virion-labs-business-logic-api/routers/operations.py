@@ -222,18 +222,22 @@ async def get_campaign_operation(campaign_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/campaign/update/{campaign_id}")
-async def update_campaign_operation(campaign_id: str, request: CampaignUpdateRequest):
+async def update_campaign_operation(campaign_id: str, request: CampaignUpdateRequest, current_user: User = Depends(get_current_user)):
     """Business operation for updating campaign."""
     try:
-        # Get updates without adding updated_at (Strapi manages this automatically)
         updates = request.model_dump(exclude_unset=True)
         
-        updated_campaign = await strapi_client.update_campaign(campaign_id, updates)
-        
-        return {
-            "campaign": updated_campaign,
-            "updated": True
-        }
+        # Ensure the user has permission to update this campaign
+        # You might want to add more sophisticated logic here, e.g., checking if the user is the client owner
+        user_role = current_user.role.get('name') if current_user.role else 'Authenticated'
+        if user_role not in ['Platform Administrator', 'admin']:
+            # Fetch the campaign to check for client ownership if not an admin
+            campaign_data = await strapi_client.get_campaign(campaign_id)
+            if not campaign_data or str(campaign_data.get('client_id')) != str(current_user.id):
+                 raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to update this campaign.")
+
+        result = await campaign_service.update_campaign_operation(campaign_id, updates)
+        return result
         
     except Exception as e:
         logger.error(f"Campaign update operation failed: {e}")
@@ -273,17 +277,17 @@ async def list_available_campaigns_operation():
         logger.error(f"Available campaigns operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/campaign/{campaign_id}/landing-pages", summary="List Campaign Landing Pages")
-async def list_campaign_landing_pages_operation(campaign_id: str):
+@router.get("/campaign/{campaign_id}/landing-page", summary="Get Campaign Landing Page")
+async def get_campaign_landing_page_operation(campaign_id: str):
     """
-    Business operation for listing all landing pages for a specific campaign.
+    Business operation for getting the landing page for a specific campaign.
     """
     try:
-        result = await campaign_service.list_landing_pages_operation(campaign_id=campaign_id)
+        result = await campaign_service.get_landing_page_operation(campaign_id=campaign_id)
         return result
         
     except Exception as e:
-        logger.error(f"Campaign landing pages operation failed: {e}")
+        logger.error(f"Campaign landing page operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/campaign/{campaign_id}/landing-pages", summary="Create a Campaign Landing Page")

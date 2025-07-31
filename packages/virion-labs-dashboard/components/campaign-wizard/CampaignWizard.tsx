@@ -28,13 +28,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { type CampaignTemplate } from "@/lib/campaign-templates"
 import { useCampaignTemplateCompleteAPI } from "@/hooks/use-campaign-template-complete-api"
 import { useClients } from "@/hooks/use-clients"
 import { useBotCampaignsAPI } from "@/hooks/use-bot-campaigns-api"
-import { useOnboardingFieldsAPI, type OnboardingField, type UpdateOnboardingFieldData } from "@/hooks/use-onboarding-fields-api"
-import { useCampaignLandingPagesApi } from "@/hooks/use-campaign-landing-pages-api"
+import { useOnboardingFieldsAPI } from "@/hooks/use-onboarding-fields-api"
+import { useCampaignLandingPageApi } from "@/hooks/use-campaign-landing-page-api"
 import { OnboardingQuestionsForm } from "./OnboardingQuestionsForm"
+import { Campaign, CampaignFormData, CampaignListItem, CampaignTemplate } from "@/schemas/campaign"
+import { CampaignOnboardingField, UpdateOnboardingFieldData, OnboardingQuestion } from "@/schemas/campaign-onboarding-field"
 
 // Import Tab Components
 import { VitalsTab } from "./VitalsTab"
@@ -50,34 +51,6 @@ interface CampaignWizardProps {
   campaignId?: string
 }
 
-export type OnboardingQuestion = Omit<OnboardingField, 'id' | 'campaign_id' | 'created_at' | 'updated_at'> & {
-  id?: string;
-};
-
-interface CampaignFormData {
-  campaign_template: string
-  campaign_type: string
-  client_id: string
-  campaign_name: string
-  description: string
-  guild_id: string
-  channel_id: string
-  campaign_start_date: string
-  campaign_end_date: string
-  bot_name: string
-  bot_personality: string
-  bot_response_style: string
-  brand_color: string
-  brand_logo_url: string
-  welcome_message: string
-  auto_role_assignment: boolean
-  target_role_ids: string[]
-  moderation_enabled: boolean
-  rate_limit_per_user: number
-  referral_tracking_enabled: boolean
-  webhook_url: string
-  landing_page_data?: any
-}
 
 const TABS = [
   { id: 1, title: "Vitals", icon: FileText },
@@ -116,8 +89,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     landingPage: inheritedLandingPageTemplate, 
   } = useCampaignTemplateCompleteAPI(selectedTemplateId)
 
-  const { pages: landingPages, loading: landingPageLoading, createPage, updatePage, fetchPages } = useCampaignLandingPagesApi()
-  const landingPage = landingPages[0]
+  const { page: landingPage, loading: landingPageLoading, createPage, updatePage, fetchPage } = useCampaignLandingPageApi()
 
   const {
     fields: onboardingFields,
@@ -131,13 +103,19 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
   useEffect(() => {
     if (campaignDocumentId) {
-      fetchPages(campaignDocumentId)
+      fetchPage(campaignDocumentId)
     }
-  }, [campaignDocumentId, fetchPages])
+  }, [campaignDocumentId, fetchPage])
 
   useEffect(() => {
     if (onboardingFields && onboardingFields.length > 0) {
-      setLocalOnboardingQuestions(onboardingFields.map(f => ({...f})));
+      setLocalOnboardingQuestions(onboardingFields.map(f => ({
+        ...f,
+        id: f.documentId,
+        is_required: f.is_required ?? false,
+        is_enabled: f.is_enabled ?? true,
+        sort_order: f.sort_order ?? 0,
+      })));
     }
   }, [onboardingFields]);
 
@@ -166,12 +144,12 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   }, [onboardingFields, mode, templateWithLandingPage, localOnboardingQuestions])
 
   const [formData, setFormData] = useState<CampaignFormData>({
-    campaign_template: '', campaign_type: 'custom', client_id: '', campaign_name: '', guild_id: '',
+    campaign_template: '', campaign_type: 'custom', client: '', name: '', guild_id: '',
     channel_id: '', bot_name: 'Virion Bot', bot_personality: 'helpful',
     bot_response_style: 'friendly', brand_color: '#6366f1', brand_logo_url: '',
     description: '', welcome_message: '', referral_tracking_enabled: true,
     auto_role_assignment: false, target_role_ids: [], moderation_enabled: true,
-    rate_limit_per_user: 5, webhook_url: '', campaign_start_date: '', campaign_end_date: '',
+    rate_limit_per_user: 5, webhook_url: '', start_date: '', end_date: '',
   })
 
   useEffect(() => {
@@ -253,10 +231,10 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       
       // The campaign.type field contains the template identifier (e.g., "referral_onboarding")
       // We need to find the template where template.campaign_type matches campaign.type
-      const campaignType = campaign.type
+      const campaignType = campaign.campaign_type
       
       if (campaignType) {
-        const matchingTemplate = templates.find(template => 
+        const matchingTemplate = templates.find(template =>
           template.campaign_type === campaignType || template.id === campaignType
         )
         if (matchingTemplate) {
@@ -270,12 +248,12 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       }
       
       setFormData({
-        campaign_template: templateId, 
-        campaign_type: campaign.type || 'custom',  // Use campaign.type field for campaign_type
-        client_id: campaign.client_id, 
-        campaign_name: campaign.name,
+        campaign_template: templateId,
+        campaign_type: campaign.campaign_type || 'custom',  // Use campaign.type field for campaign_type
+        client: campaign.client_id,
+        name: campaign.name,
         guild_id: campaign.guild_id, channel_id: campaign.channel_id || '',
-        bot_name: campaign.bot_name || campaign.display_name || 'Virion Bot',
+        bot_name: campaign.bot_name || 'Virion Bot',
         bot_personality: campaign.bot_personality || 'helpful',
         bot_response_style: campaign.bot_response_style || 'friendly',
         brand_color: campaign.brand_color || '#6366f1', brand_logo_url: campaign.brand_logo_url || '',
@@ -286,8 +264,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         moderation_enabled: campaign.moderation_enabled || true,
         rate_limit_per_user: campaign.rate_limit_per_user || 5,
         webhook_url: campaign.webhook_url || '',
-        campaign_start_date: campaign.campaign_start_date ? new Date(campaign.campaign_start_date).toISOString().split('T')[0] : '',
-        campaign_end_date: campaign.campaign_end_date ? new Date(campaign.campaign_end_date).toISOString().split('T')[0] : '',
+        start_date: campaign.start_date ? new Date(campaign.start_date).toISOString().split('T')[0] : '',
+        end_date: campaign.end_date ? new Date(campaign.end_date).toISOString().split('T')[0] : '',
         landing_page_data: campaign.landing_page_data || {},
       })
       
@@ -302,7 +280,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
   useEffect(() => {
     if (mode === 'edit' && landingPage) {
-      const { id, campaign_id, created_at, updated_at, ...rest } = landingPage;
+      const { id, campaign, createdAt, updatedAt, publishedAt, documentId, ...rest } = landingPage;
       setFormData(prev => ({
         ...prev,
         landing_page_data: {
@@ -362,7 +340,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
                 ...prev.landing_page_data,
                 ...landingPageSource,
                 // Set the landing page template ID to the documentId when inheriting from campaign template
-                landing_page_template_id: (default_landing_page as any)?.documentId || (default_landing_page as any)?.id
+                landing_page_template: (default_landing_page as any)?.documentId || (default_landing_page as any)?.id
             }
         }));
     }
@@ -374,7 +352,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   useEffect(() => {
     if (inheritedLandingPageTemplate && (mode === 'create' || userExplicitlyChangedTemplate)) {
       const landingPageData = {
-        landing_page_template_id: (inheritedLandingPageTemplate as any).documentId || (inheritedLandingPageTemplate as any).id,
+        landing_page_template: (inheritedLandingPageTemplate as any).documentId || (inheritedLandingPageTemplate as any).id,
         offer_title: (inheritedLandingPageTemplate as any).fields?.offer_title || (inheritedLandingPageTemplate as any).offer_title,
         offer_description: (inheritedLandingPageTemplate as any).fields?.offer_description || (inheritedLandingPageTemplate as any).offer_description,
         offer_highlights: (inheritedLandingPageTemplate as any).fields?.offer_highlights || (inheritedLandingPageTemplate as any).offer_highlights,
@@ -394,7 +372,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
   const handleTemplateSelect = (templateId: string) => {
     // Check if this is the first template selection (for new campaigns) or no actual change
-    if (!userExplicitlyChangedTemplate && mode === 'create' && !formData.campaign_name && !formData.description) {
+    if (!userExplicitlyChangedTemplate && mode === 'create' && !formData.name && !formData.description) {
       // First time selection in create mode with no data - apply immediately
       applyTemplateSelection(templateId)
       return
@@ -466,7 +444,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
   const validateStep = (step: number): boolean => {
     switch (step) {
-      case 1: return !!(formData.campaign_template && formData.client_id && formData.campaign_name);
+      case 1: return !!(formData.campaign_template && formData.client && formData.name);
       case 2: return !!(formData.guild_id);
       case 3: return !!(formData.bot_name);
       default: return true;
@@ -505,26 +483,38 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     setIsSaving(true);
     try {
       // Step 1: Create or update the campaign without onboarding questions
+      const { landing_page_data, campaign_template, ...campaignSubmitData } = formData;
       let savedCampaign;
+
       if (mode === 'create') {
-        savedCampaign = await createCampaign(formData);
+        savedCampaign = await createCampaign(campaignSubmitData);
       } else {
-        savedCampaign = await updateCampaign(campaignId!, formData);
+        savedCampaign = await updateCampaign(campaignId!, campaignSubmitData);
       }
 
-      const targetCampaignId = savedCampaign.document_id || (savedCampaign as any).documentId;
+      const targetCampaignId = savedCampaign.documentId;
       if (!targetCampaignId) {
         throw new Error("Failed to get campaign ID after saving.");
       }
 
-      // Step 2: Batch update onboarding questions to prevent deadlocks
+      // Step 2: Save landing page data separately
+      if (landing_page_data) {
+        const { landing_page_template_id, ...cleanLandingPageData } = landing_page_data;
+        if (landingPage && landingPage.documentId) {
+          await updatePage(landingPage.documentId, { ...cleanLandingPageData, campaign: targetCampaignId });
+        } else {
+          await createPage(targetCampaignId, { ...cleanLandingPageData, campaign: targetCampaignId });
+        }
+      }
+
+      // Step 3: Batch update onboarding questions to prevent deadlocks
       const result = await fetchFields(targetCampaignId);
-      const existingFields = (Array.isArray(result) ? result : []) as OnboardingField[];
+      const existingFields = (Array.isArray(result) ? result : []) as CampaignOnboardingField[];
       
       // Identify questions to delete (existed before but not in current local questions)
       const questionsToDelete = existingFields
-        .filter(ef => !localOnboardingQuestions.some(lq => lq.id === ef.id))
-        .map(f => f.documentId || f.id);
+        .filter(ef => !localOnboardingQuestions.some(lq => lq.id === ef.documentId))
+        .map(f => f.documentId);
 
       // Use batch update to handle all creates, updates, and deletes in one sequential operation
       const batchResult = await batchUpdateFields(targetCampaignId, localOnboardingQuestions, questionsToDelete);
@@ -556,7 +546,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} handleTemplateSelect={handleTemplateSelect} clients={clients as any} templates={templates} clientsLoading={clientsLoading} templatesLoading={templatesLoading} />;
       case 2: return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 3: return <BotIdentityTab formData={formData} handleFieldChange={handleFieldChange} />;
-      case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={localOnboardingQuestions} onQuestionsChange={handleQuestionsChange} />;
+      case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={localOnboardingQuestions as OnboardingQuestion[]} onQuestionsChange={handleQuestionsChange} />;
       case 5: return <AccessAndModerationTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 6: return <AdvancedTab formData={formData} handleFieldChange={handleFieldChange} inheritedLandingPageTemplate={inheritedLandingPageTemplate} mode={mode} campaignId={campaignDocumentId ?? undefined} />;
       default: return null;

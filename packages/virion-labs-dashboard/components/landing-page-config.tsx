@@ -26,7 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CalendarIcon, Plus, X, Eye, Wand2, Image, FileText, Video } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
-import { useCampaignLandingPagesApi } from "@/hooks/use-campaign-landing-pages-api"
+import { useCampaignLandingPageApi } from "@/hooks/use-campaign-landing-page-api"
 import { useLandingPageTemplatesAPI, type LandingPageTemplate as ApiLandingPageTemplate } from "@/hooks/use-landing-page-templates-api"
 import { CampaignLandingPageInsert } from "@/lib/supabase"
 
@@ -61,8 +61,7 @@ export function LandingPageConfig({
   onChange, 
   onPreview 
 }: LandingPageConfigProps) {
-  const { pages: landingPages, loading, createPage, updatePage, fetchPages } = useCampaignLandingPagesApi()
-  const landingPage = landingPages[0]
+  const { page: landingPage, loading, createPage, updatePage, fetchPage } = useCampaignLandingPageApi()
   const { templates: availableTemplates, loading: templatesLoading, fetchSingleTemplate } = useLandingPageTemplatesAPI(campaignType)
   
   // State for active tab
@@ -87,9 +86,9 @@ export function LandingPageConfig({
 
   useEffect(() => {
     if (campaignId) {
-      fetchPages(campaignId)
+      fetchPage(campaignId)
     }
-  }, [campaignId, fetchPages])
+  }, [campaignId, fetchPage])
 
   useEffect(() => {
     if (initialData) {
@@ -105,28 +104,27 @@ export function LandingPageConfig({
   useEffect(() => {
     if (landingPage) {
       setData({
-        landing_page_template_id: landingPage.template_id || '',
-        offer_title: landingPage.content?.offer_title || '',
-        offer_description: landingPage.content?.offer_description || '',
-        offer_highlights: landingPage.content?.offer_highlights || [],
-        offer_value: landingPage.content?.offer_value || '',
-        offer_expiry_date: landingPage.content?.offer_expiry_date ? new Date(landingPage.content.offer_expiry_date) : null,
-        hero_image_url: landingPage.content?.hero_image_url || '',
-        product_images: landingPage.content?.product_images || [],
-        video_url: landingPage.content?.video_url || '',
-        what_you_get: landingPage.content?.what_you_get || '',
-        how_it_works: landingPage.content?.how_it_works || '',
-        requirements: landingPage.content?.requirements || '',
-        support_info: landingPage.content?.support_info || '',
+        landing_page_template_id: landingPage.landing_page_template?.documentId || '',
+        offer_title: Array.isArray(landingPage.offer_title) ? landingPage.offer_title[0] : landingPage.offer_title || '',
+        offer_description: landingPage.offer_description || '',
+        offer_highlights: landingPage.offer_highlights || [],
+        offer_value: landingPage.offer_value || '',
+        offer_expiry_date: landingPage.offer_expiry_date ? new Date(landingPage.offer_expiry_date) : null,
+        hero_image_url: landingPage.hero_image_url || '',
+        product_images: landingPage.product_images || [],
+        video_url: landingPage.video_url || '',
+        what_you_get: landingPage.what_you_get || '',
+        how_it_works: landingPage.how_it_works || '',
+        requirements: landingPage.requirements || '',
+        support_info: landingPage.support_info || '',
       })
       
       // Track if this landing page was inherited from a template
-      const landingPageWithInheritance = landingPage as any // Type assertion until types are regenerated
-      setIsInherited(landingPageWithInheritance.inherited_from_template || false)
+      setIsInherited(landingPage.inherited_from_template || false)
       
       // Get template name if inherited
-      if (landingPageWithInheritance.inherited_from_template && landingPage.template_id) {
-        const inheritedTemplate = availableTemplates.find(t => t.documentId === landingPage.template_id)
+      if (landingPage.inherited_from_template && landingPage.landing_page_template) {
+        const inheritedTemplate = availableTemplates.find(t => t.documentId === landingPage.landing_page_template?.documentId)
         setInheritedTemplateName(inheritedTemplate?.name || 'Unknown Template')
       }
     }

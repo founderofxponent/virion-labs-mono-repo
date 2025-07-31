@@ -427,6 +427,7 @@ export interface ApiCampaignLandingPageCampaignLandingPage
     draftAndPublish: true;
   };
   attributes: {
+    campaign: Schema.Attribute.Relation<'oneToOne', 'api::campaign.campaign'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -726,7 +727,6 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     features: Schema.Attribute.JSON;
     guild_id: Schema.Attribute.String & Schema.Attribute.Required;
     is_active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
-    landing_page_data: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

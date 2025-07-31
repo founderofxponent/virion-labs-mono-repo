@@ -62,6 +62,11 @@
       "type": "relation",
       "relation": "oneToOne",
       "target": "api::landing-page-template.landing-page-template"
+    },
+    "campaign": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::campaign.campaign"
     }
   }
 }

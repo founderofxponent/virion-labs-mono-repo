@@ -4,15 +4,7 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import RoleIdsInput from "@/components/role-ids-input"
 
-interface AccessAndModerationTabProps {
-  formData: {
-    auto_role_assignment: boolean
-    target_role_ids: string[]
-    moderation_enabled: boolean
-    rate_limit_per_user: number
-  }
-  handleFieldChange: (field: string, value: any) => void
-}
+import { AccessAndModerationTabProps } from "@/schemas/campaign-wizard";
 
 export function AccessAndModerationTab({
   formData,

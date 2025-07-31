@@ -2,16 +2,7 @@ import React from "react"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { OnboardingQuestionsForm } from "./OnboardingQuestionsForm"
-import { type OnboardingQuestion } from "./CampaignWizard"
-
-interface OnboardingFlowTabProps {
-  formData: {
-    welcome_message: string
-  }
-  handleFieldChange: (field: string, value: any) => void
-  questions: OnboardingQuestion[]
-  onQuestionsChange: (questions: OnboardingQuestion[]) => void
-}
+import { OnboardingFlowTabProps } from "@/schemas/campaign-wizard";
 
 export function OnboardingFlowTab({
   formData,

@@ -68,6 +68,41 @@ class CampaignService:
             "total_count": len(campaigns),
             "filters_applied": filters or {}
         }
+
+    async def update_campaign_operation(self, campaign_id: str, campaign_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Business operation for updating a campaign and its landing page."""
+        logger.info(f"Executing update campaign operation for campaign: {campaign_id}")
+
+        # Separate landing page data from campaign data
+        landing_page_data = campaign_data.pop("landing_page_data", None)
+
+        # Update the core campaign attributes
+        updated_campaign = await strapi_client.update_campaign(campaign_id, campaign_data)
+
+        if landing_page_data:
+            # Check if a landing page already exists for this campaign
+            existing_landing_page = await strapi_client.get_campaign_landing_page(campaign_id)
+            
+            if existing_landing_page:
+                # Update the existing landing page
+                if 'landing_page_template_id' in landing_page_data:
+                    landing_page_data['landing_page_template'] = landing_page_data.pop('landing_page_template_id')
+                await strapi_client.update_campaign_landing_page(existing_landing_page["id"], landing_page_data)
+            else:
+                # Create a new landing page
+                landing_page_data['campaign'] = campaign_id
+                if 'landing_page_template_id' in landing_page_data:
+                    landing_page_data['landing_page_template'] = landing_page_data.pop('landing_page_template_id')
+                await strapi_client.create_campaign_landing_page(landing_page_data)
+
+        # Fetch the updated campaign with the landing page data populated
+        final_campaign = await strapi_client.get_campaign(campaign_id)
+
+        return {
+            "campaign": final_campaign,
+            "updated": True
+        }
+        
     async def list_available_campaigns_for_influencer(self, influencer_id: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         Lists campaigns available to a specific influencer, enriching them with access status.
@@ -113,15 +148,14 @@ class CampaignService:
                 
         return all_campaigns
 
-    async def list_landing_pages_operation(self, campaign_id: str) -> Dict[str, Any]:
-        """Business operation for listing landing pages for a campaign."""
+    async def get_landing_page_operation(self, campaign_id: str) -> Dict[str, Any]:
+        """Business operation for getting the landing page for a campaign."""
         
-        # Get landing pages from Strapi
-        landing_pages = await strapi_client.get_campaign_landing_pages(campaign_id)
+        # Get landing page from Strapi
+        landing_page = await strapi_client.get_campaign_landing_page(campaign_id)
         
         return {
-            "pages": landing_pages,
-            "total_count": len(landing_pages),
+            "page": landing_page,
             "campaign_id": campaign_id
         }
 
@@ -132,6 +166,8 @@ class CampaignService:
         # Add the campaign to the page data
         page_data['campaign'] = campaign_id
 
+        if 'landing_page_template_id' in page_data:
+            page_data['landing_page_template'] = page_data.pop('landing_page_template_id')
         created_page = await strapi_client.create_campaign_landing_page(page_data)
 
         return {
@@ -143,6 +179,8 @@ class CampaignService:
         """Business operation for updating a landing page."""
         logger.info(f"Executing update landing page operation for page: {page_id}")
 
+        if 'landing_page_template_id' in page_data:
+            page_data['landing_page_template'] = page_data.pop('landing_page_template_id')
         updated_page = await strapi_client.update_campaign_landing_page(page_id, page_data)
 
         return {

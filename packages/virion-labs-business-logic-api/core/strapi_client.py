@@ -18,6 +18,29 @@ class StrapiClient:
             "Content-Type": "application/json"
         }
 
+    def _sanitize_landing_page_data(self, page_data: Dict) -> Dict:
+        """Sanitizes landing page data, ensuring JSON fields are correctly formatted."""
+        sanitized_data = page_data.copy()
+        json_fields = ['offer_highlights', 'product_images']
+        
+        for field in json_fields:
+            if field in sanitized_data and sanitized_data[field] is not None:
+                value = sanitized_data[field]
+                if isinstance(value, str):
+                    try:
+                        # If it's a string that is valid JSON, parse it into a Python object.
+                        sanitized_data[field] = json.loads(value)
+                    except json.JSONDecodeError:
+                        # If it's a plain string, it's invalid for a JSON column.
+                        # Wrap it in a list to make it valid JSON.
+                        logger.warning(f"Wrapping plain string value for JSON field '{field}' in a list.")
+                        sanitized_data[field] = [value]
+        
+        if 'campaign' in sanitized_data and isinstance(sanitized_data['campaign'], dict):
+            sanitized_data['campaign'] = sanitized_data['campaign'].get('id')
+
+        return sanitized_data
+
     async def _request(self, method: str, endpoint: str, data: Optional[Dict] = None, params: Optional[Dict] = None) -> Dict:
         """Make an authenticated request to the Strapi API."""
         url = f"{self.base_url}/api/{endpoint}"
@@ -143,7 +166,6 @@ class StrapiClient:
                 "auto_responses": campaign_data.get("auto_responses"),
                 "custom_commands": campaign_data.get("custom_commands"),
                 "metadata": campaign_data.get("metadata"),
-                "landing_page_data": campaign_data.get("landing_page_data"),
             }
             transformed_campaigns.append(transformed_campaign)
         
@@ -208,7 +230,6 @@ class StrapiClient:
             "auto_responses": campaign_data.get("auto_responses"),
             "custom_commands": campaign_data.get("custom_commands"),
             "metadata": campaign_data.get("metadata"),
-            "landing_page_data": campaign_data.get("landing_page_data"),
         }
 
     async def create_campaign(self, campaign_data: Dict, document_id: str) -> Dict:
@@ -282,7 +303,6 @@ class StrapiClient:
                 "auto_responses": campaign.get("auto_responses"),
                 "custom_commands": campaign.get("custom_commands"),
                 "metadata": campaign.get("metadata"),
-                "landing_page_data": campaign.get("landing_page_data"),
             }
             return transformed_campaign
         
@@ -377,7 +397,6 @@ class StrapiClient:
             "auto_responses": campaign_data.get("auto_responses"),
             "custom_commands": campaign_data.get("custom_commands"),
             "metadata": campaign_data.get("metadata"),
-            "landing_page_data": campaign_data.get("landing_page_data"),
         }
 
     async def delete_campaign(self, document_id: str) -> Dict:
@@ -634,6 +653,7 @@ class StrapiClient:
 
     async def get_referral_links(self, filters: Optional[Dict] = None) -> List[Dict]:
         """Fetches a list of referral links from Strapi."""
+        """Fetches a list of referral links from Strapi."""
         logger.info("StrapiClient: Fetching referral links from Strapi.")
         params = {"populate": "*"}
         if filters:
@@ -714,25 +734,45 @@ class StrapiClient:
         response = await self._request("PUT", f"campaign-influencer-accesses/{request_id}", data=request_data)
         return response.get("data")
 
-    async def get_campaign_landing_pages(self, campaign_id: str) -> List[Dict]:
-        """Fetches a list of landing pages for a campaign from Strapi."""
-        logger.info(f"StrapiClient: Fetching landing pages for campaign {campaign_id} from Strapi.")
-        params = {"filters[campaign][id][$eq]": campaign_id, "populate": "*"}
+    async def get_campaign_landing_page(self, campaign_id: str) -> Optional[Dict]:
+        """Fetches the landing page for a campaign from Strapi."""
+        logger.info(f"StrapiClient: Fetching landing page for campaign {campaign_id} from Strapi.")
+        params = {"filters[campaign][documentId][$eq]": campaign_id, "populate": "*"}
         response = await self._request("GET", "campaign-landing-pages", params=params)
-        return response.get("data", [])
+        pages = response.get("data", [])
+        return pages[0] if pages else None
 
     async def create_campaign_landing_page(self, page_data: Dict) -> Dict:
         """Creates a new campaign landing page in Strapi."""
         logger.info("StrapiClient: Creating a new campaign landing page in Strapi.")
-        data = {"data": page_data}
+        sanitized_data = self._sanitize_landing_page_data(page_data)
+        data = {"data": sanitized_data}
         response = await self._request("POST", "campaign-landing-pages", data=data)
         return response.get("data")
 
-    async def update_campaign_landing_page(self, page_id: str, page_data: Dict) -> Dict:
+    async def update_campaign_landing_page(self, page_document_id: str, page_data: Dict) -> Dict:
         """Updates a campaign landing page in Strapi."""
-        logger.info(f"StrapiClient: Updating campaign landing page {page_id} in Strapi.")
+        logger.info(f"StrapiClient: Updating campaign landing page {page_document_id} in Strapi.")
+        logger.info(f"Initial page_data: {page_data}")
+
+        # If campaign is a string, it's a documentId and needs to be looked up to get the numeric ID
+        if 'campaign' in page_data and isinstance(page_data['campaign'], str):
+            campaign_doc_id = page_data['campaign']
+            logger.info(f"Campaign is a string: {campaign_doc_id}. Fetching campaign object.")
+            campaign_obj = await self.get_campaign(campaign_doc_id)
+            if campaign_obj:
+                page_data['campaign'] = int(campaign_obj['id'])
+                logger.info(f"Successfully fetched campaign object. New page_data: {page_data}")
+            else:
+                raise ValueError(f"Campaign with documentId {campaign_doc_id} not found.")
+
+        # sanitized_data = self._sanitize_landing_page_data(page_data)
+        # logger.info(f"Sanitized page_data: {sanitized_data}")
         data = {"data": page_data}
-        response = await self._request("PUT", f"campaign-landing-pages/{page_id}", data=data)
+        
+        logger.info(f"Attempting to update landing page with documentId: {page_document_id}")
+        response = await self._request("PUT", f"campaign-landing-pages/{page_document_id}", data=data)
+        logger.info(f"Successfully updated landing page. Response: {response}")
         return response.get("data")
 
     async def delete_campaign_landing_page(self, page_id: str) -> Dict:

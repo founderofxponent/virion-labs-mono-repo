@@ -68,10 +68,44 @@ class CampaignListResponse(BaseModel):
 # --- Campaign Update Operation ---
 
 class CampaignUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    status: Optional[str] = None
-    budget: Optional[float] = None
-    duration_days: Optional[int] = None
+    client_id: Optional[str] = None
+    guild_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    campaign_template: Optional[str] = None
+    campaign_type: Optional[str] = None
+    prefix: Optional[str] = None
+    description: Optional[str] = None
+    bot_name: Optional[str] = None
+    bot_avatar_url: Optional[str] = None
+    bot_personality: Optional[str] = None
+    bot_response_style: Optional[str] = None
+    brand_color: Optional[str] = None
+    brand_logo_url: Optional[str] = None
+    features: Optional[Dict[str, Any]] = None
+    custom_commands: Optional[List[Any]] = None
+    auto_responses: Optional[Dict[str, Any]] = None
+    response_templates: Optional[Dict[str, Any]] = None
+    embed_footer: Optional[str] = None
+    welcome_message: Optional[str] = None
+    webhook_url: Optional[str] = None
+    webhook_routes: Optional[List[Any]] = None
+    api_endpoints: Optional[Dict[str, Any]] = None
+    external_integrations: Optional[Dict[str, Any]] = None
+    referral_link_id: Optional[str] = None
+    influencer_id: Optional[str] = None
+    referral_tracking_enabled: Optional[bool] = None
+    auto_role_assignment: Optional[bool] = None
+    target_role_ids: Optional[List[str]] = None
+    rate_limit_per_user: Optional[int] = None
+    allowed_channels: Optional[List[str]] = None
+    blocked_users: Optional[List[str]] = None
+    moderation_enabled: Optional[bool] = None
+    content_filters: Optional[List[str]] = None
+    campaign_start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    onboarding_questions: Optional[List[Any]] = None
 
 # --- Onboarding Fields Batch Update ---
 

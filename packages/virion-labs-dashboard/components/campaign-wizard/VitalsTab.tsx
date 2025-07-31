@@ -9,22 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { type CampaignTemplate } from "@/lib/campaign-templates"
-
-interface VitalsTabProps {
-  formData: {
-    campaign_name: string
-    client_id: string
-    campaign_template: string
-    description: string
-  }
-  handleFieldChange: (field: string, value: any) => void
-  handleTemplateSelect: (templateId: string) => void
-  clients: { id: string; name: string }[]
-  templates: CampaignTemplate[]
-  clientsLoading: boolean
-  templatesLoading: boolean
-}
+import { VitalsTabProps } from "@/schemas/campaign-wizard";
 
 export function VitalsTab({
   formData,
@@ -38,19 +23,19 @@ export function VitalsTab({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="campaign_name">Campaign Name</Label>
+        <Label htmlFor="name">Campaign Name</Label>
         <Input
-          id="campaign_name"
+          id="name"
           placeholder="e.g. 'Summer Kickoff Event'"
-          value={formData.campaign_name}
-          onChange={e => handleFieldChange("campaign_name", e.target.value)}
+          value={formData.name}
+          onChange={e => handleFieldChange("name", e.target.value)}
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="client_id">Client</Label>
+        <Label htmlFor="client">Client</Label>
         <Select
-          value={formData.client_id}
-          onValueChange={value => handleFieldChange("client_id", value)}
+          value={formData.client}
+          onValueChange={value => handleFieldChange("client", value)}
           disabled={clientsLoading}
         >
           <SelectTrigger>
