@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Any
 from .config import settings
 import logging
 import json
+from schemas.strapi import StrapiCampaignLandingPageUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -231,6 +232,22 @@ class StrapiClient:
             "custom_commands": campaign_data.get("custom_commands"),
             "metadata": campaign_data.get("metadata"),
         }
+
+    async def get_campaign_id_by_document_id(self, document_id: str) -> Optional[int]:
+        """Fetches a campaign's numeric ID by its documentId."""
+        logger.info(f"Fetching campaign numeric ID for documentId: {document_id}")
+        filters = {
+            "filters[documentId][$eq]": document_id,
+            "fields[0]": "id"
+        }
+        response = await self._request("GET", "campaigns", params=filters)
+        campaigns = response.get("data", [])
+        if campaigns:
+            campaign_id = campaigns[0].get("id")
+            logger.info(f"Found numeric ID: {campaign_id} for documentId: {document_id}")
+            return campaign_id
+        logger.warning(f"No campaign found with documentId: {document_id}")
+        return None
 
     async def create_campaign(self, campaign_data: Dict, document_id: str) -> Dict:
         """Creates a new campaign in Strapi."""
@@ -745,34 +762,32 @@ class StrapiClient:
     async def create_campaign_landing_page(self, page_data: Dict) -> Dict:
         """Creates a new campaign landing page in Strapi."""
         logger.info("StrapiClient: Creating a new campaign landing page in Strapi.")
-        sanitized_data = self._sanitize_landing_page_data(page_data)
-        data = {"data": sanitized_data}
+        data = {"data": page_data}
         response = await self._request("POST", "campaign-landing-pages", data=data)
         return response.get("data")
 
-    async def update_campaign_landing_page(self, page_document_id: str, page_data: Dict) -> Dict:
-        """Updates a campaign landing page in Strapi."""
-        logger.info(f"StrapiClient: Updating campaign landing page {page_document_id} in Strapi.")
-        logger.info(f"Initial page_data: {page_data}")
-
-        # If campaign is a string, it's a documentId and needs to be looked up to get the numeric ID
-        if 'campaign' in page_data and isinstance(page_data['campaign'], str):
-            campaign_doc_id = page_data['campaign']
-            logger.info(f"Campaign is a string: {campaign_doc_id}. Fetching campaign object.")
-            campaign_obj = await self.get_campaign(campaign_doc_id)
-            if campaign_obj:
-                page_data['campaign'] = int(campaign_obj['id'])
-                logger.info(f"Successfully fetched campaign object. New page_data: {page_data}")
-            else:
-                raise ValueError(f"Campaign with documentId {campaign_doc_id} not found.")
-
-        # sanitized_data = self._sanitize_landing_page_data(page_data)
-        # logger.info(f"Sanitized page_data: {sanitized_data}")
-        data = {"data": page_data}
+    async def update_campaign_landing_page(self, page_id: str, page_data: StrapiCampaignLandingPageUpdate) -> Dict:
+        """Updates a campaign landing page in Strapi using a Pydantic model."""
+        logger.info(f"CLIENT: Updating campaign landing page {page_id} in Strapi.")
         
-        logger.info(f"Attempting to update landing page with documentId: {page_document_id}")
-        response = await self._request("PUT", f"campaign-landing-pages/{page_document_id}", data=data)
+        # Convert the Pydantic model to a dictionary, excluding unset fields.
+        update_payload = page_data.model_dump(exclude_unset=True)
+
+        # If campaign is present as a document ID string, convert it to a numeric ID
+        if 'campaign' in update_payload and isinstance(update_payload['campaign'], str):
+            campaign_doc_id = update_payload.pop('campaign')
+            campaign_id = await self.get_campaign_id_by_document_id(campaign_doc_id)
+            if campaign_id:
+                update_payload['campaign'] = campaign_id
+            else:
+                logger.warning(f"Could not find campaign with documentId: {campaign_doc_id}. Relation will not be updated.")
+
+        data = {"data": update_payload}
+        
+        logger.info(f"CLIENT: Sending final payload to Strapi: {data}")
+        response = await self._request("PUT", f"campaign-landing-pages/{page_id}", data=data)
         logger.info(f"Successfully updated landing page. Response: {response}")
+        
         return response.get("data")
 
     async def delete_campaign_landing_page(self, page_id: str) -> Dict:

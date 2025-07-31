@@ -7,11 +7,12 @@ from services.landing_page_template_service import landing_page_template_service
 from schemas.operation_schemas import (
     ClientCreateRequest, ClientCreateResponse,
     ClientListResponse, ClientUpdateRequest,
-    CampaignListResponse, CampaignUpdateRequest,
+    CampaignListResponse, CampaignUpdateRequest, CampaignLandingPageUpdateRequest,
     LandingPageTemplateListResponse, LandingPageTemplateResponse,
     LandingPageTemplateCreateRequest, LandingPageTemplateUpdateRequest,
     OnboardingFieldsBatchUpdateRequest
 )
+from domain.campaigns.schemas import CampaignLandingPageUpdate
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
 from core.strapi_client import strapi_client
@@ -304,11 +305,16 @@ async def create_campaign_landing_page_operation(campaign_id: str, page_data: Di
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/campaign/landing-pages/{page_id}", summary="Update a Campaign Landing Page")
-async def update_campaign_landing_page_operation(page_id: str, page_data: Dict[str, Any]):
+async def update_campaign_landing_page_operation(page_id: str, request: CampaignLandingPageUpdateRequest):
     """
     Business operation for updating a landing page.
     """
     try:
+        logger.info(f"ROUTER: Received request to update landing page {page_id}")
+        
+        # Map the API model to the service-layer model
+        page_data = CampaignLandingPageUpdate(**request.model_dump(exclude_unset=True))
+        
         result = await campaign_service.update_landing_page_operation(page_id=page_id, page_data=page_data)
         return result
         

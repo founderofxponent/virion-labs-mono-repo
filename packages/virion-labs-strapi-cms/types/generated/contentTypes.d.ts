@@ -450,7 +450,7 @@ export interface ApiCampaignLandingPageCampaignLandingPage
     offer_description: Schema.Attribute.RichText;
     offer_expiry_date: Schema.Attribute.DateTime;
     offer_highlights: Schema.Attribute.JSON;
-    offer_title: Schema.Attribute.JSON;
+    offer_title: Schema.Attribute.String;
     offer_value: Schema.Attribute.String;
     product_images: Schema.Attribute.JSON;
     publishedAt: Schema.Attribute.DateTime;

@@ -1,6 +1,8 @@
 from typing import Dict, Any, List, Optional
 from core.strapi_client import strapi_client
 from domain.campaigns.domain import CampaignDomain
+from domain.campaigns.schemas import CampaignLandingPageUpdate
+from schemas.strapi import StrapiCampaignLandingPageUpdate
 import logging
 
 logger = logging.getLogger(__name__)
@@ -87,6 +89,10 @@ class CampaignService:
                 # Update the existing landing page
                 if 'landing_page_template_id' in landing_page_data:
                     landing_page_data['landing_page_template'] = landing_page_data.pop('landing_page_template_id')
+                
+                # Ensure the campaign relation is not lost
+                landing_page_data['campaign'] = campaign_id
+                
                 await strapi_client.update_campaign_landing_page(existing_landing_page["id"], landing_page_data)
             else:
                 # Create a new landing page
@@ -175,13 +181,25 @@ class CampaignService:
             "message": "Campaign landing page created successfully."
         }
 
-    async def update_landing_page_operation(self, page_id: str, page_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_landing_page_operation(self, page_id: str, page_data: CampaignLandingPageUpdate) -> Dict[str, Any]:
         """Business operation for updating a landing page."""
-        logger.info(f"Executing update landing page operation for page: {page_id}")
+        logger.info(f"SERVICE: Executing update landing page operation for page: {page_id}")
 
-        if 'landing_page_template_id' in page_data:
-            page_data['landing_page_template'] = page_data.pop('landing_page_template_id')
-        updated_page = await strapi_client.update_campaign_landing_page(page_id, page_data)
+        update_dict = page_data.model_dump(exclude_unset=True)
+
+        # If campaign is present as a document ID string, convert it to a numeric ID
+        if 'campaign' in update_dict and isinstance(update_dict['campaign'], str):
+            campaign_doc_id = update_dict.pop('campaign')
+            campaign_id = await strapi_client.get_campaign_id_by_document_id(campaign_doc_id)
+            if campaign_id:
+                update_dict['campaign'] = campaign_id
+            else:
+                logger.warning(f"Could not find campaign with documentId: {campaign_doc_id}. Relation will not be updated.")
+
+        # Map the service model to the Strapi data model
+        strapi_page_data = StrapiCampaignLandingPageUpdate(**update_dict)
+
+        updated_page = await strapi_client.update_campaign_landing_page(page_id, strapi_page_data)
 
         return {
             "page": updated_page,

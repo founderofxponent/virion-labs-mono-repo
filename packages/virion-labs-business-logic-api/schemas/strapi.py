@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any, Literal
+from typing import List, Optional, Dict, Any, Literal, Union
 from datetime import datetime
 
 class Role(BaseModel):
@@ -7,17 +7,6 @@ class Role(BaseModel):
     name: str
     description: str
     type: str
-
-class User(BaseModel):
-    id: int
-    username: str
-    email: str
-    provider: Optional[str] = None
-    confirmed: Optional[bool] = False
-    blocked: Optional[bool] = False
-    role: Optional[Role] = None
-    full_name: Optional[str] = None
-    avatar_url: Optional[Media] = None
 
 class Media(BaseModel):
     id: int
@@ -35,6 +24,17 @@ class Media(BaseModel):
     previewUrl: Optional[str] = None
     provider: str
     provider_metadata: Optional[Dict[str, Any]] = None
+
+class User(BaseModel):
+    id: int
+    username: str
+    email: str
+    provider: Optional[str] = None
+    confirmed: Optional[bool] = False
+    blocked: Optional[bool] = False
+    role: Optional[Role] = None
+    full_name: Optional[str] = None
+    avatar_url: Optional[Media] = None
 
 class ReferralAnalytic(BaseModel):
     id: int
@@ -219,23 +219,30 @@ class Campaign(BaseModel):
     total_investment: Optional[float] = 0
     value_per_conversion: Optional[float] = 0
 
-class CampaignLandingPage(BaseModel):
-    id: int
-    offer_title: Optional[Dict[str, Any]] = None
+class CampaignLandingPageBase(BaseModel):
+    offer_title: Optional[str] = None
     offer_description: Optional[str] = None
-    offer_highlights: Optional[Dict[str, Any]] = None
+    offer_highlights: Optional[Union[List[Any], Dict[str, Any]]] = None
     offer_value: Optional[str] = None
     offer_expiry_date: Optional[datetime] = None
-    hero_image_url: Optional[Media] = None
-    product_images: Optional[Dict[str, Any]] = None
+    product_images: Optional[Union[List[Any], Dict[str, Any]]] = None
     video_url: Optional[str] = None
     what_you_get: Optional[str] = None
     how_it_works: Optional[str] = None
     requirements: Optional[str] = None
     support_info: Optional[str] = None
     inherited_from_template: Optional[bool] = False
+
+class CampaignLandingPage(CampaignLandingPageBase):
+    id: int
+    hero_image_url: Optional[Media] = None
     landing_page_template: Optional[LandingPageTemplate] = None
     campaign: Optional[Campaign] = None
+
+class StrapiCampaignLandingPageUpdate(CampaignLandingPageBase):
+    hero_image_url: Optional[int] = None  # Media ID
+    landing_page_template: Optional[int] = None  # Relation ID
+    campaign: Optional[int] = None  # Relation ID
 
 class UserSetting(BaseModel):
     id: int

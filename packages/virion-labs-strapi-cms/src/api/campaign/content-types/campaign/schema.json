@@ -99,11 +99,6 @@
       "relation": "oneToMany",
       "target": "api::campaign-influencer-access.campaign-influencer-access"
     },
-    "campaign_landing_page": {
-      "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::campaign-landing-page.campaign-landing-page"
-    },
     "campaign_onboarding_fields": {
       "type": "relation",
       "relation": "oneToMany",
@@ -167,6 +162,12 @@
     "value_per_conversion": {
       "type": "decimal",
       "default": 0
+    },
+    "campaign_landing_page": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::campaign-landing-page.campaign-landing-page",
+      "inversedBy": "campaign"
     }
   }
 }
