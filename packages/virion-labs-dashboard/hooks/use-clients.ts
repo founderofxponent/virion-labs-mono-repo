@@ -14,7 +14,7 @@ export interface Client {
   contact_email?: string;
   influencers: number;
   client_status: string;
-  join_date: string;
+  join_date?: string;
   logo?: string;
   campaign_count: number;
   created_at?: string;
@@ -179,8 +179,15 @@ export function useClients() {
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) {
+      return "N/A"
+    }
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) {
+        return "Invalid Date"
+    }
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'

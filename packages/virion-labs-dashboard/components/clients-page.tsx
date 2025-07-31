@@ -76,9 +76,9 @@ export function ClientsPage() {
     })
     .sort((a, b) => {
       if (sortBy === "newest") {
-        return new Date(b.join_date).getTime() - new Date(a.join_date).getTime()
+        return (b.join_date ? new Date(b.join_date).getTime() : 0) - (a.join_date ? new Date(a.join_date).getTime() : 0)
       } else if (sortBy === "oldest") {
-        return new Date(a.join_date).getTime() - new Date(b.join_date).getTime()
+        return (a.join_date ? new Date(a.join_date).getTime() : 0) - (b.join_date ? new Date(b.join_date).getTime() : 0)
       } else if (sortBy === "name-asc") {
         return a.name.localeCompare(b.name)
       } else if (sortBy === "name-desc") {
