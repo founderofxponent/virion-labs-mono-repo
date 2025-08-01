@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useClients, Client } from "@/hooks/use-clients"
 import { toast } from "sonner"
+import { addClientSchema, AddClientData } from "@/lib/validators"
 
 export function ClientsPage() {
   const { profile } = useAuth()
@@ -47,9 +48,10 @@ export function ClientsPage() {
   const [sortBy, setSortBy] = useState("newest")
   const [showAddClient, setShowAddClient] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
 
   // Form state for adding new client
-  const [newClient, setNewClient] = useState({
+  const [newClient, setNewClient] = useState<AddClientData>({
     name: "",
     industry: "",
     website: "",
@@ -62,7 +64,7 @@ export function ClientsPage() {
 
   const filteredClients = clients
     .filter((client) => {
-      if (filterStatus !== "all" && client.client_status.toLowerCase() !== filterStatus) {
+      if (filterStatus !== "all" && client.client_status?.toLowerCase() !== filterStatus) {
         return false
       }
       if (
@@ -90,22 +92,22 @@ export function ClientsPage() {
     })
 
   const handleAddClient = async () => {
-    if (!newClient.name || !newClient.industry) {
-      toast.error("Please fill in required fields")
+    const result = addClientSchema.safeParse(newClient)
+    if (!result.success) {
+      const errors: Record<string, string> = {}
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          errors[err.path[0]] = err.message
+        }
+      })
+      setFormErrors(errors)
       return
     }
 
+    setFormErrors({})
     setIsSubmitting(true)
     try {
-      const { error } = await addClient({
-        name: newClient.name,
-        industry: newClient.industry,
-        website: newClient.website || undefined,
-        primary_contact: newClient.primary_contact || undefined,
-        contact_email: newClient.contact_email || undefined,
-        influencers: newClient.influencers,
-        client_status: "active"
-      })
+      const { error } = await addClient(result.data)
 
       if (error) {
         toast.error(error)
@@ -186,6 +188,7 @@ export function ClientsPage() {
                     value={newClient.name}
                     onChange={(e) => setNewClient(prev => ({ ...prev, name: e.target.value }))}
                   />
+                  {formErrors.name && <p className="text-red-500 text-sm">{formErrors.name}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="client-industry">Industry *</Label>
@@ -207,6 +210,7 @@ export function ClientsPage() {
                       <SelectItem value="Travel">Travel</SelectItem>
                     </SelectContent>
                   </Select>
+                  {formErrors.industry && <p className="text-red-500 text-sm">{formErrors.industry}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="client-website">Website</Label>
@@ -216,6 +220,7 @@ export function ClientsPage() {
                     value={newClient.website}
                     onChange={(e) => setNewClient(prev => ({ ...prev, website: e.target.value }))}
                   />
+                  {formErrors.website && <p className="text-red-500 text-sm">{formErrors.website}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="client-contact">Primary Contact</Label>
@@ -235,6 +240,7 @@ export function ClientsPage() {
                     value={newClient.contact_email}
                     onChange={(e) => setNewClient(prev => ({ ...prev, contact_email: e.target.value }))}
                   />
+                  {formErrors.contact_email && <p className="text-red-500 text-sm">{formErrors.contact_email}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="client-influencers">Influencers</Label>
@@ -329,7 +335,7 @@ export function ClientsPage() {
                         <div className="flex items-center gap-3">
                           <Avatar>
                             {client.logo && (
-                  <AvatarImage src={client.logo} alt={client.name} />
+                  <AvatarImage src={client.logo.url} alt={client.name} />
                 )}
                             <AvatarFallback>{generateInitials(client.name)}</AvatarFallback>
                           </Avatar>
@@ -396,7 +402,7 @@ export function ClientsPage() {
                     <div className="flex items-center gap-3">
                       <Avatar>
                         {client.logo && (
-                  <AvatarImage src={client.logo} alt={client.name} />
+                  <AvatarImage src={client.logo.url} alt={client.name} />
                 )}
                         <AvatarFallback>{generateInitials(client.name)}</AvatarFallback>
                       </Avatar>

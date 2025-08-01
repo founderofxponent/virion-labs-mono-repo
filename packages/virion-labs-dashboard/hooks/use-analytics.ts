@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
+import { Campaign } from "@/schemas/campaign"
 
 // Analytics data interfaces matching the current analytics page expectations
 export interface AnalyticsOverview {
@@ -28,21 +29,15 @@ export interface AnalyticsOverview {
   click_through_rate?: number | null
 }
 
-export interface CampaignAnalytics {
-  campaign_id: string
-  name: string // Changed from campaign_name
+export interface CampaignAnalytics extends Campaign {
   total_starts: number
   total_completions: number
   completion_rate: number
-  // The following are placeholders until the API provides them
   client_name?: string
   total_fields?: number
   active_fields?: number
   required_fields?: number
-  total_interactions?: number
   interactions_last_7_days?: number
-  is_active?: boolean
-  created_at?: string
 }
 
 export interface DailyMetrics {

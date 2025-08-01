@@ -1,68 +1,14 @@
 import { useState, useEffect } from 'react'
 
-interface Client {
-  name: string
-  industry: string
-}
-
-interface ReferralLink {
-  title: string
-  referral_code: string
-  platform: string
-}
-
-interface UserProfile {
-  full_name: string
-  email: string
-}
+import { Campaign } from "@/schemas/campaign"
+import { Client } from "@/schemas/client"
+import { ReferralLink } from "@/schemas/referral"
+import { User } from "@/schemas/user"
 
 export type CampaignStatus = 'active' | 'paused' | 'archived' | 'deleted' | 'inactive'
 
-export interface BotCampaign {
-  id: string
-  name: string
-  type: string
-  guild_id: string
-  channel_id?: string
-  client_id: string
-  client_name: string
-  client_industry: string
-  display_name: string
-  template: string
-  description?: string
-  is_active: boolean
-  paused_at?: string | null
-  campaign_end_date?: string | null
-  is_deleted: boolean
-  deleted_at?: string | null
-  campaign_start_date: string
-  created_at: string
-  updated_at: string
-  total_interactions: number
-  successful_onboardings: number
-  referral_conversions: number
-  last_activity_at?: string | null
-  configuration_version?: number
-  referral_link_id?: string | null
-  referral_link_title?: string
-  referral_code?: string
-  referral_platform?: string
-  // Bot configuration fields
-  auto_role_assignment?: boolean
-  target_role_ids?: string[]
-  referral_tracking_enabled?: boolean
-  moderation_enabled?: boolean
-  bot_name?: string
-  bot_personality?: string
-  bot_response_style?: string
-  brand_color?: string
-  brand_logo_url?: string
-  welcome_message?: string
-  webhook_url?: string
-  rate_limit_per_user?: number
-  features?: Record<string, any>
-  auto_responses?: Record<string, any>
-  custom_commands?: any[]
+export interface BotCampaign extends Campaign {
+  // Bot specific fields
 }
 
 interface BotCampaignsFilters {

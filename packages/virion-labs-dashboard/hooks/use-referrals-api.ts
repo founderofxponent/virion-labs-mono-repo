@@ -2,23 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
-
-// TODO: Define the new API-based types for referrals
-export interface Referral {
-  id: string;
-  name: string;
-  email: string;
-  discord_id: string | null;
-  age: number | null;
-  status: string;
-  source_platform: string;
-  created_at: string;
-  conversion_value: number;
-  referral_link: {
-    title: string;
-    referral_code: string;
-  } | null;
-}
+import { Referral } from "@/schemas/referral"
 
 export function useReferralsApi() {
   const { user } = useAuth()

@@ -27,7 +27,7 @@ export interface Campaign {
   metadata?: any;
   features?: any;
   client_id: string;
-  client_name: string;
+  client_name?: string;
   client_industry: string;
   bot_personality?: string;
   bot_response_style?: string;
@@ -50,6 +50,9 @@ export interface Campaign {
   campaign_onboarding_responses?: any[];
   campaign_onboarding_starts?: any[];
   campaign_onboarding_completions?: any[];
+  is_deleted?: boolean;
+  paused_at?: string;
+  campaign_end_date?: string;
 }
 
 /**

@@ -42,3 +42,16 @@ export interface ReferralAnalytic {
   conversion_value?: number;
   metadata?: any;
 }
+
+export interface Referral {
+  id: string;
+  name: string;
+  email: string;
+  discord_id: string | null;
+  age: number | null;
+  status: string;
+  source_platform: string;
+  created_at: string;
+  conversion_value: number;
+  referral_link: ReferralLink | null;
+}

@@ -2,38 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
-
-// TODO: Define the new API-based types for campaign landing pages
-export interface CampaignLandingPage {
-  id: number;
-  documentId: string;
-  offer_title: string[];
-  offer_description: string;
-  offer_highlights: string[];
-  offer_value: string;
-  offer_expiry_date: string | null;
-  product_images: string[] | null;
-  video_url: string | null;
-  what_you_get: string;
-  how_it_works: string;
-  requirements: string;
-  support_info: string;
-  inherited_from_template: boolean;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string;
-  hero_image_url: string | null;
-  landing_page_template: {
-    id: number;
-    documentId: string;
-    name: string;
-  } | null;
-  campaign: {
-    id: number;
-    documentId: string;
-    name: string;
-  };
-}
+import { CampaignLandingPage } from "@/schemas/landing-page"
 
 export function useCampaignLandingPageApi() {
   const { user } = useAuth()

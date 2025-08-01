@@ -2,24 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
+import { Client } from "@/schemas/client"
 
-// This is the shape of the data the UI components expect
-export interface Client {
-  id: number;
-  documentId?: string;
-  name: string;
-  industry: string;
-  website?: string;
-  primary_contact?: string;
-  contact_email?: string;
-  influencers: number;
-  client_status: string;
-  join_date?: string;
-  logo?: string;
-  campaign_count: number;
-  created_at?: string;
-  updated_at?: string;
-}
+export type { Client }
 
 interface ApiListResponse {
   clients: Client[];
@@ -66,7 +51,7 @@ export function useClients() {
 
       const counts: Record<string, number> = {}
       data.clients.forEach(client => {
-        counts[client.id] = client.campaign_count
+        counts[client.id] = client.campaign_count || 0
       })
       setCampaignCounts(counts)
 
@@ -105,6 +90,10 @@ export function useClients() {
 
       if (!response.ok) {
         const errorData = await response.json()
+        if (Array.isArray(errorData.detail)) {
+          const errorMessage = errorData.detail.map((err: any) => `${err.loc[1]}: ${err.msg}`).join(', ')
+          throw new Error(errorMessage)
+        }
         throw new Error(errorData.detail || 'Failed to add client')
       }
       
@@ -112,7 +101,6 @@ export function useClients() {
       return { data: "Success", error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
-      setError(errorMessage)
       return { data: null, error: errorMessage }
     }
   }
@@ -227,8 +215,8 @@ export function useClients() {
         throw new Error(errorData.detail || 'Failed to fetch client')
       }
       
-      const data: { client: any } = await response.json()
-      return { data: data.client, error: null }
+      const data: Client = await response.json()
+      return { data: data, error: null }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       return { data: null, error: errorMessage }

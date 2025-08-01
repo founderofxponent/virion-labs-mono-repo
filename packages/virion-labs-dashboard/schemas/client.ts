@@ -2,6 +2,7 @@ import { Media, Campaign } from '@/schemas';
 
 export interface Client {
   id: number;
+  documentId?: string;
   name: string;
   industry: string;
   logo?: Media;
@@ -12,4 +13,5 @@ export interface Client {
   primary_contact?: string;
   contact_email?: string;
   campaigns?: Campaign[];
+  campaign_count?: number;
 }
