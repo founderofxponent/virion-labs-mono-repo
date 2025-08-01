@@ -32,7 +32,8 @@ class ClientService:
             raise HTTPException(status_code=403, detail="Forbidden: Only admins can create clients.")
 
         # Business logic can be applied here before creating the Strapi model
-        strapi_payload = StrapiClientCreate(**client_data.model_dump())
+        client_data_with_logic = self.client_domain.create_client_with_business_logic(client_data.model_dump())
+        strapi_payload = StrapiClientCreate(**client_data_with_logic)
         
         created_client = await strapi_client.create_client(strapi_payload)
         
