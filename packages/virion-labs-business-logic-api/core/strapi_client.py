@@ -29,7 +29,8 @@ from schemas.strapi import (
     CampaignOnboardingStart,
     StrapiCampaignOnboardingStartCreate,
     CampaignOnboardingCompletion,
-    StrapiCampaignOnboardingCompletionCreate
+    StrapiCampaignOnboardingCompletionCreate,
+    CampaignTemplate
 )
 
 logger = logging.getLogger(__name__)
@@ -274,13 +275,19 @@ class StrapiClient:
         response = await self._request("POST", "campaign-onboarding-responses", data=data)
         return CampaignOnboardingResponse(**response.get("data"))
 
-    async def get_campaign_template(self, document_id: str) -> Dict:
+    async def get_campaign_template(self, document_id: str) -> Optional[CampaignTemplate]:
         """Fetches a single campaign template by document ID from Strapi."""
         logger.info(f"StrapiClient: Fetching campaign template with document ID '{document_id}' from Strapi.")
-        
-        # Fetch by document ID only
-        response = await self._request("GET", f"campaign-templates/{document_id}", params={"populate": "*"})
-        return response.get("data")
+        try:
+            response = await self._request("GET", f"campaign-templates/{document_id}", params={"populate": "*"})
+            if response and response.get("data"):
+                return CampaignTemplate(**response.get("data"))
+            return None
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"Campaign template with documentId {document_id} not found.")
+                return None
+            raise
 
     async def get_onboarding_responses(self, filters: Optional[Dict] = None) -> List[CampaignOnboardingResponse]:
         """Fetches a list of campaign onboarding responses from Strapi."""
@@ -328,12 +335,14 @@ class StrapiClient:
         response = await self._request("POST", "campaign-onboarding-starts", data=data)
         return CampaignOnboardingStart(**response.get("data"))
 
-    async def get_campaign_templates(self) -> List[Dict]:
+    async def get_campaign_templates(self, filters: Optional[Dict] = None) -> List[CampaignTemplate]:
         """Fetches a list of campaign templates from Strapi."""
         logger.info("StrapiClient: Fetching campaign templates from Strapi.")
         params = {"populate": "*"}
+        if filters:
+            params.update(filters)
         response = await self._request("GET", "campaign-templates", params=params)
-        return response.get("data", [])
+        return [CampaignTemplate(**item) for item in response.get("data", [])]
 
     async def get_users(self, filters: Optional[Dict] = None) -> List[Dict]:
         """Fetches a list of users from Strapi."""

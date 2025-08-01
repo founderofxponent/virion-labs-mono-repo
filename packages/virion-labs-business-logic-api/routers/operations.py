@@ -30,6 +30,8 @@ from schemas.operation_schemas import (
     OnboardingStartListResponse,
     OnboardingCompletionListResponse,
     OnboardingResponseListResponse,
+    CampaignTemplateResponse,
+    CampaignTemplateListResponse,
 )
 from domain.campaigns.schemas import (
     CampaignLandingPageCreate, CampaignLandingPageUpdate,
@@ -410,7 +412,7 @@ def _get_campaign_recommendations(campaign_data: Dict[str, Any]) -> List[str]:
     return recommendations
 
 # Campaign Template Operations
-@router.get("/campaign-template/list")
+@router.get("/campaign-template/list", response_model=CampaignTemplateListResponse)
 async def list_campaign_templates_operation(
     category: Optional[str] = None,
     current_user: User = Depends(get_current_user)
@@ -421,26 +423,26 @@ async def list_campaign_templates_operation(
         if category:
             filters["category"] = category
         
-        result = await campaign_template_service.list_campaign_templates_operation(filters)
-        return result
+        templates = await campaign_template_service.list_campaign_templates_operation(filters)
+        return {"templates": templates, "total_count": len(templates)}
         
     except Exception as e:
         logger.error(f"Campaign template list operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/campaign-template/get/{template_id}")
+@router.get("/campaign-template/get/{template_id}", response_model=CampaignTemplateResponse)
 async def get_campaign_template_operation(
     template_id: str,
     current_user: User = Depends(get_current_user)
 ):
     """Business operation for getting a specific campaign template."""
     try:
-        result = await campaign_template_service.get_campaign_template_operation(template_id)
+        template = await campaign_template_service.get_campaign_template_operation(template_id)
         
-        if not result:
+        if not template:
             raise HTTPException(status_code=404, detail="Campaign template not found")
         
-        return result
+        return template
         
     except HTTPException:
         raise

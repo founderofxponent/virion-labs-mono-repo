@@ -327,3 +327,19 @@ class OnboardingCompletionListResponse(BaseModel):
 class OnboardingResponseListResponse(BaseModel):
     responses: List[OnboardingResponseResponse]
     total_count: int
+
+# --- Campaign Template Operations ---
+
+class CampaignTemplateResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    campaign_type: str
+    template_config: Dict[str, Any]
+    category: Optional[str] = None
+    is_default: Optional[bool] = False
+    landing_page_template: Optional[LandingPageTemplateResponse] = None
+
+class CampaignTemplateListResponse(BaseModel):
+    templates: List[CampaignTemplateResponse]
+    total_count: int
