@@ -269,3 +269,61 @@ class ReferralListResponse(BaseModel):
     """Defines the structure for the response of the referral list operation."""
     referrals: List[ReferralResponse]
     total_count: int
+
+# --- Onboarding Operations ---
+
+class OnboardingStartCreateRequest(BaseModel):
+    discord_user_id: str
+    discord_username: str
+    guild_id: Optional[str] = None
+    campaign: int
+
+class OnboardingCompletionCreateRequest(BaseModel):
+    discord_user_id: str
+    discord_username: str
+    guild_id: Optional[str] = None
+    campaign: int
+
+class OnboardingResponseCreateRequest(BaseModel):
+    discord_user_id: str
+    discord_username: Optional[str] = None
+    field_key: str
+    field_value: Optional[str] = None
+    interaction_id: Optional[str] = None
+    campaign: int
+    referral_link: Optional[int] = None
+
+class OnboardingStartResponse(BaseModel):
+    id: int
+    discord_user_id: str
+    discord_username: str
+    guild_id: Optional[str] = None
+    started_at: datetime
+
+class OnboardingCompletionResponse(BaseModel):
+    id: int
+    discord_user_id: str
+    discord_username: str
+    guild_id: Optional[str] = None
+    completed_at: datetime
+
+class OnboardingResponseResponse(BaseModel):
+    id: int
+    documentId: str
+    discord_user_id: str
+    discord_username: Optional[str] = None
+    field_key: str
+    field_value: Optional[str] = None
+    interaction_id: Optional[str] = None
+
+class OnboardingStartListResponse(BaseModel):
+    starts: List[OnboardingStartResponse]
+    total_count: int
+
+class OnboardingCompletionListResponse(BaseModel):
+    completions: List[OnboardingCompletionResponse]
+    total_count: int
+
+class OnboardingResponseListResponse(BaseModel):
+    responses: List[OnboardingResponseResponse]
+    total_count: int

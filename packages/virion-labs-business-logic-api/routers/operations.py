@@ -5,6 +5,7 @@ from services.campaign_service import campaign_service
 from services.campaign_template_service import campaign_template_service
 from services.landing_page_template_service import landing_page_template_service
 from services.referral_service import referral_service
+from services.onboarding_service import onboarding_service
 from schemas.operation_schemas import (
     ClientCreateRequest, ClientResponse,
     ClientListResponse, ClientUpdateRequest,
@@ -20,6 +21,15 @@ from schemas.operation_schemas import (
     ReferralCreateRequest,
     ReferralResponse,
     ReferralListResponse,
+    OnboardingStartCreateRequest,
+    OnboardingCompletionCreateRequest,
+    OnboardingResponseCreateRequest,
+    OnboardingStartResponse,
+    OnboardingCompletionResponse,
+    OnboardingResponseResponse,
+    OnboardingStartListResponse,
+    OnboardingCompletionListResponse,
+    OnboardingResponseListResponse,
 )
 from domain.campaigns.schemas import (
     CampaignLandingPageCreate, CampaignLandingPageUpdate,
@@ -30,6 +40,11 @@ from domain.campaigns.schemas import (
 from domain.clients.schemas import ClientCreate, ClientUpdate
 from domain.landing_page_templates.schemas import LandingPageTemplateCreate, LandingPageTemplateUpdate
 from domain.referrals.schemas import ReferralCreate
+from domain.onboarding.schemas import (
+    CampaignOnboardingStartCreate,
+    CampaignOnboardingCompletionCreate,
+    CampaignOnboardingResponseCreate
+)
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
 from core.strapi_client import strapi_client
@@ -554,4 +569,80 @@ async def list_referrals_operation(
         }
     except Exception as e:
         logger.error(f"Referral listing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Onboarding Operations
+@router.post("/onboarding/start", response_model=OnboardingStartResponse, status_code=201)
+async def create_onboarding_start_operation(request: OnboardingStartCreateRequest, current_user: User = Depends(get_current_user)):
+    """Logs the start of an onboarding process."""
+    try:
+        start_data = CampaignOnboardingStartCreate(**request.model_dump())
+        created_event = await onboarding_service.create_onboarding_start(start_data, current_user)
+        return created_event
+    except Exception as e:
+        logger.error(f"Onboarding start creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/onboarding/starts", response_model=OnboardingStartListResponse)
+async def list_onboarding_starts_operation(campaign_id: Optional[str] = None, current_user: User = Depends(get_current_user)):
+    """Lists onboarding start events."""
+    try:
+        filters = {}
+        if campaign_id:
+            filters["filters[campaign][documentId][$eq]"] = campaign_id
+        
+        starts = await onboarding_service.list_onboarding_starts(filters, current_user)
+        return {"starts": starts, "total_count": len(starts)}
+    except Exception as e:
+        logger.error(f"Onboarding start listing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/onboarding/complete", response_model=OnboardingCompletionResponse, status_code=201)
+async def create_onboarding_completion_operation(request: OnboardingCompletionCreateRequest, current_user: User = Depends(get_current_user)):
+    """Logs the completion of an onboarding process."""
+    try:
+        completion_data = CampaignOnboardingCompletionCreate(**request.model_dump())
+        created_event = await onboarding_service.create_onboarding_completion(completion_data, current_user)
+        return created_event
+    except Exception as e:
+        logger.error(f"Onboarding completion creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/onboarding/completions", response_model=OnboardingCompletionListResponse)
+async def list_onboarding_completions_operation(campaign_id: Optional[str] = None, current_user: User = Depends(get_current_user)):
+    """Lists onboarding completion events."""
+    try:
+        filters = {}
+        if campaign_id:
+            filters["filters[campaign][documentId][$eq]"] = campaign_id
+        
+        completions = await onboarding_service.list_onboarding_completions(filters, current_user)
+        return {"completions": completions, "total_count": len(completions)}
+    except Exception as e:
+        logger.error(f"Onboarding completion listing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/onboarding/responses", response_model=OnboardingResponseResponse, status_code=201)
+async def create_onboarding_response_operation(request: OnboardingResponseCreateRequest, current_user: User = Depends(get_current_user)):
+    """Creates a new campaign onboarding response."""
+    try:
+        response_data = CampaignOnboardingResponseCreate(**request.model_dump())
+        created_response = await onboarding_service.create_onboarding_response(response_data, current_user)
+        return created_response
+    except Exception as e:
+        logger.error(f"Onboarding response creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/onboarding/responses", response_model=OnboardingResponseListResponse)
+async def list_onboarding_responses_operation(campaign_id: Optional[str] = None, current_user: User = Depends(get_current_user)):
+    """Lists campaign onboarding responses."""
+    try:
+        filters = {}
+        if campaign_id:
+            filters["filters[campaign][documentId][$eq]"] = campaign_id
+        
+        responses = await onboarding_service.list_onboarding_responses(filters, current_user)
+        return {"responses": responses, "total_count": len(responses)}
+    except Exception as e:
+        logger.error(f"Onboarding response listing failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

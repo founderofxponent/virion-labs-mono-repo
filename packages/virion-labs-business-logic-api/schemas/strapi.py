@@ -2,6 +2,14 @@ from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any, Literal, Union
 from datetime import datetime
 from domain.influencers.schemas import ReferralLinkBase, ReferralLinkCreate, ReferralLinkUpdate
+from domain.onboarding.schemas import (
+    CampaignOnboardingStartBase,
+    CampaignOnboardingStartCreate,
+    CampaignOnboardingCompletionBase,
+    CampaignOnboardingCompletionCreate,
+    CampaignOnboardingResponseBase,
+    CampaignOnboardingResponseCreate
+)
 
 class Role(BaseModel):
     id: int
@@ -76,14 +84,12 @@ class ReferralLink(ReferralLinkBase):
     influencer: Optional[User] = None
     campaign: Optional['Campaign'] = None
 
-class CampaignOnboardingResponse(BaseModel):
+class StrapiCampaignOnboardingResponseCreate(CampaignOnboardingResponseCreate):
+    pass
+
+class CampaignOnboardingResponse(CampaignOnboardingResponseBase):
     id: int
-    discord_user_id: str
-    discord_username: Optional[str] = None
-    field_key: str
-    field_value: Optional[str] = None
-    referral_id: Optional[str] = None
-    interaction_id: Optional[str] = None
+    documentId: str
     referral_link: Optional[ReferralLink] = None
     campaign: Optional['Campaign'] = None
 
@@ -121,19 +127,19 @@ class StrapiCampaignOnboardingFieldUpdate(CampaignOnboardingFieldBase):
     field_type: Optional[Literal['text', 'email', 'number', 'boolean', 'url', 'select', 'multiselect']] = None
     campaign: Optional[int] = None
 
-class CampaignOnboardingStart(BaseModel):
+class StrapiCampaignOnboardingStartCreate(CampaignOnboardingStartCreate):
+    pass
+
+class CampaignOnboardingStart(CampaignOnboardingStartBase):
     id: int
-    discord_user_id: str
-    discord_username: str
-    guild_id: Optional[str] = None
     started_at: Optional[datetime] = None
     campaign: Optional['Campaign'] = None
 
-class CampaignOnboardingCompletion(BaseModel):
+class StrapiCampaignOnboardingCompletionCreate(CampaignOnboardingCompletionCreate):
+    pass
+
+class CampaignOnboardingCompletion(CampaignOnboardingCompletionBase):
     id: int
-    discord_user_id: str
-    discord_username: str
-    guild_id: Optional[str] = None
     completed_at: Optional[datetime] = None
     campaign: Optional['Campaign'] = None
 
