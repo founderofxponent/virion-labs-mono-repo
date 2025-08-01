@@ -244,3 +244,28 @@ class LandingPageTemplateUpdateRequest(BaseModel):
     preview_image_url: Optional[str] = None
     is_active: Optional[bool] = None
     is_default: Optional[bool] = None
+
+# --- Referral Operations ---
+
+class ReferralBase(BaseModel):
+    """Base model for a referral API request/response."""
+    referrer_name: str = Field(..., description="The name of the person making the referral.")
+    referrer_email: EmailStr = Field(..., description="The email of the person making thereferral.")
+    referee_name: str = Field(..., description="The name of the person being referred.")
+    referee_email: EmailStr = Field(..., description="The email of the person being referred.")
+    notes: Optional[str] = Field(None, description="Optional notes about the referral.")
+
+class ReferralCreateRequest(ReferralBase):
+    """Model for creating a new referral."""
+    campaign_id: str = Field(..., description="The document ID of the campaign this referral is for.")
+
+class ReferralResponse(ReferralBase):
+    """Model for a referral response."""
+    id: int
+    documentId: str
+    campaign_id: str
+
+class ReferralListResponse(BaseModel):
+    """Defines the structure for the response of the referral list operation."""
+    referrals: List[ReferralResponse]
+    total_count: int

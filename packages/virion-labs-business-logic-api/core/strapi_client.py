@@ -18,7 +18,12 @@ from schemas.strapi import (
     StrapiCampaignOnboardingFieldUpdate,
     LandingPageTemplate,
     StrapiLandingPageTemplateCreate,
-    StrapiLandingPageTemplateUpdate
+    StrapiLandingPageTemplateUpdate,
+    Referral,
+    StrapiReferralCreate,
+    ReferralLink,
+    StrapiReferralLinkCreate,
+    StrapiReferralLinkUpdate
 )
 
 logger = logging.getLogger(__name__)
@@ -421,47 +426,63 @@ class StrapiClient:
         return {"status": "deleted", "documentId": document_id}
     # endregion
 
-    async def get_referral_links(self, filters: Optional[Dict] = None) -> List[Dict]:
-        """Fetches a list of referral links from Strapi."""
-        """Fetches a list of referral links from Strapi."""
+    async def get_referral_links(self, filters: Optional[Dict] = None) -> List[ReferralLink]:
+        """Fetches a list of referral links from Strapi, returning them as validated Pydantic models."""
         logger.info("StrapiClient: Fetching referral links from Strapi.")
         params = {"populate": "*"}
         if filters:
             params.update(filters)
         
         response = await self._request("GET", "referral-links", params=params)
-        return response.get("data", [])
+        return [ReferralLink(**item) for item in response.get("data", [])]
 
-    async def get_referral_links_by_user(self, user_id: str) -> List[Dict]:
-        """
-        Retrieves all referral links for a specific user.
-        """
+    async def get_referral_links_by_user(self, user_id: str) -> List[ReferralLink]:
+        """Retrieves all referral links for a specific user as validated Pydantic models."""
         filters = {
             "filters[influencer][id][$eq]": user_id,
             "populate": "campaign"
         }
-        response = await self._request("GET", "referral-links", params=filters)
-        return response.get("data", [])
+        return await self.get_referral_links(filters=filters)
 
-    async def create_referral_link(self, link_data: Dict) -> Dict:
-        """Creates a new referral link in Strapi."""
+    async def create_referral_link(self, link_data: StrapiReferralLinkCreate) -> ReferralLink:
+        """Creates a new referral link in Strapi using a validated Pydantic model."""
         logger.info("StrapiClient: Creating a new referral link in Strapi.")
-        data = {"data": link_data}
+        payload = link_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         response = await self._request("POST", "referral-links", data=data)
-        return response.get("data")
+        return ReferralLink(**response.get("data"))
 
-    async def update_referral_link(self, link_id: str, link_data: Dict) -> Dict:
-        """Updates a referral link in Strapi."""
+    async def update_referral_link(self, link_id: int, link_data: StrapiReferralLinkUpdate) -> ReferralLink:
+        """Updates a referral link in Strapi using its ID and a validated Pydantic model."""
         logger.info(f"StrapiClient: Updating referral link {link_id} in Strapi.")
-        data = {"data": link_data}
+        payload = link_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         response = await self._request("PUT", f"referral-links/{link_id}", data=data)
-        return response.get("data")
+        return ReferralLink(**response.get("data"))
 
     async def delete_referral_link(self, link_id: str) -> Dict:
         """Deletes a referral link in Strapi."""
         logger.info(f"StrapiClient: Deleting referral link {link_id} in Strapi.")
         response = await self._request("DELETE", f"referral-links/{link_id}")
         return response if response else {"status": "deleted"}
+
+    async def get_referrals(self, filters: Optional[Dict] = None) -> List[Referral]:
+        """Fetches a list of referrals from Strapi."""
+        logger.info("StrapiClient: Fetching referrals from Strapi.")
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        
+        response = await self._request("GET", "referrals", params=params)
+        return [Referral(**item) for item in response.get("data", [])]
+
+    async def create_referral(self, referral_data: StrapiReferralCreate) -> Referral:
+        """Creates a new referral in Strapi."""
+        logger.info("StrapiClient: Creating a new referral in Strapi.")
+        payload = referral_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
+        response = await self._request("POST", "referrals", data=data)
+        return Referral(**response.get("data"))
 
     async def get_referrals_by_user(self, user_id: str) -> List[Dict]:
         """

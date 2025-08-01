@@ -1,6 +1,7 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any, Literal, Union
 from datetime import datetime
+from domain.influencers.schemas import ReferralLinkBase, ReferralLinkCreate, ReferralLinkUpdate
 
 class Role(BaseModel):
     id: int
@@ -49,12 +50,15 @@ class ReferralAnalytic(BaseModel):
     conversion_value: Optional[float] = 0.00
     metadata: Optional[Dict[str, Any]] = None
 
-class ReferralLink(BaseModel):
+class StrapiReferralLinkCreate(ReferralLinkCreate):
+    pass
+
+class StrapiReferralLinkUpdate(ReferralLinkUpdate):
+    pass
+
+class ReferralLink(ReferralLinkBase):
     id: int
-    title: str
-    description: Optional[str] = None
-    platform: str
-    original_url: str
+    documentId: str
     referral_code: str
     referral_url: str
     thumbnail_url: Optional[List[Media]] = None
@@ -62,20 +66,15 @@ class ReferralLink(BaseModel):
     conversions: Optional[int] = 0
     conversion_rate: Optional[float] = None
     earnings: Optional[float] = 0
-    is_active: Optional[bool] = True
-    expires_at: Optional[datetime] = None
-    discord_invite_url: Optional[str] = None
     discord_guild_id: Optional[str] = None
-    redirect_to_discord: Optional[bool] = False
-    landing_page_enabled: Optional[bool] = True
     last_conversion_at: Optional[datetime] = None
     private_channel_id: Optional[str] = None
     access_role_id: Optional[str] = None
     custom_invite_code: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
     referral_analytics: Optional[List[ReferralAnalytic]] = None
     campaign_onboarding_responses: Optional[List['CampaignOnboardingResponse']] = None
     influencer: Optional[User] = None
+    campaign: Optional['Campaign'] = None
 
 class CampaignOnboardingResponse(BaseModel):
     id: int
@@ -173,6 +172,14 @@ class CampaignTemplate(BaseModel):
     category: Optional[str] = None
     is_default: Optional[bool] = False
     landing_page_template: Optional[LandingPageTemplate] = None
+
+# Referral Schemas
+class StrapiReferralCreate(ReferralBase):
+    pass
+
+class Referral(ReferralBase):
+    id: int
+    documentId: str
 
 class ClientBase(BaseModel):
     name: str

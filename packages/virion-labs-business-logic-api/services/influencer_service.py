@@ -1,5 +1,16 @@
-from typing import Dict, Any, List
+from typing import List
 from domain.influencers.domain import InfluencerDomain
+from domain.influencers.schemas import (
+    ReferralLinkCreate,
+    ReferralLinkUpdate,
+    ReferralLinkResponse,
+    Referral
+)
+from schemas.strapi import (
+    StrapiReferralLinkCreate,
+    StrapiReferralLinkUpdate
+)
+from core.strapi_client import strapi_client
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,87 +23,52 @@ class InfluencerService:
     def __init__(self):
         self.influencer_domain = InfluencerDomain()
 
-    async def list_referral_links_operation(self, user_id: str) -> Dict[str, Any]:
-        """
-        Business operation for listing an influencer's referral links.
-        """
+    async def list_referral_links_operation(self, user_id: int) -> List[ReferralLinkResponse]:
+        """Business operation for listing an influencer's referral links."""
         logger.info(f"Executing list referral links operation for user: {user_id}")
+        return await self.influencer_domain.get_enriched_referral_links(str(user_id))
 
-        # Get enriched links from the domain layer
-        enriched_links = await self.influencer_domain.get_enriched_referral_links(user_id)
-
-        return {
-            "links": enriched_links,
-            "total_count": len(enriched_links),
-            "user_id": user_id
-        }
-
-    async def create_referral_link_operation(self, link_data: Dict[str, Any], user_id: str) -> Dict[str, Any]:
-        """
-        Business operation for creating a new referral link for an influencer.
-        """
+    async def create_referral_link_operation(self, link_data: ReferralLinkCreate, user_id: int) -> ReferralLinkResponse:
+        """Business operation for creating a new referral link for an influencer."""
         logger.info(f"Executing create referral link operation for user: {user_id}")
+        
+        # The domain model expects the user_id to be set.
+        link_data.influencer = user_id
+        
+        strapi_data = StrapiReferralLinkCreate(**link_data.model_dump())
+        created_link = await strapi_client.create_referral_link(strapi_data)
+        
+        return ReferralLinkResponse(**created_link.model_dump())
 
-        # Add the influencer to the link data
-        link_data['influencer'] = user_id
-
-        # In a real-world scenario, you would call the domain to apply business rules
-        # created_link = await self.influencer_domain.create_referral_link(link_data)
-
-        # For now, we will call the strapi client directly
-        created_link = await strapi_client.create_referral_link(link_data)
-
-        return {
-            "link": created_link,
-            "message": "Referral link created successfully."
-        }
-
-    async def update_referral_link_operation(self, link_id: str, link_data: Dict[str, Any], user_id: str) -> Dict[str, Any]:
-        """
-        Business operation for updating a referral link for an influencer.
-        """
+    async def update_referral_link_operation(self, link_id: int, link_data: ReferralLinkUpdate, user_id: int) -> ReferralLinkResponse:
+        """Business operation for updating a referral link for an influencer."""
         logger.info(f"Executing update referral link operation for user: {user_id}, link: {link_id}")
+        
+        # TODO: Add domain logic to verify link ownership by user_id
+        
+        strapi_data = StrapiReferralLinkUpdate(**link_data.model_dump(exclude_unset=True))
+        updated_link = await strapi_client.update_referral_link(link_id, strapi_data)
+        
+        return ReferralLinkResponse(**updated_link.model_dump())
 
-        # In a real-world scenario, you would first verify that the link belongs to the user.
-        # For now, we will trust the frontend to only allow updates to the user's own links.
-
-        updated_link = await strapi_client.update_referral_link(link_id, link_data)
-
-        return {
-            "link": updated_link,
-            "message": "Referral link updated successfully."
-        }
-
-    async def delete_referral_link_operation(self, link_id: str, user_id: str) -> Dict[str, Any]:
-        """
-        Business operation for deleting a referral link for an influencer.
-        """
+    async def delete_referral_link_operation(self, link_id: int, user_id: int) -> None:
+        """Business operation for deleting a referral link for an influencer."""
         logger.info(f"Executing delete referral link operation for user: {user_id}, link: {link_id}")
+        
+        # TODO: Add domain logic to verify link ownership by user_id
+        
+        await strapi_client.delete_referral_link(str(link_id))
+        return
 
-        # In a real-world scenario, you would first verify that the link belongs to the user.
-        # For now, we will trust the frontend to only allow deletions of the user's own links.
-
-        await strapi_client.delete_referral_link(link_id)
-
-        return {
-            "message": "Referral link deleted successfully."
-        }
-
-    async def list_referrals_operation(self, user_id: str) -> Dict[str, Any]:
-        """
-        Business operation for listing an influencer's referrals.
-        """
+    async def list_referrals_operation(self, user_id: int) -> List[Referral]:
+        """Business operation for listing an influencer's referrals."""
         logger.info(f"Executing list referrals operation for user: {user_id}")
-
-        # In a real-world scenario, you would call the domain to get enriched referrals.
-        # For now, we will call the strapi client directly.
-        referrals = await strapi_client.get_referrals_by_user(user_id)
-
-        return {
-            "referrals": referrals,
-            "total_count": len(referrals),
-            "user_id": user_id
-        }
+        
+        # The strapi_client now returns validated Pydantic models
+        referrals = await strapi_client.get_referrals_by_user(str(user_id))
+        
+        # Convert the raw Strapi dicts to our domain model
+        return [Referral(**ref) for ref in referrals]
 
     async def update_referral_status_operation(self, referral_id: str, status: str, user_id: str) -> Dict[str, Any]:
         """

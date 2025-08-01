@@ -4,6 +4,7 @@ from services.client_service import client_service
 from services.campaign_service import campaign_service
 from services.campaign_template_service import campaign_template_service
 from services.landing_page_template_service import landing_page_template_service
+from services.referral_service import referral_service
 from schemas.operation_schemas import (
     ClientCreateRequest, ClientResponse,
     ClientListResponse, ClientUpdateRequest,
@@ -16,6 +17,9 @@ from schemas.operation_schemas import (
     OnboardingFieldUpdateRequest,
     OnboardingFieldResponse,
     OnboardingFieldListResponse,
+    ReferralCreateRequest,
+    ReferralResponse,
+    ReferralListResponse,
 )
 from domain.campaigns.schemas import (
     CampaignLandingPageCreate, CampaignLandingPageUpdate,
@@ -25,6 +29,7 @@ from domain.campaigns.schemas import (
 )
 from domain.clients.schemas import ClientCreate, ClientUpdate
 from domain.landing_page_templates.schemas import LandingPageTemplateCreate, LandingPageTemplateUpdate
+from domain.referrals.schemas import ReferralCreate
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
 from core.strapi_client import strapi_client
@@ -512,4 +517,41 @@ async def delete_landing_page_template_operation(
         raise
     except Exception as e:
         logger.error(f"Delete landing page template operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Referral Operations
+@router.post("/referral/create", response_model=ReferralResponse, status_code=201)
+async def create_referral_operation(
+    request: ReferralCreateRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Creates a new referral."""
+    try:
+        referral_data = ReferralCreate(**request.model_dump())
+        created_referral = await referral_service.create_referral_operation(referral_data, current_user)
+        return created_referral
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Referral creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/referral/list", response_model=ReferralListResponse)
+async def list_referrals_operation(
+    campaign_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Lists referrals, optionally filtered by campaign."""
+    try:
+        filters = {}
+        if campaign_id:
+            filters["filters[campaign][documentId][$eq]"] = campaign_id
+        
+        referrals = await referral_service.list_referrals_operation(filters, current_user)
+        return {
+            "referrals": referrals,
+            "total_count": len(referrals)
+        }
+    except Exception as e:
+        logger.error(f"Referral listing failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
