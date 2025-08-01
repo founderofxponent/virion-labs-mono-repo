@@ -5,6 +5,7 @@ import { UnifiedDashboard } from "@/components/unified-dashboard"
 import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/components/auth-provider"
 import { useDashboardData } from "@/hooks/use-dashboard-data"
+import { useUserSettings } from "@/hooks/use-user-settings"
 
 export default function Home() {
   return (
@@ -16,7 +17,8 @@ export default function Home() {
 
 function DashboardContent() {
   const { profile, loading: authLoading } = useAuth() 
-  const { loading: dataLoading, error: dataError, data } = useDashboardData()
+  const { settings } = useUserSettings()
+  const { loading: dataLoading, error: dataError, data, refetch } = useDashboardData(settings)
 
   if (!authLoading && !profile) {
     return null;
@@ -29,7 +31,7 @@ function DashboardContent() {
   if (dataLoading) {
     return (
       <DashboardLayout>
-        <UnifiedDashboard />
+        <UnifiedDashboard data={data} loading={dataLoading} error={dataError} refetch={refetch} />
       </DashboardLayout>
     );
   }
@@ -37,7 +39,7 @@ function DashboardContent() {
   if (dataError) {
      return (
       <DashboardLayout>
-        <UnifiedDashboard />
+        <UnifiedDashboard data={data} loading={dataLoading} error={dataError} refetch={refetch} />
       </DashboardLayout>
     );
   }
@@ -45,7 +47,7 @@ function DashboardContent() {
   if (data) {
     return (
       <DashboardLayout>
-        <UnifiedDashboard />
+        <UnifiedDashboard data={data} loading={dataLoading} error={dataError} refetch={refetch} />
       </DashboardLayout>
     );
   }

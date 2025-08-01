@@ -52,7 +52,8 @@ export function ProtectedRoute({
 
   // Check role requirements
   if (allowedRoles && allowedRoles.length > 0 && profile) {
-    if (!allowedRoles.includes(profile.role)) {
+    const userRole = typeof profile.role === 'string' ? profile.role : profile.role?.name
+    if (!userRole || !allowedRoles.includes(userRole)) {
       return null
     }
   }

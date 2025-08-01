@@ -69,11 +69,11 @@ export function useAnalytics() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = "http://localhost:8000/api/v1/operations"
+  const API_BASE_URL = "http://localhost:8000/api/v1"
 
   const getToken = () => localStorage.getItem('auth_token')
 
-  const fetchAnalytics = useCallback(async () => {
+  const fetchAnalytics = useCallback(async (timeframe = "30d") => {
     const token = getToken()
     if (!token) {
       setError("Authentication token not found.")
@@ -112,7 +112,7 @@ export function useAnalytics() {
       
       // We will now fetch daily metrics from the dedicated performance report endpoint
       // This call can happen in parallel for efficiency in the future, but for now, it's sequential
-      const performanceResponse = await fetch(`${API_BASE_URL}/analytics/performance-report?timeframe=30d`, {
+      const performanceResponse = await fetch(`${API_BASE_URL}/analytics/performance-report?timeframe=${timeframe}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

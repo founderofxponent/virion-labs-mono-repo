@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import HTTPException
 from core.strapi_client import strapi_client
 from domain.users.schemas import UserSettingUpdate, UserSettingResponse
-from schemas.strapi import StrapiUserSettingUpdate
+from schemas.strapi import StrapiUserSettingUpdate, StrapiUserSettingCreate
 from schemas.user_schemas import User
 import logging
 
@@ -21,7 +21,9 @@ class UserService:
             # The user object from the auth dependency already contains settings.
             # We just need to validate and return them.
             if not current_user.settings:
-                return None
+                # If settings are not found, create them
+                new_settings = await self.create_user_settings(current_user)
+                return new_settings
             
             # The settings are already populated by the get_current_user dependency
             return UserSettingResponse(**current_user.settings.model_dump())
@@ -49,6 +51,17 @@ class UserService:
         except Exception as e:
             logger.error(f"Error updating user settings for user {current_user.id}: {e}")
             raise HTTPException(status_code=500, detail="Failed to update user settings.")
+
+    async def create_user_settings(self, current_user: User) -> UserSettingResponse:
+        """
+        Creates a new user setting in Strapi.
+        """
+        try:
+            new_settings = await strapi_client.create_user_setting(StrapiUserSettingCreate(user=current_user.id))
+            return UserSettingResponse(**new_settings.model_dump())
+        except Exception as e:
+            logger.error(f"Error creating user settings for user {current_user.id}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to create user settings.")
 
 # Global instance of the service
 user_service = UserService()

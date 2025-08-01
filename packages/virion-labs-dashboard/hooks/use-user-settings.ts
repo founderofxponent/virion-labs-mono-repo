@@ -1,145 +1,227 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
-import { generateUserApiKeys } from "@/lib/api-keys"
-import { uploadAvatar, UploadAvatarResult } from "@/lib/avatar-upload"
-import api from "@/lib/api"
-import { UserSettings, UserSettingsUpdate } from "@/lib/supabase" // Keep for type, but data comes from API
+import { UserSettings } from "@/schemas/user-settings"
 
 export function useUserSettings() {
-  const { user, profile, signOut, refreshProfile } = useAuth()
+  const { user, profile, loading: authLoading, getUser } = useAuth()
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Check if user is available
-  const isUserAvailable = user?.id != null
+  const API_BASE_URL = "http://localhost:8000"
+  const getToken = () => localStorage.getItem('auth_token')
 
-  // Early return for users not available
-  useEffect(() => {
-    if (!isUserAvailable) {
-      console.log('👤 useUserSettings: User not available, immediately setting loading false')
-      setSettings(null)
+  const fetchSettings = useCallback(async () => {
+    if (authLoading) return
+
+    if (!user) {
       setLoading(false)
-      setError(null)
+      return
     }
-  }, [isUserAvailable])
 
-  // Emergency timeout
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (loading) {
-        console.log('👤 useUserSettings: EMERGENCY TIMEOUT - Force setting loading to false')
-        setLoading(false)
-        setError("Request timed out.")
-      }
-    }, 5000) // 5 second timeout
-    return () => clearTimeout(timeout)
-  }, [loading])
-
-  // Fetch user settings from our API
-  const fetchSettings = async () => {
-    if (!user?.id || !isUserAvailable) {
-      console.log('👤 useUserSettings: User not available, skipping fetch')
+    const token = getToken()
+    if (!token) {
+      setError("Authentication token not found.")
       setLoading(false)
       return
     }
 
     try {
-      console.log('👤 useUserSettings: Fetching settings for confirmed user from API:', user.id)
       setLoading(true)
-      
-      const { data } = await api.get<UserSettings>('/api/users/me/settings')
-      
-      setSettings(data || null)
       setError(null)
-      console.log('👤 useUserSettings: Settings fetched successfully from API:', !!data)
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || "An unknown error occurred"
-      setError(errorMessage)
-      console.error('👤 useUserSettings: Error fetching settings from API:', errorMessage)
-      // If settings are not found (404), we might want to trigger a creation process.
-      // For now, we just show an error. The backend should handle creating default settings on user creation.
-      if (err.response?.status === 404) {
-        console.log('👤 useUserSettings: No settings found on backend.')
-        // In the future, we could call a createSettings() endpoint here.
+      
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/me/settings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to fetch user settings')
       }
+
+      const settingsData: UserSettings = await response.json()
+      setSettings(settingsData)
+    } catch (err) {
+      console.error('Error fetching user settings:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch settings')
+      setSettings(null)
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id, authLoading])
 
-  // Update settings
-  const updateSettings = async (updates: Partial<UserSettingsUpdate>): Promise<boolean> => {
-    if (!user?.id || !settings) return false
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
+
+  const updateSettings = async (updatedData: Partial<UserSettings>): Promise<boolean> => {
+    const token = getToken()
+    if (!token) {
+      setError("Authentication token not found.")
+      return false
+    }
 
     try {
-      const { data } = await api.patch<UserSettings>('/api/users/me/settings', updates)
-      
-      setSettings(data)
-      setError(null)
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/me/settings`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatedData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to update settings')
+      }
+
+      const newSettings = await response.json()
+      setSettings(newSettings)
       return true
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || err.message || "An unknown error occurred"
-      setError(errorMessage)
-      console.error('Error updating settings via API:', err)
+    } catch (err) {
+      console.error('Error updating settings:', err)
+      setError(err instanceof Error ? err.message : 'Failed to update settings')
       return false
     }
   }
 
-  // The functions below should also be migrated to use the business logic API.
-  // For now, they are left as placeholders or removed if they are fully deprecated.
-
-  // Change password - This should be handled by a dedicated auth flow/API endpoint
-  const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
-    console.warn("changePassword is not yet migrated to the new API.")
-    // Placeholder implementation
-    return { success: false, error: "This feature is temporarily unavailable." }
-  }
-
-  // Delete account - This should be handled by a dedicated auth flow/API endpoint
-  const deleteAccount = async (password: string): Promise<{ success: boolean; error?: string }> => {
-    console.warn("deleteAccount is not yet migrated to the new API.")
-    // Placeholder implementation
-    return { success: false, error: "This feature is temporarily unavailable." }
-  }
-
-  // Regenerate API keys - This should be handled by the API
-  const regenerateApiKeys = async (): Promise<{ liveKey: string; testKey: string } | null> => {
-    console.warn("regenerateApiKeys is not yet migrated to the new API.")
-    // Placeholder implementation
-    return null
-  }
-
-  // Upload avatar - This should be handled by the API
-  const uploadUserAvatar = async (file: File): Promise<UploadAvatarResult> => {
-    console.warn("uploadUserAvatar is not yet migrated to the new API.")
-    // Placeholder implementation
-    return { success: false, error: "This feature is temporarily unavailable." }
-  }
-
-  // Initialize settings on user change
-  useEffect(() => {
-    if (user?.id && isUserAvailable) {
-      console.log('👤 useUserSettings: User confirmed, fetching settings from API')
-      fetchSettings()
-    } else {
-      console.log('👤 useUserSettings: User not confirmed or not available, clearing settings')
-      setSettings(null)
-      setLoading(false)
+  const uploadUserAvatar = async (file: File): Promise<{ success: boolean; error?: string }> => {
+    const token = getToken()
+    if (!token || !user) {
+      return { success: false, error: "User not authenticated" }
     }
-  }, [user?.id, isUserAvailable])
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/me/avatar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { success: false, error: errorData.detail || "Failed to upload avatar" }
+      }
+
+      // Refresh user profile to get the new avatar URL
+      await getUser()
+      
+      return { success: true }
+    } catch (error) {
+      console.error("Avatar upload error:", error)
+      return { success: false, error: "An unexpected error occurred" }
+    }
+  }
+
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    const token = getToken()
+    if (!token) {
+      return { success: false, error: "Authentication token not found." }
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/me/password`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { success: false, error: errorData.detail || "Failed to change password" }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error("Password change error:", error)
+      return { success: false, error: "An unexpected error occurred" }
+    }
+  }
+
+  const deleteAccount = async (password: string): Promise<{ success: boolean; error?: string }> => {
+    const token = getToken()
+    if (!token) {
+      return { success: false, error: "Authentication token not found." }
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { success: false, error: errorData.detail || "Failed to delete account" }
+      }
+
+      // The auth provider should handle logout and redirection
+      return { success: true }
+    } catch (error) {
+      console.error("Account deletion error:", error)
+      return { success: false, error: "An unexpected error occurred" }
+    }
+  }
+
+  const regenerateApiKeys = async (): Promise<{ liveKey: string; testKey: string } | null> => {
+    const token = getToken()
+    if (!token) {
+      setError("Authentication token not found.")
+      return null
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/me/api-keys/regenerate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to regenerate API keys')
+      }
+
+      const data = await response.json()
+      
+      // Also refetch settings to update the regenerated_at timestamp
+      await fetchSettings()
+
+      return { liveKey: data.api_key, testKey: data.api_key_test }
+    } catch (err) {
+      console.error('Error regenerating API keys:', err)
+      setError(err instanceof Error ? err.message : 'Failed to regenerate keys')
+      return null
+    }
+  }
 
   return {
     settings,
-    loading,
+    loading: loading || authLoading,
     error,
+    fetchSettings,
     updateSettings,
-    refetch: fetchSettings,
-    regenerateApiKeys,
     uploadUserAvatar,
     changePassword,
     deleteAccount,
+    regenerateApiKeys,
   }
-} 
+}

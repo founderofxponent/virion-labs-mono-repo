@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
+import { UserSettings } from "@/schemas/user-settings"
 
 // Unified dashboard data types for the new API
 export interface DashboardStats {
@@ -68,38 +69,6 @@ interface ApiClient {
 interface ApiClientListResponse {
   clients: ApiClient[]
   total_count: number
-}
-
-export interface UserSettings {
-  id: string
-  bio?: string
-  phone_number?: string
-  twitter_handle?: string
-  instagram_handle?: string
-  linkedin_handle?: string
-  youtube_handle?: string
-  tiktok_handle?: string
-  twitch_handle?: string
-  website_url?: string
-  theme: string
-  language: string
-  timezone: string
-  currency: string
-  profile_visibility: string
-  show_earnings: boolean
-  show_referral_count: boolean
-  email_notifications: boolean
-  push_notifications: boolean
-  marketing_emails: boolean
-  security_alerts: boolean
-  campaign_updates: boolean
-  referral_notifications: boolean
-  webhook_url?: string
-  webhook_events: string[]
-  two_factor_enabled: boolean
-  login_notifications: boolean
-  created_at: string
-  updated_at: string
 }
 
 // Transform functions
@@ -273,7 +242,7 @@ const getTimeAgo = (date: Date): string => {
 }
 
 // Main hook
-export function useDashboardData() {
+export function useDashboardData(userSettings: UserSettings | null) {
   const { user, profile, loading: authLoading } = useAuth()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -301,7 +270,8 @@ export function useDashboardData() {
 
       let transformedData: DashboardData
 
-      switch (profile.role) {
+      const roleName = typeof profile.role === 'object' && profile.role !== null ? profile.role.name : profile.role;
+      switch (roleName) {
         case 'Platform Administrator':
         case 'admin': {
           // Fetch clients data for admin dashboard
@@ -323,38 +293,18 @@ export function useDashboardData() {
 
         case 'Influencer':
         case 'influencer': {
-          // Fetch user settings for influencer dashboard
-          const settingsResponse = await fetch(`${API_BASE_URL}/api/users/me/settings`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-
-          if (!settingsResponse.ok) {
-            const errorData = await settingsResponse.json()
-            throw new Error(errorData.detail || 'Failed to fetch user settings')
+          if (!userSettings) {
+            throw new Error("User settings not available for influencer dashboard")
           }
-
-          const settingsData: UserSettings = await settingsResponse.json()
-          transformedData = transformInfluencerData(settingsData)
+          transformedData = transformInfluencerData(userSettings)
           break
         }
 
         case 'client': {
-          // Fetch user settings for client dashboard
-          const settingsResponse = await fetch(`${API_BASE_URL}/api/users/me/settings`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-
-          if (!settingsResponse.ok) {
-            const errorData = await settingsResponse.json()
-            throw new Error(errorData.detail || 'Failed to fetch user settings')
+          if (!userSettings) {
+            throw new Error("User settings not available for client dashboard")
           }
-
-          const settingsData: UserSettings = await settingsResponse.json()
-          transformedData = transformClientData(settingsData)
+          transformedData = transformClientData(userSettings)
           break
         }
 
@@ -370,7 +320,7 @@ export function useDashboardData() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id, profile?.role, authLoading])
+  }, [user?.id, profile?.role, authLoading, userSettings])
 
   useEffect(() => {
     fetchData()

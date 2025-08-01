@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 import jwt
-from pydantic import BaseModel, EmailStr, ValidationError
+from pydantic import BaseModel, EmailStr, ValidationError, Field
 from typing import Optional, Dict, Any
 import logging
  
@@ -19,7 +19,7 @@ class StrapiUser(BaseModel):
     username: str
     full_name: Optional[str] = None
     role: Optional[Dict[str, Any]] = None
-    settings: Optional[UserSetting] = None
+    settings: Optional[UserSetting] = Field(None, alias='user_setting')
     document_id: Optional[str] = None
     avatar_url: Optional[str] = None
 
@@ -31,7 +31,7 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> di
     
     strapi_users_me_url = f"{settings.STRAPI_URL}/api/users/me"
     headers = {"Authorization": f"Bearer {token}"}
-    params = {"populate": "role"}
+    params = [("populate", "role"), ("populate", "user_setting")]
     logger.info(f"Validating token. URL: {strapi_users_me_url}, Params: {params}")
  
     async with httpx.AsyncClient() as client:

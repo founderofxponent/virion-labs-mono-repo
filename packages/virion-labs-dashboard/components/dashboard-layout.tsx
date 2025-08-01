@@ -27,6 +27,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
+  const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
 
   const handleSignOut = async () => {
     await signOut()
@@ -38,7 +39,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   const getDashboardTitle = () => {
-    switch (profile?.role) {
+    switch (roleName) {
       case "admin":
       case "Platform Administrator":
         return "Admin Dashboard"
@@ -100,7 +101,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="flex flex-col">
                     <span className="font-medium">{profile?.full_name}</span>
                     <span className="text-xs text-muted-foreground">{profile?.email}</span>
-                    <span className="text-xs text-muted-foreground capitalize">{profile?.role}</span>
+                    <span className="text-xs text-muted-foreground capitalize">{roleName}</span>
                   </div>
                 </div>
                 <DropdownMenuSeparator />

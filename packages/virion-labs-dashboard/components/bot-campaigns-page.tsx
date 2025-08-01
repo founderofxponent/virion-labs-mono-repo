@@ -75,6 +75,7 @@ export default function BotCampaignsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [templates, setTemplates] = useState<CampaignTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
+  const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
 
   // Load templates from API
   useEffect(() => {
@@ -144,10 +145,10 @@ export default function BotCampaignsPage() {
     const query = searchQuery.toLowerCase()
     return (
       campaign.name.toLowerCase().includes(query) ||
-      campaign.client_name.toLowerCase().includes(query) ||
+      (campaign.client_name && campaign.client_name.toLowerCase().includes(query)) ||
       campaign.guild_id.toLowerCase().includes(query) ||
-      campaign.type.toLowerCase().includes(query) ||
-      campaign.template.toLowerCase().includes(query)
+      (campaign.type && campaign.type.toLowerCase().includes(query)) ||
+      (campaign.template && campaign.template.toLowerCase().includes(query))
     )
   })
 
@@ -273,7 +274,7 @@ export default function BotCampaignsPage() {
   const handleExportCampaignCSV = async (campaignId: string, campaignName: string) => {
     try {
       // Only admin users can export data
-      if (profile?.role !== "admin") {
+      if (roleName !== "admin") {
         throw new Error("Access denied. Admin privileges required.")
       }
 
@@ -493,7 +494,7 @@ export default function BotCampaignsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Clients</SelectItem>
                   {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
+                    <SelectItem key={client.id} value={String(client.id)}>
                       {client.name}
                     </SelectItem>
                   ))}
@@ -638,14 +639,14 @@ export default function BotCampaignsPage() {
                       </TableCell>
                       
                       <TableCell>
-                        <Badge className={getTemplateColor(campaign.template)}>
-                          {campaign.template.replace('_', ' ')}
+                        <Badge className={getTemplateColor(campaign.template || '')}>
+                          {campaign.template?.replace('_', ' ')}
                         </Badge>
                       </TableCell>
                       
                       <TableCell>
-                        <Badge className={getCampaignTypeColor(campaign.type)}>
-                          {campaign.type.replace('_', ' ')}
+                        <Badge className={getCampaignTypeColor(campaign.type || '')}>
+                          {campaign.type?.replace('_', ' ')}
                         </Badge>
                       </TableCell>
                       
@@ -693,10 +694,10 @@ export default function BotCampaignsPage() {
                       
                       <TableCell>
                         <div className="text-sm">
-                          {formatDate(campaign.updated_at)}
+                          {formatDate(campaign.updated_at || '')}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Created {formatDate(campaign.created_at)}
+                          Created {formatDate(campaign.created_at || '')}
                         </div>
                       </TableCell>
                       
@@ -720,7 +721,7 @@ export default function BotCampaignsPage() {
                                 return (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.documentId || campaign.id, campaign.name)}>
+                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
                                       <Download className="h-4 w-4 mr-2" />
                                       Export CSV
                                     </DropdownMenuItem>
@@ -732,18 +733,18 @@ export default function BotCampaignsPage() {
                                 return (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.documentId || campaign.id, campaign.name)}>
+                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
                                       <Download className="h-4 w-4 mr-2" />
                                       Export CSV
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleUnarchiveCampaign(campaign.documentId || campaign.id)}>
+                                    <DropdownMenuItem onClick={() => handleUnarchiveCampaign(String(campaign.documentId || campaign.id))}>
                                       <RotateCcw className="h-4 w-4 mr-2" />
                                       Unarchive
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem 
-                                      onClick={() => handleDeleteCampaign(campaign.documentId || campaign.id)}
+                                      onClick={() => handleDeleteCampaign(String(campaign.documentId || campaign.id))}
                                       className="text-red-600"
                                     >
                                       <Trash2 className="h-4 w-4 mr-2" />
@@ -761,13 +762,13 @@ export default function BotCampaignsPage() {
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit Campaign
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleExportCampaignCSV(campaign.documentId || campaign.id, campaign.name)}>
+                                  <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
                                     <Download className="h-4 w-4 mr-2" />
                                     Export CSV
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem 
-                                    onClick={() => handleArchiveCampaign(campaign.documentId || campaign.id)}
+                                    onClick={() => handleArchiveCampaign(String(campaign.documentId || campaign.id))}
                                     className="text-orange-600"
                                   >
                                     <Archive className="h-4 w-4 mr-2" />
@@ -775,7 +776,7 @@ export default function BotCampaignsPage() {
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem 
-                                    onClick={() => handleDeleteCampaign(campaign.documentId || campaign.id)}
+                                    onClick={() => handleDeleteCampaign(String(campaign.documentId || campaign.id))}
                                     className="text-red-600"
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />

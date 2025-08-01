@@ -52,9 +52,10 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
   const [dateRange, setDateRange] = useState("30")
   const [isExporting, setIsExporting] = useState(false)
   const [loading, setLoading] = useState(false)
+  const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
 
-  const isAdmin = profile?.role === "admin"
-  const isClient = profile?.role === "client"
+  const isAdmin = roleName === "admin"
+  const isClient = roleName === "client"
 
   // Load campaigns when dialog opens
   useEffect(() => {
@@ -445,11 +446,11 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
                     {dateRange === 'all' ? 'All Time' : `Last ${dateRange} days`}
                   </Badge>
                 </div>
-                {profile?.role && (
+                {roleName && (
                   <div className="flex items-center justify-between text-sm">
                     <span>Access Level:</span>
                     <Badge variant="outline" className="capitalize">
-                      {profile.role}
+                      {roleName}
                     </Badge>
                   </div>
                 )}
@@ -498,4 +499,4 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
       </DialogContent>
     </Dialog>
   )
-} 
+}

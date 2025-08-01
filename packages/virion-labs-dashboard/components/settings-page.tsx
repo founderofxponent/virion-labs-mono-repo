@@ -32,7 +32,8 @@ import { WebhookTester, WebhookTestResult } from "@/lib/webhook-test"
 
 export function SettingsPage() {
   const { profile } = useAuth()
-  const isAdmin = profile?.role === "admin"
+  const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
+  const isAdmin = roleName === "admin" || roleName === "Platform Administrator"
 
   return (
     <div className="space-y-6">
@@ -90,8 +91,7 @@ function ProfileSettings() {
     phone_number: "",
     twitter_handle: "",
     instagram_handle: "",
-    youtube_channel: "",
-    discord_username: "",
+    youtube_handle: "",
     website_url: "",
   })
 
@@ -102,8 +102,7 @@ function ProfileSettings() {
         phone_number: settings.phone_number || "",
         twitter_handle: settings.twitter_handle || "",
         instagram_handle: settings.instagram_handle || "",
-        youtube_channel: settings.youtube_channel || "",
-        discord_username: settings.discord_username || "",
+        youtube_handle: settings.youtube_handle || "",
         website_url: settings.website_url || "",
       })
     }
@@ -297,20 +296,11 @@ function ProfileSettings() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="youtube">YouTube Channel</Label>
-            <Input 
-              id="youtube" 
+            <Input
+              id="youtube"
               placeholder="https://youtube.com/@channel"
-              value={formData.youtube_channel}
-              onChange={(e) => setFormData(prev => ({ ...prev, youtube_channel: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="discord">Discord Username</Label>
-            <Input 
-              id="discord" 
-              placeholder="username#1234"
-              value={formData.discord_username}
-              onChange={(e) => setFormData(prev => ({ ...prev, discord_username: e.target.value }))}
+              value={formData.youtube_handle}
+              onChange={(e) => setFormData(prev => ({ ...prev, youtube_handle: e.target.value }))}
             />
           </div>
         </div>
@@ -730,19 +720,19 @@ function NotificationSettings() {
   const [saving, setSaving] = useState(false)
 
   const [formData, setFormData] = useState({
-    email_notifications_new_referral: true,
-    email_notifications_link_clicks: false,
-    email_notifications_weekly_reports: true,
-    email_notifications_product_updates: true,
+    email_notifications: true,
+    push_notifications: false,
+    marketing_emails: true,
+    security_alerts: true,
   })
 
   useEffect(() => {
     if (settings) {
       setFormData({
-        email_notifications_new_referral: settings.email_notifications_new_referral,
-        email_notifications_link_clicks: settings.email_notifications_link_clicks,
-        email_notifications_weekly_reports: settings.email_notifications_weekly_reports,
-        email_notifications_product_updates: settings.email_notifications_product_updates,
+        email_notifications: settings.email_notifications,
+        push_notifications: settings.push_notifications,
+        marketing_emails: settings.marketing_emails,
+        security_alerts: settings.security_alerts,
       })
     }
   }, [settings])
@@ -779,45 +769,45 @@ function NotificationSettings() {
       <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-            <div className="font-medium">New Referrals</div>
-            <div className="text-sm text-muted-foreground">Get notified when someone signs up using your referral link</div>
+            <div className="font-medium">Email Notifications</div>
+            <div className="text-sm text-muted-foreground">Get notified by email about important account activity.</div>
             </div>
-                <Switch 
-                  checked={formData.email_notifications_new_referral}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_new_referral: checked }))}
+                <Switch
+                  checked={formData.email_notifications}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications: checked }))}
                 />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium">Link Clicks</div>
-            <div className="text-sm text-muted-foreground">Get notified when someone clicks your referral links</div>
+              <div className="font-medium">Push Notifications</div>
+            <div className="text-sm text-muted-foreground">Receive push notifications for real-time updates.</div>
             </div>
-                <Switch 
-                  checked={formData.email_notifications_link_clicks}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_link_clicks: checked }))}
+                <Switch
+                  checked={formData.push_notifications}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, push_notifications: checked }))}
                 />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium">Weekly Reports</div>
-            <div className="text-sm text-muted-foreground">Receive weekly summaries of your referral performance</div>
+              <div className="font-medium">Marketing Emails</div>
+            <div className="text-sm text-muted-foreground">Receive marketing and promotional emails.</div>
             </div>
-                <Switch 
-                  checked={formData.email_notifications_weekly_reports}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_weekly_reports: checked }))}
+                <Switch
+                  checked={formData.marketing_emails}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, marketing_emails: checked }))}
                 />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium">Product Updates</div>
-            <div className="text-sm text-muted-foreground">Stay informed about new features and improvements</div>
+              <div className="font-medium">Security Alerts</div>
+            <div className="text-sm text-muted-foreground">Get notified about important security events.</div>
             </div>
-                <Switch 
-                  checked={formData.email_notifications_product_updates}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, email_notifications_product_updates: checked }))}
+                <Switch
+                  checked={formData.security_alerts}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, security_alerts: checked }))}
                 />
         </div>
       </CardContent>
@@ -1122,7 +1112,7 @@ function PrivacySettings() {
 }
 
 function ApiSettings() {
-  const { settings, updateSettings, regenerateApiKeys } = useUserSettings()
+  const { settings, regenerateApiKeys } = useUserSettings()
   const { toast } = useToast()
   const [saving, setSaving] = useState(false)
   const [regenerating, setRegenerating] = useState(false)

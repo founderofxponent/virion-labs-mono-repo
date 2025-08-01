@@ -1,7 +1,7 @@
 import { Media, Campaign } from '@/schemas';
 
 export interface Client {
-  id: number;
+  id: string;
   documentId?: string;
   name: string;
   industry: string;

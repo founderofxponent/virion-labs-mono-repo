@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.get("/users/me/settings", response_model=UserSetting)
+@router.get("/me/settings", response_model=UserSetting)
 async def read_current_user_settings(current_user: User = Depends(get_current_user)):
     """Retrieves the settings for the currently authenticated user."""
     try:
@@ -17,11 +17,13 @@ async def read_current_user_settings(current_user: User = Depends(get_current_us
         if not settings:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User settings not found")
         return settings
+    except HTTPException:
+       raise
     except Exception as e:
         logger.error(f"Read user settings failed: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.patch("/users/me/settings", response_model=UserSetting)
+@router.patch("/me/settings", response_model=UserSetting)
 async def update_user_settings(request: UserSettingUpdate, current_user: User = Depends(get_current_user)):
     """Updates the settings for the currently authenticated user."""
     try:

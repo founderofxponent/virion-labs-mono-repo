@@ -53,6 +53,13 @@ export interface Campaign {
   is_deleted?: boolean;
   paused_at?: string;
   campaign_end_date?: string;
+  display_name?: string;
+  configuration_version?: number;
+  template?: string;
+  type?: string;
+  last_activity_at?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 /**
@@ -73,6 +80,16 @@ export type CampaignListItem = Pick<
   | 'total_interactions'
   | 'referral_conversions'
   | 'is_active'
+  | 'display_name'
+  | 'configuration_version'
+  | 'template'
+  | 'type'
+  | 'channel_id'
+  | 'last_activity_at'
+  | 'created_at'
+  | 'updated_at'
+  | 'successful_onboardings'
+  | 'is_deleted'
 >;
 
 /**

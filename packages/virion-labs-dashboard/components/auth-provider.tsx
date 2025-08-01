@@ -18,7 +18,7 @@ export type UserProfile = {
   email: string
   full_name: string
   avatar_url: string | null
-  role: string
+  role: string | { name: string }
   created_at?: string
   updated_at?: string
 }
@@ -30,6 +30,7 @@ type AuthContextType = {
   signInWithGoogle: () => void
   handleAuthCallback: (code: string) => Promise<void>
   signOut: () => Promise<void>
+  getUser: () => Promise<void>
   // Deprecated functions
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signUp: (email: string, password: string, fullName: string, role: string) => Promise<{ error: any }>
@@ -164,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, handleAuthCallback, signOut, signIn, signUp }}>
+    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, handleAuthCallback, signOut, getUser, signIn, signUp }}>
       {children}
     </AuthContext.Provider>
   )

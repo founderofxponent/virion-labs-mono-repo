@@ -22,8 +22,9 @@ import { useAccessRequestsApi } from "@/hooks/use-access-requests-api"
 export function Sidebar() {
   const { profile } = useAuth()
   const pathname = usePathname()
-  const isAdmin = profile?.role === "admin" || profile?.role === "Platform Administrator"
-  const isClient = profile?.role === "client"
+  const userRole = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
+  const isAdmin = userRole === "admin" || userRole === "Platform Administrator"
+  const isClient = userRole === "client"
   const { requests } = useAccessRequestsApi()
   const pendingCount = requests.filter(r => r.request_status === 'pending').length
 
@@ -185,7 +186,7 @@ export function Sidebar() {
           </Avatar>
           <div className="flex flex-col items-start text-left min-w-0 flex-1">
             <span className="font-medium text-sm truncate">{profile?.full_name}</span>
-            <span className="text-xs text-muted-foreground capitalize">{profile?.role}</span>
+            <span className="text-xs text-muted-foreground capitalize">{typeof profile?.role === 'string' ? profile.role : profile?.role?.name}</span>
           </div>
         </div>
       </div>

@@ -28,7 +28,7 @@ import {
   Edit
 } from "lucide-react"
 import { useDashboardData, type DashboardData, type DashboardListItem, type DashboardActivity } from "@/hooks/use-dashboard-data"
-import { useAuth } from "@/components/auth-provider"
+import { useAuth, type UserProfile } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
 import { useCallback } from "react"
 
@@ -119,9 +119,10 @@ function QuickActionCard({ title, description, icon: Icon, onClick, variant = "d
 function ListItem({ item, showActions = false, role }: { 
   item: DashboardListItem; 
   showActions?: boolean;
-  role?: string;
+  role?: UserProfile['role'];
 }) {
   const router = useRouter()
+  const roleName = typeof role === 'string' ? role : role?.name
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -143,17 +144,17 @@ function ListItem({ item, showActions = false, role }: {
   }
 
   const handleViewClick = useCallback(() => {
-    if (role === 'admin' || role === 'Platform Administrator') {
+    if (roleName === 'admin' || roleName === 'Platform Administrator') {
       // Navigate to client detail page
       router.push(`/clients/${item.id}`)
-    } else if (role === 'influencer') {
+    } else if (roleName === 'influencer') {
       // Navigate to link analytics or details
       router.push(`/links`)
-    } else if (role === 'client') {
+    } else if (roleName === 'client') {
       // Navigate to campaign details
       router.push(`/campaigns`)
     }
-  }, [item.id, role, router])
+  }, [item.id, roleName, router])
 
   const handleExternalClick = useCallback(() => {
     if (item.metadata.url) {
@@ -173,7 +174,7 @@ function ListItem({ item, showActions = false, role }: {
         <p className="text-sm text-muted-foreground truncate mb-1">{item.subtitle}</p>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span>Created: {item.created}</span>
-          <span className="font-medium">{item.value.toLocaleString()} {role === 'admin' || role === 'Platform Administrator' ? 'campaigns' : 'conversions'}</span>
+          <span className="font-medium">{item.value.toLocaleString()} {roleName === 'admin' || roleName === 'Platform Administrator' ? 'campaigns' : 'conversions'}</span>
         </div>
       </div>
       {showActions && (
@@ -269,10 +270,15 @@ function DashboardSkeleton() {
 }
 
 // Main dashboard component with improved layout
-export function UnifiedDashboard() {
+export function UnifiedDashboard({ data, loading, error, refetch }: {
+  data: DashboardData | null
+  loading: boolean
+  error: string | null
+  refetch: () => void
+}) {
   const { profile } = useAuth()
-  const { data, loading, error, refetch } = useDashboardData()
   const router = useRouter()
+  const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
 
   // Navigation handlers
   const handleAnalyticsClick = useCallback(() => {
@@ -284,12 +290,12 @@ export function UnifiedDashboard() {
   }, [router])
 
   const handleCampaignsClick = useCallback(() => {
-    if (profile?.role === 'admin' || profile?.role === 'Platform Administrator') {
+    if (roleName === 'admin' || roleName === 'Platform Administrator') {
       router.push('/bot-campaigns')
     } else {
       router.push('/campaigns')
     }
-  }, [router, profile?.role])
+  }, [router, roleName])
 
   const handleLinksClick = useCallback(() => {
     router.push('/links')
@@ -308,12 +314,12 @@ export function UnifiedDashboard() {
   }, [router])
 
   const handleViewAllCampaigns = useCallback(() => {
-    if (profile?.role === 'admin' || profile?.role === 'Platform Administrator') {
+    if (roleName === 'admin' || roleName === 'Platform Administrator') {
       router.push('/bot-campaigns')
     } else {
       router.push('/campaigns')
     }
-  }, [router, profile?.role])
+  }, [router, roleName])
 
   const handleViewAllLinks = useCallback(() => {
     router.push('/links')
@@ -368,7 +374,7 @@ export function UnifiedDashboard() {
   }
 
   const getStatsIcons = () => {
-    switch (profile?.role) {
+    switch (roleName) {
       case 'Platform Administrator':
       case 'admin':
         return [Users, Activity, BarChart3, Target]
@@ -382,7 +388,7 @@ export function UnifiedDashboard() {
   const icons = getStatsIcons()
 
   const getQuickActions = () => {
-    switch (profile?.role) {
+    switch (roleName) {
       case 'Platform Administrator':
       case 'admin':
         return [
@@ -462,7 +468,7 @@ export function UnifiedDashboard() {
   }
 
   const getStatClickHandler = (index: number) => {
-    switch (profile?.role) {
+    switch (roleName) {
       case 'Platform Administrator':
       case 'admin':
         return [handleClientsClick, handleAnalyticsClick, handleAnalyticsClick, handleCampaignsClick][index]
@@ -476,7 +482,7 @@ export function UnifiedDashboard() {
   }
 
   const getViewAllHandler = () => {
-    switch (profile?.role) {
+    switch (roleName) {
       case 'Platform Administrator':
       case 'admin':
         return handleViewAllClients
@@ -495,8 +501,8 @@ export function UnifiedDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">
-            {profile?.role === 'admin' || profile?.role === 'Platform Administrator' ? 'Admin Dashboard' : 
-             profile?.role === 'client' ? 'Client Dashboard' : 
+            {roleName === 'admin' || roleName === 'Platform Administrator' ? 'Admin Dashboard' : 
+             roleName === 'client' ? 'Client Dashboard' : 
              'Influencer Dashboard'}
           </h1>
           <p className="text-lg text-muted-foreground">
@@ -565,13 +571,13 @@ export function UnifiedDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-xl">
-                  {profile?.role === 'admin' || profile?.role === 'Platform Administrator' ? 'Recent Clients' : 
-                   profile?.role === 'client' ? 'Active Campaigns' : 
+                  {roleName === 'admin' || roleName === 'Platform Administrator' ? 'Recent Clients' : 
+                   roleName === 'client' ? 'Active Campaigns' : 
                    'My Links'}
                 </CardTitle>
                 <CardDescription>
-                  {profile?.role === 'admin' || profile?.role === 'Platform Administrator' ? 'Latest client onboardings and their status' : 
-                   profile?.role === 'client' ? 'Your campaign performance overview' : 
+                  {roleName === 'admin' || roleName === 'Platform Administrator' ? 'Latest client onboardings and their status' : 
+                   roleName === 'client' ? 'Your campaign performance overview' : 
                    'Your referral links and their performance'}
                 </CardDescription>
               </div>
@@ -592,12 +598,12 @@ export function UnifiedDashboard() {
                   <Users className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <h3 className="font-medium text-muted-foreground mb-2">
-                  No {profile?.role === 'admin' || profile?.role === 'Platform Administrator' ? 'clients' : 
-                       profile?.role === 'client' ? 'campaigns' : 
+                  No {roleName === 'admin' || roleName === 'Platform Administrator' ? 'clients' : 
+                       roleName === 'client' ? 'campaigns' : 
                        'links'} yet
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Get started by creating your first {profile?.role === 'admin' || profile?.role === 'Platform Administrator' ? 'client' : 'campaign'}.
+                  Get started by creating your first {roleName === 'admin' || roleName === 'Platform Administrator' ? 'client' : 'campaign'}.
                 </p>
                 <Button onClick={getQuickActions()[0]?.onClick} variant="outline">
                   <Plus className="mr-2 h-4 w-4" />
@@ -630,7 +636,7 @@ export function UnifiedDashboard() {
       </div>
 
       {/* Performance Insights */}
-      {(profile?.role === 'admin' || profile?.role === 'Platform Administrator') && data.secondaryList.length > 0 && (
+      {(roleName === 'admin' || roleName === 'Platform Administrator') && data.secondaryList.length > 0 && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -674,4 +680,4 @@ export function UnifiedDashboard() {
       )}
     </div>
   )
-} 
+}

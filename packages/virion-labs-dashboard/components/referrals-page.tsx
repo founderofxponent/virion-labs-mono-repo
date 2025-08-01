@@ -41,6 +41,7 @@ export function ReferralsPage() {
     deleteReferral,
     refetch,
   } = useReferralsApi()
+  const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -232,7 +233,7 @@ export function ReferralsPage() {
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
-          {profile?.role === 'admin' && (
+          {roleName === 'admin' && (
             <Button variant="outline" onClick={exportData}>
               <Download className="mr-2 h-4 w-4" />
               Export Data

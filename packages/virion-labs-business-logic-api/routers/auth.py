@@ -6,6 +6,8 @@ import logging
 import time
 import jwt
 from datetime import datetime, timedelta
+from core.auth import get_current_user
+from schemas.user_schemas import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -131,53 +133,12 @@ async def exchange_code_for_token(request: Request):
 
 
 @router.get("/me")
-async def get_current_user(request: Request):
+async def get_current_user(current_user: User = Depends(get_current_user)):
     """
     Token introspection endpoint.
     Clients will call this with a Bearer token to validate it and get user info.
     """
-    auth_header = request.headers.get("Authorization")
-    if not auth_header:
-        raise HTTPException(status_code=401, detail="Authorization header missing")
-
-    try:
-        scheme, token = auth_header.split()
-        if scheme.lower() != "bearer":
-            raise HTTPException(status_code=401, detail="Invalid authentication scheme")
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid authorization header format")
-
-    # Call Strapi's /api/users/me endpoint to validate the token
-    strapi_users_me_url = f"{settings.STRAPI_URL}/api/users/me"
-    headers = {"Authorization": f"Bearer {token}"}
-
-    async with httpx.AsyncClient() as client:
-        try:
-            # First, get the basic user information
-            response = await client.get(strapi_users_me_url, headers=headers)
-            response.raise_for_status()
-            user_data = response.json()
-
-            # Now, get the user's role
-            user_id = user_data.get("id")
-            if user_id:
-                strapi_user_details_url = f"{settings.STRAPI_URL}/api/users/{user_id}?populate=role"
-                role_response = await client.get(strapi_user_details_url, headers=headers)
-                role_response.raise_for_status()
-                
-                role_data = role_response.json().get("role")
-                if role_data:
-                    user_data["role"] = role_data.get("name")
-
-            logger.info(f"Token validated successfully for user: {user_data.get('email')}")
-            return user_data
-            
-        except httpx.HTTPStatusError as e:
-            logger.warning(f"Token validation failed. Strapi returned status {e.response.status_code}")
-            raise HTTPException(status_code=e.response.status_code, detail="Invalid token or user not found")
-        except httpx.RequestError as e:
-            logger.error(f"Could not connect to Strapi for token validation: {e}")
-            raise HTTPException(status_code=503, detail="Authentication service is unavailable")
+    return current_user
 
 @router.post("/register")
 async def register_client(request: Request):

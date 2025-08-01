@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { Download, Users, Target, Activity, TrendingUp, Info, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -32,16 +33,25 @@ const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 export function AnalyticsPage() {
   const { profile } = useAuth()
   const { toast } = useToast()
-  const { 
-    analyticsData, 
-    dailyMetrics, 
-    loading, 
-    error, 
-    formatNumber, 
-    formatPercentage 
+  const {
+    analyticsData,
+    dailyMetrics,
+    loading,
+    error,
+    formatNumber,
+    formatPercentage,
+    refreshAnalytics
   } = useAnalytics()
+  const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
+  const [timeframe, setTimeframe] = React.useState("30d")
 
-  const isAdmin = profile?.role === "admin" || profile?.role === "Platform Administrator"
+  const isAdmin = roleName === "admin" || roleName === "Platform Administrator"
+
+  React.useEffect(() => {
+    if (profile) {
+      refreshAnalytics(timeframe)
+    }
+  }, [timeframe, profile, refreshAnalytics])
 
   if (loading) {
     return (
@@ -215,19 +225,28 @@ export function AnalyticsPage() {
         <TabsContent value="overview" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Performance Over Time
-                <UITooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Daily trends showing new campaigns created, users who started onboarding,</p>
-                    <p>and users who completed the full process.</p>
-                  </TooltipContent>
-                </UITooltip>
-              </CardTitle>
-              <CardDescription>Campaigns, users started, and completions over the selected period</CardDescription>
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    Performance Over Time
+                    <UITooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Daily trends showing new campaigns created, users who started onboarding,</p>
+                        <p>and users who completed the full process.</p>
+                      </TooltipContent>
+                    </UITooltip>
+                  </CardTitle>
+                  <CardDescription>Campaigns, users started, and completions over the selected period</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant={timeframe === "7d" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("7d")}>7d</Button>
+                  <Button variant={timeframe === "30d" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("30d")}>30d</Button>
+                  <Button variant={timeframe === "90d" ? "default" : "outline"} size="sm" onClick={() => setTimeframe("90d")}>90d</Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="h-[400px]">
               {dailyMetrics.length > 0 ? (
@@ -235,8 +254,7 @@ export function AnalyticsPage() {
                   <LineChart
                     data={dailyMetrics.map(day => ({
                       date: format(new Date(day.date), 'MMM dd'),
-                      campaigns: day.campaigns_created,
-                      responses: day.users_started,
+                      users_started: day.users_started,
                       completions: day.users_completed
                     }))}
                     margin={{
@@ -252,9 +270,8 @@ export function AnalyticsPage() {
                     <YAxis yAxisId="right" orientation="right" />
                     <Tooltip />
                     <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="responses" stroke="#8884d8" activeDot={{ r: 8 }} name="Users Started" />
+                    <Line yAxisId="left" type="monotone" dataKey="users_started" stroke="#8884d8" activeDot={{ r: 8 }} name="Users Started" />
                     <Line yAxisId="right" type="monotone" dataKey="completions" stroke="#82ca9d" name="Completions" />
-                    <Line yAxisId="left" type="monotone" dataKey="campaigns" stroke="#ffc658" name="New Campaigns" />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -448,7 +465,7 @@ export function AnalyticsPage() {
                 {analyticsData.campaigns.length > 0 ? (
                   <div className="space-y-4">
                     {analyticsData.campaigns.slice(0, 10).map((campaign, index) => (
-                      <div key={campaign.campaign_id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div key={campaign.id} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <div className={`w-2 h-2 rounded-full ${
                             campaign.is_active ? 'bg-green-500' : 'bg-gray-400'

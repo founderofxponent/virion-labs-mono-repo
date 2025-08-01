@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
 import { Referral } from "@/schemas/referral"
 
+export type { Referral }
+
 export function useReferralsApi() {
   const { user } = useAuth()
   const [referrals, setReferrals] = useState<Referral[]>([])
