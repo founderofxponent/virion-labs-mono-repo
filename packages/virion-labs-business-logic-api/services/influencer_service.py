@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Any
 from domain.influencers.domain import InfluencerDomain
 from domain.influencers.schemas import (
     ReferralLinkCreate,

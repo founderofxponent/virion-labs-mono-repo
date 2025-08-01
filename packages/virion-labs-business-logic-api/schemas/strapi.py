@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any, Literal, Union
 from datetime import datetime
-from domain.influencers.schemas import ReferralLinkBase, ReferralLinkCreate, ReferralLinkUpdate
+from domain.influencers.schemas import ReferralLinkBase, ReferralLinkCreate, ReferralLinkUpdate, ReferralLinkResponse
 from domain.onboarding.schemas import (
     CampaignOnboardingStartBase,
     CampaignOnboardingStartCreate,
@@ -181,12 +181,23 @@ class CampaignTemplate(BaseModel):
     landing_page_template: Optional[LandingPageTemplate] = None
 
 # Referral Schemas
-class StrapiReferralCreate(ReferralBase):
+class StrapiReferralCreate(ReferralLinkBase):
     pass
 
-class Referral(ReferralBase):
+class ReferralBase(BaseModel):
+    """Base model for a referred user, as used by the dashboard."""
     id: int
     documentId: str
+    name: str
+    email: str
+    status: str
+    source_platform: Optional[str] = None
+    created_at: datetime
+    conversion_value: Optional[float] = 0.0
+    referral_link: Optional[ReferralLinkResponse] = None
+
+class Referral(ReferralBase):
+    pass
 
 class ClientBase(BaseModel):
     name: str
