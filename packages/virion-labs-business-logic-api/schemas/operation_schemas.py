@@ -190,18 +190,28 @@ class OnboardingFieldsBatchUpdateRequest(BaseModel):
 
 # --- Landing Page Template Operations ---
  
-class LandingPageTemplateListResponse(BaseModel):
-    """
-    Defines the structure for the response of the landing page template list operation.
-    """
-    landing_page_templates: List[Dict[str, Any]]
-    total_count: int
-
 class LandingPageTemplateResponse(BaseModel):
-    """
-    Defines the structure for the response of a single landing page template operation.
-    """
-    landing_page_template: Dict[str, Any]
+    id: int
+    documentId: str
+    name: str
+    description: Optional[str] = None
+    category: Optional[str] = None
+    campaign_types: Optional[List[str]] = None
+    template_structure: Optional[Dict[str, Any]] = None
+    customizable_fields: Optional[List[str]] = None
+    default_offer_title: Optional[str] = None
+    default_offer_description: Optional[str] = None
+    default_offer_highlights: Optional[List[str]] = None
+    color_scheme: Optional[Dict[str, Any]] = None
+    layout_config: Optional[Dict[str, Any]] = None
+    preview_image_url: Optional[str] = None
+    is_active: Optional[bool] = True
+    is_default: Optional[bool] = False
+
+class LandingPageTemplateListResponse(BaseModel):
+    """Defines the structure for the response of the landing page template list operation."""
+    landing_page_templates: List[LandingPageTemplateResponse]
+    total_count: int
 
 class LandingPageTemplateCreateRequest(BaseModel):
     name: str

@@ -24,6 +24,7 @@ from domain.campaigns.schemas import (
     CampaignCreate, CampaignUpdate
 )
 from domain.clients.schemas import ClientCreate, ClientUpdate
+from domain.landing_page_templates.schemas import LandingPageTemplateCreate, LandingPageTemplateUpdate
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
 from core.strapi_client import strapi_client
@@ -430,35 +431,20 @@ async def get_campaign_template_operation(
 # Landing Page Template Operations
 @router.get("/landing-page-template/list", response_model=LandingPageTemplateListResponse)
 async def list_landing_page_templates_operation(
-    campaign_type: Optional[str] = None,
     category: Optional[str] = None,
     current_user: User = Depends(get_current_user)
 ):
-    """Business operation for listing landing page templates."""
+    """Lists landing page templates."""
     try:
         filters = {}
+        if category:
+            filters["filters[category][$eq]"] = category
         
-        # Handle campaign_type filter
-        if campaign_type:
-            result = await landing_page_template_service.list_landing_page_templates_by_campaign_type_operation(
-                campaign_type=campaign_type, 
-                current_user=current_user
-            )
-        # Handle category filter
-        elif category:
-            result = await landing_page_template_service.list_landing_page_templates_by_category_operation(
-                category=category,
-                current_user=current_user
-            )
-        # No filters - list all
-        else:
-            result = await landing_page_template_service.list_landing_page_templates_operation(
-                filters=filters,
-                current_user=current_user
-            )
-        
-        return LandingPageTemplateListResponse(**result)
-        
+        templates = await landing_page_template_service.list_templates_operation(filters, current_user)
+        return {
+            "landing_page_templates": templates,
+            "total_count": len(templates)
+        }
     except Exception as e:
         logger.error(f"Landing page template list operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -468,41 +454,28 @@ async def get_landing_page_template_operation(
     template_id: str,
     current_user: User = Depends(get_current_user)
 ):
-    """Business operation for getting a specific landing page template."""
+    """Gets a specific landing page template by its documentId."""
     try:
-        result = await landing_page_template_service.get_landing_page_template_operation(
-            template_id=template_id,
-            current_user=current_user
-        )
-        
-        return LandingPageTemplateResponse(**result)
-        
+        template = await landing_page_template_service.get_template_operation(template_id, current_user)
+        if not template:
+            raise HTTPException(status_code=404, detail="Landing page template not found")
+        return template
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Get landing page template operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/landing-page-template/create", response_model=LandingPageTemplateResponse)
+@router.post("/landing-page-template/create", response_model=LandingPageTemplateResponse, status_code=201)
 async def create_landing_page_template_operation(
     request: LandingPageTemplateCreateRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Business operation for creating a landing page template."""
+    """Creates a new landing page template."""
     try:
-        # Check admin permissions for creation
-        user_role = current_user.role.get('name') if current_user.role else 'Authenticated'
-        if user_role not in ['Platform Administrator']:
-            raise HTTPException(
-                status_code=403, 
-                detail="Forbidden: Only administrators can create landing page templates."
-            )
-        
-        template_data = request.model_dump(exclude_unset=True)
-        created_template = await strapi_client.create_landing_page_template(template_data)
-        
-        return LandingPageTemplateResponse(landing_page_template=created_template)
-        
+        template_data = LandingPageTemplateCreate(**request.model_dump())
+        created_template = await landing_page_template_service.create_template_operation(template_data, current_user)
+        return created_template
     except HTTPException:
         raise
     except Exception as e:
@@ -515,62 +488,26 @@ async def update_landing_page_template_operation(
     request: LandingPageTemplateUpdateRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Business operation for updating a landing page template."""
+    """Updates a landing page template."""
     try:
-        # Check admin permissions for updates
-        user_role = current_user.role.get('name') if current_user.role else 'Authenticated'
-        if user_role not in ['Platform Administrator']:
-            raise HTTPException(
-                status_code=403, 
-                detail="Forbidden: Only administrators can update landing page templates."
-            )
-        
-        # First verify the template exists
-        await landing_page_template_service.get_landing_page_template_operation(
-            template_id=template_id,
-            current_user=current_user
-        )
-        
-        update_data = request.model_dump(exclude_unset=True)
-        updated_template = await strapi_client.update_landing_page_template(template_id, update_data)
-        
-        return LandingPageTemplateResponse(landing_page_template=updated_template)
-        
+        update_data = LandingPageTemplateUpdate(**request.model_dump(exclude_unset=True))
+        updated_template = await landing_page_template_service.update_template_operation(template_id, update_data, current_user)
+        return updated_template
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Update landing page template operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/landing-page-template/delete/{template_id}")
+@router.delete("/landing-page-template/delete/{template_id}", status_code=200)
 async def delete_landing_page_template_operation(
     template_id: str,
     current_user: User = Depends(get_current_user)
 ):
-    """Business operation for deleting a landing page template."""
+    """Deletes a landing page template."""
     try:
-        # Check admin permissions for deletion
-        user_role = current_user.role.get('name') if current_user.role else 'Authenticated'
-        if user_role not in ['Platform Administrator']:
-            raise HTTPException(
-                status_code=403, 
-                detail="Forbidden: Only administrators can delete landing page templates."
-            )
-        
-        # First verify the template exists
-        await landing_page_template_service.get_landing_page_template_operation(
-            template_id=template_id,
-            current_user=current_user
-        )
-        
-        result = await strapi_client.delete_landing_page_template(template_id)
-        
-        return {
-            "success": True,
-            "message": "Landing page template deleted successfully",
-            "template_id": template_id
-        }
-        
+        result = await landing_page_template_service.delete_template_operation(template_id, current_user)
+        return result
     except HTTPException:
         raise
     except Exception as e:

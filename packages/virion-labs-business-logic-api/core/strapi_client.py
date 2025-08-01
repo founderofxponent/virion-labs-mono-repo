@@ -13,9 +13,12 @@ from schemas.strapi import (
     CampaignLandingPage,
     StrapiCampaignLandingPageCreate,
     StrapiCampaignLandingPageUpdate,
+    CampaignOnboardingField,
     StrapiCampaignOnboardingFieldCreate,
     StrapiCampaignOnboardingFieldUpdate,
-    CampaignOnboardingField
+    LandingPageTemplate,
+    StrapiLandingPageTemplateCreate,
+    StrapiLandingPageTemplateUpdate
 )
 
 logger = logging.getLogger(__name__)
@@ -370,7 +373,7 @@ class StrapiClient:
         return response
 
     # region Landing Page Template Operations
-    async def get_landing_page_templates(self, filters: Optional[Dict] = None) -> List[Dict]:
+    async def get_landing_page_templates(self, filters: Optional[Dict] = None) -> List[LandingPageTemplate]:
         """Fetches a list of landing page templates from Strapi."""
         logger.info("StrapiClient: Fetching landing page templates from Strapi.")
         params = {"populate": "*"}
@@ -378,39 +381,44 @@ class StrapiClient:
             params.update(filters)
         
         response = await self._request("GET", "landing-page-templates", params=params)
-        return response.get("data", [])
+        return [LandingPageTemplate(**item) for item in response.get("data", [])]
 
-    async def get_landing_page_template(self, document_id: str, populate: Optional[List[str]] = None) -> Dict:
+    async def get_landing_page_template(self, document_id: str) -> Optional[LandingPageTemplate]:
         """Fetches a single landing page template from Strapi using documentId."""
         logger.info(f"StrapiClient: Fetching landing page template {document_id} from Strapi.")
-        params = {}
-        if populate:
-            params["populate"] = ",".join(populate)
-        else:
-            params["populate"] = "*"
-        
-        response = await self._request("GET", f"landing-page-templates/{document_id}", params=params)
-        return response.get("data")
+        params = {"populate": "*"}
+        try:
+            response = await self._request("GET", f"landing-page-templates/{document_id}", params=params)
+            if response and response.get("data"):
+                return LandingPageTemplate(**response.get("data"))
+            return None
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"Landing page template with documentId {document_id} not found.")
+                return None
+            raise
 
-    async def create_landing_page_template(self, template_data: Dict) -> Dict:
+    async def create_landing_page_template(self, template_data: StrapiLandingPageTemplateCreate) -> LandingPageTemplate:
         """Creates a new landing page template in Strapi."""
         logger.info("StrapiClient: Creating new landing page template in Strapi.")
-        data = {"data": template_data}
+        payload = template_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         response = await self._request("POST", "landing-page-templates", data=data)
-        return response.get("data")
+        return LandingPageTemplate(**response.get("data"))
 
-    async def update_landing_page_template(self, document_id: str, template_data: Dict) -> Dict:
+    async def update_landing_page_template(self, document_id: str, template_data: StrapiLandingPageTemplateUpdate) -> LandingPageTemplate:
         """Updates a landing page template in Strapi using documentId."""
         logger.info(f"StrapiClient: Updating landing page template {document_id} in Strapi.")
-        data = {"data": template_data}
+        payload = template_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         response = await self._request("PUT", f"landing-page-templates/{document_id}", data=data)
-        return response.get("data")
+        return LandingPageTemplate(**response.get("data"))
 
     async def delete_landing_page_template(self, document_id: str) -> Dict:
         """Deletes a landing page template in Strapi using documentId."""
         logger.info(f"StrapiClient: Deleting landing page template {document_id} from Strapi.")
-        response = await self._request("DELETE", f"landing-page-templates/{document_id}")
-        return response.get("data") if response else {"status": "deleted"}
+        await self._request("DELETE", f"landing-page-templates/{document_id}")
+        return {"status": "deleted", "documentId": document_id}
     # endregion
 
     async def get_referral_links(self, filters: Optional[Dict] = None) -> List[Dict]:
