@@ -33,7 +33,7 @@ class UserSettingBase(BaseModel):
 
 class UserSettingCreate(UserSettingBase):
     """Model for creating new user settings."""
-    user: int # Expects the numeric ID of the user
+    user: Optional[int] = None # Expects the numeric ID of the user
 
 class UserSettingUpdate(UserSettingBase):
     """Model for updating user settings. All fields are optional."""

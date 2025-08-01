@@ -1025,6 +1025,10 @@ export interface ApiUserSettingUserSetting extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    user: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
     webhook_events: Schema.Attribute.JSON;
     webhook_url: Schema.Attribute.String;
     website_url: Schema.Attribute.String;

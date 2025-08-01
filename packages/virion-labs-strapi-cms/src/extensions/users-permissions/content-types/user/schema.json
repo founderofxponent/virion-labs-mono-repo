@@ -84,15 +84,16 @@
       "relation": "oneToMany",
       "target": "api::referral-link.referral-link"
     },
-    "user_setting": {
-      "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::user-setting.user-setting"
-    },
     "campaign_influencer_accesses": {
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::campaign-influencer-access.campaign-influencer-access"
+    },
+    "user_setting": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::user-setting.user-setting",
+      "inversedBy": "user"
     }
   }
 }

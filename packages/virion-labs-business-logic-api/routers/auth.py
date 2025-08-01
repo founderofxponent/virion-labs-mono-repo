@@ -8,6 +8,7 @@ import jwt
 from datetime import datetime, timedelta
 from core.auth import get_current_user
 from schemas.user_schemas import User
+from services.user_service import user_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -68,7 +69,16 @@ async def provider_callback(provider: str, request: Request):
         try:
             response = await client.get(strapi_auth_callback_url, params=params)
             response.raise_for_status()
-            strapi_jwt = response.json().get("jwt")
+            strapi_response = response.json()
+            strapi_jwt = strapi_response.get("jwt")
+            user_id = strapi_response.get("user", {}).get("id")
+
+            if user_id:
+                await user_service.check_and_create_user_settings(user_id)
+                # Refetch the user data to get the updated user object
+                response = await client.get(strapi_auth_callback_url, params=params)
+                response.raise_for_status()
+                strapi_jwt = response.json().get("jwt")
         except httpx.HTTPStatusError as e:
             logger.error(f"Failed to exchange token with Strapi. Status: {e.response.status_code}, Body: {e.response.text}")
             raise HTTPException(status_code=502, detail="Could not verify authentication with Strapi.")

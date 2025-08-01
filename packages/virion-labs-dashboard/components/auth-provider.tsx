@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setLoading(false)
     }
-  }, [getUser])
+  }, []) // Remove getUser dependency to prevent re-triggering
 
   const signInWithGoogle = useCallback(() => {
     setLoading(true)

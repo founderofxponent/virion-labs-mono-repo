@@ -367,7 +367,9 @@ class StrapiClient:
         """Updates a user in Strapi using its ID."""
         logger.info(f"StrapiClient: Updating user {user_id} in Strapi.")
         try:
-            response = await self._request("PUT", f"users/{user_id}", data=user_data)
+            data = {"data": user_data}
+            print(f"Updating user {user_id} with data: {data}")
+            response = await self._request("PUT", f"users/{user_id}", data=data)
             return response
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
@@ -386,10 +388,17 @@ class StrapiClient:
     async def create_user_setting(self, setting_data: StrapiUserSettingCreate) -> UserSetting:
         """Creates a new user setting in Strapi."""
         logger.info("StrapiClient: Creating new user setting in Strapi.")
-        payload = setting_data.model_dump(exclude_unset=True)
+        # Strapi expects the user relation to be set from the user side, not on setting creation.
+        payload = setting_data.model_dump(exclude={'user'})
         data = {"data": payload}
         response = await self._request("POST", "user-settings", data=data)
         return UserSetting(**response.get("data"))
+
+    async def update_user_setting_relation(self, user_id: int, setting_id: int) -> Dict:
+        """Updates the user to link it to a new user_setting."""
+        logger.info(f"StrapiClient: Linking user {user_id} to setting {setting_id}.")
+        data = {"user_setting": setting_id}
+        return await self.update_user(user_id, data)
 
     async def get_user(self, user_id: int) -> Dict:
         """Fetches a single user by their ID from Strapi."""
@@ -399,6 +408,28 @@ class StrapiClient:
         # Note: This endpoint is part of the Users & Permissions plugin
         response = await self._request("GET", f"users/{user_id}", params=params)
         return response
+
+    async def get_roles(self) -> List[Dict]:
+        """Fetches all roles from Strapi."""
+        logger.info("StrapiClient: Fetching roles from Strapi.")
+        response = await self._request("GET", "users-permissions/roles")
+        return response.get("roles", [])
+
+    async def get_role_by_name(self, role_name: str) -> Optional[Dict]:
+        """Fetches a role by name from Strapi."""
+        logger.info(f"StrapiClient: Fetching role {role_name} from Strapi.")
+        roles = await self.get_roles()
+        
+        for role in roles:
+            if role.get("name") == role_name:
+                return role
+        return None
+
+    async def update_user_role(self, user_id: int, role_id: int) -> Dict:
+        """Updates a user's role in Strapi."""
+        logger.info(f"StrapiClient: Updating user {user_id} role to {role_id}.")
+        user_data = {"role": role_id}
+        return await self.update_user(user_id, user_data)
 
     # region Landing Page Template Operations
     async def get_landing_page_templates(self, filters: Optional[Dict] = None) -> List[LandingPageTemplate]:

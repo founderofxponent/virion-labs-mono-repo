@@ -5,6 +5,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ThemeSync } from "@/components/theme-sync"
 import { AuthProvider } from "@/components/auth-provider"
+import { UserSettingsProvider } from "@/contexts/user-settings-context"
 import QueryProvider from "@/components/query-provider"
 import { Toaster } from "@/components/ui/toaster"
 
@@ -27,9 +28,11 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <QueryProvider>
             <AuthProvider>
-              <ThemeSync />
-              {children}
-              <Toaster />
+              <UserSettingsProvider>
+                <ThemeSync />
+                {children}
+                <Toaster />
+              </UserSettingsProvider>
             </AuthProvider>
           </QueryProvider>
         </ThemeProvider>
