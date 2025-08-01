@@ -27,7 +27,7 @@ class IntegrationService:
             
             # Log all campaign details for debugging
             for i, campaign in enumerate(all_campaigns):
-                logger.debug(f"Campaign {i+1}: id={campaign.get('id')}, documentId={campaign.get('documentId')}, name={campaign.get('name')}, channel_id={campaign.get('channel_id')}")
+                logger.debug(f"Campaign {i+1}: id={campaign.id}, documentId={getattr(campaign, 'documentId', None)}, name={campaign.name}, channel_id={getattr(campaign, 'channel_id', None)}")
             
             filtered_campaigns = self.discord_domain.filter_campaigns_for_channel(
                 all_campaigns, channel_id, join_campaigns_channel_id
@@ -36,10 +36,10 @@ class IntegrationService:
             
             # Log filtered campaign details
             for i, campaign in enumerate(filtered_campaigns):
-                logger.info(f"Filtered Campaign {i+1}: id={campaign.get('id')}, documentId={campaign.get('documentId')}, name={campaign.get('name')}")
+                logger.info(f"Filtered Campaign {i+1}: id={campaign.id}, documentId={getattr(campaign, 'documentId', None)}, name={campaign.name}")
             
             # Check for duplicate documentIds
-            document_ids = [c.get('documentId') for c in filtered_campaigns]
+            document_ids = [getattr(c, 'documentId', None) for c in filtered_campaigns]
             unique_document_ids = set(document_ids)
             if len(document_ids) != len(unique_document_ids):
                 logger.warning(f"⚠️  DUPLICATE DOCUMENT IDs DETECTED!")
@@ -98,7 +98,7 @@ class IntegrationService:
                 logger.info(f"Campaign ID {campaign_id} appears to be numeric, fetching campaign to get documentId")
                 campaigns = await strapi_client.get_campaigns({"filters[id][$eq]": campaign_id})
                 if campaigns:
-                    document_id = campaigns[0].get("documentId")
+                    document_id = getattr(campaigns[0], 'documentId', None)
                     logger.info(f"Found documentId {document_id} for campaign ID {campaign_id}")
                 else:
                     logger.error(f"Campaign with ID {campaign_id} not found")
@@ -166,7 +166,7 @@ class IntegrationService:
                 logger.info(f"Campaign ID {campaign_id} appears to be numeric, fetching campaign to get documentId")
                 campaigns = await strapi_client.get_campaigns({"filters[id][$eq]": campaign_id})
                 if campaigns:
-                    document_id = campaigns[0].get("documentId")
+                    document_id = getattr(campaigns[0], 'documentId', None)
                     logger.info(f"Found documentId {document_id} for campaign ID {campaign_id}")
                 else:
                     logger.error(f"Campaign with ID {campaign_id} not found")
@@ -196,7 +196,7 @@ class IntegrationService:
             try:
                 campaign_data = await strapi_client.get_campaign(document_id)  # Use documentId here
                 if campaign_data:
-                    current_count = campaign_data.get("successful_onboardings", 0)
+                    current_count = getattr(campaign_data, 'successful_onboardings', 0)
                     update_data = {
                         "successful_onboardings": current_count + 1
                     }
@@ -208,9 +208,9 @@ class IntegrationService:
             
             # Assign Discord role if configured
             role_assigned = False
-            if campaign_data.get("auto_role_assignment") and campaign_data.get("target_role_ids"):
-                guild_id = campaign_data.get("guild_id")
-                for role_id in campaign_data["target_role_ids"]:
+            if getattr(campaign_data, 'auto_role_assignment', False) and getattr(campaign_data, 'target_role_ids', None):
+                guild_id = getattr(campaign_data, 'guild_id', None)
+                for role_id in campaign_data.target_role_ids:
                     role_assigned = await self._assign_discord_role(guild_id, discord_user_id, role_id)
                     if not role_assigned:
                         logger.warning(f"Failed to assign role {role_id} to user {discord_user_id}")

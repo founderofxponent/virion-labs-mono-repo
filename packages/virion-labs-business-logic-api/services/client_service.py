@@ -117,10 +117,9 @@ class ClientService:
 
         campaign_counts = {}
         for campaign in campaigns_from_db:
-            # Assuming campaign is a dict-like object from the transformed get_campaigns
-            client_id_str = campaign.get("client_id")
-            if client_id_str and client_id_str.isdigit():
-                client_id = int(client_id_str)
+            # campaign is a Pydantic Campaign model with a client relationship
+            if campaign.client and campaign.client.id:
+                client_id = campaign.client.id
                 campaign_counts[client_id] = campaign_counts.get(client_id, 0) + 1
 
         enriched_clients = []

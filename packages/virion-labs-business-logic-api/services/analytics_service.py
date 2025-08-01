@@ -187,9 +187,9 @@ class AnalyticsService:
             all_campaigns = await strapi_client.get_campaigns()
 
             # 2. Aggregate the metrics
-            total_investment = sum(campaign.get('total_investment', 0) for campaign in all_campaigns)
+            total_investment = sum(getattr(campaign, 'total_investment', 0) for campaign in all_campaigns)
             total_return = sum(
-                campaign.get('successful_onboardings', 0) * campaign.get('value_per_conversion', 0)
+                getattr(campaign, 'successful_onboardings', 0) * getattr(campaign, 'value_per_conversion', 0)
                 for campaign in all_campaigns
             )
 
@@ -205,13 +205,13 @@ class AnalyticsService:
                 "roi_percentage": round(roi_percentage, 2),
                 "campaigns_roi": [
                     {
-                        "campaign_id": campaign.get('documentId'),
-                        "name": campaign.get('name'),
-                        "investment": campaign.get('total_investment', 0),
-                        "return": campaign.get('successful_onboardings', 0) * campaign.get('value_per_conversion', 0),
+                        "campaign_id": getattr(campaign, 'documentId', None),
+                        "name": getattr(campaign, 'name', ''),
+                        "investment": getattr(campaign, 'total_investment', 0),
+                        "return": getattr(campaign, 'successful_onboardings', 0) * getattr(campaign, 'value_per_conversion', 0),
                         "roi":
-                            ((campaign.get('successful_onboardings', 0) * campaign.get('value_per_conversion', 0) - campaign.get('total_investment', 0)) / campaign.get('total_investment', 0)) * 100
-                            if campaign.get('total_investment', 0) > 0 else 0
+                            ((getattr(campaign, 'successful_onboardings', 0) * getattr(campaign, 'value_per_conversion', 0) - getattr(campaign, 'total_investment', 0)) / getattr(campaign, 'total_investment', 0)) * 100
+                            if getattr(campaign, 'total_investment', 0) > 0 else 0
                     }
                     for campaign in all_campaigns
                 ]

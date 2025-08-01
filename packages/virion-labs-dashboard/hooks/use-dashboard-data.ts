@@ -50,20 +50,19 @@ export interface DashboardData {
 interface ApiClient {
   id: number
   documentId?: string
-  attributes: {
-    name: string
-    industry: string
-    website?: string
-    primary_contact?: string
-    contact_email?: string
-    influencers: number
-    client_status: string
-    join_date: string
-    logo?: string
-    campaign_count: number
-    created_at?: string
-    updated_at?: string
+  name: string
+  industry: string
+  website?: string | null
+  primary_contact?: string | null
+  contact_email?: string
+  campaign_count: number
+  client_status: string | null
+  business_context?: {
+    recommendation: string
+    is_active: boolean
   }
+  created_at?: string
+  updated_at?: string
 }
 
 interface ApiClientListResponse {
@@ -106,15 +105,13 @@ interface UserSettings {
 // Transform functions
 const transformAdminData = (clientsData: ApiClient[]): DashboardData => {
   const totalClients = clientsData.length
-  const activeClients = clientsData.filter(client => 
-    client.attributes.client_status.toLowerCase() === 'active'
-  ).length
-  const totalCampaigns = clientsData.reduce((sum, client) => 
-    sum + (client.attributes.campaign_count || 0), 0
+  const activeClients = clientsData.filter(client =>
+    client.client_status && client.client_status.toLowerCase() === 'active'
+  ).length;
+  const totalCampaigns = clientsData.reduce((sum, client) =>
+    sum + (client.campaign_count || 0), 0
   )
-  const totalInfluencers = clientsData.reduce((sum, client) => 
-    sum + (client.attributes.influencers || 0), 0
-  )
+  const totalInfluencers = 0;
 
   const stats: DashboardStats = {
     primary: totalClients,
@@ -130,28 +127,25 @@ const transformAdminData = (clientsData: ApiClient[]): DashboardData => {
 
   const primaryList: DashboardListItem[] = clientsData.slice(0, 10).map(client => ({
     id: client.documentId || client.id.toString(),
-    title: client.attributes.name,
-    subtitle: client.attributes.contact_email || client.attributes.industry,
-    value: client.attributes.campaign_count || 0,
-    status: client.attributes.client_status || 'active',
+    title: client.name,
+    subtitle: client.contact_email || client.industry,
+    value: client.campaign_count || 0,
+    status: client.client_status || 'inactive',
     metadata: {
-      influencers: client.attributes.influencers || 0,
-      industry: client.attributes.industry,
-      joinDate: client.attributes.join_date,
-      website: client.attributes.website
+      industry: client.industry,
+      website: client.website
     },
-    created: formatClientDate(client.attributes.created_at || client.attributes.join_date)
+    created: formatClientDate(client.created_at!)
   }))
 
   const recentActivity: DashboardActivity[] = clientsData
-    .sort((a, b) => new Date(b.attributes.created_at || b.attributes.join_date).getTime() - 
-                    new Date(a.attributes.created_at || a.attributes.join_date).getTime())
+    .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
     .slice(0, 5)
     .map(client => ({
       id: `client-${client.id}`,
       user: 'System',
-      action: `New client "${client.attributes.name}" was added`,
-      time: getTimeAgo(new Date(client.attributes.created_at || client.attributes.join_date || new Date())),
+      action: `New client "${client.name}" was added`,
+      time: getTimeAgo(new Date(client.created_at!)),
       type: 'success' as const
     }))
 
