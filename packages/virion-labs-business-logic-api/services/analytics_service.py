@@ -1,6 +1,16 @@
 from core.strapi_client import strapi_client
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List, Literal, Optional
+from schemas.analytics_schemas import OnboardingExportRequest, OnboardingExportResponse, CampaignExportStats
+from core.auth import StrapiUser
+from fastapi import HTTPException, status
+from core.config import settings
+from datetime import datetime, timedelta, timezone
+import os
+import uuid
+import json
+import csv
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -297,5 +307,116 @@ class AnalyticsService:
                 "roi_percentage": 0,
                 "campaigns_roi": []
             }
+
+    async def export_onboarding_data(
+        self,
+        request: OnboardingExportRequest,
+        current_user: StrapiUser
+    ) -> OnboardingExportResponse:
+        """
+        Generates a file containing campaign onboarding data and returns a secure
+        download link.
+        """
+        # Authorization check (simplified for this example)
+        if current_user.role['name'] not in ["Platform Administrator", "client"]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
+
+        # Fetch data
+        responses = await self._fetch_onboarding_responses(request.campaign_ids, request.date_range)
+
+        # Process data and generate file
+        file_content, content_type = self._generate_export_file(responses, request.file_format)
+
+        # Store file and get download URL
+        filename, file_path = self._store_export_file(file_content, request.file_format)
+        
+        # For this example, we'll return a direct path. In a real app, this would be a secure, expiring URL.
+        download_url = f"{settings.API_URL}/exports/{filename}" # This needs a static file route in the main app
+
+        # Create summary
+        campaigns_summary = self._create_export_summary(responses)
+
+        return OnboardingExportResponse(
+            download_url=download_url,
+            filename=filename,
+            content_type=content_type,
+            size_bytes=len(file_content),
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            campaigns_summary=campaigns_summary
+        )
+
+    async def _fetch_onboarding_responses(self, campaign_ids: Optional[List[str]], date_range: str) -> List[Dict[str, Any]]:
+        """Fetches and enriches onboarding responses from Strapi."""
+        filters = {"populate": ["campaign", "campaign.client"]}
+
+        if campaign_ids:
+            filters["filters[campaign][documentId][$in]"] = campaign_ids
+
+        # The date_range filter is not supported by the current schema.
+        # if date_range != "all":
+        #     days = int(date_range)
+        #     start_date = datetime.now(timezone.utc) - timedelta(days=days)
+        #     filters["filters[created_at][$gte]"] = start_date.isoformat()
+
+        return await strapi_client.get_onboarding_responses(filters)
+
+    def _generate_export_file(self, data: List[Dict[str, Any]], file_format: Literal["csv", "json"]) -> (bytes, str):
+        """Generates the export file content."""
+        if file_format == "json":
+            # Convert Pydantic models to dicts for JSON serialization
+            data_dicts = [item.model_dump() for item in data]
+            content = json.dumps(data_dicts, indent=2).encode('utf-8')
+            return content, "application/json"
+        
+        # Default to CSV
+        output = io.StringIO()
+        if not data:
+            output.write("No data found for the selected criteria.")
+            return output.getvalue().encode('utf-8'), "text/csv"
+
+        # Dynamically create headers from all possible keys
+        headers = sorted(list(set(key for item in data for key in item.model_dump().keys())))
+        
+        writer = csv.DictWriter(output, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows([item.model_dump() for item in data])
+        
+        return output.getvalue().encode('utf-8'), "text/csv"
+
+    def _store_export_file(self, content: bytes, file_format: str) -> (str, str):
+        """Stores the file and returns the filename and path."""
+        export_dir = "temp_exports"
+        os.makedirs(export_dir, exist_ok=True)
+        
+        filename = f"export-{uuid.uuid4()}.{file_format}"
+        file_path = os.path.join(export_dir, filename)
+        
+        with open(file_path, "wb") as f:
+            f.write(content)
+            
+        return filename, file_path
+
+    def _create_export_summary(self, responses: List[Dict[str, Any]]) -> List[CampaignExportStats]:
+        """Creates a summary of the exported data."""
+        summary_map = {}
+        for res in responses:
+            campaign = res.get("campaign", {})
+            if not campaign:
+                continue
+            
+            campaign_id = campaign.get("documentId")
+            if campaign_id not in summary_map:
+                summary_map[campaign_id] = {
+                    "campaign_id": campaign_id,
+                    "campaign_name": campaign.get("name", "Unknown"),
+                    "total_responses": 0,
+                    "completed_responses": 0 # Assuming 'is_completed' field exists
+                }
+            
+            summary_map[campaign_id]["total_responses"] += 1
+            if res.get("is_completed"): # This field needs to be added to Strapi
+                summary_map[campaign_id]["completed_responses"] += 1
+                
+        return [CampaignExportStats(**stats) for stats in summary_map.values()]
 
 analytics_service = AnalyticsService()

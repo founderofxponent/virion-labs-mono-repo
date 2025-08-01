@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any
 from services.analytics_service import analytics_service
+from schemas.analytics_schemas import OnboardingExportRequest, OnboardingExportResponse
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
 import logging
@@ -61,3 +62,33 @@ async def get_influencer_metrics(current_user: User = Depends(get_current_user))
     except Exception as e:
         logger.error(f"Influencer metrics endpoint failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An error occurred while fetching influencer metrics.")
+
+@router.post(
+    "/export/onboarding-data",
+    response_model=OnboardingExportResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Export Campaign Onboarding Data"
+)
+async def export_onboarding_data(
+    request: OnboardingExportRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Accepts a request to export campaign onboarding data, initiates the
+    export process, and returns a response with a secure download link.
+    """
+    try:
+        response = await analytics_service.export_onboarding_data(
+            request=request,
+            current_user=current_user
+        )
+        return response
+    except HTTPException:
+        # Re-raise known HTTP exceptions (e.g., for authorization)
+        raise
+    except Exception as e:
+        logger.error(f"Onboarding data export failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred during the export process."
+        )

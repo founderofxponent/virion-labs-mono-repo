@@ -22,7 +22,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
-import { supabase } from "@/lib/supabase"
+import { useExportOnboardingData, CampaignExportStats } from "@/hooks/use-analytics-api"
+import { OnboardingExportRequest } from "@/hooks/use-analytics-api"
 
 interface Campaign {
   id: string
@@ -48,21 +49,11 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([])
   const [selectMode, setSelectMode] = useState<"single" | "multiple" | "all">("all")
-  const [format, setFormat] = useState("csv")
-  const [dateRange, setDateRange] = useState("30")
-  const [isExporting, setIsExporting] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [format, setFormat] = useState<"csv" | "json">("csv")
+  const [dateRange, setDateRange] = useState<"7" | "30" | "90" | "365" | "all">("30")
   const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
 
-  const isAdmin = roleName === "admin"
-  const isClient = roleName === "client"
-
-  // Load campaigns when dialog opens
-  useEffect(() => {
-    if (open && (isAdmin || isClient)) {
-      loadCampaigns()
-    }
-  }, [open, isAdmin, isClient])
+  const { mutate: exportData, isPending: isExporting, data: exportResponse, error: exportError } = useExportOnboardingData();
 
   // Set default campaign if provided
   useEffect(() => {
@@ -71,40 +62,6 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
       setSelectedCampaigns([defaultCampaignId])
     }
   }, [defaultCampaignId, campaigns])
-
-  const loadCampaigns = async () => {
-    setLoading(true)
-    try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError || !session?.access_token) {
-        throw new Error('Failed to get authentication token')
-      }
-
-      const response = await fetch('/api/campaigns/export-data', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to load campaigns')
-      }
-
-      const data = await response.json()
-      setCampaigns(data.campaigns || [])
-    } catch (error) {
-      console.error('Error loading campaigns:', error)
-      toast({
-        title: "Error loading campaigns",
-        description: "Failed to load campaign data. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleCampaignToggle = (campaignId: string) => {
     if (selectMode === "single") {
@@ -152,14 +109,14 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
     }
   }
 
-  const handleExport = async () => {
+  const handleExport = () => {
     if (!user) {
       toast({
         title: "Authentication required",
         description: "Please log in to export data.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     if (selectMode !== "all" && selectedCampaigns.length === 0) {
@@ -167,87 +124,36 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
         title: "No campaigns selected",
         description: "Please select at least one campaign to export.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setIsExporting(true)
-    
-    try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError || !session?.access_token) {
-        throw new Error('Failed to get authentication token')
-      }
+    const requestData: OnboardingExportRequest = {
+      select_mode: selectMode,
+      campaign_ids: selectMode === "all" ? undefined : selectedCampaigns,
+      file_format: format,
+      date_range: dateRange,
+    };
 
-      const params = new URLSearchParams({
-        format,
-        dateRange,
-        selectMode,
-        ...(selectMode !== "all" && { campaignIds: selectedCampaigns.join(',') })
-      })
-
-      // Generate the export file
-      const response = await fetch(`/api/campaigns/export-data?${params}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Export failed')
-      }
-
-      const result = await response.json()
-      
-      if (!result.success || !result.download_url) {
-        throw new Error('Invalid export response')
-      }
-
-      // Download the generated file
-      const downloadResponse = await fetch(result.download_url, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      })
-
-      if (!downloadResponse.ok) {
-        throw new Error('Failed to download generated file')
-      }
-
-      // Handle file download
-      const fileContent = await downloadResponse.text()
-      const blob = new Blob([fileContent], { type: result.content_type })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = result.filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-
-      const selectedData = getSelectedCampaignsData()
-      toast({
-        title: "Export successful!",
-        description: `Exported ${selectedData.campaigns.length} campaign${selectedData.campaigns.length !== 1 ? 's' : ''} with ${selectedData.totalResponses} responses.`,
-      })
-
-      setOpen(false)
-    } catch (error) {
-      console.error('Export failed:', error)
-      toast({
-        title: "Export failed",
-        description: error instanceof Error ? error.message : "There was an error exporting your data. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsExporting(false)
-    }
-  }
+    exportData(requestData, {
+      onSuccess: (data) => {
+        toast({
+          title: "Export successful!",
+          description: `Your download will begin shortly.`,
+        });
+        // Trigger download
+        window.location.href = data.download_url;
+        setOpen(false);
+      },
+      onError: (error) => {
+        toast({
+          title: "Export failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      },
+    });
+  };
 
   const selectedData = getSelectedCampaignsData()
 
@@ -318,7 +224,7 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
               </div>
               
               <ScrollArea className="h-64 border rounded-md p-4">
-                {loading ? (
+                {isExporting ? (
                   <div className="flex items-center justify-center h-32">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                     <span className="ml-2 text-muted-foreground">Loading campaigns...</span>
@@ -381,7 +287,7 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="format">File Format</Label>
-              <Select value={format} onValueChange={setFormat}>
+              <Select value={format} onValueChange={(value) => setFormat(value as "csv" | "json")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -394,7 +300,7 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
 
             <div className="space-y-2">
               <Label htmlFor="dateRange">Date Range</Label>
-              <Select value={dateRange} onValueChange={setDateRange}>
+              <Select value={dateRange} onValueChange={(value) => setDateRange(value as "7" | "30" | "90" | "365" | "all")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

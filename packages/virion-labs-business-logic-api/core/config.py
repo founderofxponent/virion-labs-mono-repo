@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     API_TITLE: str = "Virion Labs Unified Business Logic API"
     API_VERSION: str = "1.0.0"
     API_PORT: int = 8000
+    API_URL: str
 
     # Authentication
     JWT_SECRET: str # This might be used for signing the API's own tokens later
