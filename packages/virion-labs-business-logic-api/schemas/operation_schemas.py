@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Literal
+from datetime import datetime
 # --- Base Models ---
 
 class BusinessContext(BaseModel):
@@ -40,58 +41,58 @@ class ClientUpdateRequest(BaseModel):
     website: Optional[str] = None
     primary_contact: Optional[str] = None
 
-# --- Campaign List Operation ---
+# --- Campaign Operations ---
+
+class CampaignBase(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    campaign_type: Optional[Literal['referral_onboarding', 'community_engagement', 'product_promotion', 'custom', 'vip_support']] = None
+    is_active: Optional[bool] = True
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    guild_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    webhook_url: Optional[str] = None
+    welcome_message: Optional[str] = None
+    bot_name: Optional[str] = 'Virion Bot'
+    bot_avatar_url: Optional[str] = None
+    brand_color: Optional[str] = '#6366f1'
+    brand_logo_url: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    features: Optional[Dict[str, Any]] = None
+    bot_personality: Optional[str] = 'helpful'
+    bot_response_style: Optional[str] = 'friendly'
+    auto_role_assignment: Optional[bool] = False
+    target_role_ids: Optional[List[str]] = Field(default_factory=list)
+    referral_tracking_enabled: Optional[bool] = True
+    moderation_enabled: Optional[bool] = True
+    rate_limit_per_user: Optional[int] = 5
+    auto_responses: Optional[Dict[str, Any]] = None
+    custom_commands: Optional[Dict[str, Any]] = None
+    total_investment: Optional[float] = 0
+    value_per_conversion: Optional[float] = 0
+
+class CampaignCreateRequest(CampaignBase):
+    name: str
+    guild_id: str
+    client: str # The documentId of the client
+
+class CampaignUpdateRequest(CampaignBase):
+    pass # All fields are optional
+
+class CampaignResponse(CampaignBase):
+    id: int
+    documentId: str
+    name: str
+    guild_id: str
+    client: Optional[ClientResponse] = None
 
 class CampaignListResponse(BaseModel):
-    """
-    Defines the structure for the response of the campaign list operation.
-    """
-    campaigns: List[Dict[str, Any]]
+    """Defines the structure for the response of the campaign list operation."""
+    campaigns: List[CampaignResponse]
     total_count: int
     page: int
     limit: int
-
-# --- Campaign Update Operation ---
-
-class CampaignUpdateRequest(BaseModel):
-    client_id: Optional[str] = None
-    guild_id: Optional[str] = None
-    channel_id: Optional[str] = None
-    campaign_name: Optional[str] = None
-    campaign_template: Optional[str] = None
-    campaign_type: Optional[str] = None
-    prefix: Optional[str] = None
-    description: Optional[str] = None
-    bot_name: Optional[str] = None
-    bot_avatar_url: Optional[str] = None
-    bot_personality: Optional[str] = None
-    bot_response_style: Optional[str] = None
-    brand_color: Optional[str] = None
-    brand_logo_url: Optional[str] = None
-    features: Optional[Dict[str, Any]] = None
-    custom_commands: Optional[List[Any]] = None
-    auto_responses: Optional[Dict[str, Any]] = None
-    response_templates: Optional[Dict[str, Any]] = None
-    embed_footer: Optional[str] = None
-    welcome_message: Optional[str] = None
-    webhook_url: Optional[str] = None
-    webhook_routes: Optional[List[Any]] = None
-    api_endpoints: Optional[Dict[str, Any]] = None
-    external_integrations: Optional[Dict[str, Any]] = None
-    referral_link_id: Optional[str] = None
-    influencer_id: Optional[str] = None
-    referral_tracking_enabled: Optional[bool] = None
-    auto_role_assignment: Optional[bool] = None
-    target_role_ids: Optional[List[str]] = None
-    rate_limit_per_user: Optional[int] = None
-    allowed_channels: Optional[List[str]] = None
-    blocked_users: Optional[List[str]] = None
-    moderation_enabled: Optional[bool] = None
-    content_filters: Optional[List[str]] = None
-    campaign_start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-    onboarding_questions: Optional[List[Any]] = None
 
 
 # --- Campaign Landing Page Operations ---

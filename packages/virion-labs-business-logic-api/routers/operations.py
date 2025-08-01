@@ -7,7 +7,7 @@ from services.landing_page_template_service import landing_page_template_service
 from schemas.operation_schemas import (
     ClientCreateRequest, ClientResponse,
     ClientListResponse, ClientUpdateRequest,
-    CampaignListResponse, CampaignUpdateRequest,
+    CampaignListResponse, CampaignUpdateRequest, CampaignCreateRequest, CampaignResponse,
     CampaignLandingPageCreateRequest, CampaignLandingPageUpdateRequest, CampaignLandingPageResponse,
     LandingPageTemplateListResponse, LandingPageTemplateResponse,
     LandingPageTemplateCreateRequest, LandingPageTemplateUpdateRequest,
@@ -21,6 +21,7 @@ from domain.campaigns.schemas import (
     CampaignLandingPageCreate, CampaignLandingPageUpdate,
     CampaignOnboardingFieldCreate,
     CampaignOnboardingFieldUpdate,
+    CampaignCreate, CampaignUpdate
 )
 from domain.clients.schemas import ClientCreate, ClientUpdate
 from core.auth import get_current_user
@@ -133,43 +134,23 @@ async def archive_client_operation(client_id: int):
 async def list_campaigns_operation(
     client_id: Optional[str] = None,
     status: Optional[str] = None,
-    influencer_id: Optional[str] = None,
     page: int = 1,
     limit: int = 50,
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Business operation for listing campaigns.
-    If influencer_id is provided, it lists campaigns available to that influencer.
-    Otherwise, it lists campaigns based on administrative filters.
-    """
+    """Lists all campaigns with optional filters."""
     try:
         filters = {
             "pagination[page]": page,
             "pagination[pageSize]": limit
         }
-
         if client_id:
-            filters["filters[client.id][$eq]"] = client_id
+            filters["filters[client.documentId][$eq]"] = client_id
         if status:
             filters["filters[status][$eq]"] = status
 
-        if influencer_id:
-            # Logic for influencer-specific campaigns
-            # Ensure the current user is the influencer they are requesting for, or an admin
-            if str(current_user.id) != influencer_id and current_user.role.get('name') not in ["Platform Administrator", "admin"]:
-                raise HTTPException(status_code=403, detail="You can only view your own available campaigns.")
-            
-            campaigns = await campaign_service.list_available_campaigns_for_influencer(influencer_id, filters)
-            total_count = len(campaigns)
-        else:
-            # Administrative listing
-            if current_user.role.get('name') not in ["Platform Administrator", "admin"]:
-                raise HTTPException(status_code=403, detail="Access forbidden: This endpoint is for administrators only.")
-            
-            result = await campaign_service.list_campaigns_operation(filters)
-            campaigns = result.get("campaigns", [])
-            total_count = result.get("total_count", 0)
+        campaigns = await campaign_service.list_campaigns_operation(filters)
+        total_count = len(campaigns) # This might need a more sophisticated count in the future
 
         return CampaignListResponse(
             campaigns=campaigns,
@@ -177,96 +158,61 @@ async def list_campaigns_operation(
             page=page,
             limit=limit
         )
-
     except Exception as e:
         logger.error(f"Campaign list operation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/campaign/get/{campaign_id}")
-async def get_campaign_operation(campaign_id: str):
-    """Business operation for getting campaign details."""
+@router.post("/campaign/create", response_model=CampaignResponse, status_code=201)
+async def create_campaign_operation(request: CampaignCreateRequest, current_user: User = Depends(get_current_user)):
+    """Creates a new campaign."""
     try:
-        campaign = await strapi_client.get_campaign(campaign_id)
+        campaign_data = CampaignCreate(**request.model_dump())
+        created_campaign = await campaign_service.create_campaign_operation(campaign_data)
+        return created_campaign
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Campaign creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/campaign/get/{campaign_id}", response_model=CampaignResponse)
+async def get_campaign_operation(campaign_id: str, current_user: User = Depends(get_current_user)):
+    """Gets a single campaign by its documentId."""
+    try:
+        campaign = await campaign_service.get_campaign_operation(campaign_id)
         if not campaign:
             raise HTTPException(status_code=404, detail="Campaign not found")
-        
-        # Add business context
-        business_context = {
-            "performance_metrics": await _get_campaign_metrics(campaign_id),
-            "status_insights": _get_status_insights(campaign),
-            "recommendations": _get_campaign_recommendations(campaign)
-        }
-        
-        return {
-            "campaign": campaign,
-            "business_context": business_context
-        }
-        
+        return campaign
     except HTTPException:
         raise
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 404:
-            raise HTTPException(status_code=404, detail="Campaign not found")
-        logger.error(f"Get campaign operation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         logger.error(f"Get campaign operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/campaign/update/{campaign_id}")
+@router.put("/campaign/update/{campaign_id}", response_model=CampaignResponse)
 async def update_campaign_operation(campaign_id: str, request: CampaignUpdateRequest, current_user: User = Depends(get_current_user)):
-    """Business operation for updating campaign."""
+    """Updates a campaign."""
     try:
-        updates = request.model_dump(exclude_unset=True)
-        
-        # Ensure the user has permission to update this campaign
-        # You might want to add more sophisticated logic here, e.g., checking if the user is the client owner
-        user_role = current_user.role.get('name') if current_user.role else 'Authenticated'
-        if user_role not in ['Platform Administrator', 'admin']:
-            # Fetch the campaign to check for client ownership if not an admin
-            campaign_data = await strapi_client.get_campaign(campaign_id)
-            if not campaign_data or str(campaign_data.get('client_id')) != str(current_user.id):
-                 raise HTTPException(status_code=403, detail="Forbidden: You do not have permission to update this campaign.")
-
-        result = await campaign_service.update_campaign_operation(campaign_id, updates)
-        return result
-        
+        update_data = CampaignUpdate(**request.model_dump(exclude_unset=True))
+        updated_campaign = await campaign_service.update_campaign_operation(
+            document_id=campaign_id,
+            campaign_data=update_data
+        )
+        return updated_campaign
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Campaign update operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/campaign/update-stats/{campaign_id}")
-async def update_campaign_stats_operation(campaign_id: str, stats: Dict[str, Any]):
-    """Business operation for updating campaign statistics."""
+@router.delete("/campaign/delete/{campaign_id}", status_code=200)
+async def delete_campaign_operation(campaign_id: str, current_user: User = Depends(get_current_user)):
+    """Deletes a campaign."""
     try:
-        # Add timestamp to stats
-        stats["stats_updated_at"] = datetime.utcnow().isoformat()
-        
-        updated_campaign = await strapi_client.update_campaign(campaign_id, {"stats": stats})
-        
-        return {
-            "campaign": updated_campaign,
-            "stats_updated": True
-        }
-        
-    except Exception as e:
-        logger.error(f"Campaign stats update failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/campaign/available", summary="List Available Campaigns")
-async def list_available_campaigns_operation():
-    """
-    Business operation for listing all available campaigns.
-    """
-    try:
-        # In a real-world scenario, you would have a service that filters campaigns
-        # based on the user's role and permissions.
-        # For now, we will fetch all active campaigns.
-        result = await campaign_service.list_campaigns_operation(filters={"filters[is_active][$eq]": True})
+        result = await campaign_service.delete_campaign_operation(document_id=campaign_id)
         return result
-        
     except Exception as e:
-        logger.error(f"Available campaigns operation failed: {e}")
+        logger.error(f"Campaign delete operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/campaign/{campaign_id}/landing-page", summary="Get Campaign Landing Page", response_model=CampaignLandingPageResponse)

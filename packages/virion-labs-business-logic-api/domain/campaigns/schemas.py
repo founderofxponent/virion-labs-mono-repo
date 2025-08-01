@@ -1,5 +1,54 @@
-from pydantic import BaseModel
-from typing import Optional, List, Any, Dict
+from pydantic import BaseModel, Field
+from typing import Optional, List, Any, Dict, Literal
+from datetime import datetime
+
+# --- Campaign Schemas ---
+
+class CampaignBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    campaign_type: Optional[Literal['referral_onboarding', 'community_engagement', 'product_promotion', 'custom', 'vip_support']] = None
+    is_active: Optional[bool] = True
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    guild_id: str
+    channel_id: Optional[str] = None
+    webhook_url: Optional[str] = None
+    welcome_message: Optional[str] = None
+    bot_name: Optional[str] = 'Virion Bot'
+    bot_avatar_url: Optional[str] = None
+    brand_color: Optional[str] = '#6366f1'
+    brand_logo_url: Optional[str] = None
+    total_interactions: Optional[int] = 0
+    successful_onboardings: Optional[int] = 0
+    referral_conversions: Optional[int] = 0
+    metadata: Optional[Dict[str, Any]] = None
+    features: Optional[Dict[str, Any]] = None
+    bot_personality: Optional[str] = 'helpful'
+    bot_response_style: Optional[str] = 'friendly'
+    auto_role_assignment: Optional[bool] = False
+    target_role_ids: Optional[List[str]] = Field(default_factory=list)
+    referral_tracking_enabled: Optional[bool] = True
+    moderation_enabled: Optional[bool] = True
+    rate_limit_per_user: Optional[int] = 5
+    auto_responses: Optional[Dict[str, Any]] = None
+    custom_commands: Optional[Dict[str, Any]] = None
+    total_investment: Optional[float] = 0
+    value_per_conversion: Optional[float] = 0
+    client: Optional[Any] = None
+
+class CampaignCreate(CampaignBase):
+    client: Any # Can be documentId string or ID int
+
+class CampaignUpdate(CampaignBase):
+    name: Optional[str] = None # All fields are optional for update
+    guild_id: Optional[str] = None
+
+class CampaignResponse(CampaignBase):
+    id: int
+    documentId: str
+
+# --- Campaign Landing Page Schemas ---
 
 class CampaignLandingPageBase(BaseModel):
     offer_title: Optional[str] = None
@@ -23,6 +72,8 @@ class CampaignLandingPageCreate(CampaignLandingPageBase):
 
 class CampaignLandingPageUpdate(CampaignLandingPageBase):
     pass
+
+# --- Campaign Onboarding Field Schemas ---
 
 class CampaignOnboardingFieldBase(BaseModel):
     field_key: Optional[str] = None

@@ -247,6 +247,66 @@ class Campaign(BaseModel):
     total_investment: Optional[float] = 0
     value_per_conversion: Optional[float] = 0
 
+class StrapiCampaignCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    campaign_type: Optional[Literal['referral_onboarding', 'community_engagement', 'product_promotion', 'custom', 'vip_support']] = None
+    is_active: Optional[bool] = True
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    guild_id: str
+    channel_id: Optional[str] = None
+    webhook_url: Optional[str] = None
+    welcome_message: Optional[str] = None
+    bot_name: Optional[str] = 'Virion Bot'
+    bot_avatar_url: Optional[str] = None
+    brand_color: Optional[str] = '#6366f1'
+    brand_logo_url: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    features: Optional[Dict[str, Any]] = None
+    bot_personality: Optional[str] = 'helpful'
+    bot_response_style: Optional[str] = 'friendly'
+    auto_role_assignment: Optional[bool] = False
+    target_role_ids: Optional[List[str]] = None
+    referral_tracking_enabled: Optional[bool] = True
+    moderation_enabled: Optional[bool] = True
+    rate_limit_per_user: Optional[int] = 5
+    auto_responses: Optional[Dict[str, Any]] = None
+    custom_commands: Optional[Dict[str, Any]] = None
+    total_investment: Optional[float] = 0
+    value_per_conversion: Optional[float] = 0
+    client: int # Relation ID
+
+class StrapiCampaignUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    campaign_type: Optional[Literal['referral_onboarding', 'community_engagement', 'product_promotion', 'custom', 'vip_support']] = None
+    is_active: Optional[bool] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    guild_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    webhook_url: Optional[str] = None
+    welcome_message: Optional[str] = None
+    bot_name: Optional[str] = None
+    bot_avatar_url: Optional[str] = None
+    brand_color: Optional[str] = None
+    brand_logo_url: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+    features: Optional[Dict[str, Any]] = None
+    bot_personality: Optional[str] = None
+    bot_response_style: Optional[str] = None
+    auto_role_assignment: Optional[bool] = None
+    target_role_ids: Optional[List[str]] = None
+    referral_tracking_enabled: Optional[bool] = None
+    moderation_enabled: Optional[bool] = None
+    rate_limit_per_user: Optional[int] = None
+    auto_responses: Optional[Dict[str, Any]] = None
+    custom_commands: Optional[Dict[str, Any]] = None
+    total_investment: Optional[float] = None
+    value_per_conversion: Optional[float] = None
+    client: Optional[int] = None # Relation ID
+ 
 class CampaignLandingPageBase(BaseModel):
     offer_title: Optional[str] = None
     offer_description: Optional[str] = None
@@ -319,3 +379,5 @@ Client.update_forward_refs()
 CampaignInfluencerAccess.update_forward_refs()
 Campaign.update_forward_refs()
 CampaignLandingPage.update_forward_refs()
+StrapiCampaignCreate.update_forward_refs()
+StrapiCampaignUpdate.update_forward_refs()

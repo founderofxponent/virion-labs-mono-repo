@@ -1,13 +1,17 @@
 from typing import Dict, Any, List, Optional, Union
 from core.strapi_client import strapi_client
-from domain.campaigns.domain import CampaignDomain
 from domain.campaigns.schemas import (
+    CampaignCreate,
+    CampaignUpdate,
     CampaignLandingPageCreate,
     CampaignLandingPageUpdate,
     CampaignOnboardingFieldCreate,
     CampaignOnboardingFieldUpdate,
 )
 from schemas.strapi import (
+    Campaign,
+    StrapiCampaignCreate,
+    StrapiCampaignUpdate,
     CampaignLandingPage,
     StrapiCampaignLandingPageCreate,
     StrapiCampaignLandingPageUpdate,
@@ -21,150 +25,54 @@ logger = logging.getLogger(__name__)
 
 class CampaignService:
     """Service layer for campaign operations."""
-    
-    def __init__(self):
-        self.campaign_domain = CampaignDomain()
-    
-    async def create_campaign_workflow(self, campaign_data: Dict[str, Any], automation_options: Dict[str, Any]) -> Dict[str, Any]:
-        """Multi-step workflow for campaign creation."""
-        
-        workflow_results = {
-            "workflow_id": f"campaign_create_{secrets.token_hex(4)}",
-            "steps_completed": [],
-            "campaign": None
-        }
-        
-        # Step 1: Apply domain logic and create campaign
-        business_campaign = self.campaign_domain.create_campaign_with_business_logic(campaign_data)
-        created_campaign = await strapi_client.create_campaign(business_campaign)
-        workflow_results["campaign"] = created_campaign
-        workflow_results["steps_completed"].append("campaign_created")
-        
-        # Step 2: Setup Discord bot (if enabled)
-        if automation_options.get("setup_discord_bot", False):
-            discord_setup = await self._setup_discord_bot(created_campaign["id"])
-            workflow_results["discord_setup"] = discord_setup
-            workflow_results["steps_completed"].append("discord_bot_setup")
-        
-        # Step 3: Generate referral links (if enabled)
-        if automation_options.get("generate_referral_links", False):
-            referral_links = await self._generate_referral_links(created_campaign["id"])
-            workflow_results["referral_links"] = referral_links
-            workflow_results["steps_completed"].append("referral_links_generated")
-        
-        # Step 4: Setup analytics (if enabled)
-        if automation_options.get("setup_analytics", False):
-            analytics_setup = await self._setup_analytics(created_campaign["id"])
-            workflow_results["analytics_setup"] = analytics_setup
-            workflow_results["steps_completed"].append("analytics_setup")
-        
-        # Step 5: Send notifications (if enabled)
-        if automation_options.get("notify_influencers", False):
-            notifications = await self._send_notifications(created_campaign["id"])
-            workflow_results["notifications_sent"] = notifications
-            workflow_results["steps_completed"].append("notifications_sent")
-        
-        workflow_results["status"] = "completed"
-        workflow_results["completed_at"] = datetime.utcnow().isoformat()
-        
-        logger.info(f"Campaign creation workflow completed: {workflow_results['workflow_id']}")
-        
-        return workflow_results
-    
-    async def list_campaigns_operation(self, filters: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+
+    async def list_campaigns_operation(self, filters: Optional[Dict[str, Any]] = None) -> List[Campaign]:
         """Business operation for listing campaigns."""
-        
-        # Get campaigns from Strapi
-        campaigns = await strapi_client.get_campaigns(filters)
-        
-        return {
-            "campaigns": campaigns,
-            "total_count": len(campaigns),
-            "filters_applied": filters or {}
-        }
+        return await strapi_client.get_campaigns(filters)
 
-    async def update_campaign_operation(self, campaign_id: str, campaign_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Business operation for updating a campaign and its landing page."""
-        logger.info(f"Executing update campaign operation for campaign: {campaign_id}")
+    async def get_campaign_operation(self, document_id: str) -> Optional[Campaign]:
+        """Business operation for getting a single campaign."""
+        return await strapi_client.get_campaign(document_id)
 
-        # Separate landing page data from campaign data
-        landing_page_data = campaign_data.pop("landing_page_data", None)
+    async def create_campaign_operation(self, campaign_data: CampaignCreate) -> Campaign:
+        """Business operation for creating a new campaign."""
+        logger.info(f"Executing create campaign operation for: {campaign_data.name}")
 
-        # Update the core campaign attributes
-        updated_campaign = await strapi_client.update_campaign(campaign_id, campaign_data)
+        # Resolve client documentId to numeric ID
+        client_doc_id = campaign_data.client
+        client = await strapi_client.get_client(client_doc_id)
+        if not client:
+            raise ValueError(f"Client with documentId {client_doc_id} not found.")
 
-        if landing_page_data:
-            # Check if a landing page already exists for this campaign
-            existing_landing_page = await strapi_client.get_campaign_landing_page(campaign_id)
-            
-            if existing_landing_page:
-                # Update the existing landing page
-                if 'landing_page_template_id' in landing_page_data:
-                    landing_page_data['landing_page_template'] = landing_page_data.pop('landing_page_template_id')
-                
-                # Ensure the campaign relation is not lost
-                landing_page_data['campaign'] = campaign_id
-                
-                await strapi_client.update_campaign_landing_page(existing_landing_page["id"], landing_page_data)
+        create_payload = campaign_data.model_dump()
+        create_payload['client'] = client.id
+
+        strapi_data = StrapiCampaignCreate(**create_payload)
+        return await strapi_client.create_campaign(strapi_data)
+
+    async def update_campaign_operation(self, document_id: str, campaign_data: CampaignUpdate) -> Campaign:
+        """Business operation for updating a campaign."""
+        logger.info(f"Executing update campaign operation for campaign: {document_id}")
+
+        update_dict = campaign_data.model_dump(exclude_unset=True)
+
+        # Resolve client documentId to numeric ID if provided
+        if 'client' in update_dict and isinstance(update_dict['client'], str):
+            client_doc_id = update_dict.pop('client')
+            client = await strapi_client.get_client(client_doc_id)
+            if client:
+                update_dict['client'] = client.id
             else:
-                # Create a new landing page
-                landing_page_data['campaign'] = campaign_id
-                if 'landing_page_template_id' in landing_page_data:
-                    landing_page_data['landing_page_template'] = landing_page_data.pop('landing_page_template_id')
-                await strapi_client.create_campaign_landing_page(landing_page_data)
+                logger.warning(f"Could not find client with documentId: {client_doc_id}. Relation will not be updated.")
 
-        # Fetch the updated campaign with the landing page data populated
-        final_campaign = await strapi_client.get_campaign(campaign_id)
+        strapi_data = StrapiCampaignUpdate(**update_dict)
+        return await strapi_client.update_campaign(document_id, strapi_data)
 
-        return {
-            "campaign": final_campaign,
-            "updated": True
-        }
-        
-    async def list_available_campaigns_for_influencer(self, influencer_id: str, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """
-        Lists campaigns available to a specific influencer, enriching them with access status.
-        """
-        logger.info(f"Fetching available campaigns for influencer {influencer_id}")
-        
-        # 1. Get all active campaigns based on provided filters
-        all_campaigns_filters = filters.copy() if filters else {}
-        all_campaigns_filters["filters[is_active][$eq]"] = True
-        all_campaigns = await strapi_client.get_campaigns(all_campaigns_filters)
-
-        # 2. Get all access requests for that influencer
-        access_requests_filters = {
-            "filters[user][id][$eq]": influencer_id,
-            "populate": "campaign"
-        }
-        access_requests = await strapi_client.get_access_requests(access_requests_filters)
-        
-        # 3. Create a map of campaign_id to request_status and has_access
-        access_map = {}
-        for req in access_requests:
-            req_attrs = req.get('attributes', {})
-            campaign_relation = req_attrs.get('campaign', {})
-            if campaign_relation and campaign_relation.get('data'):
-                campaign_id = str(campaign_relation['data']['id'])
-                access_map[campaign_id] = {
-                    "request_status": req_attrs.get('request_status'),
-                    "has_access": req_attrs.get('request_status') == 'approved'
-                }
-
-        # 4. Augment campaign data
-        for campaign in all_campaigns:
-            campaign_id = str(campaign['id'])
-            access_info = access_map.get(campaign_id)
-            if access_info:
-                campaign['has_access'] = access_info['has_access']
-                campaign['request_status'] = access_info['request_status']
-                campaign['can_request_access'] = False
-            else:
-                campaign['has_access'] = False
-                campaign['request_status'] = None
-                campaign['can_request_access'] = True
-                
-        return all_campaigns
+    async def delete_campaign_operation(self, document_id: str) -> Dict[str, Any]:
+        """Business operation for deleting a campaign."""
+        logger.info(f"Executing delete campaign operation for campaign: {document_id}")
+        await strapi_client.delete_campaign(document_id)
+        return {"message": f"Campaign {document_id} deleted successfully."}
 
     async def get_landing_page_operation(self, campaign_id: str) -> Optional[CampaignLandingPage]:
         """Business operation for getting the landing page for a campaign."""

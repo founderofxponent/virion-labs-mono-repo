@@ -7,6 +7,9 @@ from schemas.strapi import (
     Client,
     StrapiClientCreate,
     StrapiClientUpdate,
+    Campaign,
+    StrapiCampaignCreate,
+    StrapiCampaignUpdate,
     CampaignLandingPage,
     StrapiCampaignLandingPageCreate,
     StrapiCampaignLandingPageUpdate,
@@ -124,132 +127,35 @@ class StrapiClient:
                 return None
             raise
 
-    async def get_campaigns(self, filters: Optional[Dict] = None) -> List[Dict]:
-        """Fetches a list of campaigns from Strapi."""
+    async def get_campaigns(self, filters: Optional[Dict] = None) -> List[Campaign]:
+        """Fetches a list of campaigns from Strapi, returning them as validated Pydantic models."""
         logger.info("StrapiClient: Fetching campaigns from Strapi.")
-        params = {"populate": "*"} # Populate all fields to get complete campaign data
+        params = {"populate": "*"}
         if filters:
             params.update(filters)
         
         response = await self._request("GET", "campaigns", params=params)
-        campaigns_data = response.get("data", [])
-        
-        # Transform each campaign to match the expected schema
-        transformed_campaigns = []
-        for campaign_data in campaigns_data:
-            client_data = campaign_data.get("client", {})
-            
-            transformed_campaign = {
-                "id": str(campaign_data.get("id", "")),
-                "documentId": campaign_data.get("documentId"),
-                "name": campaign_data.get("name", ""),  # BotCampaign expects 'name', not 'campaign_name'
-                "type": campaign_data.get("campaign_type") or "standard",
-                "guild_id": campaign_data.get("guild_id", ""),
-                "channel_id": campaign_data.get("channel_id"),
-                "client_id": str(client_data.get("id", "")) if client_data else "",
-                "client_name": client_data.get("name", "") if client_data else "",
-                "client_industry": client_data.get("industry", "") if client_data else "",
-                "display_name": campaign_data.get("name", ""),
-                "template": campaign_data.get("template", "default"),
-                "description": campaign_data.get("description"),
-                "is_active": campaign_data.get("is_active", True),
-                "paused_at": campaign_data.get("paused_at"),
-                "campaign_end_date": campaign_data.get("end_date"),
-                "is_deleted": campaign_data.get("is_deleted", False),
-                "deleted_at": campaign_data.get("deleted_at"),
-                "campaign_start_date": campaign_data.get("start_date") or campaign_data.get("createdAt"),
-                "created_at": campaign_data.get("createdAt"),
-                "updated_at": campaign_data.get("updatedAt"),
-                "total_interactions": campaign_data.get("total_interactions", 0),
-                "successful_onboardings": campaign_data.get("successful_onboardings", 0),
-                "referral_conversions": campaign_data.get("referral_conversions", 0),
-                "last_activity_at": campaign_data.get("last_activity_at"),
-                "configuration_version": campaign_data.get("configuration_version"),
-                "referral_link_id": campaign_data.get("referral_link_id"),
-                "referral_link_title": campaign_data.get("referral_link_title"),
-                "referral_code": campaign_data.get("referral_code"),
-                "referral_platform": campaign_data.get("referral_platform"),
-                "auto_role_assignment": campaign_data.get("auto_role_assignment"),
-                "target_role_ids": campaign_data.get("target_role_ids"),
-                "referral_tracking_enabled": campaign_data.get("referral_tracking_enabled"),
-                "moderation_enabled": campaign_data.get("moderation_enabled"),
-                "bot_name": campaign_data.get("bot_name"),
-                "bot_personality": campaign_data.get("bot_personality"),
-                "bot_response_style": campaign_data.get("bot_response_style"),
-                "brand_color": campaign_data.get("brand_color"),
-                "brand_logo_url": campaign_data.get("brand_logo_url"),
-                "welcome_message": campaign_data.get("welcome_message"),
-                "webhook_url": campaign_data.get("webhook_url"),
-                "rate_limit_per_user": campaign_data.get("rate_limit_per_user"),
-                "features": campaign_data.get("features"),
-                "auto_responses": campaign_data.get("auto_responses"),
-                "custom_commands": campaign_data.get("custom_commands"),
-                "metadata": campaign_data.get("metadata"),
-            }
-            transformed_campaigns.append(transformed_campaign)
-        
-        return transformed_campaigns
+        return [Campaign(**item) for item in response.get("data", [])]
 
-    async def get_campaign(self, document_id: str) -> Dict:
-        """Fetches a single campaign from Strapi using documentId."""
+    async def get_campaign(self, document_id: str, populate: Optional[List[str]] = None) -> Optional[Campaign]:
+        """Fetches a single campaign by documentId from Strapi, returning a validated Pydantic model."""
         logger.info(f"StrapiClient: Fetching campaign {document_id} from Strapi.")
-        params = {"populate": "*"}
-        response = await self._request("GET", f"campaigns/{document_id}", params=params)
-        campaign_data = response.get("data")
+        params = {}
+        if populate:
+            params["populate"] = ",".join(populate)
+        else:
+            params["populate"] = "*" # Default to populating all relations
         
-        if not campaign_data:
+        try:
+            response = await self._request("GET", f"campaigns/{document_id}", params=params)
+            if response and response.get("data"):
+                return Campaign(**response.get("data"))
             return None
-            
-        # Apply same transformation as get_campaigns
-        client_data = campaign_data.get("client", {})
-        
-        return {
-            "id": str(campaign_data.get("id", "")),
-            "documentId": campaign_data.get("documentId"),
-            "name": campaign_data.get("name", ""),
-            "type": campaign_data.get("campaign_type") or "standard",
-            "guild_id": campaign_data.get("guild_id", ""),
-            "channel_id": campaign_data.get("channel_id"),
-            "client_id": str(client_data.get("id", "")) if client_data else "",
-            "client_name": client_data.get("name", "") if client_data else "",
-            "client_industry": client_data.get("industry", "") if client_data else "",
-            "display_name": campaign_data.get("name", ""),
-            "template": campaign_data.get("template", "default"),
-            "description": campaign_data.get("description"),
-            "is_active": campaign_data.get("is_active", True),
-            "paused_at": campaign_data.get("paused_at"),
-            "campaign_end_date": campaign_data.get("end_date"),
-            "is_deleted": campaign_data.get("is_deleted", False),
-            "deleted_at": campaign_data.get("deleted_at"),
-            "campaign_start_date": campaign_data.get("start_date") or campaign_data.get("createdAt"),
-            "created_at": campaign_data.get("createdAt"),
-            "updated_at": campaign_data.get("updatedAt"),
-            "total_interactions": campaign_data.get("total_interactions", 0),
-            "successful_onboardings": campaign_data.get("successful_onboardings", 0),
-            "referral_conversions": campaign_data.get("referral_conversions", 0),
-            "last_activity_at": campaign_data.get("last_activity_at"),
-            "configuration_version": campaign_data.get("configuration_version"),
-            "referral_link_id": campaign_data.get("referral_link_id"),
-            "referral_link_title": campaign_data.get("referral_link_title"),
-            "referral_code": campaign_data.get("referral_code"),
-            "referral_platform": campaign_data.get("referral_platform"),
-            "auto_role_assignment": campaign_data.get("auto_role_assignment"),
-            "target_role_ids": campaign_data.get("target_role_ids"),
-            "referral_tracking_enabled": campaign_data.get("referral_tracking_enabled"),
-            "moderation_enabled": campaign_data.get("moderation_enabled"),
-            "bot_name": campaign_data.get("bot_name"),
-            "bot_personality": campaign_data.get("bot_personality"),
-            "bot_response_style": campaign_data.get("bot_response_style"),
-            "brand_color": campaign_data.get("brand_color"),
-            "brand_logo_url": campaign_data.get("brand_logo_url"),
-            "welcome_message": campaign_data.get("welcome_message"),
-            "webhook_url": campaign_data.get("webhook_url"),
-            "rate_limit_per_user": campaign_data.get("rate_limit_per_user"),
-            "features": campaign_data.get("features"),
-            "auto_responses": campaign_data.get("auto_responses"),
-            "custom_commands": campaign_data.get("custom_commands"),
-            "metadata": campaign_data.get("metadata"),
-        }
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"Campaign with documentId {document_id} not found.")
+                return None
+            raise
 
     async def get_campaign_id_by_document_id(self, document_id: str) -> Optional[int]:
         """Fetches a campaign's numeric ID by its documentId."""
@@ -267,172 +173,22 @@ class StrapiClient:
         logger.warning(f"No campaign found with documentId: {document_id}")
         return None
 
-    async def create_campaign(self, campaign_data: Dict, document_id: str) -> Dict:
-        """Creates a new campaign in Strapi."""
+    async def create_campaign(self, campaign_data: StrapiCampaignCreate) -> Campaign:
+        """Creates a new campaign in Strapi using a validated Pydantic model."""
         logger.info("StrapiClient: Creating a new campaign in Strapi.")
-        data = {"data": {**campaign_data, "documentId": document_id}}
+        payload = campaign_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         response = await self._request("POST", "campaigns", data=data)
-        campaign = response.get("data")
-        
-        # Transform the response to match BotCampaign model structure
-        if campaign:
-            client_data = campaign.get("client", {})
-            
-            # Handle both case where client is an ID or a full object
-            client_id = ""
-            client_name = "Unknown Client"
-            client_industry = "Unknown"
-            
-            if client_data:
-                if isinstance(client_data, dict):
-                    client_id = str(client_data.get("id", ""))
-                    client_name = client_data.get("name", "Unknown Client")
-                    client_industry = client_data.get("industry", "Unknown")
-                else:
-                    # client_data might just be an ID
-                    client_id = str(client_data)
-            
-            transformed_campaign = {
-                "id": str(campaign.get("id", "")),
-                "documentId": document_id, # Ensure the documentId is in the response
-                "name": campaign.get("name", ""),
-                "type": campaign.get("campaign_type") or "standard",
-                "guild_id": campaign.get("guild_id", ""),
-                "channel_id": campaign.get("channel_id"),
-                "client_id": client_id,
-                "client_name": client_name,
-                "client_industry": client_industry,
-                "display_name": campaign.get("name", ""),
-                "template": campaign.get("template", "default"),
-                "description": campaign.get("description"),
-                "is_active": campaign.get("is_active", True),
-                "paused_at": campaign.get("paused_at"),
-                "campaign_end_date": campaign.get("end_date"),
-                "is_deleted": campaign.get("is_deleted", False),
-                "deleted_at": campaign.get("deleted_at"),
-                "campaign_start_date": campaign.get("start_date") or campaign.get("createdAt"),
-                "created_at": campaign.get("createdAt"),
-                "updated_at": campaign.get("updatedAt"),
-                "total_interactions": campaign.get("total_interactions", 0),
-                "successful_onboardings": campaign.get("successful_onboardings", 0),
-                "referral_conversions": campaign.get("referral_conversions", 0),
-                "last_activity_at": campaign.get("last_activity_at"),
-                "configuration_version": campaign.get("configuration_version"),
-                "referral_link_id": campaign.get("referral_link_id"),
-                "referral_link_title": campaign.get("referral_link_title"),
-                "referral_code": campaign.get("referral_code"),
-                "referral_platform": campaign.get("referral_platform"),
-                "auto_role_assignment": campaign.get("auto_role_assignment"),
-                "target_role_ids": campaign.get("target_role_ids"),
-                "referral_tracking_enabled": campaign.get("referral_tracking_enabled"),
-                "moderation_enabled": campaign.get("moderation_enabled"),
-                "bot_name": campaign.get("bot_name"),
-                "bot_personality": campaign.get("bot_personality"),
-                "bot_response_style": campaign.get("bot_response_style"),
-                "brand_color": campaign.get("brand_color"),
-                "brand_logo_url": campaign.get("brand_logo_url"),
-                "welcome_message": campaign.get("welcome_message"),
-                "webhook_url": campaign.get("webhook_url"),
-                "rate_limit_per_user": campaign.get("rate_limit_per_user"),
-                "features": campaign.get("features"),
-                "auto_responses": campaign.get("auto_responses"),
-                "custom_commands": campaign.get("custom_commands"),
-                "metadata": campaign.get("metadata"),
-            }
-            return transformed_campaign
-        
-        return campaign
+        return Campaign(**response.get("data"))
 
-    async def update_campaign(self, document_id: str, update_data: Dict) -> Dict:
-        """Updates a campaign in Strapi using documentId."""
+    async def update_campaign(self, document_id: str, update_data: StrapiCampaignUpdate) -> Campaign:
+        """Updates a campaign in Strapi using its documentId and a validated Pydantic model."""
         logger.info(f"StrapiClient: Updating campaign {document_id} in Strapi.")
-        
-        # Defensive timestamp validation to prevent validation errors
-        logger.info(f"StrapiClient: Received raw update data: {update_data}")
-        cleaned_update_data = update_data.copy()
-        timestamp_fields = ['start_date', 'end_date', 'paused_at', 'deleted_at', 'last_activity_at']
-        
-        for field in timestamp_fields:
-            if field in cleaned_update_data:
-                value = cleaned_update_data[field]
-                if value is not None and value != "":
-                    # Ensure timestamp is in proper ISO format
-                    if isinstance(value, str):
-                        try:
-                            # Try to parse and reformat to ensure valid ISO format
-                            from datetime import datetime
-                            if len(value) == 10:  # YYYY-MM-DD format
-                                parsed_date = datetime.strptime(value, "%Y-%m-%d")
-                                cleaned_update_data[field] = parsed_date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-                            elif 'T' in value and not value.endswith('Z') and '+' not in value and '-' not in value[10:]:
-                                # Add Z if missing from a naive ISO format
-                                cleaned_update_data[field] = value + 'Z'
-                        except (ValueError, TypeError) as e:
-                            logger.warning(f"Invalid timestamp format for {field}: {value}. Removing from update.")
-                            cleaned_update_data.pop(field, None)
-                elif value == "":
-                    # Remove empty string timestamps
-                    cleaned_update_data.pop(field, None)
-        
-        logger.info(f"StrapiClient: Sending cleaned update data: {cleaned_update_data}")
-        data = {"data": cleaned_update_data}
+        payload = update_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         params = {"populate": "*"}  # Ensure relations are populated in the response
         response = await self._request("PUT", f"campaigns/{document_id}", data=data, params=params)
-        campaign_data = response.get("data")
-        
-        # Apply same transformation as get_campaign
-        if not campaign_data:
-            return None
-            
-        client_data = campaign_data.get("client", {})
-        
-        return {
-            "id": str(campaign_data.get("id", "")),
-            "documentId": campaign_data.get("documentId"),
-            "name": campaign_data.get("name", ""),
-            "type": campaign_data.get("campaign_type") or "standard",
-            "guild_id": campaign_data.get("guild_id", ""),
-            "channel_id": campaign_data.get("channel_id"),
-            "client_id": str(client_data.get("id", "")) if client_data else "",
-            "client_name": client_data.get("name", "") if client_data else "",
-            "client_industry": client_data.get("industry", "") if client_data else "",
-            "display_name": campaign_data.get("name", ""),
-            "template": campaign_data.get("template", "default"),
-            "description": campaign_data.get("description"),
-            "is_active": campaign_data.get("is_active", True),
-            "paused_at": campaign_data.get("paused_at"),
-            "campaign_end_date": campaign_data.get("end_date"),
-            "is_deleted": campaign_data.get("is_deleted", False),
-            "deleted_at": campaign_data.get("deleted_at"),
-            "campaign_start_date": campaign_data.get("start_date") or campaign_data.get("createdAt"),
-            "created_at": campaign_data.get("createdAt"),
-            "updated_at": campaign_data.get("updatedAt"),
-            "total_interactions": campaign_data.get("total_interactions", 0),
-            "successful_onboardings": campaign_data.get("successful_onboardings", 0),
-            "referral_conversions": campaign_data.get("referral_conversions", 0),
-            "last_activity_at": campaign_data.get("last_activity_at"),
-            "configuration_version": campaign_data.get("configuration_version"),
-            "referral_link_id": campaign_data.get("referral_link_id"),
-            "referral_link_title": campaign_data.get("referral_link_title"),
-            "referral_code": campaign_data.get("referral_code"),
-            "referral_platform": campaign_data.get("referral_platform"),
-            "auto_role_assignment": campaign_data.get("auto_role_assignment"),
-            "target_role_ids": campaign_data.get("target_role_ids"),
-            "referral_tracking_enabled": campaign_data.get("referral_tracking_enabled"),
-            "moderation_enabled": campaign_data.get("moderation_enabled"),
-            "bot_name": campaign_data.get("bot_name"),
-            "bot_personality": campaign_data.get("bot_personality"),
-            "bot_response_style": campaign_data.get("bot_response_style"),
-            "brand_color": campaign_data.get("brand_color"),
-            "brand_logo_url": campaign_data.get("brand_logo_url"),
-            "welcome_message": campaign_data.get("welcome_message"),
-            "webhook_url": campaign_data.get("webhook_url"),
-            "rate_limit_per_user": campaign_data.get("rate_limit_per_user"),
-            "features": campaign_data.get("features"),
-            "auto_responses": campaign_data.get("auto_responses"),
-            "custom_commands": campaign_data.get("custom_commands"),
-            "metadata": campaign_data.get("metadata"),
-        }
+        return Campaign(**response.get("data"))
 
     async def delete_campaign(self, document_id: str) -> Dict:
         """Deletes a campaign in Strapi using its documentId."""
