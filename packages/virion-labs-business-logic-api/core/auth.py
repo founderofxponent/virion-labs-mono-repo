@@ -7,6 +7,7 @@ import logging
  
 from core.config import settings
 from core.strapi_client import strapi_client
+from schemas.strapi import UserSetting
  
 logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
@@ -18,6 +19,7 @@ class StrapiUser(BaseModel):
     username: str
     full_name: Optional[str] = None
     role: Optional[Dict[str, Any]] = None
+    settings: Optional[UserSetting] = None
     document_id: Optional[str] = None
     avatar_url: Optional[str] = None
 
@@ -27,13 +29,14 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> di
     """
     import httpx
     
-    strapi_users_me_url = f"{settings.STRAPI_URL}/api/users/me?populate=role"
+    strapi_users_me_url = f"{settings.STRAPI_URL}/api/users/me"
     headers = {"Authorization": f"Bearer {token}"}
-    logger.info(f"Validating token. URL: {strapi_users_me_url}")
+    params = {"populate": "role"}
+    logger.info(f"Validating token. URL: {strapi_users_me_url}, Params: {params}")
  
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(strapi_users_me_url, headers=headers)
+            response = await client.get(strapi_users_me_url, headers=headers, params=params)
             response.raise_for_status()
             user_data = response.json()
             logger.info(f"Token validation successful. User data received: {user_data}")

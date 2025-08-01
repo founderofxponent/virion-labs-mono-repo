@@ -24,7 +24,7 @@ class UserService:
                 return None
             
             # The settings are already populated by the get_current_user dependency
-            return UserSettingResponse(**current_user.settings)
+            return UserSettingResponse(**current_user.settings.model_dump())
 
         except Exception as e:
             logger.error(f"Error retrieving user settings for user {current_user.id}: {e}")
@@ -35,10 +35,10 @@ class UserService:
         Handles the business logic for updating a user's settings.
         """
         try:
-            if not current_user.settings or not current_user.settings.get('id'):
+            if not current_user.settings or not current_user.settings.id:
                 raise HTTPException(status_code=404, detail="User settings not found for the current user.")
 
-            setting_id = current_user.settings['id']
+            setting_id = current_user.settings.id
             
             strapi_data = StrapiUserSettingUpdate(**updates.model_dump(exclude_unset=True))
             

@@ -70,7 +70,7 @@ interface ApiClientListResponse {
   total_count: number
 }
 
-interface UserSettings {
+export interface UserSettings {
   id: string
   bio?: string
   phone_number?: string
