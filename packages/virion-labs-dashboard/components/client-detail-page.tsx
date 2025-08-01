@@ -26,11 +26,11 @@ type ClientStatus = "active" | "inactive"
 interface ClientUpdate {
   name?: string
   industry?: string
-  website?: string | null
-  primary_contact?: string | null
-  contact_email?: string | null
+  website?: string
+  primary_contact?: string
+  contact_email?: string
   influencers?: number
-  status?: string
+  client_status?: "active" | "inactive" | null
 }
 
 interface EditFormState {
@@ -40,7 +40,7 @@ interface EditFormState {
   primary_contact: string
   contact_email: string
   influencers: number
-  status: ClientStatus
+  client_status: ClientStatus
 }
 
 export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
@@ -65,7 +65,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
     primary_contact: "",
     contact_email: "",
     influencers: 0,
-    status: "active"
+    client_status: "active"
   })
 
   // Check for edit query parameter
@@ -92,11 +92,11 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
       const updates: ClientUpdate = {
         name: editForm.name,
         industry: editForm.industry,
-        website: editForm.website.trim() || null,
-        primary_contact: editForm.primary_contact.trim() || null,
-        contact_email: editForm.contact_email.trim() || null,
+        website: editForm.website.trim() || undefined,
+        primary_contact: editForm.primary_contact.trim() || undefined,
+        contact_email: editForm.contact_email.trim() || undefined,
         influencers: editForm.influencers,
-        status: editForm.status
+        client_status: editForm.client_status
       }
 
       const clientIdentifier = client.documentId || client.id
@@ -119,7 +119,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
             primary_contact: refreshedData.primary_contact || "",
             contact_email: refreshedData.contact_email || "",
             influencers: refreshedData.influencers || 0,
-            status: refreshedData.status as ClientStatus
+            client_status: (refreshedData.client_status || "inactive") as ClientStatus
           })
           setCampaignsCount(refreshedData.campaign_count || 0)
         }
@@ -166,7 +166,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
         primary_contact: client.primary_contact || "",
         contact_email: client.contact_email || "",
         influencers: client.influencers || 0,
-        status: client.status as ClientStatus
+        client_status: (client.client_status || "inactive") as ClientStatus
       })
     }
     setIsEditing(false)
@@ -196,7 +196,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
             primary_contact: data.primary_contact || "",
             contact_email: data.contact_email || "",
             influencers: data.influencers || 0,
-            status: data.status as ClientStatus
+            client_status: (data.client_status || "inactive") as ClientStatus
           })
 
           // Campaign count is already included in the data from the API
@@ -256,7 +256,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
           <div className="flex items-center gap-3">
             <Avatar className="h-12 w-12">
               {client.logo && (
-                <AvatarImage src={client.logo} alt={client.name} />
+                <AvatarImage src={client.logo.url} alt={client.name} />
               )}
               <AvatarFallback className="text-lg">{generateInitials(client.name)}</AvatarFallback>
             </Avatar>
@@ -269,14 +269,14 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
         <div className="flex items-center gap-2">
           <Badge
             variant={
-              client.status === "active" 
-                ? "default" 
-                : client.status === "inactive" 
-                  ? "secondary" 
+              client.client_status === "active"
+                ? "default"
+                : client.client_status === "inactive"
+                  ? "secondary"
                   : "outline"
             }
           >
-            {client.status}
+            {client.client_status}
           </Badge>
           {!isEditing ? (
             <>
@@ -360,9 +360,9 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
                 <div className="space-y-2">
                   <Label htmlFor="edit-status">Status</Label>
                   <Select 
-                    value={editForm.status} 
-                    onValueChange={(value: ClientStatus) => 
-                      setEditForm(prev => ({ ...prev, status: value }))
+                    value={editForm.client_status}
+                    onValueChange={(value: ClientStatus) =>
+                      setEditForm(prev => ({ ...prev, client_status: value }))
                     }
                   >
                     <SelectTrigger id="edit-status">
