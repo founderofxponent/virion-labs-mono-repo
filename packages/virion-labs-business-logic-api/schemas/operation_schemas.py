@@ -94,9 +94,9 @@ class CampaignUpdateRequest(BaseModel):
     onboarding_questions: Optional[List[Any]] = None
 
 
-# --- Campaign Landing Page Update Operation ---
+# --- Campaign Landing Page Operations ---
 
-class CampaignLandingPageUpdateRequest(BaseModel):
+class CampaignLandingPageBase(BaseModel):
     offer_title: Optional[str] = None
     offer_description: Optional[str] = None
     offer_highlights: Optional[List[Any]] = None
@@ -111,7 +111,16 @@ class CampaignLandingPageUpdateRequest(BaseModel):
     support_info: Optional[str] = None
     inherited_from_template: Optional[bool] = None
     landing_page_template: Optional[Any] = None
+
+class CampaignLandingPageCreateRequest(CampaignLandingPageBase):
+    campaign: str # The documentId of the campaign
+
+class CampaignLandingPageUpdateRequest(CampaignLandingPageBase):
     campaign: Optional[Any] = None
+
+class CampaignLandingPageResponse(CampaignLandingPageBase):
+    id: int
+    campaign: Optional[Dict[str, Any]] = None
 
 # --- Onboarding Fields Operations ---
 

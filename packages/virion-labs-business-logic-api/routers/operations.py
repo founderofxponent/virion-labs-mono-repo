@@ -7,7 +7,8 @@ from services.landing_page_template_service import landing_page_template_service
 from schemas.operation_schemas import (
     ClientCreateRequest, ClientResponse,
     ClientListResponse, ClientUpdateRequest,
-    CampaignListResponse, CampaignUpdateRequest, CampaignLandingPageUpdateRequest,
+    CampaignListResponse, CampaignUpdateRequest,
+    CampaignLandingPageCreateRequest, CampaignLandingPageUpdateRequest, CampaignLandingPageResponse,
     LandingPageTemplateListResponse, LandingPageTemplateResponse,
     LandingPageTemplateCreateRequest, LandingPageTemplateUpdateRequest,
     OnboardingFieldsBatchUpdateRequest,
@@ -17,7 +18,7 @@ from schemas.operation_schemas import (
     OnboardingFieldListResponse,
 )
 from domain.campaigns.schemas import (
-    CampaignLandingPageUpdate,
+    CampaignLandingPageCreate, CampaignLandingPageUpdate,
     CampaignOnboardingFieldCreate,
     CampaignOnboardingFieldUpdate,
 )
@@ -268,26 +269,29 @@ async def list_available_campaigns_operation():
         logger.error(f"Available campaigns operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/campaign/{campaign_id}/landing-page", summary="Get Campaign Landing Page")
+@router.get("/campaign/{campaign_id}/landing-page", summary="Get Campaign Landing Page", response_model=CampaignLandingPageResponse)
 async def get_campaign_landing_page_operation(campaign_id: str):
     """
     Business operation for getting the landing page for a specific campaign.
     """
     try:
         result = await campaign_service.get_landing_page_operation(campaign_id=campaign_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Landing page not found")
         return result
         
     except Exception as e:
         logger.error(f"Campaign landing page operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/campaign/{campaign_id}/landing-pages", summary="Create a Campaign Landing Page")
-async def create_campaign_landing_page_operation(campaign_id: str, page_data: Dict[str, Any]):
+@router.post("/campaign/landing-pages", summary="Create a Campaign Landing Page", response_model=CampaignLandingPageResponse)
+async def create_campaign_landing_page_operation(request: CampaignLandingPageCreateRequest):
     """
     Business operation for creating a new landing page for a specific campaign.
     """
     try:
-        result = await campaign_service.create_landing_page_operation(campaign_id=campaign_id, page_data=page_data)
+        page_data = CampaignLandingPageCreate(**request.model_dump())
+        result = await campaign_service.create_landing_page_operation(page_data)
         return result
         
     except Exception as e:

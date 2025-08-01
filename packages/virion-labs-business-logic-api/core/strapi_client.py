@@ -7,6 +7,8 @@ from schemas.strapi import (
     Client,
     StrapiClientCreate,
     StrapiClientUpdate,
+    CampaignLandingPage,
+    StrapiCampaignLandingPageCreate,
     StrapiCampaignLandingPageUpdate,
     StrapiCampaignOnboardingFieldCreate,
     StrapiCampaignOnboardingFieldUpdate,
@@ -738,20 +740,23 @@ class StrapiClient:
         response = await self._request("PUT", f"campaign-influencer-accesses/{request_id}", data=request_data)
         return response.get("data")
 
-    async def get_campaign_landing_page(self, campaign_id: str) -> Optional[Dict]:
+    async def get_campaign_landing_page(self, campaign_id: str) -> Optional[CampaignLandingPage]:
         """Fetches the landing page for a campaign from Strapi."""
         logger.info(f"StrapiClient: Fetching landing page for campaign {campaign_id} from Strapi.")
         params = {"filters[campaign][documentId][$eq]": campaign_id, "populate": "*"}
         response = await self._request("GET", "campaign-landing-pages", params=params)
         pages = response.get("data", [])
-        return pages[0] if pages else None
+        if not pages:
+            return None
+        return CampaignLandingPage(**pages[0])
 
-    async def create_campaign_landing_page(self, page_data: Dict) -> Dict:
+    async def create_campaign_landing_page(self, page_data: StrapiCampaignLandingPageCreate) -> CampaignLandingPage:
         """Creates a new campaign landing page in Strapi."""
         logger.info("StrapiClient: Creating a new campaign landing page in Strapi.")
-        data = {"data": page_data}
+        payload = page_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         response = await self._request("POST", "campaign-landing-pages", data=data)
-        return response.get("data")
+        return CampaignLandingPage(**response.get("data"))
 
     async def update_campaign_landing_page(self, page_id: str, page_data: StrapiCampaignLandingPageUpdate) -> Dict:
         """Updates a campaign landing page in Strapi using a Pydantic model."""

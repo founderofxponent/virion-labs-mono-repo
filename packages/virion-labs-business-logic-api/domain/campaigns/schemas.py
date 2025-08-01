@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List, Any, Dict
 
-class CampaignLandingPageUpdate(BaseModel):
+class CampaignLandingPageBase(BaseModel):
     offer_title: Optional[str] = None
     offer_description: Optional[str] = None
     offer_highlights: Optional[List[Any]] = None
@@ -17,6 +17,12 @@ class CampaignLandingPageUpdate(BaseModel):
     inherited_from_template: Optional[bool] = None
     landing_page_template: Optional[Any] = None
     campaign: Optional[Any] = None
+
+class CampaignLandingPageCreate(CampaignLandingPageBase):
+    campaign: Any # Can be documentId string or ID int
+
+class CampaignLandingPageUpdate(CampaignLandingPageBase):
+    pass
 
 class CampaignOnboardingFieldBase(BaseModel):
     field_key: Optional[str] = None

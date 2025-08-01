@@ -272,6 +272,9 @@ class StrapiCampaignLandingPageUpdate(CampaignLandingPageBase):
     landing_page_template: Optional[int] = None  # Relation ID
     campaign: Optional[int] = None  # Relation ID
 
+class StrapiCampaignLandingPageCreate(CampaignLandingPageBase):
+    campaign: int # Relation ID
+
 class UserSetting(BaseModel):
     id: int
     bio: Optional[str] = None

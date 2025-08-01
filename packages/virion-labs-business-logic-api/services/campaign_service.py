@@ -2,11 +2,14 @@ from typing import Dict, Any, List, Optional, Union
 from core.strapi_client import strapi_client
 from domain.campaigns.domain import CampaignDomain
 from domain.campaigns.schemas import (
+    CampaignLandingPageCreate,
     CampaignLandingPageUpdate,
     CampaignOnboardingFieldCreate,
     CampaignOnboardingFieldUpdate,
 )
 from schemas.strapi import (
+    CampaignLandingPage,
+    StrapiCampaignLandingPageCreate,
     StrapiCampaignLandingPageUpdate,
     StrapiCampaignOnboardingFieldCreate,
     StrapiCampaignOnboardingFieldUpdate,
@@ -163,32 +166,24 @@ class CampaignService:
                 
         return all_campaigns
 
-    async def get_landing_page_operation(self, campaign_id: str) -> Dict[str, Any]:
+    async def get_landing_page_operation(self, campaign_id: str) -> Optional[CampaignLandingPage]:
         """Business operation for getting the landing page for a campaign."""
-        
-        # Get landing page from Strapi
-        landing_page = await strapi_client.get_campaign_landing_page(campaign_id)
-        
-        return {
-            "page": landing_page,
-            "campaign_id": campaign_id
-        }
+        return await strapi_client.get_campaign_landing_page(campaign_id)
 
-    async def create_landing_page_operation(self, campaign_id: str, page_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_landing_page_operation(self, page_data: CampaignLandingPageCreate) -> CampaignLandingPage:
         """Business operation for creating a new landing page for a campaign."""
-        logger.info(f"Executing create landing page operation for campaign: {campaign_id}")
+        logger.info(f"Executing create landing page operation for campaign: {page_data.campaign}")
 
-        # Add the campaign to the page data
-        page_data['campaign'] = campaign_id
+        campaign_doc_id = page_data.campaign
+        campaign_id = await strapi_client.get_campaign_id_by_document_id(campaign_doc_id)
+        if not campaign_id:
+            raise ValueError(f"Campaign with documentId {campaign_doc_id} not found.")
 
-        if 'landing_page_template_id' in page_data:
-            page_data['landing_page_template'] = page_data.pop('landing_page_template_id')
-        created_page = await strapi_client.create_campaign_landing_page(page_data)
+        create_payload = page_data.model_dump()
+        create_payload['campaign'] = campaign_id
 
-        return {
-            "page": created_page,
-            "message": "Campaign landing page created successfully."
-        }
+        strapi_data = StrapiCampaignLandingPageCreate(**create_payload)
+        return await strapi_client.create_campaign_landing_page(strapi_data)
 
     async def update_landing_page_operation(self, page_id: str, page_data: CampaignLandingPageUpdate) -> Dict[str, Any]:
         """Business operation for updating a landing page."""
