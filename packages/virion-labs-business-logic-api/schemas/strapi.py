@@ -10,6 +10,7 @@ from domain.onboarding.schemas import (
     CampaignOnboardingResponseBase,
     CampaignOnboardingResponseCreate
 )
+from domain.users.schemas import UserSettingBase, UserSettingCreate, UserSettingUpdate
 
 class Role(BaseModel):
     id: int
@@ -380,6 +381,12 @@ class UserSetting(BaseModel):
     currency: Optional[str] = 'USD'
     two_factor_enabled: Optional[bool] = False
     login_notifications: Optional[bool] = True
+
+class StrapiUserSettingCreate(UserSettingCreate):
+    pass
+
+class StrapiUserSettingUpdate(UserSettingUpdate):
+    pass
 
 # Update forward references to resolve circular dependencies
 ReferralLink.update_forward_refs()

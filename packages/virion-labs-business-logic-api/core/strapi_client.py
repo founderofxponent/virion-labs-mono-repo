@@ -30,7 +30,10 @@ from schemas.strapi import (
     StrapiCampaignOnboardingStartCreate,
     CampaignOnboardingCompletion,
     StrapiCampaignOnboardingCompletionCreate,
-    CampaignTemplate
+    CampaignTemplate,
+    UserSetting,
+    StrapiUserSettingCreate,
+    StrapiUserSettingUpdate
 )
 
 logger = logging.getLogger(__name__)
@@ -372,19 +375,21 @@ class StrapiClient:
                 return None
             raise
 
-    async def update_user_setting(self, setting_id: int, setting_data: Dict) -> Dict:
+    async def update_user_setting(self, setting_id: int, setting_data: StrapiUserSettingUpdate) -> UserSetting:
         """Updates a user setting in Strapi using its ID."""
         logger.info(f"StrapiClient: Updating user setting {setting_id} in Strapi.")
-        data = {"data": setting_data}
+        payload = setting_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         response = await self._request("PUT", f"user-settings/{setting_id}", data=data)
-        return response.get("data")
+        return UserSetting(**response.get("data"))
 
-    async def create_user_setting(self, setting_data: Dict) -> Dict:
+    async def create_user_setting(self, setting_data: StrapiUserSettingCreate) -> UserSetting:
         """Creates a new user setting in Strapi."""
         logger.info("StrapiClient: Creating new user setting in Strapi.")
-        data = {"data": setting_data}
+        payload = setting_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
         response = await self._request("POST", "user-settings", data=data)
-        return response.get("data")
+        return UserSetting(**response.get("data"))
 
     async def get_user(self, user_id: int) -> Dict:
         """Fetches a single user by their ID from Strapi."""

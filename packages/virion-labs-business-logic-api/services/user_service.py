@@ -1,78 +1,54 @@
-from typing import Optional, Dict, Any
-from datetime import datetime
+from typing import Optional
+from fastapi import HTTPException
 from core.strapi_client import strapi_client
-from schemas.user_settings import UserSettingsUpdate
-from core.auth import StrapiUser
+from domain.users.schemas import UserSettingUpdate, UserSettingResponse
+from schemas.strapi import StrapiUserSettingUpdate
+from schemas.user_schemas import User
 import logging
 
 logger = logging.getLogger(__name__)
 
-async def get_user_settings_by_user_id(user: StrapiUser) -> Optional[Dict[str, Any]]:
-    """
-    Retrieves user settings from Strapi. If the profile or settings do not exist,
-    they are created on-the-fly. This version is simplified to be more robust.
-    """
-    logger.info(f"--- Starting settings lookup for user: {user.email} (ID: {user.id}) ---")
-    try:
-        # 1. Find the user-profile by the user's unique email.
-        filters = {"filters[email][$eq]": user.email, "populate": "user_setting"}
-        logger.info(f"Searching for user with filters: {filters}")
-        users = await strapi_client.get_users(filters=filters)
-        
-        if not users:
-            # Case 1: No user exists. Create both user and settings.
-            logger.warning(f"No user found for {user.email}. Creating both.")
-            
-            # a. Create the setting first.
-            settings_payload = {"publishedAt": datetime.utcnow().isoformat()}
-            new_settings = await strapi_client.create_user_setting(settings_payload)
-            
-            # b. Create the user and link the new setting in the same call.
-            user_payload = {
-                "email": user.email,
-                "username": user.username,
-                "full_name": user.username,
-                "publishedAt": datetime.utcnow().isoformat(),
-                "user_setting": new_settings.get("id")
-            }
-            await strapi_client.create_user(user_payload)
-            
-            logger.info(f"SUCCESS: Atomically created user and settings for {user.email}.")
-            return new_settings
+class UserService:
+    """Service layer for handling user-related business logic."""
 
-        # Case 2: User exists.
-        user_data = users[0]
-        user_id = user_data.get("id")
-        
-        logger.info(f"Found user ID: {user_id} for user {user.email}")
-        
-        # Check if the settings relation is missing or null
-        user_setting = user_data.get("user_setting")
-        if user_setting:
-            logger.info(f"SUCCESS: Found existing settings for user {user.email}.")
-            return user_setting
-        else:
-            # Case 3: User exists, but settings are missing. Create and link.
-            logger.warning(f"User exists but no settings for {user.email}. Creating and linking.")
+    async def get_user_settings(self, current_user: User) -> Optional[UserSettingResponse]:
+        """
+        Retrieves the settings for the current user.
+        Note: Strapi's 'users/me' endpoint automatically provides this.
+        This service method ensures a consistent, validated response.
+        """
+        try:
+            # The user object from the auth dependency already contains settings.
+            # We just need to validate and return them.
+            if not current_user.settings:
+                return None
             
-            settings_payload = {"publishedAt": datetime.utcnow().isoformat()}
-            new_settings = await strapi_client.create_user_setting(settings_payload)
-            
-            update_payload = {"user_setting": new_settings.get("id")}
-            await strapi_client.update_user(user_id, update_payload)
-            
-            logger.info(f"SUCCESS: Created and linked new settings for {user.email}.")
-            return new_settings
+            # The settings are already populated by the get_current_user dependency
+            return UserSettingResponse(**current_user.settings)
 
-    except Exception as e:
-        logger.error(f"CRITICAL ERROR in get_user_settings_by_user_id: {e}", exc_info=True)
-        return None
+        except Exception as e:
+            logger.error(f"Error retrieving user settings for user {current_user.id}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to retrieve user settings.")
 
-async def update_user_settings(user_id: int, settings_update: UserSettingsUpdate) -> Optional[Dict[str, Any]]:
-    """
-    Updates user settings in Strapi.
-    """
-    # This function would also need to be refactored to find the profile by email first.
-    # For now, focusing on the read operation that was failing.
-    logger.warning("update_user_settings is not fully implemented with the new email-based logic.")
-    return None
+    async def update_user_settings(self, updates: UserSettingUpdate, current_user: User) -> UserSettingResponse:
+        """
+        Handles the business logic for updating a user's settings.
+        """
+        try:
+            if not current_user.settings or not current_user.settings.get('id'):
+                raise HTTPException(status_code=404, detail="User settings not found for the current user.")
+
+            setting_id = current_user.settings['id']
+            
+            strapi_data = StrapiUserSettingUpdate(**updates.model_dump(exclude_unset=True))
+            
+            updated_settings = await strapi_client.update_user_setting(setting_id, strapi_data)
+            
+            return UserSettingResponse(**updated_settings.model_dump())
+
+        except Exception as e:
+            logger.error(f"Error updating user settings for user {current_user.id}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update user settings.")
+
+# Global instance of the service
+user_service = UserService()

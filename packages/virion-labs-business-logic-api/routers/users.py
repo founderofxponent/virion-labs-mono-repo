@@ -1,58 +1,35 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Any
+from services.user_service import user_service
+from core.auth import get_current_user
+from schemas.user_schemas import User, UserSetting, UserSettingUpdate
+from domain.users.schemas import UserSettingUpdate as DomainUserSettingUpdate
+import logging
 
-from core.auth import StrapiUser, get_current_user
-from services.user_service import get_user_settings_by_user_id, update_user_settings as update_settings_service
-from schemas.user_settings import UserSettings, UserSettingsUpdate
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.get("/users/me/settings", response_model=UserSettings)
-async def read_current_user_settings(
-    current_user: StrapiUser = Depends(get_current_user)
-) -> Any:
-    """
-    Retrieve settings for the current user.
-    """
-    if not current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User has no valid identifier",
-        )
-        
-    settings = await get_user_settings_by_user_id(user=current_user)
-    
-    if not settings:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail="User settings not found"
-        )
-        
-    return settings
+@router.get("/users/me/settings", response_model=UserSetting)
+async def read_current_user_settings(current_user: User = Depends(get_current_user)):
+    """Retrieves the settings for the currently authenticated user."""
+    try:
+        settings = await user_service.get_user_settings(current_user)
+        if not settings:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User settings not found")
+        return settings
+    except Exception as e:
+        logger.error(f"Read user settings failed: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
-@router.patch("/users/me/settings", response_model=UserSettings)
-async def update_user_settings(
-    settings_update: UserSettingsUpdate,
-    current_user: StrapiUser = Depends(get_current_user)
-) -> Any:
-    """
-    Update settings for the current user.
-    """
-    if not current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User has no valid identifier",
-        )
-
-    updated_settings = await update_settings_service(
-        user_id=current_user.id, 
-        settings_update=settings_update
-    )
-
-    if not updated_settings:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User settings not found or failed to update",
-        )
-
-    return updated_settings
+@router.patch("/users/me/settings", response_model=UserSetting)
+async def update_user_settings(request: UserSettingUpdate, current_user: User = Depends(get_current_user)):
+    """Updates the settings for the currently authenticated user."""
+    try:
+        update_data = DomainUserSettingUpdate(**request.model_dump(exclude_unset=True))
+        updated_settings = await user_service.update_user_settings(update_data, current_user)
+        return updated_settings
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update user settings failed: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
