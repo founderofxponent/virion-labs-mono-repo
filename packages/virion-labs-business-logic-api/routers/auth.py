@@ -75,7 +75,7 @@ async def provider_callback(provider: str, request: Request):
 
             if user_id:
                 await user_service.check_and_create_user_settings(user_id)
-                # Refetch the user data to get the updated user object
+                # Refetch the JWT to ensure it contains the updated user data (role, settings)
                 response = await client.get(strapi_auth_callback_url, params=params)
                 response.raise_for_status()
                 strapi_jwt = response.json().get("jwt")

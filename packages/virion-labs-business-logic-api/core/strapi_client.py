@@ -367,9 +367,9 @@ class StrapiClient:
         """Updates a user in Strapi using its ID."""
         logger.info(f"StrapiClient: Updating user {user_id} in Strapi.")
         try:
-            data = {"data": user_data}
-            print(f"Updating user {user_id} with data: {data}")
-            response = await self._request("PUT", f"users/{user_id}", data=data)
+            # Users-permissions plugin expects data directly, not wrapped in {"data": ...}
+            print(f"Updating user {user_id} with data: {user_data}")
+            response = await self._request("PUT", f"users/{user_id}", data=user_data)
             return response
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
