@@ -33,6 +33,7 @@ from schemas.operation_schemas import (
     CampaignTemplateResponse,
     CampaignTemplateListResponse,
 )
+from schemas.strapi import Campaign
 from domain.campaigns.schemas import (
     CampaignLandingPageCreate, CampaignLandingPageUpdate,
     CampaignOnboardingFieldCreate,
@@ -57,6 +58,34 @@ import httpx
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+def _to_campaign_response(campaign: Campaign) -> CampaignResponse:
+    """Converts a Strapi Campaign model to a CampaignResponse model."""
+    client_response = None
+    if campaign.client:
+        client_response = ClientResponse(
+            id=campaign.client.id,
+            documentId=campaign.client.documentId,
+            name=campaign.client.name,
+            contact_email=campaign.client.contact_email,
+            industry=campaign.client.industry,
+            client_status=campaign.client.client_status,
+            website=campaign.client.website,
+            primary_contact=campaign.client.primary_contact,
+        )
+    
+    return CampaignResponse(
+        id=campaign.id,
+        documentId=getattr(campaign, 'documentId', ''),
+        name=campaign.name,
+        description=campaign.description,
+        campaign_type=campaign.campaign_type,
+        is_active=campaign.is_active,
+        start_date=campaign.start_date,
+        end_date=campaign.end_date,
+        guild_id=campaign.guild_id,
+        client=client_response
+    )
 
 # Client Operations
 @router.post("/client/create", response_model=ClientResponse, status_code=201)
@@ -172,11 +201,14 @@ async def list_campaigns_operation(
         if status:
             filters["filters[status][$eq]"] = status
 
-        campaigns = await campaign_service.list_campaigns_operation(filters)
-        total_count = len(campaigns) # This might need a more sophisticated count in the future
+        campaigns_data = await campaign_service.list_campaigns_operation(filters)
+        
+        # Convert Strapi models to Pydantic response models
+        campaign_responses = [_to_campaign_response(c) for c in campaigns_data]
+        total_count = len(campaign_responses)
 
         return CampaignListResponse(
-            campaigns=campaigns,
+            campaigns=campaign_responses,
             total_count=total_count,
             page=page,
             limit=limit
@@ -191,7 +223,7 @@ async def create_campaign_operation(request: CampaignCreateRequest, current_user
     try:
         campaign_data = CampaignCreate(**request.model_dump())
         created_campaign = await campaign_service.create_campaign_operation(campaign_data)
-        return created_campaign
+        return _to_campaign_response(created_campaign)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -205,7 +237,7 @@ async def get_campaign_operation(campaign_id: str, current_user: User = Depends(
         campaign = await campaign_service.get_campaign_operation(campaign_id)
         if not campaign:
             raise HTTPException(status_code=404, detail="Campaign not found")
-        return campaign
+        return _to_campaign_response(campaign)
     except HTTPException:
         raise
     except Exception as e:
@@ -221,7 +253,7 @@ async def update_campaign_operation(campaign_id: str, request: CampaignUpdateReq
             document_id=campaign_id,
             campaign_data=update_data
         )
-        return updated_campaign
+        return _to_campaign_response(updated_campaign)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
