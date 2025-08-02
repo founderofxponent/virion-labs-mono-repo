@@ -82,7 +82,7 @@ export function useAccessRequestsApi() {
     const token = getToken()
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/access-requests`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/access-requests?status=pending`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!response.ok) {
