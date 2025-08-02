@@ -397,8 +397,20 @@ class StrapiClient:
     async def update_user_setting_relation(self, user_id: int, setting_id: int) -> Dict:
         """Updates the user to link it to a new user_setting."""
         logger.info(f"StrapiClient: Linking user {user_id} to setting {setting_id}.")
-        data = {"user_setting": setting_id}
-        return await self.update_user(user_id, data)
+        
+        # Update the user to reference the setting
+        user_data = {"user_setting": setting_id}
+        user_response = await self.update_user(user_id, user_data)
+        
+        # Also update the setting to reference the user (bidirectional relationship)
+        setting_data = {"data": {"user": user_id}}
+        try:
+            await self._request("PUT", f"user-settings/{setting_id}", data=setting_data)
+            logger.info(f"Successfully linked setting {setting_id} to user {user_id}.")
+        except Exception as e:
+            logger.warning(f"Failed to update setting side of relationship: {e}")
+            
+        return user_response
 
     async def get_user(self, user_id: int) -> Dict:
         """Fetches a single user by their ID from Strapi."""

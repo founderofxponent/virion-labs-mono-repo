@@ -972,7 +972,7 @@ export interface ApiUserSettingUserSetting extends Struct.CollectionTypeSchema {
     singularName: 'user-setting';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     api_key: Schema.Attribute.String;
