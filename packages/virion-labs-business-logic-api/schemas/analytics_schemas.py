@@ -42,3 +42,38 @@ class OnboardingExportResponse(BaseModel):
     size_bytes: int
     expires_at: datetime
     campaigns_summary: List[CampaignExportStats]
+
+# --- Influencer Metrics Schemas ---
+
+class InfluencerLinkMetrics(BaseModel):
+    """
+    Defines the structure for a single referral link with metrics in influencer analytics.
+    """
+    id: int
+    title: str
+    platform: str
+    clicks: int = 0
+    conversions: int = 0
+    earnings: float = 0.0
+    conversion_rate: float = 0.0
+    referral_url: str
+    original_url: str
+    thumbnail_url: Optional[str] = None
+    is_active: bool = True
+    created_at: str
+    expires_at: Optional[str] = None
+    description: Optional[str] = None
+    referral_code: str
+    campaign_context: Optional[dict] = None
+
+class InfluencerMetricsResponse(BaseModel):
+    """
+    Defines the response structure for influencer-specific metrics endpoint.
+    """
+    total_links: int
+    active_links: int
+    total_clicks: int
+    total_conversions: int
+    total_earnings: float
+    overall_conversion_rate: float
+    links: List[InfluencerLinkMetrics]

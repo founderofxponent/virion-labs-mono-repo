@@ -42,7 +42,7 @@ export function useReferralLinksApi() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = "http://localhost:8000/api/v1/operations"
+  const API_BASE_URL = "http://localhost:8000/api/v1/analytics"
 
   const getToken = () => localStorage.getItem('auth_token')
 
@@ -58,7 +58,7 @@ export function useReferralLinksApi() {
       setLoading(true)
       setError(null)
       
-      const response = await fetch(`${API_BASE_URL}/analytics/influencer-metrics`, {
+      const response = await fetch(`${API_BASE_URL}/influencer-metrics`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

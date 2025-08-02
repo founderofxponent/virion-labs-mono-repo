@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any
 from services.analytics_service import analytics_service
-from schemas.analytics_schemas import OnboardingExportRequest, OnboardingExportResponse
+from schemas.analytics_schemas import OnboardingExportRequest, OnboardingExportResponse, InfluencerMetricsResponse
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
 import logging
@@ -48,12 +48,12 @@ async def get_roi_analytics(current_user: User = Depends(get_current_user)):
         logger.error(f"ROI analytics endpoint failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An error occurred while fetching ROI analytics.")
 
-@router.get("/influencer-metrics", summary="Get Influencer-Specific Metrics")
+@router.get("/influencer-metrics", response_model=InfluencerMetricsResponse, summary="Get Influencer-Specific Metrics")
 async def get_influencer_metrics(current_user: User = Depends(get_current_user)):
     """Provides key metrics for a specific influencer."""
     try:
         # This is for influencers only
-        if current_user.role['name'] != "influencer":
+        if current_user.role['name'] != "Influencer":
             raise HTTPException(status_code=403, detail="Access forbidden.")
         data = await analytics_service.get_influencer_specific_metrics(current_user)
         return data

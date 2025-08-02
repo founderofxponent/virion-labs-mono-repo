@@ -1,7 +1,7 @@
 from core.strapi_client import strapi_client
 import logging
 from typing import Dict, Any, List, Literal, Optional
-from schemas.analytics_schemas import OnboardingExportRequest, OnboardingExportResponse, CampaignExportStats
+from schemas.analytics_schemas import OnboardingExportRequest, OnboardingExportResponse, CampaignExportStats, InfluencerMetricsResponse, InfluencerLinkMetrics
 from core.auth import StrapiUser
 from fastapi import HTTPException, status
 from core.config import settings
@@ -250,11 +250,44 @@ class AnalyticsService:
         timeframe_days = int(timeframe.replace('d', ''))
         return await self.get_performance_over_time(timeframe_days)
 
-    async def get_influencer_specific_metrics(self, current_user) -> Dict[str, Any]:
+    async def get_influencer_specific_metrics(self, current_user) -> InfluencerMetricsResponse:
         """
         Provides key metrics for a specific influencer.
         """
-        return await self.get_influencer_metrics(current_user.id)
+        metrics_data = await self.get_influencer_metrics(current_user.id)
+        
+        # Convert to properly typed response
+        links = [
+            InfluencerLinkMetrics(
+                id=link.get('id'),
+                title=link.get('title', ''),
+                platform=link.get('platform', ''),
+                clicks=link.get('clicks', 0),
+                conversions=link.get('conversions', 0),
+                earnings=link.get('earnings', 0.0),
+                conversion_rate=link.get('conversion_rate', 0.0),
+                referral_url=link.get('referral_url', ''),
+                original_url=link.get('original_url', ''),
+                thumbnail_url=link.get('thumbnail_url'),
+                is_active=link.get('is_active', True),
+                created_at=link.get('created_at', ''),
+                expires_at=link.get('expires_at'),
+                description=link.get('description'),
+                referral_code=link.get('referral_code', ''),
+                campaign_context=link.get('campaign_context')
+            )
+            for link in metrics_data.get('links', [])
+        ]
+        
+        return InfluencerMetricsResponse(
+            total_links=metrics_data.get('total_links', 0),
+            active_links=metrics_data.get('active_links', 0),
+            total_clicks=metrics_data.get('total_clicks', 0),
+            total_conversions=metrics_data.get('total_conversions', 0),
+            total_earnings=metrics_data.get('total_earnings', 0.0),
+            overall_conversion_rate=metrics_data.get('overall_conversion_rate', 0.0),
+            links=links
+        )
 
     async def get_roi_analytics(self) -> Dict[str, Any]:
         """
