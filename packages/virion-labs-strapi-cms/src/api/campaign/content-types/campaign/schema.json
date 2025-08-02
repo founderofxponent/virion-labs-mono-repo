@@ -89,11 +89,6 @@
       "target": "api::client.client",
       "inversedBy": "campaigns"
     },
-    "referral_links": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::referral-link.referral-link"
-    },
     "campaign_influencer_accesses": {
       "type": "relation",
       "relation": "oneToMany",
@@ -169,6 +164,12 @@
       "relation": "oneToOne",
       "target": "api::campaign-landing-page.campaign-landing-page",
       "inversedBy": "campaign"
+    },
+    "referral_links": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::referral-link.referral-link",
+      "mappedBy": "campaign"
     }
   }
 }

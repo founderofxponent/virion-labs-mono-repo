@@ -904,10 +904,11 @@ export interface ApiReferralLinkReferralLink
     singularName: 'referral-link';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     access_role_id: Schema.Attribute.String;
+    campaign: Schema.Attribute.Relation<'manyToOne', 'api::campaign.campaign'>;
     campaign_onboarding_responses: Schema.Attribute.Relation<
       'oneToMany',
       'api::campaign-onboarding-response.campaign-onboarding-response'

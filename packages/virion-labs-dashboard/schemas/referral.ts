@@ -55,3 +55,33 @@ export interface Referral {
   conversion_value: number;
   referral_link: ReferralLink | null;
 }
+
+// Campaign-specific referral link types matching business-logic-api
+export interface CampaignReferralLinkRequest {
+  title: string;
+  platform: string;
+  original_url: string;
+  campaign: number; // Required numeric campaign ID
+  description?: string;
+}
+
+export interface CampaignReferralLinkResponse {
+  id: number;
+  documentId: string;
+  title: string;
+  description?: string;
+  platform: string;
+  original_url: string;
+  referral_code: string;
+  referral_url: string;
+  clicks?: number;
+  conversions?: number;
+  conversion_rate?: number;
+  earnings?: number;
+  is_active?: boolean;
+  expires_at?: string;
+  discord_invite_url?: string;
+  redirect_to_discord?: boolean;
+  landing_page_enabled?: boolean;
+  metadata?: any;
+}

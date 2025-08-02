@@ -25,13 +25,15 @@ import { Separator } from "@/components/ui/separator"
 import { MessageSquare, Users, Copy, ExternalLink, CheckCircle, Download, QrCode } from "lucide-react"
 import { toast } from "sonner"
 import { QRCodeSVG } from "qrcode.react"
-import { Campaign } from "@/types/campaign"
+import { Campaign } from "@/schemas/campaign"
+import { CampaignReferralLinkResponse } from "@/schemas/referral"
+import { useCampaignReferralLinksApi } from "@/hooks/use-campaign-referral-links-api"
 
 interface CreateReferralLinkDialogProps {
   campaign: Campaign | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess: (link: any) => void
+  onSuccess: (link: CampaignReferralLinkResponse) => void
 }
 
 const PLATFORMS = [
@@ -51,8 +53,8 @@ export function CreateReferralLinkDialog({
   onSuccess
 }: CreateReferralLinkDialogProps) {
   const { profile } = useAuth()
-  const [loading, setLoading] = useState(false)
-  const [createdLink, setCreatedLink] = useState<any>(null)
+  const { createCampaignReferralLink, loading, error } = useCampaignReferralLinksApi()
+  const [createdLink, setCreatedLink] = useState<CampaignReferralLinkResponse | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -63,45 +65,37 @@ export function CreateReferralLinkDialog({
     e.preventDefault()
     if (!campaign || !profile?.id) return
 
-    setLoading(true)
     try {
-      const response = await fetch(`/api/campaigns/${campaign.documentId}/referral-links`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          influencer_id: profile.id,
-        }),
+      // Use campaign.id (numeric) instead of campaign.documentId (string)
+      const { data, error: apiError } = await createCampaignReferralLink(campaign.id, {
+        title: formData.title,
+        platform: formData.platform,
+        original_url: `https://discord.gg/${campaign.guild_id}`, // Default to Discord invite
+        description: formData.description || undefined,
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
+      if (data) {
         setCreatedLink(data)
         toast.success("Referral link created successfully!")
         // Don't close immediately, show success state first
       } else {
-        toast.error(data.error || "Failed to create referral link")
+        toast.error(apiError || "Failed to create referral link")
       }
-    } catch (error) {
-      console.error('Error creating referral link:', error)
+    } catch (err) {
+      console.error('Error creating referral link:', err)
       toast.error("Something went wrong. Please try again.")
-    } finally {
-      setLoading(false)
     }
   }
 
   const handleCopyLink = () => {
-    if (createdLink?.referral_link?.referral_url) {
-      navigator.clipboard.writeText(createdLink.referral_link.referral_url)
+    if (createdLink?.referral_url) {
+      navigator.clipboard.writeText(createdLink.referral_url)
       toast.success("Link copied to clipboard!")
     }
   }
 
   const handleDownloadQR = () => {
-    if (!createdLink?.referral_link?.referral_url) return
+    if (!createdLink?.referral_url) return
 
     const svg = document.getElementById('qr-code-svg')
     if (!svg) return
@@ -117,7 +111,7 @@ export function CreateReferralLinkDialog({
       if (ctx) {
         ctx.drawImage(img, 0, 0)
         const downloadLink = document.createElement('a')
-        downloadLink.download = `qr-code-${createdLink.referral_link.referral_code || 'referral'}.png`
+        downloadLink.download = `qr-code-${createdLink.referral_code || 'referral'}.png`
         downloadLink.href = canvas.toDataURL()
         downloadLink.click()
       }
@@ -138,11 +132,22 @@ export function CreateReferralLinkDialog({
   }
 
   const handleFinish = () => {
-    onSuccess(createdLink)
+    if (createdLink) {
+      onSuccess(createdLink)
+    }
     handleClose()
   }
 
   if (!campaign) return null
+
+  // Debug logging to help diagnose the issue
+  console.log('🔍 CreateReferralLinkDialog - Campaign data:', {
+    campaign,
+    hasType: !!campaign.type,
+    hasCampaignType: !!campaign.campaign_type,
+    type: campaign.type,
+    campaignType: campaign.campaign_type
+  })
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -172,7 +177,7 @@ export function CreateReferralLinkDialog({
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium">{campaign.name}</h4>
                 <Badge className="bg-blue-500 text-white">
-                  {campaign.type.replace('_', ' ').toUpperCase()}
+                  {(campaign.type || campaign.campaign_type || 'custom').replace('_', ' ').toUpperCase()}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -180,7 +185,7 @@ export function CreateReferralLinkDialog({
               </p>
               <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                 <MessageSquare className="h-4 w-4" />
-                <span>{campaign.discord_server_name}</span>
+                <span>Discord Community</span>
               </div>
             </div>
 
@@ -189,7 +194,7 @@ export function CreateReferralLinkDialog({
               <div>
                 <Label className="text-sm font-medium">Link Title</Label>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {createdLink.referral_link.title}
+                  {createdLink.title}
                 </p>
               </div>
 
@@ -197,7 +202,7 @@ export function CreateReferralLinkDialog({
                 <Label className="text-sm font-medium">Referral URL</Label>
                 <div className="flex items-center gap-2 mt-1">
                   <Input
-                    value={createdLink.referral_link.referral_url}
+                    value={createdLink.referral_url}
                     readOnly
                     className="font-mono text-sm"
                   />
@@ -211,12 +216,12 @@ export function CreateReferralLinkDialog({
                 </div>
               </div>
 
-              {createdLink.referral_link.discord_invite_url && (
+              {createdLink.discord_invite_url && (
                 <div>
                   <Label className="text-sm font-medium">Discord Invite URL</Label>
                   <div className="flex items-center gap-2 mt-1">
                     <Input
-                      value={createdLink.referral_link.discord_invite_url}
+                      value={createdLink.discord_invite_url}
                       readOnly
                       className="font-mono text-sm"
                     />
@@ -224,7 +229,7 @@ export function CreateReferralLinkDialog({
                       variant="outline"
                       size="icon"
                       onClick={() => {
-                        navigator.clipboard.writeText(createdLink.referral_link.discord_invite_url)
+                        navigator.clipboard.writeText(createdLink.discord_invite_url!)
                         toast.success("Discord invite copied!")
                       }}
                     >
@@ -241,7 +246,7 @@ export function CreateReferralLinkDialog({
               <div className="flex flex-col items-center space-y-4 p-4 bg-muted/30 rounded-lg">
                 <QRCodeSVG
                   id="qr-code-svg"
-                  value={createdLink.referral_link.referral_url}
+                  value={createdLink.referral_url}
                   size={120}
                   bgColor="#ffffff"
                   fgColor="#000000"
@@ -275,7 +280,7 @@ export function CreateReferralLinkDialog({
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium">{campaign.name}</h4>
                 <Badge className="bg-blue-500 text-white">
-                  {campaign.type.replace('_', ' ').toUpperCase()}
+                  {(campaign.type || campaign.campaign_type || 'custom').replace('_', ' ').toUpperCase()}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -283,7 +288,7 @@ export function CreateReferralLinkDialog({
               </p>
               <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                 <MessageSquare className="h-4 w-4" />
-                <span>{campaign.discord_server_name}</span>
+                <span>Discord Community</span>
               </div>
             </div>
 

@@ -82,7 +82,8 @@
     "referral_links": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::referral-link.referral-link"
+      "target": "api::referral-link.referral-link",
+      "mappedBy": "influencer"
     },
     "campaign_influencer_accesses": {
       "type": "relation",

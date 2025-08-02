@@ -7,7 +7,7 @@
     "displayName": "Referral Link"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
@@ -111,6 +111,12 @@
       "type": "relation",
       "relation": "manyToOne",
       "target": "plugin::users-permissions.user",
+      "inversedBy": "referral_links"
+    },
+    "campaign": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::campaign.campaign",
       "inversedBy": "referral_links"
     }
   }
