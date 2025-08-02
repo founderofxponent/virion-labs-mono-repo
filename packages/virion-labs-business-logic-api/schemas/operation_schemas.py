@@ -86,6 +86,9 @@ class CampaignResponse(CampaignBase):
     name: str
     guild_id: str
     client: Optional[ClientResponse] = None
+    has_access: Optional[bool] = None
+    request_status: Optional[Literal['pending', 'approved', 'denied']] = None
+    discord_server_name: Optional[str] = None
 
 class CampaignListResponse(BaseModel):
     """Defines the structure for the response of the campaign list operation."""

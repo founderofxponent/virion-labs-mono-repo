@@ -195,6 +195,7 @@ async def archive_client_operation(client_id: int):
 async def list_campaigns_operation(
     client_id: Optional[str] = None,
     status: Optional[str] = None,
+    influencer_id: Optional[int] = None,
     page: int = 1,
     limit: int = 50,
     current_user: User = Depends(get_current_user)
@@ -214,6 +215,43 @@ async def list_campaigns_operation(
         
         # Convert Strapi models to Pydantic response models
         campaign_responses = [_to_campaign_response(c) for c in campaigns_data]
+        
+        # If influencer_id is provided, enhance campaigns with access request status
+        if influencer_id:
+            # Get access requests for this influencer
+            access_filters = {"filters[user][id][$eq]": influencer_id}
+            access_requests = await campaign_access_service.list_access_requests_operation(
+                access_filters, current_user
+            )
+            
+            # Create a lookup map for access requests by campaign_id
+            access_lookup = {}
+            for access_req in access_requests:
+                access_lookup[access_req.campaign_id] = access_req
+            
+            # Enhance campaign responses with access status
+            enhanced_campaigns = []
+            for campaign in campaign_responses:
+                access_req = access_lookup.get(campaign.id)
+                
+                # Create a new campaign dict with enhanced data
+                campaign_dict = campaign.model_dump()
+                if access_req:
+                    campaign_dict["has_access"] = access_req.request_status == "approved"
+                    campaign_dict["request_status"] = access_req.request_status
+                else:
+                    campaign_dict["has_access"] = False
+                    campaign_dict["request_status"] = None
+                
+                # Add discord_server_name - this should come from campaign data
+                campaign_dict["discord_server_name"] = campaign.guild_id
+                
+                # Create new CampaignResponse with enhanced data
+                enhanced_campaign = CampaignResponse(**campaign_dict)
+                enhanced_campaigns.append(enhanced_campaign)
+            
+            campaign_responses = enhanced_campaigns
+        
         total_count = len(campaign_responses)
 
         return CampaignListResponse(
