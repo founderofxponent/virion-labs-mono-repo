@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from core.config import settings
 import httpx
@@ -7,11 +7,30 @@ import time
 import jwt
 from datetime import datetime, timedelta
 from core.auth import get_current_user
-from schemas.user_schemas import User
+from schemas.user_schemas import User, ForgotPasswordRequest, ResetPasswordRequest
 from services.user_service import user_service
+from services.password_reset_service import password_reset_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+@router.post("/password/forgot", status_code=status.HTTP_204_NO_CONTENT)
+async def forgot_password(request: ForgotPasswordRequest):
+    """
+    Initiates the password reset process.
+    """
+    await password_reset_service.send_password_reset_email(request.email)
+    return
+
+@router.post("/password/reset", status_code=status.HTTP_204_NO_CONTENT)
+async def reset_password(request: ResetPasswordRequest):
+    """
+    Resets the user's password using a valid token.
+    """
+    success = await password_reset_service.reset_password(request.token, request.password)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password reset failed. The token may be invalid or expired.")
+    return
 
 @router.get("/login/{provider}")
 async def provider_login(provider: str, request: Request):

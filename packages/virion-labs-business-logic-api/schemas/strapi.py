@@ -60,7 +60,8 @@ class ReferralAnalytic(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 class StrapiReferralLinkCreate(ReferralLinkCreate):
-    pass
+    referral_code: str
+    referral_url: str
 
 class StrapiReferralLinkUpdate(ReferralLinkUpdate):
     pass

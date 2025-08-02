@@ -4,6 +4,7 @@ from core.strapi_client import strapi_client
 from domain.users.schemas import UserSettingUpdate, UserSettingResponse
 from schemas.strapi import StrapiUserSettingUpdate, StrapiUserSettingCreate
 from schemas.user_schemas import User
+from services.email_service import email_service, Email
 import logging
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,17 @@ class UserService:
                     # Step 2: Update the user to link to the new setting.
                     await strapi_client.update_user_setting_relation(user_id, new_setting.id)
                     logger.info(f"Successfully linked user {user_id} to new setting {new_setting.id}.")
+
+                    # Step 3: Send welcome email
+                    try:
+                        email_data = Email(
+                            to=user['email'],
+                            subject="Welcome to Virion Labs!",
+                            html="<h1>Welcome!</h1><p>Thank you for joining Virion Labs. We're excited to have you on board.</p>"
+                        )
+                        await email_service.send_email(email_data)
+                    except Exception as e:
+                        logger.error(f"Failed to send welcome email to user {user_id}: {e}")
                 else:
                     logger.error(f"Failed to create a new user setting for user {user_id}.")
         except Exception as e:

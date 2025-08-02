@@ -15,6 +15,24 @@ logger = logging.getLogger(__name__)
 class CampaignAccessService:
     """Service layer for campaign access operations."""
 
+    from typing import Dict, Any, List, Optional
+from core.strapi_client import strapi_client
+from domain.campaign_access.schemas import (
+    CampaignInfluencerAccessCreate,
+    CampaignInfluencerAccessUpdate,
+    CampaignInfluencerAccessResponse
+)
+from schemas.strapi import CampaignInfluencerAccess
+from core.auth import StrapiUser as User
+from services.email_service import email_service, Email
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
+
+class CampaignAccessService:
+    """Service layer for campaign access operations."""
+
     async def create_access_request_operation(
         self, 
         access_data: CampaignInfluencerAccessCreate, 
@@ -65,7 +83,26 @@ class CampaignAccessService:
             
             # Create the access request in Strapi
             created_access = await strapi_client.create_campaign_influencer_access(strapi_data)
-            
+
+            # Send notification email to admins
+            try:
+                admins = await strapi_client.get_users_by_role("Administrator")
+                for admin in admins:
+                    email_data = Email(
+                        to=admin['email'],
+                        subject="New Campaign Access Request",
+                        html=f"""
+                        <h1>New Campaign Access Request</h1>
+                        <p>An influencer has requested access to a campaign.</p>
+                        <p><b>Influencer:</b> {user.get('username', 'N/A')} ({user.get('email', 'N/A')})</p>
+                        <p><b>Campaign:</b> {campaign.name}</p>
+                        <p>Please log in to the admin panel to review the request.</p>
+                        """
+                    )
+                    await email_service.send_email(email_data)
+            except Exception as e:
+                logger.error(f"Failed to send admin notification email for new access request: {e}")
+
             # Transform to response model
             return CampaignInfluencerAccessResponse(
                 id=created_access.id,
@@ -186,6 +223,24 @@ class CampaignAccessService:
             
             # Update the access request in Strapi using documentId
             updated_access = await strapi_client.update_campaign_influencer_access(document_id, strapi_data)
+
+            # Send notification email to the influencer
+            try:
+                if updated_access.user and updated_access.user.email:
+                    status = updated_access.request_status
+                    email_data = Email(
+                        to=updated_access.user.email,
+                        subject=f"Update on your Campaign Access Request",
+                        html=f"""
+                        <h1>Your Campaign Access Request has been {status}.</h1>
+                        <p><b>Campaign:</b> {updated_access.campaign.name}</p>
+                        <p><b>Status:</b> {status}</p>
+                        <p><b>Admin Response:</b> {updated_access.admin_response or 'N/A'}</p>
+                        """
+                    )
+                    await email_service.send_email(email_data)
+            except Exception as e:
+                logger.error(f"Failed to send influencer notification email for access request update: {e}")
             
             # Transform to response model
             return CampaignInfluencerAccessResponse(

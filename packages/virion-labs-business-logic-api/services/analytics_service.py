@@ -336,6 +336,22 @@ class AnalyticsService:
         # Create summary
         campaigns_summary = self._create_export_summary(responses)
 
+        # Send email notification
+        try:
+            email_data = Email(
+                to=current_user.email,
+                subject="Your Data Export is Ready",
+                html=f"""
+                <h1>Your Export is Ready</h1>
+                <p>Your requested data export is complete and ready for download.</p>
+                <p>You can download your file here: <a href="{download_url}">{download_url}</a></p>
+                <p>This link will expire in 1 hour.</p>
+                """
+            )
+            await email_service.send_email(email_data)
+        except Exception as e:
+            logger.error(f"Failed to send data export email to {current_user.email}: {e}")
+
         return OnboardingExportResponse(
             download_url=download_url,
             filename=filename,

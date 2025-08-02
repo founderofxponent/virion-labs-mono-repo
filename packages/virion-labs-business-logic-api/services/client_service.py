@@ -24,6 +24,33 @@ class ClientService:
             return current_user.role.get('name', 'Authenticated')
         return 'Authenticated'
 
+    from typing import Dict, Any, List, Optional
+from fastapi import HTTPException
+import asyncio
+import logging
+
+from core.strapi_client import strapi_client
+from core.auth import StrapiUser
+from domain.clients.domain import ClientDomain
+from domain.clients.schemas import Client, ClientCreate, ClientUpdate
+from schemas.strapi import StrapiClientCreate, StrapiClientUpdate
+from services.email_service import email_service, Email
+
+logger = logging.getLogger(__name__)
+
+class ClientService:
+    """
+    Service layer for client operations, refactored to use Pydantic models for type safety and clarity.
+    """
+    def __init__(self):
+        self.client_domain = ClientDomain()
+
+    def _get_user_role(self, current_user: StrapiUser) -> str:
+        """Safely gets the user's role name."""
+        if current_user.role and isinstance(current_user.role, dict):
+            return current_user.role.get('name', 'Authenticated')
+        return 'Authenticated'
+
     async def create_client_operation(self, client_data: ClientCreate, current_user: StrapiUser) -> Client:
         """
         Business operation for client creation. (Admin Only)
@@ -36,6 +63,22 @@ class ClientService:
         strapi_payload = StrapiClientCreate(**client_data_with_logic)
         
         created_client = await strapi_client.create_client(strapi_payload)
+
+        # Send welcome email to the client's contact person
+        try:
+            if created_client.contact_email:
+                email_data = Email(
+                    to=created_client.contact_email,
+                    subject="Welcome to Virion Labs!",
+                    html=f"""
+                    <h1>Welcome, {created_client.name}!</h1>
+                    <p>Your client profile has been created in the Virion Labs platform.</p>
+                    <p>We're excited to partner with you.</p>
+                    """
+                )
+                await email_service.send_email(email_data)
+        except Exception as e:
+            logger.error(f"Failed to send welcome email to new client {created_client.name}: {e}")
         
         # The response from strapi_client is already a validated Pydantic model
         return created_client

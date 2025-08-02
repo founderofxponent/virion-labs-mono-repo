@@ -50,3 +50,10 @@ class User(BaseModel):
     role: Optional[Role] = None
     full_name: Optional[str] = None
     settings: Optional[Dict[str, Any]] = None
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str

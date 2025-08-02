@@ -461,6 +461,16 @@ class StrapiClient:
                 return role
         return None
 
+    async def get_users_by_role(self, role_name: str) -> List[Dict]:
+        """Fetches all users with a specific role from Strapi."""
+        logger.info(f"StrapiClient: Fetching users with role '{role_name}' from Strapi.")
+        params = {
+            "filters[role][name][$eq]": role_name,
+            "populate": "*"
+        }
+        response = await self._request("GET", "users", params=params)
+        return response
+
     async def update_user_role(self, user_id: int, role_id: int) -> Dict:
         """Updates a user's role in Strapi."""
         logger.info(f"StrapiClient: Updating user {user_id} role to {role_id}.")
@@ -538,7 +548,9 @@ class StrapiClient:
         """Creates a new referral link in Strapi using a validated Pydantic model."""
         logger.info("StrapiClient: Creating a new referral link in Strapi.")
         payload = link_data.model_dump(exclude_unset=True)
+        logger.info(f"StrapiClient: Payload being sent to Strapi: {payload}")
         data = {"data": payload}
+        logger.info(f"StrapiClient: Final data structure being sent: {data}")
         response = await self._request("POST", "referral-links", data=data)
         return ReferralLink(**response.get("data"))
 
@@ -821,6 +833,45 @@ class StrapiClient:
             user=user,
             campaign=campaign
         )
+
+    async def send_email(self, email_data: Dict[str, Any]) -> None:
+        """Sends an email using the Strapi email plugin."""
+        logger.info(f"StrapiClient: Sending email to {email_data.get('to')}")
+        # The /email endpoint is now prefixed with /api
+        url = f"{self.base_url}/api/email"
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.post(url, headers=self.headers, json=email_data)
+                response.raise_for_status()
+                logger.info("StrapiClient: Email sent successfully.")
+            except httpx.HTTPStatusError as e:
+                logger.exception(f"Strapi API HTTP error while sending email: {e.response.status_code} - {e.response.text}")
+                raise
+            except httpx.RequestError as e:
+                logger.exception("Strapi API request error while sending email")
+                raise
+
+    async def reset_password(self, token: str, new_password: str) -> bool:
+        """Resets the user's password in Strapi."""
+        logger.info("StrapiClient: Attempting to reset password.")
+        url = f"{self.base_url}/api/auth/reset-password"
+        payload = {
+            "code": token,
+            "password": new_password,
+            "passwordConfirmation": new_password,
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                logger.info("StrapiClient: Password reset successfully.")
+                return True
+            except httpx.HTTPStatusError as e:
+                logger.exception(f"Strapi API HTTP error during password reset: {e.response.status_code} - {e.response.text}")
+                return False
+            except httpx.RequestError as e:
+                logger.exception("Strapi API request error during password reset")
+                return False
 
 # Global client instance
 strapi_client = StrapiClient()

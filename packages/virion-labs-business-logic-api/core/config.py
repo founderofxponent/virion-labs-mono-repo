@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     JWT_SECRET: str # This might be used for signing the API's own tokens later
     JWT_ALGORITHM: str = "HS256"
     API_KEY: str
+    FRONTEND_URL: str = "http://localhost:3000"
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 30
 
     class Config:
         env_file = ".env"

@@ -12,6 +12,8 @@ from schemas.strapi import (
 )
 from core.strapi_client import strapi_client
 import logging
+import uuid
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,19 @@ class InfluencerService:
         # The domain model expects the user_id to be set.
         link_data.influencer = user_id
         
-        strapi_data = StrapiReferralLinkCreate(**link_data.model_dump())
+        # Generate required fields that Strapi expects
+        referral_code = self._generate_referral_code(user_id, link_data.campaign)
+        referral_url = self._generate_referral_url(referral_code)
+        
+        # Create the data dict and add the generated fields
+        strapi_data_dict = link_data.model_dump()
+        strapi_data_dict['referral_code'] = referral_code
+        strapi_data_dict['referral_url'] = referral_url
+        
+        logger.info(f"Creating StrapiReferralLinkCreate with data: {strapi_data_dict}")
+        strapi_data = StrapiReferralLinkCreate(**strapi_data_dict)
+        logger.info(f"StrapiReferralLinkCreate object created: {strapi_data.model_dump()}")
+        
         created_link = await strapi_client.create_referral_link(strapi_data)
         
         return ReferralLinkResponse(**created_link.model_dump())
@@ -121,6 +135,27 @@ class InfluencerService:
             "link": created_link,
             "message": "Campaign referral link created successfully."
         }
+
+    def _generate_referral_code(self, user_id: int, campaign_id: int) -> str:
+        """Generate a unique referral code for the user and campaign."""
+        # Create a unique string combining user_id, campaign_id, and a random UUID
+        unique_string = f"{user_id}-{campaign_id}-{uuid.uuid4().hex[:8]}"
+        
+        # Create a hash and take the first 8 characters for a clean referral code
+        hash_object = hashlib.md5(unique_string.encode())
+        referral_code = hash_object.hexdigest()[:8].upper()
+        
+        logger.info(f"Generated referral code: {referral_code} for user: {user_id}, campaign: {campaign_id}")
+        return referral_code
+    
+    def _generate_referral_url(self, referral_code: str) -> str:
+        """Generate the full referral URL using the referral code."""
+        # This should match your application's referral URL structure
+        base_url = "https://virionlabs.com/ref"  # Replace with actual base URL
+        referral_url = f"{base_url}/{referral_code}"
+        
+        logger.info(f"Generated referral URL: {referral_url}")
+        return referral_url
 
 # Global service instance
 influencer_service = InfluencerService()
