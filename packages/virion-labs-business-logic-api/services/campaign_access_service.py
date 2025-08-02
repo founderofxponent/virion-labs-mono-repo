@@ -175,8 +175,17 @@ class CampaignAccessService:
 
             logger.info(f"Updating campaign access request {access_id} with status {access_data.request_status}")
             
-            # Update the access request in Strapi
-            updated_access = await strapi_client.update_campaign_influencer_access(access_id, strapi_data)
+            # First, get the access request to obtain its documentId
+            existing_access = await strapi_client.get_campaign_influencer_access(access_id)
+            if not existing_access:
+                raise ValueError(f"Access request with ID {access_id} not found")
+            
+            # Use documentId for the update (Strapi v5 requirement)
+            document_id = existing_access.documentId
+            logger.info(f"Using documentId {document_id} for update of access request {access_id}")
+            
+            # Update the access request in Strapi using documentId
+            updated_access = await strapi_client.update_campaign_influencer_access(document_id, strapi_data)
             
             # Transform to response model
             return CampaignInfluencerAccessResponse(

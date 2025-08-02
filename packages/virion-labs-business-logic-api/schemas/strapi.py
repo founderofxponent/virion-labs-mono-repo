@@ -223,6 +223,7 @@ class StrapiClientUpdate(ClientBase):
 
 class CampaignInfluencerAccess(BaseModel):
     id: int
+    documentId: Optional[str] = None
     access_granted_at: Optional[datetime] = None
     is_active: Optional[bool] = True
     request_status: Optional[Literal['pending', 'approved', 'denied']] = 'pending'

@@ -637,10 +637,36 @@ class StrapiClient:
     async def get_campaign_influencer_access(self, access_id: str) -> Optional[CampaignInfluencerAccess]:
         """Fetches a single campaign influencer access request from Strapi."""
         logger.info(f"StrapiClient: Fetching campaign influencer access request {access_id} from Strapi.")
-        params = {"populate": "*"}
-        response = await self._request("GET", f"campaign-influencer-accesses/{access_id}", params=params)
-        raw_data = response.get("data")
-        return self._parse_campaign_influencer_access(raw_data) if raw_data else None
+        
+        # For Strapi v5, direct access by numeric ID often fails, so use filtering approach
+        try:
+            # First try direct access (for documentId strings)
+            if not access_id.isdigit():
+                params = {"populate": "*"}
+                response = await self._request("GET", f"campaign-influencer-accesses/{access_id}", params=params)
+                raw_data = response.get("data")
+                return self._parse_campaign_influencer_access(raw_data) if raw_data else None
+        except Exception:
+            # Direct access failed, continue to filter approach
+            pass
+        
+        # Use filter approach for numeric IDs or as fallback
+        try:
+            filter_params = {
+                "filters[id][$eq]": access_id,
+                "populate": "*"
+            }
+            filter_response = await self._request("GET", "campaign-influencer-accesses", params=filter_params)
+            filter_data = filter_response.get("data", [])
+            if filter_data:
+                logger.info(f"Successfully fetched access request {access_id} using filter approach")
+                return self._parse_campaign_influencer_access(filter_data[0])
+            else:
+                logger.warning(f"No campaign influencer access found with ID {access_id}")
+                return None
+        except Exception as e:
+            logger.error(f"Failed to fetch campaign influencer access {access_id}: {e}")
+            raise
 
     async def update_campaign_influencer_access(self, access_id: str, access_data: Dict) -> CampaignInfluencerAccess:
         """Updates a campaign influencer access request in Strapi."""
@@ -703,7 +729,17 @@ class StrapiClient:
         if not raw_data:
             raise ValueError("Empty data provided for campaign influencer access parsing")
         
-        attributes = raw_data.get("attributes", {})
+        # Handle both Strapi v4 and v5 data structures
+        if "attributes" in raw_data:
+            # Strapi v4 structure
+            attributes = raw_data.get("attributes", {})
+            record_id = raw_data["id"]
+            document_id = raw_data.get("documentId")
+        else:
+            # Strapi v5 structure (flat)
+            attributes = raw_data
+            record_id = raw_data["id"]
+            document_id = raw_data.get("documentId")
         
         # Parse nested user and campaign relations
         user_data = attributes.get("user", {})
@@ -711,52 +747,71 @@ class StrapiClient:
         
         # Construct user if present
         user = None
-        if user_data and user_data.get("data"):
-            user_attrs = user_data["data"].get("attributes", {})
+        if user_data:
+            if user_data.get("data"):
+                # Strapi v4 nested structure
+                user_attrs = user_data["data"].get("attributes", {})
+                user_id = user_data["data"]["id"]
+            else:
+                # Strapi v5 flat structure or direct user data
+                user_attrs = user_data
+                user_id = user_data.get("id")
             
-            # Parse avatar_url media
-            avatar_url = None
-            avatar_data = user_attrs.get("avatar_url")
-            if avatar_data and avatar_data.get("data"):
-                avatar_attrs = avatar_data["data"].get("attributes", {})
-                avatar_url = Media(
-                    id=avatar_data["data"]["id"],
-                    url=avatar_attrs.get("url", ""),
-                    name=avatar_attrs.get("name", ""),
-                    alternativeText=avatar_attrs.get("alternativeText"),
-                    caption=avatar_attrs.get("caption"),
-                    width=avatar_attrs.get("width"),
-                    height=avatar_attrs.get("height"),
-                    formats=avatar_attrs.get("formats"),
-                    hash=avatar_attrs.get("hash", ""),
-                    ext=avatar_attrs.get("ext", "")
+            if user_id:
+                # Parse avatar_url media
+                avatar_url = None
+                avatar_data = user_attrs.get("avatar_url")
+                if avatar_data and avatar_data.get("data"):
+                    avatar_attrs = avatar_data["data"].get("attributes", {})
+                    avatar_url = Media(
+                        id=avatar_data["data"]["id"],
+                        url=avatar_attrs.get("url", ""),
+                        name=avatar_attrs.get("name", ""),
+                        alternativeText=avatar_attrs.get("alternativeText"),
+                        caption=avatar_attrs.get("caption"),
+                        width=avatar_attrs.get("width"),
+                        height=avatar_attrs.get("height"),
+                        formats=avatar_attrs.get("formats"),
+                        hash=avatar_attrs.get("hash", ""),
+                        ext=avatar_attrs.get("ext", "")
+                    )
+                
+                user = User(
+                    id=user_id,
+                    username=user_attrs.get("username", ""),
+                    email=user_attrs.get("email", ""),
+                    full_name=user_attrs.get("full_name"),
+                    avatar_url=avatar_url
                 )
-            
-            user = User(
-                id=user_data["data"]["id"],
-                username=user_attrs.get("username", ""),
-                email=user_attrs.get("email", ""),
-                full_name=user_attrs.get("full_name"),
-                avatar_url=avatar_url
-            )
         
-        # Construct campaign if present (simplified)
+        # Construct campaign if present
         campaign = None
-        if campaign_data and campaign_data.get("data"):
-            campaign_attrs = campaign_data["data"].get("attributes", {})
-            campaign = Campaign(
-                id=campaign_data["data"]["id"],
-                name=campaign_attrs.get("name", ""),
-                description=campaign_attrs.get("description"),
-                campaign_type=campaign_attrs.get("campaign_type"),
-                is_active=campaign_attrs.get("is_active", True),
-                start_date=campaign_attrs.get("start_date"),
-                end_date=campaign_attrs.get("end_date"),
-                guild_id=campaign_attrs.get("guild_id")
-            )
+        if campaign_data:
+            if campaign_data.get("data"):
+                # Strapi v4 nested structure
+                campaign_attrs = campaign_data["data"].get("attributes", {})
+                campaign_id = campaign_data["data"]["id"]
+            else:
+                # Strapi v5 flat structure or direct campaign data
+                campaign_attrs = campaign_data
+                campaign_id = campaign_data.get("id")
+            
+            if campaign_id:
+                campaign = Campaign(
+                    id=campaign_id,
+                    name=campaign_attrs.get("name", ""),
+                    description=campaign_attrs.get("description"),
+                    campaign_type=campaign_attrs.get("campaign_type"),
+                    is_active=campaign_attrs.get("is_active", True),
+                    start_date=campaign_attrs.get("start_date"),
+                    end_date=campaign_attrs.get("end_date"),
+                    guild_id=campaign_attrs.get("guild_id")
+                )
         
+        # Create the CampaignInfluencerAccess object
         return CampaignInfluencerAccess(
-            id=raw_data["id"],
+            id=record_id,
+            documentId=document_id,
             access_granted_at=attributes.get("access_granted_at"),
             is_active=attributes.get("is_active", True),
             request_status=attributes.get("request_status", "pending"),
