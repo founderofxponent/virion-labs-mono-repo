@@ -36,39 +36,26 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const token = getToken()
-    if (!token) {
-      setError("Authentication token not found.")
-      setLoading(false)
-      return
-    }
-
     try {
       setIsFetching(true)
       setError(null)
       
-      const response = await fetch(`${API_BASE_URL}/api/v1/users/me/settings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to fetch user settings')
+      // Get settings from the user object instead of a separate API call
+      if (user.user_setting) {
+        setSettings(user.user_setting as UserSettings)
+      } else {
+        setError("User settings not found in user profile")
+        setSettings(null)
       }
-
-      const settingsData: UserSettings = await response.json()
-      setSettings(settingsData)
     } catch (err) {
-      console.error('Error fetching user settings:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch settings')
+      console.error('Error processing user settings:', err)
+      setError(err instanceof Error ? err.message : 'Failed to process settings')
       setSettings(null)
     } finally {
       setLoading(false)
       setIsFetching(false)
     }
-  }, [user?.id, authLoading])
+  }, [user?.user_setting, authLoading])
 
   useEffect(() => {
     fetchSettings()
@@ -83,7 +70,7 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/users/me/settings`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -98,6 +85,10 @@ export function UserSettingsProvider({ children }: { children: ReactNode }) {
 
       const newSettings = await response.json()
       setSettings(newSettings)
+      
+      // Also refresh the user data to get updated settings
+      await getUser()
+      
       return true
     } catch (err) {
       console.error('Error updating settings:', err)

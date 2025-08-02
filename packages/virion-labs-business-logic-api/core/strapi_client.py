@@ -415,8 +415,8 @@ class StrapiClient:
     async def get_user(self, user_id: int) -> Dict:
         """Fetches a single user by their ID from Strapi."""
         logger.info(f"StrapiClient: Fetching user {user_id} from Strapi.")
-        # The 'populate' parameter is crucial to get the user's role information
-        params = {"populate": "role"}
+        # The 'populate' parameter is crucial to get the user's role and user_setting information
+        params = {"populate[0]": "role", "populate[1]": "user_setting"}
         # Note: This endpoint is part of the Users & Permissions plugin
         response = await self._request("GET", f"users/{user_id}", params=params)
         return response
