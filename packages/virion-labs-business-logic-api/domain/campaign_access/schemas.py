@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict, Any
 from datetime import datetime
 
 class CampaignInfluencerAccessBase(BaseModel):
@@ -27,6 +27,8 @@ class CampaignInfluencerAccessResponse(CampaignInfluencerAccessBase):
     requested_at: Optional[datetime] = None
     access_granted_at: Optional[datetime] = None
     reviewed_at: Optional[datetime] = None
+    campaign: Optional[Dict[str, Any]] = None
+    user: Optional[Dict[str, Any]] = None
 
     class Config:
         json_encoders = {

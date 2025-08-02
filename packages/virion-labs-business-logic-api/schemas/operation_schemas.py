@@ -358,10 +358,12 @@ class CampaignAccessRequestResponse(BaseModel):
     user_id: int
     request_message: Optional[str] = None
     request_status: str = "pending"  # pending, approved, denied
-    requested_at: Optional[datetime] = None
-    access_granted_at: Optional[datetime] = None
+    requested_at: Optional[str] = None
+    access_granted_at: Optional[str] = None
     is_active: Optional[bool] = True
     admin_response: Optional[str] = None
+    campaign: Optional[Dict[str, Any]] = None
+    user: Optional[Dict[str, Any]] = None
 
 class CampaignAccessRequestUpdateRequest(BaseModel):
     request_status: Optional[Literal['pending', 'approved', 'denied']] = None

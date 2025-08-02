@@ -760,7 +760,9 @@ async def list_campaign_access_requests_operation(
                     requested_at=req.requested_at.isoformat() if req.requested_at else None,
                     access_granted_at=req.access_granted_at.isoformat() if req.access_granted_at else None,
                     is_active=req.is_active,
-                    admin_response=req.admin_response
+                    admin_response=req.admin_response,
+                    campaign=getattr(req, 'campaign', None),
+                    user=getattr(req, 'user', None)
                 )
                 for req in access_requests
             ],

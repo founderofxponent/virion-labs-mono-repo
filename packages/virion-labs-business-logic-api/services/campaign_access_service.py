@@ -90,24 +90,62 @@ class CampaignAccessService:
     ) -> List[CampaignInfluencerAccessResponse]:
         """Business operation for listing campaign access requests."""
         try:
-            access_requests = await strapi_client.get_campaign_influencer_accesses(filters or {})
+            # Get raw Strapi data directly instead of using complex parsing
+            raw_response = await strapi_client._request("GET", "campaign-influencer-accesses", params={"populate": "*", **(filters or {})})
+            raw_access_requests = raw_response.get("data", [])
             
-            # Transform to response models
-            return [
-                CampaignInfluencerAccessResponse(
-                    id=access.id,
-                    documentId=getattr(access, 'documentId', None),
-                    campaign_id=access.campaign.id if access.campaign else 0,
-                    user_id=access.user.id if access.user else 0,
-                    request_message=access.request_message,
-                    request_status=access.request_status,
-                    requested_at=access.requested_at,
-                    access_granted_at=access.access_granted_at,
-                    is_active=access.is_active,
-                    admin_response=access.admin_response
+            # Transform raw Strapi data directly to response models
+            responses = []
+            for raw_access in raw_access_requests:
+                
+                # Extract basic fields
+                campaign_data = raw_access.get('campaign')
+                user_data = raw_access.get('user')
+                
+                response = CampaignInfluencerAccessResponse(
+                    id=raw_access.get("id"),
+                    documentId=raw_access.get("documentId"),
+                    campaign_id=campaign_data.get("id") if campaign_data else 0,
+                    user_id=user_data.get("id") if user_data else 0,
+                    request_message=raw_access.get("request_message"),
+                    request_status=raw_access.get("request_status", "pending"),
+                    requested_at=raw_access.get("requested_at"),
+                    access_granted_at=raw_access.get("access_granted_at"),
+                    is_active=raw_access.get("is_active", True),
+                    admin_response=raw_access.get("admin_response")
                 )
-                for access in access_requests
-            ]
+                
+                # Add campaign info if available
+                if campaign_data:
+                    response.campaign = {
+                        "id": campaign_data.get("id"),
+                        "name": campaign_data.get("name", "Unknown Campaign"),
+                        "description": campaign_data.get("description"),
+                        "campaign_type": campaign_data.get("campaign_type")
+                    }
+                
+                # Add user info if available
+                if user_data:
+                    user_dict = {
+                        "id": user_data.get("id"),
+                        "username": user_data.get("username", "Unknown User"),
+                        "email": user_data.get("email"),
+                        "full_name": user_data.get("full_name")
+                    }
+                    
+                    # Handle avatar URL if present
+                    avatar_url_data = user_data.get("avatar_url")
+                    if avatar_url_data and isinstance(avatar_url_data, dict):
+                        user_dict["avatar_url"] = {
+                            "url": avatar_url_data.get("url"),
+                            "alternativeText": avatar_url_data.get("alternativeText")
+                        }
+                    
+                    response.user = user_dict
+                
+                responses.append(response)
+            
+            return responses
             
         except Exception as e:
             logger.error(f"Failed to list campaign access requests: {e}")
