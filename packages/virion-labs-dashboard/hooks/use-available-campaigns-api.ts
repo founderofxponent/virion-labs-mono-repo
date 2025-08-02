@@ -1,11 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth-provider';
-import { Campaign } from '@/types/campaign';
+import { Campaign } from '@/schemas/campaign';
 import api from '@/lib/api';
+
+// Extended interface for available campaigns that includes access status
+interface AvailableCampaign extends Campaign {
+  has_access?: boolean
+  request_status?: 'pending' | 'approved' | 'denied'
+  discord_server_name?: string
+}
 
 export const useAvailableCampaignsApi = () => {
   const { profile } = useAuth();
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaigns, setCampaigns] = useState<AvailableCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 

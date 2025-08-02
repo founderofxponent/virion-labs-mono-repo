@@ -33,7 +33,10 @@ from schemas.strapi import (
     CampaignTemplate,
     UserSetting,
     StrapiUserSettingCreate,
-    StrapiUserSettingUpdate
+    StrapiUserSettingUpdate,
+    CampaignInfluencerAccess,
+    User,
+    Media
 )
 
 logger = logging.getLogger(__name__)
@@ -174,6 +177,27 @@ class StrapiClient:
                 logger.warning(f"Campaign with documentId {document_id} not found.")
                 return None
             raise
+
+    async def get_campaign_by_id(self, campaign_id: int, populate: Optional[List[str]] = None) -> Optional[Campaign]:
+        """Fetches a single campaign by numeric ID from Strapi, returning a validated Pydantic model."""
+        logger.info(f"StrapiClient: Fetching campaign by ID {campaign_id} from Strapi.")
+        params = {
+            "filters[id][$eq]": campaign_id,
+        }
+        if populate:
+            params["populate"] = ",".join(populate)
+        else:
+            params["populate"] = "*" # Default to populating all relations
+        
+        try:
+            response = await self._request("GET", "campaigns", params=params)
+            campaigns = response.get("data", [])
+            if campaigns:
+                return Campaign(**campaigns[0])
+            return None
+        except httpx.HTTPStatusError as e:
+            logger.warning(f"Campaign with ID {campaign_id} not found.")
+            return None
 
     async def get_campaign_id_by_document_id(self, document_id: str) -> Optional[int]:
         """Fetches a campaign's numeric ID by its documentId."""
@@ -591,6 +615,41 @@ class StrapiClient:
         response = await self._request("PUT", f"campaign-influencer-accesses/{request_id}", data=request_data)
         return response.get("data")
 
+    async def create_campaign_influencer_access(self, access_data: Dict) -> CampaignInfluencerAccess:
+        """Creates a new campaign influencer access request in Strapi."""
+        logger.info("StrapiClient: Creating campaign influencer access request in Strapi.")
+        request_data = {"data": access_data}
+        response = await self._request("POST", "campaign-influencer-accesses", data=request_data)
+        raw_data = response.get("data", {})
+        return self._parse_campaign_influencer_access(raw_data)
+
+    async def get_campaign_influencer_accesses(self, filters: Optional[Dict] = None) -> List[CampaignInfluencerAccess]:
+        """Fetches a list of campaign influencer access requests from Strapi."""
+        logger.info("StrapiClient: Fetching campaign influencer access requests from Strapi.")
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        
+        response = await self._request("GET", "campaign-influencer-accesses", params=params)
+        raw_accesses = response.get("data", [])
+        return [self._parse_campaign_influencer_access(access) for access in raw_accesses]
+
+    async def get_campaign_influencer_access(self, access_id: str) -> Optional[CampaignInfluencerAccess]:
+        """Fetches a single campaign influencer access request from Strapi."""
+        logger.info(f"StrapiClient: Fetching campaign influencer access request {access_id} from Strapi.")
+        params = {"populate": "*"}
+        response = await self._request("GET", f"campaign-influencer-accesses/{access_id}", params=params)
+        raw_data = response.get("data")
+        return self._parse_campaign_influencer_access(raw_data) if raw_data else None
+
+    async def update_campaign_influencer_access(self, access_id: str, access_data: Dict) -> CampaignInfluencerAccess:
+        """Updates a campaign influencer access request in Strapi."""
+        logger.info(f"StrapiClient: Updating campaign influencer access request {access_id} in Strapi.")
+        request_data = {"data": access_data}
+        response = await self._request("PUT", f"campaign-influencer-accesses/{access_id}", data=request_data)
+        raw_data = response.get("data", {})
+        return self._parse_campaign_influencer_access(raw_data)
+
     async def get_campaign_landing_page(self, campaign_id: str) -> Optional[CampaignLandingPage]:
         """Fetches the landing page for a campaign from Strapi."""
         logger.info(f"StrapiClient: Fetching landing page for campaign {campaign_id} from Strapi.")
@@ -638,6 +697,75 @@ class StrapiClient:
         logger.info(f"StrapiClient: Deleting campaign landing page {page_id} in Strapi.")
         response = await self._request("DELETE", f"campaign-landing-pages/{page_id}")
         return response if response else {"status": "deleted"}
+
+    def _parse_campaign_influencer_access(self, raw_data: Dict) -> CampaignInfluencerAccess:
+        """Parse raw Strapi data into CampaignInfluencerAccess model."""
+        if not raw_data:
+            raise ValueError("Empty data provided for campaign influencer access parsing")
+        
+        attributes = raw_data.get("attributes", {})
+        
+        # Parse nested user and campaign relations
+        user_data = attributes.get("user", {})
+        campaign_data = attributes.get("campaign", {})
+        
+        # Construct user if present
+        user = None
+        if user_data and user_data.get("data"):
+            user_attrs = user_data["data"].get("attributes", {})
+            
+            # Parse avatar_url media
+            avatar_url = None
+            avatar_data = user_attrs.get("avatar_url")
+            if avatar_data and avatar_data.get("data"):
+                avatar_attrs = avatar_data["data"].get("attributes", {})
+                avatar_url = Media(
+                    id=avatar_data["data"]["id"],
+                    url=avatar_attrs.get("url", ""),
+                    name=avatar_attrs.get("name", ""),
+                    alternativeText=avatar_attrs.get("alternativeText"),
+                    caption=avatar_attrs.get("caption"),
+                    width=avatar_attrs.get("width"),
+                    height=avatar_attrs.get("height"),
+                    formats=avatar_attrs.get("formats"),
+                    hash=avatar_attrs.get("hash", ""),
+                    ext=avatar_attrs.get("ext", "")
+                )
+            
+            user = User(
+                id=user_data["data"]["id"],
+                username=user_attrs.get("username", ""),
+                email=user_attrs.get("email", ""),
+                full_name=user_attrs.get("full_name"),
+                avatar_url=avatar_url
+            )
+        
+        # Construct campaign if present (simplified)
+        campaign = None
+        if campaign_data and campaign_data.get("data"):
+            campaign_attrs = campaign_data["data"].get("attributes", {})
+            campaign = Campaign(
+                id=campaign_data["data"]["id"],
+                name=campaign_attrs.get("name", ""),
+                description=campaign_attrs.get("description"),
+                campaign_type=campaign_attrs.get("campaign_type"),
+                is_active=campaign_attrs.get("is_active", True),
+                start_date=campaign_attrs.get("start_date"),
+                end_date=campaign_attrs.get("end_date"),
+                guild_id=campaign_attrs.get("guild_id")
+            )
+        
+        return CampaignInfluencerAccess(
+            id=raw_data["id"],
+            access_granted_at=attributes.get("access_granted_at"),
+            is_active=attributes.get("is_active", True),
+            request_status=attributes.get("request_status", "pending"),
+            requested_at=attributes.get("requested_at"),
+            request_message=attributes.get("request_message"),
+            admin_response=attributes.get("admin_response"),
+            user=user,
+            campaign=campaign
+        )
 
 # Global client instance
 strapi_client = StrapiClient()

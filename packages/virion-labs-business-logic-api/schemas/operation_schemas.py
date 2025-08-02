@@ -343,3 +343,31 @@ class CampaignTemplateResponse(BaseModel):
 class CampaignTemplateListResponse(BaseModel):
     templates: List[CampaignTemplateResponse]
     total_count: int
+
+# --- Campaign Access Request Operations ---
+
+class CampaignAccessRequestRequest(BaseModel):
+    campaign_id: int
+    user_id: int
+    request_message: Optional[str] = None
+
+class CampaignAccessRequestResponse(BaseModel):
+    id: int
+    documentId: Optional[str] = None
+    campaign_id: int
+    user_id: int
+    request_message: Optional[str] = None
+    request_status: str = "pending"  # pending, approved, denied
+    requested_at: Optional[datetime] = None
+    access_granted_at: Optional[datetime] = None
+    is_active: Optional[bool] = True
+    admin_response: Optional[str] = None
+
+class CampaignAccessRequestUpdateRequest(BaseModel):
+    request_status: Optional[Literal['pending', 'approved', 'denied']] = None
+    admin_response: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class CampaignAccessRequestListResponse(BaseModel):
+    access_requests: List[CampaignAccessRequestResponse]
+    total_count: int

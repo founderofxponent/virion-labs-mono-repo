@@ -6,6 +6,7 @@ from services.campaign_template_service import campaign_template_service
 from services.landing_page_template_service import landing_page_template_service
 from services.referral_service import referral_service
 from services.onboarding_service import onboarding_service
+from services.campaign_access_service import campaign_access_service
 from schemas.operation_schemas import (
     ClientCreateRequest, ClientResponse,
     ClientListResponse, ClientUpdateRequest,
@@ -32,6 +33,10 @@ from schemas.operation_schemas import (
     OnboardingResponseListResponse,
     CampaignTemplateResponse,
     CampaignTemplateListResponse,
+    CampaignAccessRequestRequest,
+    CampaignAccessRequestResponse,
+    CampaignAccessRequestUpdateRequest,
+    CampaignAccessRequestListResponse,
 )
 from schemas.strapi import Campaign
 from domain.campaigns.schemas import (
@@ -47,6 +52,10 @@ from domain.onboarding.schemas import (
     CampaignOnboardingStartCreate,
     CampaignOnboardingCompletionCreate,
     CampaignOnboardingResponseCreate
+)
+from domain.campaign_access.schemas import (
+    CampaignInfluencerAccessCreate,
+    CampaignInfluencerAccessUpdate
 )
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
@@ -679,4 +688,121 @@ async def list_onboarding_responses_operation(campaign_id: Optional[str] = None,
         return {"responses": responses, "total_count": len(responses)}
     except Exception as e:
         logger.error(f"Onboarding response listing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Campaign Access Request Operations
+@router.post("/campaign/request-access", response_model=CampaignAccessRequestResponse, status_code=201)
+async def request_campaign_access_operation(
+    request: CampaignAccessRequestRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Creates a new campaign access request from an influencer."""
+    try:
+        access_data = CampaignInfluencerAccessCreate(
+            campaign_id=request.campaign_id,
+            user_id=request.user_id,
+            request_message=request.request_message,
+            request_status="pending",
+            requested_at=datetime.now().isoformat()
+        )
+        
+        created_request = await campaign_access_service.create_access_request_operation(
+            access_data, current_user
+        )
+        
+        return CampaignAccessRequestResponse(
+            id=created_request.id,
+            documentId=created_request.documentId,
+            campaign_id=created_request.campaign_id,
+            user_id=created_request.user_id,
+            request_message=created_request.request_message,
+            request_status=created_request.request_status,
+            requested_at=created_request.requested_at.isoformat() if created_request.requested_at else None,
+            access_granted_at=created_request.access_granted_at.isoformat() if created_request.access_granted_at else None,
+            is_active=created_request.is_active,
+            admin_response=created_request.admin_response
+        )
+        
+    except Exception as e:
+        logger.error(f"Campaign access request creation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/campaign/access-requests", response_model=CampaignAccessRequestListResponse)
+async def list_campaign_access_requests_operation(
+    campaign_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    """Lists campaign access requests with optional filters."""
+    try:
+        filters = {}
+        if campaign_id:
+            filters["filters[campaign][id][$eq]"] = campaign_id
+        if user_id:
+            filters["filters[user][id][$eq]"] = user_id
+        if status:
+            filters["filters[request_status][$eq]"] = status
+            
+        access_requests = await campaign_access_service.list_access_requests_operation(
+            filters, current_user
+        )
+        
+        return CampaignAccessRequestListResponse(
+            access_requests=[
+                CampaignAccessRequestResponse(
+                    id=req.id,
+                    documentId=req.documentId,
+                    campaign_id=req.campaign_id,
+                    user_id=req.user_id,
+                    request_message=req.request_message,
+                    request_status=req.request_status,
+                    requested_at=req.requested_at.isoformat() if req.requested_at else None,
+                    access_granted_at=req.access_granted_at.isoformat() if req.access_granted_at else None,
+                    is_active=req.is_active,
+                    admin_response=req.admin_response
+                )
+                for req in access_requests
+            ],
+            total_count=len(access_requests)
+        )
+        
+    except Exception as e:
+        logger.error(f"Campaign access request listing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/campaign/access-requests/{access_id}", response_model=CampaignAccessRequestResponse)
+async def update_campaign_access_request_operation(
+    access_id: str,
+    request: CampaignAccessRequestUpdateRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Updates a campaign access request (for approval/denial by admins)."""
+    try:
+        update_data = CampaignInfluencerAccessUpdate(
+            request_status=request.request_status,
+            admin_response=request.admin_response,
+            is_active=request.is_active,
+            access_granted_at=datetime.now().isoformat() if request.request_status == "approved" else None
+        )
+        
+        updated_request = await campaign_access_service.update_access_request_operation(
+            access_id, update_data, current_user
+        )
+        
+        return CampaignAccessRequestResponse(
+            id=updated_request.id,
+            documentId=updated_request.documentId,
+            campaign_id=updated_request.campaign_id,
+            user_id=updated_request.user_id,
+            request_message=updated_request.request_message,
+            request_status=updated_request.request_status,
+            requested_at=updated_request.requested_at.isoformat() if updated_request.requested_at else None,
+            access_granted_at=updated_request.access_granted_at.isoformat() if updated_request.access_granted_at else None,
+            is_active=updated_request.is_active,
+            admin_response=updated_request.admin_response
+        )
+        
+    except Exception as e:
+        logger.error(f"Campaign access request update failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

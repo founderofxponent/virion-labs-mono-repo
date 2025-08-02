@@ -4,36 +4,65 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
 
 // TODO: Define the new API-based types for access requests
+interface MediaFile {
+  id: number
+  url: string
+  name: string
+  alternativeText?: string
+  caption?: string
+  width?: number
+  height?: number
+  formats?: any
+  hash: string
+  ext: string
+}
+
+interface UserProfile {
+  id: number
+  username: string
+  email: string
+  full_name?: string
+  avatar_url?: MediaFile
+}
+
+interface CampaignInfo {
+  id: number
+  name: string
+  description?: string
+  campaign_type?: string
+  is_active: boolean
+  start_date?: string
+  end_date?: string
+  guild_id?: string
+}
+
 export interface AccessRequest {
-  id: string
-  campaign_id: string
-  influencer_id: string
+  id: number
+  documentId: string
+  campaign_id: number
+  user_id: number
   request_status: string
-  requested_at: string
+  requested_at: string | null
   request_message: string
   access_granted_at: string | null
-  access_granted_by: string | null
   admin_response: string | null
-  discord_guild_campaigns: {
-    id: string
-    campaign_name: string
-    campaign_type: string
-    clients: {
-      name: string
-      industry: string
-    }
-  }
-  user_profiles: {
-    id: string
-    full_name: string
-    email: string
-    avatar_url: string | null
-  }
+  is_active: boolean
+  user?: UserProfile
+  campaign?: CampaignInfo
 }
 
 export function useAccessRequestsApi() {
   const { user, profile } = useAuth()
-  const isAdmin = profile?.role === "admin" || profile?.role === "Platform Administrator"
+  const role = profile?.role
+  let roleName: string | undefined | null = null
+  if (role) {
+    if (typeof role === 'string') {
+      roleName = role
+    } else {
+      roleName = role.name
+    }
+  }
+  const isAdmin = roleName === "admin" || roleName === "Platform Administrator"
   const [requests, setRequests] = useState<AccessRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -53,7 +82,7 @@ export function useAccessRequestsApi() {
     const token = getToken()
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/admin/access-requests`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/access-requests`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!response.ok) {
@@ -61,13 +90,13 @@ export function useAccessRequestsApi() {
         throw new Error(errorData.detail || 'Failed to fetch access requests')
       }
       const data = await response.json()
-      setRequests(data.requests || [])
+      setRequests(data.access_requests || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, isAdmin])
 
   useEffect(() => {
     if (isAdmin) {
@@ -83,11 +112,17 @@ export function useAccessRequestsApi() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/admin/access-requests/${requestId}/approve`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/access-requests/${requestId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          request_status: 'approved',
+          admin_response: 'Access request approved',
+          is_active: true
+        })
       })
 
       if (!response.ok) {
@@ -111,11 +146,17 @@ export function useAccessRequestsApi() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/admin/access-requests/${requestId}/deny`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/access-requests/${requestId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          request_status: 'denied',
+          admin_response: 'Access request denied',
+          is_active: false
+        })
       })
 
       if (!response.ok) {

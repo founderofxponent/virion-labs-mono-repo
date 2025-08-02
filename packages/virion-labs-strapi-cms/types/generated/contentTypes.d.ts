@@ -382,7 +382,7 @@ export interface ApiCampaignInfluencerAccessCampaignInfluencerAccess
     singularName: 'campaign-influencer-access';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     access_granted_at: Schema.Attribute.DateTime;
@@ -667,7 +667,7 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     singularName: 'campaign';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     auto_responses: Schema.Attribute.JSON;

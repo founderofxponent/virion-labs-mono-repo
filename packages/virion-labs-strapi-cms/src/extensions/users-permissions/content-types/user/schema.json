@@ -87,7 +87,8 @@
     "campaign_influencer_accesses": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::campaign-influencer-access.campaign-influencer-access"
+      "target": "api::campaign-influencer-access.campaign-influencer-access",
+      "mappedBy": "user"
     },
     "user_setting": {
       "type": "relation",

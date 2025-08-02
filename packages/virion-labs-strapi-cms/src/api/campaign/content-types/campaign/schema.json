@@ -7,7 +7,7 @@
     "displayName": "Campaign"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
@@ -97,7 +97,8 @@
     "campaign_influencer_accesses": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::campaign-influencer-access.campaign-influencer-access"
+      "target": "api::campaign-influencer-access.campaign-influencer-access",
+      "mappedBy": "campaign"
     },
     "campaign_onboarding_fields": {
       "type": "relation",

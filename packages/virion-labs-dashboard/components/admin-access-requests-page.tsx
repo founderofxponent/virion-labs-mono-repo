@@ -81,7 +81,7 @@ export function AdminAccessRequestsPage() {
     })
   }
 
-  const getCampaignTypeColor = (type: string) => {
+  const getCampaignTypeColor = (type?: string) => {
     switch (type) {
       case 'referral_onboarding': return 'bg-blue-500'
       case 'product_promotion': return 'bg-green-500'
@@ -91,8 +91,8 @@ export function AdminAccessRequestsPage() {
     }
   }
 
-  const formatCampaignType = (type: string) => {
-    return type.replace('_', ' ').toUpperCase()
+  const formatCampaignType = (type?: string) => {
+    return type?.replace('_', ' ').toUpperCase() || 'UNKNOWN'
   }
 
   if (loading) {
@@ -135,15 +135,15 @@ export function AdminAccessRequestsPage() {
                 {/* Left side - Main info */}
                 <div className="flex items-center gap-6 flex-1 min-w-0">
                   {/* Avatar */}
-                  {request.user_profiles.avatar_url ? (
+                  {request.user?.avatar_url?.url ? (
                     <img 
-                      src={request.user_profiles.avatar_url}
-                      alt={request.user_profiles.full_name}
+                      src={request.user.avatar_url.url}
+                      alt={request.user.full_name || request.user.username}
                       className="w-12 h-12 rounded-full object-cover flex-shrink-0"
                     />
                   ) : (
                     <div className="w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                      {request.user_profiles.full_name.charAt(0)}
+                      {(request.user?.full_name || request.user?.username)?.charAt(0) || '?'}
                     </div>
                   )}
                   
@@ -151,21 +151,21 @@ export function AdminAccessRequestsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <p className="font-semibold text-gray-900 text-lg">
-                        {request.user_profiles.full_name}
+                        {request.user?.full_name || request.user?.username || 'Unknown User'}
                       </p>
                       <span className="text-gray-400 text-lg">→</span>
                       <p className="font-medium text-gray-700 text-lg flex-1 min-w-0 truncate">
-                        {request.discord_guild_campaigns.campaign_name}
+                        {request.campaign?.name || 'Unknown Campaign'}
                       </p>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span className="min-w-0 truncate">{request.user_profiles.email}</span>
+                      <span className="min-w-0 truncate">{request.user?.email || 'No email'}</span>
                       <Badge 
-                        className={`text-white text-xs ${getCampaignTypeColor(request.discord_guild_campaigns.campaign_type)}`}
+                        className={`text-white text-xs ${getCampaignTypeColor(request.campaign?.campaign_type)}`}
                       >
-                        {formatCampaignType(request.discord_guild_campaigns.campaign_type)}
+                        {formatCampaignType(request.campaign?.campaign_type)}
                       </Badge>
-                      <span className="font-medium">{request.discord_guild_campaigns.clients.name}</span>
+                      <span className="font-medium">Campaign Client</span>
                     </div>
                   </div>
                 </div>
@@ -244,21 +244,21 @@ export function AdminAccessRequestsPage() {
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
                 <div className="flex items-center gap-3">
-                  {selectedRequest.user_profiles.avatar_url ? (
+                  {selectedRequest.user?.avatar_url?.url ? (
                     <img 
-                      src={selectedRequest.user_profiles.avatar_url}
-                      alt={selectedRequest.user_profiles.full_name}
+                      src={selectedRequest.user.avatar_url.url}
+                      alt={selectedRequest.user.full_name || selectedRequest.user.username}
                       className="w-10 h-10 rounded-full object-cover"
                     />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-                      {selectedRequest.user_profiles.full_name.charAt(0)}
+                      {(selectedRequest.user?.full_name || selectedRequest.user?.username)?.charAt(0) || '?'}
                     </div>
                   )}
                   <div>
-                    <p className="font-medium">{selectedRequest.user_profiles.full_name}</p>
+                    <p className="font-medium">{selectedRequest.user?.full_name || selectedRequest.user?.username || 'Unknown User'}</p>
                     <p className="text-sm text-muted-foreground">
-                      {selectedRequest.discord_guild_campaigns.campaign_name}
+                      {selectedRequest.campaign?.name || 'Unknown Campaign'}
                     </p>
                   </div>
                 </div>

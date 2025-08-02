@@ -8,16 +8,24 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, Clock, MessageSquare, Building2, Terminal } from "lucide-react"
 import { CreateReferralLinkDialog } from "@/components/create-referral-link-dialog"
 import { useAvailableCampaignsApi } from "@/hooks/use-available-campaigns-api"
-import { Campaign } from "@/types/campaign"
+import { Campaign } from "@/schemas/campaign"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import api from "@/lib/api"
+
+// Extended interface for available campaigns that includes access status
+interface AvailableCampaign extends Campaign {
+  has_access?: boolean
+  request_status?: 'pending' | 'approved' | 'denied'
+  discord_server_name?: string
+}
 
 export function AvailableCampaignsPage() {
   const { profile } = useAuth()
   const { campaigns, loading, error, refetch } = useAvailableCampaignsApi()
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null)
+  const [selectedCampaign, setSelectedCampaign] = useState<AvailableCampaign | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
 
-  const handleCreateLink = (campaign: Campaign) => {
+  const handleCreateLink = (campaign: AvailableCampaign) => {
     if (!campaign.has_access) {
       handleRequestAccess(campaign)
       return
@@ -26,32 +34,39 @@ export function AvailableCampaignsPage() {
     setShowCreateDialog(true)
   }
 
-  const handleRequestAccess = async (campaign: Campaign) => {
+  const handleRequestAccess = async (campaign: AvailableCampaign) => {
     if (!profile?.id) return
 
+    console.log('🔍 DEBUG: Requesting access for campaign:', {
+      campaignId: campaign.id,
+      campaignName: campaign.name,
+      userId: profile.id,
+      apiClient: typeof api
+    })
+
     try {
-      // This still uses a legacy endpoint. This should be updated in a future task.
-      const response = await fetch(`/api/campaigns/${campaign.documentId}/request-access`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          influencer_id: profile.id,
-          message: `I would like to request access to the "${campaign.name}" campaign to create referral links.`
-        })
+      const response = await api.post('/api/v1/operations/campaign/request-access', {
+        campaign_id: campaign.id,
+        user_id: profile.id,
+        request_message: `I would like to request access to the "${campaign.name}" campaign to create referral links.`
       })
 
-      const data = await response.json()
+      console.log('🔍 DEBUG: API response:', {
+        status: response.status,
+        data: response.data
+      })
 
-      if (response.ok) {
+      if (response.status === 201) {
+        alert(`Access request for "${campaign.name}" has been submitted successfully. You will be notified when it's reviewed.`)
         refetch()
-        console.log('Access request submitted successfully')
+        console.log('✅ Access request submitted successfully')
       } else {
-        console.error('Failed to request access:', data.error)
+        console.error('❌ Failed to request access:', response.data)
+        alert('Failed to submit access request. Please try again.')
       }
     } catch (error) {
-      console.error('Error requesting access:', error)
+      console.error('❌ Error requesting access:', error)
+      alert('An error occurred while requesting access. Please try again.')
     }
   }
 
@@ -61,15 +76,16 @@ export function AvailableCampaignsPage() {
       case 'product_promotion': return 'bg-green-500'
       case 'community_engagement': return 'bg-purple-500'
       case 'support': return 'bg-orange-500'
+      case 'custom': return 'bg-indigo-500'
       default: return 'bg-gray-500'
     }
   }
 
   const formatCampaignType = (type: string) => {
-    return type.replace('_', ' ').toUpperCase()
+    return type?.replace('_', ' ').toUpperCase() || 'UNKNOWN'
   }
 
-  const getAccessStatusInfo = (campaign: Campaign) => {
+  const getAccessStatusInfo = (campaign: AvailableCampaign) => {
     if (campaign.has_access) {
       return {
         icon: CheckCircle,
@@ -96,16 +112,16 @@ export function AvailableCampaignsPage() {
       }
     } else {
       return {
-        icon: XCircle,
+        icon: Clock,
         text: 'Request Access',
-        color: 'text-gray-600',
-        bgColor: 'bg-gray-50',
-        borderColor: 'border-gray-200'
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-50',
+        borderColor: 'border-blue-200'
       }
     }
   }
 
-  const getButtonText = (campaign: Campaign) => {
+  const getButtonText = (campaign: AvailableCampaign) => {
     if (campaign.has_access) return 'Create Link'
     if (campaign.request_status === 'pending') return 'Pending...'
     if (campaign.request_status === 'denied') return 'Request Again'
@@ -164,7 +180,7 @@ export function AvailableCampaignsPage() {
           const StatusIcon = statusInfo.icon
 
           return (
-            <div key={campaign.documentId} className="bg-white border rounded-lg p-6 hover:shadow-sm transition-shadow">
+            <div key={campaign.id} className="bg-white border rounded-lg p-6 hover:shadow-sm transition-shadow">
               <div className="flex items-start justify-between gap-8">
                 {/* Left side - Campaign info - Better distributed */}
                 <div className="flex-1 min-w-0">
@@ -182,9 +198,9 @@ export function AvailableCampaignsPage() {
                       </div>
                     </div>
                     <Badge
-                      className={`${getCampaignTypeColor(campaign.type)} text-white text-xs px-3 py-1 shrink-0`}
+                      className={`${getCampaignTypeColor(campaign.campaign_type || 'custom')} text-white text-xs px-3 py-1 shrink-0`}
                     >
-                      {formatCampaignType(campaign.type)}
+                      {formatCampaignType(campaign.campaign_type || 'custom')}
                     </Badge>
                   </div>
 
@@ -215,7 +231,7 @@ export function AvailableCampaignsPage() {
 
                   <Button
                     onClick={() => handleCreateLink(campaign)}
-                    disabled={!campaign.has_access && !campaign.can_request_access}
+                    disabled={false}
                     size="sm"
                     variant={campaign.has_access ? "default" : "outline"}
                     className="min-w-[120px] px-4"
