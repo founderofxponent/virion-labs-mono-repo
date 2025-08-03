@@ -30,7 +30,9 @@ async def track_click(
         filters = {
             "filters[referral_code][$eq]": referral_code,
             "populate[0]": "campaign",
-            "populate[1]": "influencer"
+            "populate[1]": "campaign.client",
+            "populate[2]": "influencer",
+            "populate[3]": "influencer.avatar_url"
         }
         referral_links = await strapi_client.get_referral_links(filters=filters)
         
@@ -93,7 +95,9 @@ async def redirect_and_track(referral_code: str, request: Request):
         filters = {
             "filters[referral_code][$eq]": referral_code,
             "populate[0]": "campaign",
-            "populate[1]": "influencer"
+            "populate[1]": "campaign.client",
+            "populate[2]": "influencer",
+            "populate[3]": "influencer.avatar_url"
         }
         referral_links = await strapi_client.get_referral_links(filters=filters)
         
@@ -161,7 +165,9 @@ async def track_conversion(
         filters = {
             "filters[referral_code][$eq]": referral_code,
             "populate[0]": "campaign",
-            "populate[1]": "influencer"
+            "populate[1]": "campaign.client",
+            "populate[2]": "influencer",
+            "populate[3]": "influencer.avatar_url"
         }
         referral_links = await strapi_client.get_referral_links(filters=filters)
         
@@ -262,7 +268,9 @@ async def get_referral_stats(referral_code: str):
         filters = {
             "filters[referral_code][$eq]": referral_code,
             "populate[0]": "campaign",
-            "populate[1]": "influencer"
+            "populate[1]": "campaign.client",
+            "populate[2]": "influencer",
+            "populate[3]": "influencer.avatar_url"
         }
         referral_links = await strapi_client.get_referral_links(filters=filters)
         
@@ -320,7 +328,9 @@ async def get_referral_campaign_data(referral_code: str):
         filters = {
             "filters[referral_code][$eq]": referral_code,
             "populate[0]": "campaign",
-            "populate[1]": "influencer"
+            "populate[1]": "campaign.client",
+            "populate[2]": "influencer",
+            "populate[3]": "influencer.avatar_url"
         }
         referral_links = await strapi_client.get_referral_links(filters=filters)
         
@@ -348,15 +358,15 @@ async def get_referral_campaign_data(referral_code: str):
                     "id": str(referral_link.campaign.id) if referral_link.campaign else None,
                     "campaign_name": referral_link.campaign.name if referral_link.campaign else "Unknown Campaign",
                     "campaign_type": "referral",
-                    "brand_color": "#6366f1",  # Default color
+                    "brand_color": referral_link.campaign.brand_color if (referral_link.campaign and referral_link.campaign.brand_color) else "#6366f1",
                     "clients": {
-                        "name": "Client Name",  # This would come from campaign data
-                        "industry": "Technology"
+                        "name": referral_link.campaign.client.name if (referral_link.campaign and referral_link.campaign.client) else "Client Name",
+                        "industry": referral_link.campaign.client.industry if (referral_link.campaign and referral_link.campaign.client) else "Technology"
                     }
                 },
                 "influencer": {
                     "full_name": referral_link.influencer.full_name if referral_link.influencer else "Unknown Influencer",
-                    "avatar_url": None
+                    "avatar_url": referral_link.influencer.avatar_url.url if (referral_link.influencer and referral_link.influencer.avatar_url) else None
                 },
                 "status": {
                     "reason": "campaign_paused" if referral_link.expires_at and datetime.now() > referral_link.expires_at else "link_disabled",
@@ -384,15 +394,15 @@ async def get_referral_campaign_data(referral_code: str):
                 "id": str(referral_link.campaign.id) if referral_link.campaign else None,
                 "campaign_name": referral_link.campaign.name if referral_link.campaign else "Referral Campaign",
                 "campaign_type": "referral",
-                "brand_color": "#6366f1",  # This would come from campaign branding
+                "brand_color": referral_link.campaign.brand_color if (referral_link.campaign and referral_link.campaign.brand_color) else "#6366f1",
                 "clients": {
-                    "name": "Client Name",  # This would come from campaign data
-                    "industry": "Technology"
+                    "name": referral_link.campaign.client.name if (referral_link.campaign and referral_link.campaign.client) else "Client Name",
+                    "industry": referral_link.campaign.client.industry if (referral_link.campaign and referral_link.campaign.client) else "Technology"
                 }
             },
             "influencer": {
-                "full_name": referral_link.influencer.full_name if referral_link.influencer else "Influencer",
-                "avatar_url": None
+                "full_name": referral_link.influencer.full_name if referral_link.influencer else "Unknown Influencer",
+                "avatar_url": referral_link.influencer.avatar_url.url if (referral_link.influencer and referral_link.influencer.avatar_url) else None
             }
         }
         
