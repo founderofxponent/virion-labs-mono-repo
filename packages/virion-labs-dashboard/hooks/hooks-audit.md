@@ -29,6 +29,3 @@ These hooks point to a legacy data source but are **actively in use** by the das
 ## Legacy Hooks to be Deleted
 
 These hooks point to a legacy data source and are **not in use** by any component. They can be safely deleted.
-
-- `use-bot-campaigns.ts`
-- `use-onboarding-fields.ts`
