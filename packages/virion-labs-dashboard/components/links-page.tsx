@@ -40,7 +40,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { useReferralLinksApi, type InfluencerLink } from "@/hooks/useReferralLinks-api"
+import { useReferralLinkManager } from "@/hooks/use-referral-link-manager"
+import { useInfluencerMetricsApi } from "@/hooks/use-influencer-metrics-api"
+import { type ReferralLink } from "@/schemas/referral"
 import { useToast } from "@/hooks/use-toast"
 import { ReferralLinkSuccessModal } from "./referral-link-success-modal"
 import { QRCodeSVG } from "qrcode.react"
@@ -49,33 +51,79 @@ export function LinksPage() {
   const { profile } = useAuth()
   const { toast } = useToast()
   const {
+    links,
+    loading: linksLoading,
+    error: linksError,
+    refetch: refetchLinks,
+    addLink,
+    updateLink,
+    deleteLink
+  } = useReferralLinkManager()
+  
+  const {
     metrics,
-    loading,
-    error,
-    refresh,
-  } = useReferralLinksApi()
+    loading: metricsLoading,
+    error: metricsError
+  } = useInfluencerMetricsApi()
+  
+  const loading = linksLoading || metricsLoading
+  const error = linksError || metricsError
 
   const [showLinkForm, setShowLinkForm] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
-  const [createdLink, setCreatedLink] = useState<InfluencerLink | null>(null)
-  const [editingLink, setEditingLink] = useState<InfluencerLink | null>(null)
-  const [deletingLink, setDeletingLink] = useState<InfluencerLink | null>(null)
+  const [createdLink, setCreatedLink] = useState<ReferralLink | null>(null)
+  const [editingLink, setEditingLink] = useState<ReferralLink | null>(null)
+  const [deletingLink, setDeletingLink] = useState<ReferralLink | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterPlatform, setFilterPlatform] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const [filterCampaign, setFilterCampaign] = useState("all")
   const [sortBy, setSortBy] = useState("newest")
 
-  // TODO: Re-implement filtering and sorting with the new data structure
-  const filteredLinks = metrics?.links || []
-  const uniqueCampaigns: string[] = [] // Placeholder
+  // Filter and sort links based on current filters
+  const filteredLinks = (links || []).filter(link => {
+    const matchesSearch = !searchQuery || 
+      link.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      link.platform.toLowerCase().includes(searchQuery.toLowerCase())
+    
+    const matchesPlatform = filterPlatform === "all" || 
+      link.platform.toLowerCase() === filterPlatform.toLowerCase()
+    
+    const matchesStatus = filterStatus === "all" || 
+      (filterStatus === "active" && link.is_active) ||
+      (filterStatus === "inactive" && !link.is_active)
+    
+    const matchesCampaign = filterCampaign === "all" ||
+      (filterCampaign === "no-campaign" && !link.campaign_name) ||
+      link.campaign_name === filterCampaign
+    
+    return matchesSearch && matchesPlatform && matchesStatus && matchesCampaign
+  }).sort((a, b) => {
+    switch (sortBy) {
+      case "oldest":
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+      case "most-clicks":
+        return b.clicks - a.clicks
+      case "most-conversions":
+        return b.conversions - a.conversions
+      case "highest-rate":
+        return (b.conversion_rate || 0) - (a.conversion_rate || 0)
+      default: // newest
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    }
+  })
+  
+  const uniqueCampaigns = Array.from(new Set(
+    (links || []).map(link => link.campaign_name).filter(Boolean)
+  )) as string[]
 
   const analytics = {
-    totalLinks: metrics?.total_links || 0,
-    activeLinks: metrics?.active_links || 0,
-    totalClicks: metrics?.total_clicks || 0,
-    totalConversions: metrics?.total_conversions || 0,
-    averageConversionRate: metrics?.overall_conversion_rate || 0,
+    totalLinks: links?.length || 0,
+    activeLinks: links?.filter(link => link.is_active).length || 0,
+    totalClicks: links?.reduce((sum, link) => sum + link.clicks, 0) || 0,
+    totalConversions: links?.reduce((sum, link) => sum + link.conversions, 0) || 0,
+    averageConversionRate: links?.length ? 
+      (links.reduce((sum, link) => sum + (link.conversion_rate || 0), 0) / links.length) : 0,
   }
 
   const handleCopyLink = async (url: string) => {
@@ -94,13 +142,40 @@ export function LinksPage() {
     }
   }
 
-  // TODO: Re-implement mutation handlers
-  const handleDeleteLink = async (link: InfluencerLink) => {
-    toast({ title: "Action Disabled", description: "Delete functionality is temporarily disabled during migration." })
+  const handleDeleteLink = async (link: ReferralLink) => {
+    try {
+      await deleteLink(String(link.id))
+      toast({
+        title: "Success",
+        description: "Link deleted successfully!"
+      })
+      setDeletingLink(null)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete link",
+        variant: "destructive"
+      })
+    }
   }
 
-  const handleToggleStatus = async (link: InfluencerLink) => {
-    toast({ title: "Action Disabled", description: "Status toggle is temporarily disabled during migration." })
+  const handleToggleStatus = async (link: ReferralLink) => {
+    try {
+      const result = await updateLink(String(link.id), { is_active: !link.is_active })
+      if (result.error) {
+        throw new Error(result.error)
+      }
+      toast({
+        title: "Success",
+        description: `Link ${link.is_active ? 'deactivated' : 'activated'} successfully!`
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update link status",
+        variant: "destructive"
+      })
+    }
   }
 
   const handleLinkCreated = (link: any) => { // TODO: Use correct type
@@ -111,20 +186,20 @@ export function LinksPage() {
       title: "Success",
       description: "Referral link created successfully!"
     })
-    refresh()
+    refetchLinks()
   }
 
   const handleCreateAnother = () => {
     setShowSuccessModal(false)
     setCreatedLink(null)
     setShowLinkForm(true)
-    refresh()
+    refetchLinks()
   }
 
   const handleSuccessModalClose = () => {
     setShowSuccessModal(false)
     setCreatedLink(null)
-    refresh()
+    refetchLinks()
   }
   
   const formatDate = (dateString: string) => {
@@ -478,8 +553,7 @@ export function LinksPage() {
         isOpen={showSuccessModal}
         onClose={handleSuccessModalClose}
         link={createdLink as any} // TODO: Fix type
-        campaignName={createdLink?.campaign_context?.campaign_name}
-        clientName={createdLink?.campaign_context?.client_name}
+        campaignName={createdLink?.campaign_name}
         onCreateAnother={handleCreateAnother}
         createdFrom="links"
       />
@@ -488,11 +562,11 @@ export function LinksPage() {
 }
 
 interface LinkCardProps {
-  link: InfluencerLink
+  link: ReferralLink
   onCopy: (url: string) => void
-  onEdit: (link: InfluencerLink) => void
-  onDelete: (link: InfluencerLink) => void
-  onToggleStatus: (link: InfluencerLink) => void
+  onEdit: (link: ReferralLink) => void
+  onDelete: (link: ReferralLink) => void
+  onToggleStatus: (link: ReferralLink) => void
   formatDate: (date: string) => string
 }
 
@@ -501,7 +575,7 @@ function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }
   
   const handleDownloadQR = () => {
     try {
-      const svg = document.getElementById(`qr-code-svg-${link.id}`)
+      const svg = document.getElementById('qr-code-svg-' + link.id)
       if (!svg) {
         toast({
           title: "Error",
@@ -522,7 +596,7 @@ function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }
         if (ctx) {
           ctx.drawImage(img, 0, 0)
           const downloadLink = document.createElement('a')
-          downloadLink.download = `qr-code-${link.referral_code || 'referral'}.png`
+          downloadLink.download = 'qr-code-' + (link.referral_code || 'referral') + '.png'
           downloadLink.href = canvas.toDataURL()
           downloadLink.click()
           toast({
@@ -589,7 +663,7 @@ function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }
                   </div>
                   <div className="flex flex-col items-center space-y-4 p-4 bg-muted/30 rounded-lg">
                     <QRCodeSVG
-                      id={`qr-code-svg-${link.id}`}
+                      id={'qr-code-svg-' + link.id}
                       value={link.referral_url}
                       size={200}
                       bgColor="#ffffff"
@@ -617,7 +691,7 @@ function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }
                 <Badge variant={link.is_active ? "default" : "secondary"} className="text-xs">
                   {link.is_active ? "Active" : "Inactive"}
                 </Badge>
-                {link.campaign_context && (
+                {link.campaign_name && (
                   <Badge variant="outline" className="text-blue-700 border-blue-200 text-xs">
                     Campaign
                   </Badge>
@@ -663,14 +737,11 @@ function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }
             <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
               <span className="font-medium">{link.platform}</span>
               <span>•</span>
-              <span>{formatDate(link.created_at)}</span>
-              {link.campaign_context && (
+              <span>{formatDate(link.created_at || new Date().toISOString())}</span>
+              {link.campaign_name && (
                 <>
                   <span>•</span>
-                  <span className="text-blue-700 font-medium">{link.campaign_context.campaign_name}</span>
-                  <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
-                    {link.campaign_context.client_name}
-                  </span>
+                  <span className="text-blue-700 font-medium">{link.campaign_name}</span>
                 </>
               )}
               {link.expires_at && (

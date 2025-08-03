@@ -2,24 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
+import { ReferralLink } from "@/schemas/referral"
 
-// TODO: Define the new API-based types for referral links
-export interface ReferralLink {
-  id: string;
-  title: string;
-  original_url: string;
-  clicks: number;
-  conversions: number;
-  campaign_id: string | null;
-  campaign_name: string | null;
-  platform: string;
-  description: string | null;
-  thumbnail_url: string | null;
-  is_active: boolean;
-  expires_at: string | null;
-}
-
-export function useReferralLinksApi() {
+export function useReferralLinkManager() {
   const { user } = useAuth()
   const [links, setLinks] = useState<ReferralLink[]>([])
   const [loading, setLoading] = useState(true)

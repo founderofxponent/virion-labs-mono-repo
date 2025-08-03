@@ -2,41 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
+import { InfluencerMetrics } from "@/schemas/referral"
 
-// Interfaces based on the new influencer-metrics API response
-export interface InfluencerLink {
-  id: string;
-  title: string;
-  platform: string;
-  clicks: number;
-  conversions: number;
-  earnings: number;
-  conversion_rate: number;
-  referral_url: string;
-  original_url: string;
-  thumbnail_url?: string;
-  is_active: boolean;
-  created_at: string;
-  expires_at?: string;
-  description?: string;
-  referral_code: string;
-  campaign_context?: {
-    campaign_name: string;
-    client_name: string;
-  };
-}
-
-export interface InfluencerMetrics {
-  total_links: number
-  active_links: number
-  total_clicks: number
-  total_conversions: number
-  total_earnings: number
-  overall_conversion_rate: number
-  links: InfluencerLink[]
-}
-
-export function useReferralLinksApi() {
+export function useInfluencerMetricsApi() {
   const { user } = useAuth()
   const [metrics, setMetrics] = useState<InfluencerMetrics | null>(null)
   const [loading, setLoading] = useState(true)

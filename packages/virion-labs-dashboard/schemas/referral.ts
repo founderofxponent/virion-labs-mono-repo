@@ -1,20 +1,34 @@
 import { Media, Campaign, User, CampaignOnboardingResponse } from '@/schemas';
 
+// Unified referral link interface supporting both CRUD and analytics use cases
 export interface ReferralLink {
-  id: number;
+  id: string | number;
   title: string;
-  description?: string;
+  description?: string | null;
   platform: string;
   original_url: string;
   referral_code: string;
   referral_url: string;
-  thumbnail_url?: Media[];
-  clicks?: number;
-  conversions?: number;
-  conversion_rate?: number;
+  thumbnail_url?: string | Media[] | null;
+  clicks: number;
+  conversions: number;
+  conversion_rate?: number | null;
   earnings?: number;
-  is_active?: boolean;
-  expires_at?: string;
+  is_active: boolean;
+  expires_at?: string | null;
+  created_at?: string;
+  
+  // Campaign context for analytics
+  campaign_context?: {
+    campaign_name: string;
+    client_name: string;
+  };
+  
+  // Campaign IDs for CRUD operations
+  campaign_id?: string | null;
+  campaign_name?: string | null;
+  
+  // Extended Strapi fields (optional)
   discord_invite_url?: string;
   discord_guild_id?: string;
   redirect_to_discord?: boolean;
@@ -27,6 +41,17 @@ export interface ReferralLink {
   referral_analytics?: ReferralAnalytic[];
   campaign_onboarding_responses?: CampaignOnboardingResponse[];
   influencer?: User;
+}
+
+// Analytics-specific interface for metrics API
+export interface InfluencerMetrics {
+  total_links: number;
+  active_links: number;
+  total_clicks: number;
+  total_conversions: number;
+  total_earnings: number;
+  overall_conversion_rate: number;
+  links: ReferralLink[];
 }
 
 export interface ReferralAnalytic {

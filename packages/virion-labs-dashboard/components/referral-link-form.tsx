@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { useReferralLinksApi } from "@/hooks/use-referral-links-api"
+import { useReferralLinkManager } from "@/hooks/use-referral-link-manager"
 import { useAvailableCampaignsApi } from "@/hooks/use-available-campaigns-api"
 import { type ReferralLink, type Platform } from "@/lib/supabase"
 import { toast } from "sonner"
@@ -43,7 +43,7 @@ interface ReferralLinkFormProps {
 
 export function ReferralLinkForm({ link, onSuccess, onCancel, preselectedCampaignId }: ReferralLinkFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { addLink, updateLink } = useReferralLinksApi()
+  const { addLink, updateLink } = useReferralLinkManager()
   const { campaigns: availableCampaigns } = useAvailableCampaignsApi()
   const isEditing = !!link
 
