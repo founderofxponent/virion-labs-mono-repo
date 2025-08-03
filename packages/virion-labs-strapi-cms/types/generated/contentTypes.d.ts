@@ -773,7 +773,7 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
     singularName: 'client';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     campaigns: Schema.Attribute.Relation<'oneToMany', 'api::campaign.campaign'>;
