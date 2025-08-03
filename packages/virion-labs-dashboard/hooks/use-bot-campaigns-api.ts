@@ -103,6 +103,9 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
+          name: data.name,
+          guild_id: data.guild_id,
+          client: data.client,
           campaign_data: data,
           setup_options: {}
       })
