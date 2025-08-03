@@ -95,7 +95,8 @@ class OnboardingService:
             # Get the referral link to find the referral code
             filters = {
                 "filters[id][$eq]": referral_link_id,
-                "populate": "campaign,influencer"
+                "populate[0]": "campaign",
+                "populate[1]": "influencer"
             }
             referral_links = await strapi_client.get_referral_links(filters=filters)
             

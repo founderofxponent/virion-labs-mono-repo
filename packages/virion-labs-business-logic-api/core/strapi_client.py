@@ -529,9 +529,14 @@ class StrapiClient:
     async def get_referral_links(self, filters: Optional[Dict] = None) -> List[ReferralLink]:
         """Fetches a list of referral links from Strapi, returning them as validated Pydantic models."""
         logger.info("StrapiClient: Fetching referral links from Strapi.")
-        params = {"populate": "*"}
+        params = {}
         if filters:
             params.update(filters)
+        
+        # Only set default populate if no populate parameters are provided
+        has_populate = any(key.startswith('populate') for key in params.keys())
+        if not has_populate:
+            params["populate"] = "*"
         
         response = await self._request("GET", "referral-links", params=params)
         return [ReferralLink(**item) for item in response.get("data", [])]
@@ -554,12 +559,12 @@ class StrapiClient:
         response = await self._request("POST", "referral-links", data=data)
         return ReferralLink(**response.get("data"))
 
-    async def update_referral_link(self, link_id: int, link_data: StrapiReferralLinkUpdate) -> ReferralLink:
+    async def update_referral_link(self, document_id: str, link_data: StrapiReferralLinkUpdate) -> ReferralLink:
         """Updates a referral link in Strapi using its ID and a validated Pydantic model."""
-        logger.info(f"StrapiClient: Updating referral link {link_id} in Strapi.")
+        logger.info(f"StrapiClient: Updating referral link {document_id} in Strapi.")
         payload = link_data.model_dump(exclude_unset=True)
         data = {"data": payload}
-        response = await self._request("PUT", f"referral-links/{link_id}", data=data)
+        response = await self._request("PUT", f"referral-links/{document_id}", data=data)
         return ReferralLink(**response.get("data"))
 
     async def delete_referral_link(self, link_id: str) -> Dict:

@@ -57,9 +57,10 @@ export default function ReferralLinkPage() {
   useEffect(() => {
     const fetchLinkData = async () => {
       try {
-        // Add timestamp to bust cache
+        // Call business logic API directly
+        const businessLogicApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
         const timestamp = new Date().getTime()
-        const response = await fetch(`/api/referral/${params.code}/campaign?t=${timestamp}`, {
+        const response = await fetch(`${businessLogicApiUrl}/api/v1/tracking/campaign/${params.code}?t=${timestamp}`, {
           cache: 'no-store',
           headers: {
             'Cache-Control': 'no-cache'

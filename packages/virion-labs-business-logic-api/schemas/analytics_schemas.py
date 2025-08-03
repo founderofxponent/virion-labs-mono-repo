@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from pydantic import BaseModel, Field, validator
+from typing import List, Optional, Literal, Dict
 from datetime import datetime
 
 class CampaignExportStats(BaseModel):
@@ -45,11 +45,17 @@ class OnboardingExportResponse(BaseModel):
 
 # --- Influencer Metrics Schemas ---
 
+class CampaignContext(BaseModel):
+    """Structured campaign context for dashboard compatibility."""
+    campaign_name: str
+    client_name: str
+
 class InfluencerLinkMetrics(BaseModel):
     """
     Defines the structure for a single referral link with metrics in influencer analytics.
     """
     id: int
+    documentId: str  # Added for dashboard compatibility
     title: str
     platform: str
     clicks: int = 0
@@ -64,7 +70,8 @@ class InfluencerLinkMetrics(BaseModel):
     expires_at: Optional[str] = None
     description: Optional[str] = None
     referral_code: str
-    campaign_context: Optional[dict] = None
+    campaign_context: Optional[CampaignContext] = None
+    last_conversion_at: Optional[str] = None  # Added for dashboard compatibility
 
 class InfluencerMetricsResponse(BaseModel):
     """

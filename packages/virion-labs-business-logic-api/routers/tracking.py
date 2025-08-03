@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, Response
 from fastapi.responses import RedirectResponse
 from core.strapi_client import strapi_client
-from schemas.tracking_schemas import ClickTrackingRequest, ConversionTrackingRequest, TrackingResponse
+from schemas.tracking_schemas import ClickTrackingRequest, ConversionTrackingRequest, TrackingResponse, ReferralStatsResponse
 from typing import Optional
 import logging
 import httpx
@@ -29,7 +29,8 @@ async def track_click(
         # Find the referral link by referral_code
         filters = {
             "filters[referral_code][$eq]": referral_code,
-            "populate": "campaign,influencer"
+            "populate[0]": "campaign",
+            "populate[1]": "influencer"
         }
         referral_links = await strapi_client.get_referral_links(filters=filters)
         
@@ -50,7 +51,7 @@ async def track_click(
         update_data = StrapiReferralLinkUpdate(clicks=new_clicks)
         
         updated_link = await strapi_client.update_referral_link(
-            referral_link.id, 
+            referral_link.documentId, 
             update_data
         )
         
@@ -91,7 +92,8 @@ async def redirect_and_track(referral_code: str, request: Request):
         # Find the referral link
         filters = {
             "filters[referral_code][$eq]": referral_code,
-            "populate": "campaign,influencer"
+            "populate[0]": "campaign",
+            "populate[1]": "influencer"
         }
         referral_links = await strapi_client.get_referral_links(filters=filters)
         
@@ -110,12 +112,12 @@ async def redirect_and_track(referral_code: str, request: Request):
         from schemas.strapi import StrapiReferralLinkUpdate
         update_data = StrapiReferralLinkUpdate(clicks=new_clicks)
         
-        await strapi_client.update_referral_link(referral_link.id, update_data)
+        await strapi_client.update_referral_link(referral_link.documentId, update_data)
         
         logger.info(f"Click tracked and incremented to {new_clicks}")
         
-        # Create redirect response
-        target_url = referral_link.referral_url
+        # Create redirect response to the original target URL
+        target_url = referral_link.original_url
         response = RedirectResponse(url=target_url, status_code=302)
         
         # Set tracking cookie for conversion attribution (expires in 30 days)
@@ -158,7 +160,8 @@ async def track_conversion(
         # Find the referral link
         filters = {
             "filters[referral_code][$eq]": referral_code,
-            "populate": "campaign,influencer"
+            "populate[0]": "campaign",
+            "populate[1]": "influencer"
         }
         referral_links = await strapi_client.get_referral_links(filters=filters)
         
@@ -187,7 +190,7 @@ async def track_conversion(
         )
         
         updated_link = await strapi_client.update_referral_link(
-            referral_link.id, 
+            referral_link.documentId, 
             update_data
         )
         
@@ -247,7 +250,7 @@ async def track_conversion_with_cookie(
         )
 
 
-@router.get("/stats/{referral_code}", response_model=TrackingResponse)
+@router.get("/stats/{referral_code}", response_model=ReferralStatsResponse)
 async def get_referral_stats(referral_code: str):
     """
     Gets current statistics for a referral link.
@@ -258,7 +261,8 @@ async def get_referral_stats(referral_code: str):
         # Find the referral link
         filters = {
             "filters[referral_code][$eq]": referral_code,
-            "populate": "campaign,influencer"
+            "populate[0]": "campaign",
+            "populate[1]": "influencer"
         }
         referral_links = await strapi_client.get_referral_links(filters=filters)
         
@@ -270,18 +274,132 @@ async def get_referral_stats(referral_code: str):
         
         referral_link = referral_links[0]
         
-        return TrackingResponse(
-            success=True,
-            message=f"Stats retrieved for referral code {referral_code}",
-            clicks=referral_link.clicks or 0,
-            conversions=referral_link.conversions or 0,
-            earnings=referral_link.earnings or 0.0
+        # Calculate conversion rate
+        clicks = referral_link.clicks or 0
+        conversions = referral_link.conversions or 0
+        conversion_rate = (conversions / clicks * 100) if clicks > 0 else 0.0
+        
+        return ReferralStatsResponse(
+            id=referral_link.documentId,
+            documentId=referral_link.documentId,
+            referral_code=referral_link.referral_code,
+            title=referral_link.title,
+            platform=referral_link.platform,
+            clicks=clicks,
+            conversions=conversions,
+            earnings=referral_link.earnings or 0.0,
+            conversion_rate=conversion_rate,
+            referral_url=referral_link.referral_url,
+            original_url=referral_link.original_url,
+            last_click_at=referral_link.last_click_at,
+            last_conversion_at=referral_link.last_conversion_at,
+            created_at=referral_link.created_at,
+            is_active=referral_link.is_active
         )
         
     except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"Error getting stats for referral code {referral_code}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+
+@router.get("/campaign/{referral_code}")
+async def get_referral_campaign_data(referral_code: str):
+    """
+    Gets campaign landing page data for a referral link.
+    This is used by the dashboard's /r/[code] page to display landing page content.
+    """
+    try:
+        logger.info(f"Getting campaign data for referral code: {referral_code}")
+        
+        # Find the referral link
+        filters = {
+            "filters[referral_code][$eq]": referral_code,
+            "populate[0]": "campaign",
+            "populate[1]": "influencer"
+        }
+        referral_links = await strapi_client.get_referral_links(filters=filters)
+        
+        if not referral_links:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Referral link with code '{referral_code}' not found"
+            )
+        
+        referral_link = referral_links[0]
+        
+        # Check if link is active
+        if not referral_link.is_active:
+            # Return disabled link with status information
+            return {
+                "link_disabled": True,
+                "referral_link": {
+                    "id": str(referral_link.documentId),
+                    "title": referral_link.title,
+                    "description": referral_link.description,
+                    "platform": referral_link.platform,
+                    "influencer_id": str(referral_link.influencer.id) if referral_link.influencer else None,
+                },
+                "campaign": {
+                    "id": str(referral_link.campaign.id) if referral_link.campaign else None,
+                    "campaign_name": referral_link.campaign.name if referral_link.campaign else "Unknown Campaign",
+                    "campaign_type": "referral",
+                    "brand_color": "#6366f1",  # Default color
+                    "clients": {
+                        "name": "Client Name",  # This would come from campaign data
+                        "industry": "Technology"
+                    }
+                },
+                "influencer": {
+                    "full_name": referral_link.influencer.full_name if referral_link.influencer else "Unknown Influencer",
+                    "avatar_url": None
+                },
+                "status": {
+                    "reason": "campaign_paused" if referral_link.expires_at and datetime.now() > referral_link.expires_at else "link_disabled",
+                    "message": "This referral link is temporarily unavailable.",
+                    "can_reactivate": True,
+                    "last_change": {
+                        "action": "disabled",
+                        "timestamp": datetime.now().isoformat(),
+                        "reason": "Link inactive"
+                    }
+                }
+            }
+        
+        # Return active link data for landing page
+        return {
+            "link_disabled": False,
+            "referral_link": {
+                "id": str(referral_link.documentId),
+                "title": referral_link.title,
+                "description": referral_link.description,
+                "platform": referral_link.platform,
+                "influencer_id": str(referral_link.influencer.id) if referral_link.influencer else None,
+            },
+            "campaign": {
+                "id": str(referral_link.campaign.id) if referral_link.campaign else None,
+                "campaign_name": referral_link.campaign.name if referral_link.campaign else "Referral Campaign",
+                "campaign_type": "referral",
+                "brand_color": "#6366f1",  # This would come from campaign branding
+                "clients": {
+                    "name": "Client Name",  # This would come from campaign data
+                    "industry": "Technology"
+                }
+            },
+            "influencer": {
+                "full_name": referral_link.influencer.full_name if referral_link.influencer else "Influencer",
+                "avatar_url": None
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error getting campaign data for referral code {referral_code}: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"

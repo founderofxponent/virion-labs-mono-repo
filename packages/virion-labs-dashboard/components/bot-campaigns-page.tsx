@@ -221,9 +221,9 @@ export default function BotCampaignsPage() {
   
 
   const handlePreviewLandingPage = (campaign: any) => {
-    // Open landing page preview in a new window
-    const previewUrl = `/api/referral/preview/${campaign.documentId || campaign.id}`
-    window.open(previewUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes')
+    // TODO: Implement preview via business logic API
+    // For now, show an alert that this feature needs to be implemented
+    alert('Landing page preview will be available once the campaign has active referral links. Create a referral link first, then use the /r/{code} URL to preview.')
   }
 
   const handlePublishToDiscord = async () => {

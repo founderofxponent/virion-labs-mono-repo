@@ -257,6 +257,13 @@ export function useDashboardData(userSettings: UserSettings | null) {
       return
     }
 
+    // For influencer role, ensure userSettings is available before proceeding
+    const roleName = typeof profile.role === 'object' && profile.role !== null ? profile.role.name : profile.role;
+    if ((roleName === 'Influencer' || roleName === 'influencer') && !userSettings) {
+      setLoading(false)
+      return
+    }
+
     const token = getToken()
     if (!token) {
       setError("Authentication token not found.")

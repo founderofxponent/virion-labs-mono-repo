@@ -41,6 +41,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { useReferralLinkManager } from "@/hooks/use-referral-link-manager"
+import { useTrackingStats } from "@/hooks/use-tracking-stats"
 import { useInfluencerMetricsApi } from "@/hooks/use-influencer-metrics-api"
 import { type ReferralLink } from "@/schemas/referral"
 import { useToast } from "@/hooks/use-toast"
@@ -65,6 +66,11 @@ export function LinksPage() {
     loading: metricsLoading,
     error: metricsError
   } = useInfluencerMetricsApi()
+  
+  const {
+    refreshStats,
+    loading: trackingLoading
+  } = useTrackingStats()
   
   const loading = linksLoading || metricsLoading
   const error = linksError || metricsError
@@ -505,6 +511,7 @@ export function LinksPage() {
               onDelete={setDeletingLink}
               onToggleStatus={handleToggleStatus}
               formatDate={formatDate}
+              trackingLoading={trackingLoading}
             />
           ))}
         </div>
@@ -568,9 +575,10 @@ interface LinkCardProps {
   onDelete: (link: ReferralLink) => void
   onToggleStatus: (link: ReferralLink) => void
   formatDate: (date: string) => string
+  trackingLoading: boolean
 }
 
-function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }: LinkCardProps) {
+function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate, trackingLoading }: LinkCardProps) {
   const { toast } = useToast()
   
   const handleDownloadQR = () => {
@@ -720,6 +728,29 @@ function LinkCard({ link, onCopy, onEdit, onDelete, onToggleStatus, formatDate }
                         Activate
                       </>
                     )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={async () => {
+                      try {
+                        await refreshStats(link.referral_code)
+                        // Refresh the links to get updated data
+                        refetchLinks()
+                        toast({
+                          title: "Success",
+                          description: "Link stats refreshed successfully!"
+                        })
+                      } catch (error) {
+                        toast({
+                          title: "Error",
+                          description: "Failed to refresh stats. Please try again.",
+                          variant: "destructive"
+                        })
+                      }
+                    }}
+                    disabled={trackingLoading}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${trackingLoading ? 'animate-spin' : ''}`} />
+                    Refresh Stats
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 

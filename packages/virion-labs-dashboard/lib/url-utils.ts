@@ -43,7 +43,7 @@ export function generateReferralUrl(code: string): string {
   const cleanDomain = domain.replace(/\/$/, '')
   const cleanCode = code.replace(/^\//, '')
   
-  return `${cleanDomain}/api/referral/${cleanCode}`
+  return `${cleanDomain}/r/${cleanCode}`
 }
 
 /**

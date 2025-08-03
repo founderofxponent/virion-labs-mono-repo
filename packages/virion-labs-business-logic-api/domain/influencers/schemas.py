@@ -31,6 +31,7 @@ class ReferralLinkUpdate(BaseModel):
     conversions: Optional[int] = None
     earnings: Optional[float] = None
     last_conversion_at: Optional[datetime] = None
+    documentId: Optional[str] = None  # Added for dashboard compatibility
 
 class ReferralLinkResponse(ReferralLinkBase):
     """Full referral link model for API responses."""

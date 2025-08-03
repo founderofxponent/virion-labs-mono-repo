@@ -79,7 +79,8 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
 
   const fetchCampaignData = async () => {
     try {
-      const response = await fetch(`/api/referral/${referralCode}/campaign`)
+      const businessLogicApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const response = await fetch(`${businessLogicApiUrl}/api/v1/tracking/campaign/${referralCode}`)
       const result = await response.json()
       
       if (response.ok) {
@@ -96,8 +97,19 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
 
   const trackClick = async () => {
     try {
-      // This will be handled by the existing referral tracking system
-      await fetch(`/api/referral/${referralCode}`, { method: 'HEAD' })
+      // Track click via business logic API
+      const businessLogicApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      await fetch(`${businessLogicApiUrl}/api/v1/tracking/click/${referralCode}`, { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_agent: navigator.userAgent,
+          referrer: document.referrer || '',
+          device_type: /Mobile|Android|iPhone|iPad/.test(navigator.userAgent) ? 'mobile' : 'desktop'
+        })
+      })
     } catch (error) {
       console.error('Failed to track click:', error)
     }
@@ -438,11 +450,11 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
                       className="w-16 h-16 rounded-full flex items-center justify-center text-white font-semibold text-lg"
                       style={{ backgroundColor: brandColor }}
                     >
-                      {influencer.full_name.charAt(0)}
+                      {influencer.full_name?.charAt(0) || 'U'}
                     </div>
                   )}
                   <div>
-                    <p className="font-semibold text-lg">{influencer.full_name}</p>
+                    <p className="font-semibold text-lg">{influencer.full_name || 'Unknown Influencer'}</p>
                     <p className="text-sm text-muted-foreground">Trusted Referrer</p>
                   </div>
                 </div>

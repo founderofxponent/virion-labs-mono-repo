@@ -34,11 +34,17 @@ class TrackingResponse(BaseModel):
 
 class ReferralStatsResponse(BaseModel):
     """Response model for referral link statistics."""
+    id: int = Field(description="Referral link ID")
+    documentId: str = Field(description="Referral link document ID")
     referral_code: str = Field(description="The referral code")
+    title: str = Field(description="Referral link title")
+    platform: str = Field(description="Platform name")
     clicks: int = Field(description="Total clicks")
     conversions: int = Field(description="Total conversions")
     earnings: float = Field(description="Total earnings")
     conversion_rate: float = Field(description="Conversion rate as a percentage")
+    referral_url: str = Field(description="The full referral URL")
+    original_url: str = Field(description="The original destination URL")
     last_click_at: Optional[datetime] = Field(None, description="Timestamp of last click")
     last_conversion_at: Optional[datetime] = Field(None, description="Timestamp of last conversion")
     created_at: Optional[datetime] = Field(None, description="When the referral link was created")
