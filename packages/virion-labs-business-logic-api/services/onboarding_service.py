@@ -45,6 +45,10 @@ class OnboardingService:
         try:
             strapi_data = StrapiCampaignOnboardingCompletionCreate(**completion_data.model_dump())
             created_event = await strapi_client.create_onboarding_completion(strapi_data)
+            
+            # Track conversion if there's a referral link in the completion data
+            await self._track_conversion_if_applicable(completion_data, current_user)
+            
             return CampaignOnboardingCompletionResponse(**created_event.model_dump())
         except Exception as e:
             logger.error(f"Error creating onboarding completion event: {e}")
@@ -78,6 +82,57 @@ class OnboardingService:
         except Exception as e:
             logger.error(f"Error listing onboarding responses: {e}")
             raise HTTPException(status_code=500, detail="Failed to list onboarding responses.")
+
+    async def _track_conversion_if_applicable(self, completion_data: CampaignOnboardingCompletionCreate, current_user: User):
+        """Helper method to track referral conversions when onboarding is completed."""
+        try:
+            # Check if the completion data includes a referral_link_id
+            referral_link_id = getattr(completion_data, 'referral_link_id', None)
+            if not referral_link_id:
+                logger.info("No referral link associated with onboarding completion, skipping conversion tracking")
+                return
+
+            # Get the referral link to find the referral code
+            filters = {
+                "filters[id][$eq]": referral_link_id,
+                "populate": "campaign,influencer"
+            }
+            referral_links = await strapi_client.get_referral_links(filters=filters)
+            
+            if not referral_links:
+                logger.warning(f"Referral link with ID {referral_link_id} not found, cannot track conversion")
+                return
+
+            referral_link = referral_links[0]
+            referral_code = referral_link.referral_code
+
+            # Track the conversion
+            current_conversions = referral_link.conversions or 0
+            current_earnings = referral_link.earnings or 0.0
+            
+            # Calculate conversion value (this could be configurable per campaign)
+            conversion_value = 10.0  # Default conversion value, should be made configurable
+            
+            new_conversions = current_conversions + 1
+            new_earnings = current_earnings + conversion_value
+
+            # Update the referral link
+            from schemas.strapi import StrapiReferralLinkUpdate
+            from datetime import datetime
+            
+            update_data = StrapiReferralLinkUpdate(
+                conversions=new_conversions,
+                earnings=new_earnings,
+                last_conversion_at=datetime.now()
+            )
+
+            await strapi_client.update_referral_link(referral_link.id, update_data)
+            
+            logger.info(f"Conversion tracked for referral code {referral_code}: conversions {current_conversions} -> {new_conversions}, earnings {current_earnings} -> {new_earnings}")
+
+        except Exception as e:
+            logger.error(f"Error tracking conversion for onboarding completion: {e}")
+            # Don't raise the exception as this shouldn't fail the onboarding completion
 
 # Global instance of the service
 onboarding_service = OnboardingService()

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     API_VERSION: str = "1.0.0"
     API_PORT: int = 8000
     API_URL: str
+    REFERRAL_BASE_URL: str = "https://virionlabs.io/r"
 
     # Authentication
     JWT_SECRET: str # This might be used for signing the API's own tokens later

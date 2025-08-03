@@ -27,6 +27,10 @@ class ReferralLinkUpdate(BaseModel):
     is_active: Optional[bool] = None
     expires_at: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
+    clicks: Optional[int] = None
+    conversions: Optional[int] = None
+    earnings: Optional[float] = None
+    last_conversion_at: Optional[datetime] = None
 
 class ReferralLinkResponse(ReferralLinkBase):
     """Full referral link model for API responses."""

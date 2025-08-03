@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from core.config import settings
-from routers import health, operations, auth, users, integrations, influencer, admin, analytics
+from routers import health, operations, auth, users, integrations, influencer, admin, analytics, tracking
 import logging
 
 # Configure logging
@@ -41,6 +41,7 @@ app.include_router(integrations.router, prefix="/api/v1/integrations", tags=["In
 app.include_router(influencer.router, prefix="/api/v1/influencer", tags=["Influencer"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
+app.include_router(tracking.router, prefix="/api/v1/tracking", tags=["Tracking"])
 
 # Mount static files directory for exports
 app.mount("/exports", StaticFiles(directory="temp_exports"), name="exports")

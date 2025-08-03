@@ -1,0 +1,288 @@
+from fastapi import APIRouter, HTTPException, Request, Depends, Response
+from fastapi.responses import RedirectResponse
+from core.strapi_client import strapi_client
+from schemas.tracking_schemas import ClickTrackingRequest, ConversionTrackingRequest, TrackingResponse
+from typing import Optional
+import logging
+import httpx
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+
+@router.post("/click/{referral_code}", response_model=TrackingResponse)
+async def track_click(
+    referral_code: str,
+    request: Request,
+    tracking_data: Optional[ClickTrackingRequest] = None
+):
+    """
+    Tracks a click on a referral link by incrementing the clicks count.
+    
+    This endpoint should be called when a user clicks a referral link.
+    It finds the referral link by code and increments the clicks counter.
+    """
+    try:
+        logger.info(f"Tracking click for referral code: {referral_code}")
+        
+        # Find the referral link by referral_code
+        filters = {
+            "filters[referral_code][$eq]": referral_code,
+            "populate": "campaign,influencer"
+        }
+        referral_links = await strapi_client.get_referral_links(filters=filters)
+        
+        if not referral_links:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Referral link with code '{referral_code}' not found"
+            )
+        
+        referral_link = referral_links[0]
+        
+        # Increment clicks count
+        current_clicks = referral_link.clicks or 0
+        new_clicks = current_clicks + 1
+        
+        # Update the referral link with new clicks count
+        from schemas.strapi import StrapiReferralLinkUpdate
+        update_data = StrapiReferralLinkUpdate(clicks=new_clicks)
+        
+        updated_link = await strapi_client.update_referral_link(
+            referral_link.id, 
+            update_data
+        )
+        
+        logger.info(f"Click tracked successfully. Clicks updated from {current_clicks} to {new_clicks}")
+        
+        return TrackingResponse(
+            success=True,
+            message=f"Click tracked successfully for referral code {referral_code}",
+            clicks=new_clicks,
+            conversions=referral_link.conversions or 0,
+            earnings=referral_link.earnings or 0.0
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error tracking click for referral code {referral_code}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while tracking click: {str(e)}"
+        )
+
+
+@router.get("/r/{referral_code}")
+async def redirect_and_track(referral_code: str, request: Request):
+    """
+    Handles referral link redirects with click tracking.
+    
+    This endpoint:
+    1. Finds the referral link by code
+    2. Tracks the click (increments counter)
+    3. Redirects user to the target URL
+    4. Sets a tracking cookie for conversion attribution
+    """
+    try:
+        logger.info(f"Processing referral redirect for code: {referral_code}")
+        
+        # Find the referral link
+        filters = {
+            "filters[referral_code][$eq]": referral_code,
+            "populate": "campaign,influencer"
+        }
+        referral_links = await strapi_client.get_referral_links(filters=filters)
+        
+        if not referral_links:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Referral link with code '{referral_code}' not found"
+            )
+        
+        referral_link = referral_links[0]
+        
+        # Track the click (increment counter)
+        current_clicks = referral_link.clicks or 0
+        new_clicks = current_clicks + 1
+        
+        from schemas.strapi import StrapiReferralLinkUpdate
+        update_data = StrapiReferralLinkUpdate(clicks=new_clicks)
+        
+        await strapi_client.update_referral_link(referral_link.id, update_data)
+        
+        logger.info(f"Click tracked and incremented to {new_clicks}")
+        
+        # Create redirect response
+        target_url = referral_link.referral_url
+        response = RedirectResponse(url=target_url, status_code=302)
+        
+        # Set tracking cookie for conversion attribution (expires in 30 days)
+        response.set_cookie(
+            key="virion_referral_code",
+            value=referral_code,
+            max_age=30 * 24 * 60 * 60,  # 30 days in seconds
+            httponly=True,
+            secure=True,
+            samesite="lax"
+        )
+        
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error processing referral redirect for code {referral_code}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+
+@router.post("/conversion/{referral_code}", response_model=TrackingResponse)
+async def track_conversion(
+    referral_code: str,
+    conversion_data: ConversionTrackingRequest,
+    request: Request
+):
+    """
+    Tracks a conversion for a referral link.
+    
+    This endpoint should be called when a user completes a conversion action
+    (e.g., signs up, makes a purchase, completes onboarding).
+    """
+    try:
+        logger.info(f"Tracking conversion for referral code: {referral_code}")
+        
+        # Find the referral link
+        filters = {
+            "filters[referral_code][$eq]": referral_code,
+            "populate": "campaign,influencer"
+        }
+        referral_links = await strapi_client.get_referral_links(filters=filters)
+        
+        if not referral_links:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Referral link with code '{referral_code}' not found"
+            )
+        
+        referral_link = referral_links[0]
+        
+        # Increment conversions and add earnings
+        current_conversions = referral_link.conversions or 0
+        current_earnings = referral_link.earnings or 0.0
+        
+        new_conversions = current_conversions + 1
+        conversion_value = conversion_data.conversion_value or 0.0
+        new_earnings = current_earnings + conversion_value
+        
+        # Update the referral link
+        from schemas.strapi import StrapiReferralLinkUpdate
+        update_data = StrapiReferralLinkUpdate(
+            conversions=new_conversions,
+            earnings=new_earnings,
+            last_conversion_at=datetime.now().isoformat()
+        )
+        
+        updated_link = await strapi_client.update_referral_link(
+            referral_link.id, 
+            update_data
+        )
+        
+        logger.info(f"Conversion tracked successfully. Conversions: {current_conversions} -> {new_conversions}, Earnings: {current_earnings} -> {new_earnings}")
+        
+        return TrackingResponse(
+            success=True,
+            message=f"Conversion tracked successfully for referral code {referral_code}",
+            clicks=referral_link.clicks or 0,
+            conversions=new_conversions,
+            earnings=new_earnings
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error tracking conversion for referral code {referral_code}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error while tracking conversion: {str(e)}"
+        )
+
+
+@router.post("/conversion", response_model=TrackingResponse)
+async def track_conversion_with_cookie(
+    conversion_data: ConversionTrackingRequest,
+    request: Request
+):
+    """
+    Tracks a conversion using the referral code from the user's cookie.
+    
+    This is useful for tracking conversions when the referral code
+    is stored in a cookie from a previous click.
+    """
+    try:
+        # Get referral code from cookie
+        referral_code = request.cookies.get("virion_referral_code")
+        
+        if not referral_code:
+            raise HTTPException(
+                status_code=400,
+                detail="No referral tracking cookie found"
+            )
+        
+        logger.info(f"Tracking conversion from cookie for referral code: {referral_code}")
+        
+        # Use the main conversion tracking logic
+        return await track_conversion(referral_code, conversion_data, request)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error tracking conversion from cookie: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+
+@router.get("/stats/{referral_code}", response_model=TrackingResponse)
+async def get_referral_stats(referral_code: str):
+    """
+    Gets current statistics for a referral link.
+    """
+    try:
+        logger.info(f"Getting stats for referral code: {referral_code}")
+        
+        # Find the referral link
+        filters = {
+            "filters[referral_code][$eq]": referral_code,
+            "populate": "campaign,influencer"
+        }
+        referral_links = await strapi_client.get_referral_links(filters=filters)
+        
+        if not referral_links:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Referral link with code '{referral_code}' not found"
+            )
+        
+        referral_link = referral_links[0]
+        
+        return TrackingResponse(
+            success=True,
+            message=f"Stats retrieved for referral code {referral_code}",
+            clicks=referral_link.clicks or 0,
+            conversions=referral_link.conversions or 0,
+            earnings=referral_link.earnings or 0.0
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error getting stats for referral code {referral_code}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        )

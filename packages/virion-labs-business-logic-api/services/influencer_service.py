@@ -11,6 +11,7 @@ from schemas.strapi import (
     StrapiReferralLinkUpdate
 )
 from core.strapi_client import strapi_client
+from core.config import settings
 import logging
 import uuid
 import hashlib
@@ -151,7 +152,7 @@ class InfluencerService:
     def _generate_referral_url(self, referral_code: str) -> str:
         """Generate the full referral URL using the referral code."""
         # This should match your application's referral URL structure
-        base_url = "https://virionlabs.com/ref"  # Replace with actual base URL
+        base_url = settings.REFERRAL_BASE_URL
         referral_url = f"{base_url}/{referral_code}"
         
         logger.info(f"Generated referral URL: {referral_url}")
