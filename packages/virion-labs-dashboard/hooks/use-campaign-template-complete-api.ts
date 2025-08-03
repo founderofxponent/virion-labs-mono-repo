@@ -38,7 +38,7 @@ export function useCampaignTemplateCompleteAPI(templateId: string | null) {
         }
         
         const result = await response.json()
-        setTemplate(result.template)
+        setTemplate(result)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load template')
         console.error('Error loading campaign template:', err)
@@ -73,7 +73,7 @@ export function useCampaignTemplateCompleteAPI(templateId: string | null) {
           }
           
           const result = await response.json()
-          setTemplate(result.template)
+          setTemplate(result)
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to load template')
           console.error('Error loading campaign template:', err)
@@ -88,7 +88,7 @@ export function useCampaignTemplateCompleteAPI(templateId: string | null) {
 
   return {
     template,
-    landingPage: template?.default_landing_page || template?.template_config?.landing_page_config || null,
+    landingPage: template?.landing_page_template || template?.template_config?.landing_page_config || null,
     loading,
     error,
     refresh

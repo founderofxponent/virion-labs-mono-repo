@@ -14,12 +14,12 @@ import { VitalsTabProps } from "@/schemas/campaign-wizard";
 export function VitalsTab({
   formData,
   handleFieldChange,
-  handleTemplateSelect,
   clients,
-  templates,
-  clientsLoading,
-  templatesLoading,
-}: VitalsTabProps) {
+}: {
+  formData: any
+  handleFieldChange: (field: string, value: any) => void
+  clients: any[]
+}) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -36,7 +36,6 @@ export function VitalsTab({
         <Select
           value={formData.client}
           onValueChange={value => handleFieldChange("client", value)}
-          disabled={clientsLoading}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select a client" />
@@ -45,25 +44,6 @@ export function VitalsTab({
             {clients.map(client => (
               <SelectItem key={client.id} value={client.id.toString()}>
                 {client.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="campaign_template">Campaign Template</Label>
-        <Select
-          value={formData.campaign_template}
-          onValueChange={handleTemplateSelect}
-          disabled={templatesLoading}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select a template" />
-          </SelectTrigger>
-          <SelectContent>
-            {templates.map(template => (
-              <SelectItem key={template.documentId || template.id} value={template.documentId || template.id}>
-                {template.name}
               </SelectItem>
             ))}
           </SelectContent>

@@ -38,12 +38,14 @@ import { Campaign, CampaignFormData, CampaignListItem, CampaignTemplate } from "
 import { CampaignOnboardingField, UpdateOnboardingFieldData, OnboardingQuestion } from "@/schemas/campaign-onboarding-field"
 
 // Import Tab Components
+import { TemplateSelectionTab } from "./TemplateSelectionTab"
 import { VitalsTab } from "./VitalsTab"
 import { PlacementAndScheduleTab } from "./PlacementAndScheduleTab"
 import { BotIdentityTab } from "./BotIdentityTab"
 import { OnboardingFlowTab } from "./OnboardingFlowTab"
 import { AccessAndModerationTab } from "./AccessAndModerationTab"
 import { AdvancedTab } from "./AdvancedTab"
+import { ReviewTab } from "./ReviewTab"
 import { CampaignWizardSkeleton } from "./CampaignWizardSkeleton"
 
 interface CampaignWizardProps {
@@ -53,33 +55,32 @@ interface CampaignWizardProps {
 
 
 const TABS = [
+  { id: 0, title: "Template Selection", icon: FileText },
   { id: 1, title: "Vitals", icon: FileText },
   { id: 2, title: "Placement & Schedule", icon: Pin },
   { id: 3, title: "Bot Identity", icon: Bot },
   { id: 4, title: "Onboarding Flow", icon: MessageCircle },
   { id: 5, title: "Access & Moderation", icon: ShieldCheck },
   { id: 6, title: "Advanced", icon: Zap },
+  { id: 7, title: "Review & Save", icon: Save },
 ];
 
 export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const [currentStep, setCurrentStep] = useState(1)
+  const [currentStep, setCurrentStep] = useState(mode === 'create' ? 0 : 1)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [templates, setTemplates] = useState<CampaignTemplate[]>([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
-  const [userExplicitlyChangedTemplate, setUserExplicitlyChangedTemplate] = useState(false)
+  const [templateApplied, setTemplateApplied] = useState(false)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   const [localOnboardingQuestions, setLocalOnboardingQuestions] = useState<OnboardingQuestion[]>([]);
-  const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [campaignDocumentId, setCampaignDocumentId] = useState<string | null>(null);
   const [editCampaign, setEditCampaign] = useState<any>(null);
   const [editCampaignLoading, setEditCampaignLoading] = useState(false);
   const fetchedCampaignId = useRef<string | null>(null);
-  const [showTemplateConfirmDialog, setShowTemplateConfirmDialog] = useState(false);
-  const [pendingTemplateId, setPendingTemplateId] = useState<string | null>(null);
   
   const { clients, loading: clientsLoading } = useClients()
   const { campaigns, loading: campaignsLoading, createCampaign, updateCampaign, fetchSingleCampaign } = useBotCampaignsAPI()
@@ -169,17 +170,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           const data = await response.json()
           const templates = data.templates || []
           setTemplates(templates)
-          if (mode === 'create' && templates.length > 0) {
-            const firstTemplate = templates[0]
-            const templateId = firstTemplate.documentId
-            const campaignType = firstTemplate.campaign_type || 'custom'
-            setSelectedTemplateId(templateId)
-            setFormData(prev => ({ 
-              ...prev, 
-              campaign_template: templateId,
-              campaign_type: campaignType  // Add campaign_type to form data
-            }))
-          }
+          // Don't auto-select first template - let user choose
         }
       } catch (error) {
         console.error('Error loading templates:', error)
@@ -197,7 +188,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     }
   }, [mode])
 
-  // Fetch single campaign when in edit mode
+  // Fetch single campaign when in edit mode - no template logic
   useEffect(() => {
     if (mode === 'edit' && campaignId && fetchSingleCampaign && fetchedCampaignId.current !== campaignId) {
       const loadCampaign = async () => {
@@ -222,42 +213,26 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     }
   }, [mode, campaignId, fetchSingleCampaign, toast])
 
+  // Edit mode: Load campaign data directly (no template logic)
   useEffect(() => {
-    if (mode === 'edit' && editCampaign && templates.length > 0) {
+    if (mode === 'edit' && editCampaign) {
       const campaign = editCampaign
       setCampaignDocumentId(campaign.documentId || null);
-      // Find the correct template based on campaign.type
-      let templateId = ''
-      
-      // The campaign.type field contains the template identifier (e.g., "referral_onboarding")
-      // We need to find the template where template.campaign_type matches campaign.type
-      const campaignType = campaign.campaign_type
-      
-      if (campaignType) {
-        const matchingTemplate = templates.find(template =>
-          template.campaign_type === campaignType || template.id === campaignType
-        )
-        if (matchingTemplate) {
-          templateId = matchingTemplate.documentId || matchingTemplate.id
-        }
-      }
-      
-      // Fallback to custom template or first available template
-      if (!templateId) {
-        templateId = templates.find(t => t.campaign_type === 'custom')?.documentId || templates.find(t => t.campaign_type === 'custom')?.id || templates[0]?.documentId || templates[0]?.id || ''
-      }
       
       setFormData({
-        campaign_template: templateId,
-        campaign_type: campaign.campaign_type || 'custom',  // Use campaign.type field for campaign_type
+        campaign_template: '', // Clear template reference in edit mode
+        campaign_type: campaign.campaign_type || 'custom',
         client: campaign.client_id,
         name: campaign.name,
-        guild_id: campaign.guild_id, channel_id: campaign.channel_id || '',
+        guild_id: campaign.guild_id, 
+        channel_id: campaign.channel_id || '',
         bot_name: campaign.bot_name || 'Virion Bot',
         bot_personality: campaign.bot_personality || 'helpful',
         bot_response_style: campaign.bot_response_style || 'friendly',
-        brand_color: campaign.brand_color || '#6366f1', brand_logo_url: campaign.brand_logo_url || '',
-        description: campaign.description || '', welcome_message: campaign.welcome_message || '',
+        brand_color: campaign.brand_color || '#6366f1', 
+        brand_logo_url: campaign.brand_logo_url || '',
+        description: campaign.description || '', 
+        welcome_message: campaign.welcome_message || '',
         referral_tracking_enabled: campaign.referral_tracking_enabled || false,
         auto_role_assignment: campaign.auto_role_assignment || false,
         target_role_ids: campaign.target_role_ids || [],
@@ -269,14 +244,10 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         landing_page_data: campaign.landing_page_data || {},
       })
       
-      // Onboarding questions are now loaded via the useOnboardingFieldsAPI hook,
-      // which is triggered by setting the campaignDocumentId.
-      // This section is no longer needed.
-      
-      setSelectedTemplateId(templateId)
+      setTemplateApplied(true) // Skip template logic entirely in edit mode
       setInitialLoadComplete(true)
     }
-  }, [mode, editCampaign, templates])
+  }, [mode, editCampaign])
 
   useEffect(() => {
     if (mode === 'edit' && landingPage) {
@@ -291,8 +262,11 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     }
   }, [mode, landingPage]);
 
+  // Simple one-time template application
   useEffect(() => {
-    if (!templateWithLandingPage || !userExplicitlyChangedTemplate) return;
+    if (!templateWithLandingPage || templateApplied) return;
+
+    console.log('📋 Applying template as initial values:', templateWithLandingPage.name);
 
     // Handle the nested template_config structure
     const template_config = templateWithLandingPage.template_config || templateWithLandingPage;
@@ -302,17 +276,17 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     if (bot_config) {
       setFormData(prev => ({
         ...prev,
-        description: bot_config.description,
-        bot_name: bot_config.bot_name,
-        bot_personality: bot_config.bot_personality,
-        bot_response_style: bot_config.bot_response_style,
-        brand_color: bot_config.brand_color,
-        welcome_message: bot_config.welcome_message,
-        referral_tracking_enabled: bot_config.features?.referral_tracking,
-        auto_role_assignment: bot_config.features?.auto_role,
-        moderation_enabled: bot_config.features?.moderation,
-        rate_limit_per_user: bot_config.rate_limit_per_user || 5,
-        target_role_ids: bot_config.onboarding_completion_requirements?.auto_role_on_completion ? [bot_config.onboarding_completion_requirements.auto_role_on_completion] : [],
+        description: bot_config.description || prev.description,
+        bot_name: bot_config.bot_name || prev.bot_name,
+        bot_personality: bot_config.bot_personality || prev.bot_personality,
+        bot_response_style: bot_config.bot_response_style || prev.bot_response_style,
+        brand_color: bot_config.brand_color || prev.brand_color,
+        welcome_message: bot_config.welcome_message || prev.welcome_message,
+        referral_tracking_enabled: bot_config.features?.referral_tracking ?? prev.referral_tracking_enabled,
+        auto_role_assignment: bot_config.features?.auto_role ?? prev.auto_role_assignment,
+        moderation_enabled: bot_config.features?.moderation ?? prev.moderation_enabled,
+        rate_limit_per_user: bot_config.rate_limit_per_user || prev.rate_limit_per_user,
+        target_role_ids: bot_config.onboarding_completion_requirements?.auto_role_on_completion ? [bot_config.onboarding_completion_requirements.auto_role_on_completion] : prev.target_role_ids,
       }));
     }
 
@@ -331,7 +305,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       setLocalOnboardingQuestions(templateQuestions as any);
     }
     
-    // Handle landing page config from template_config first, then fall back to default_landing_page
+    // Handle landing page config
     const landingPageSource = landing_page_config || default_landing_page?.fields;
     if (landingPageSource) {
         setFormData(prev => ({
@@ -339,80 +313,57 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
             landing_page_data: {
                 ...prev.landing_page_data,
                 ...landingPageSource,
-                // Set the landing page template ID to the documentId when inheriting from campaign template
                 landing_page_template: (default_landing_page as any)?.documentId || (default_landing_page as any)?.id
             }
         }));
     }
 
-    setUserExplicitlyChangedTemplate(false);
+    setTemplateApplied(true);
+    // Only show toast when user explicitly selects a template, not on auto-load
 
-  }, [templateWithLandingPage, userExplicitlyChangedTemplate, mode]);
+  }, [templateWithLandingPage, templateApplied]);
 
-  useEffect(() => {
-    if (inheritedLandingPageTemplate && (mode === 'create' || userExplicitlyChangedTemplate)) {
-      const landingPageData = {
-        landing_page_template: (inheritedLandingPageTemplate as any).documentId || (inheritedLandingPageTemplate as any).id,
-        offer_title: (inheritedLandingPageTemplate as any).fields?.offer_title || (inheritedLandingPageTemplate as any).offer_title,
-        offer_description: (inheritedLandingPageTemplate as any).fields?.offer_description || (inheritedLandingPageTemplate as any).offer_description,
-        offer_highlights: (inheritedLandingPageTemplate as any).fields?.offer_highlights || (inheritedLandingPageTemplate as any).offer_highlights,
-        offer_value: (inheritedLandingPageTemplate as any).fields?.offer_value || (inheritedLandingPageTemplate as any).offer_value,
-        what_you_get: (inheritedLandingPageTemplate as any).fields?.what_you_get || (inheritedLandingPageTemplate as any).what_you_get,
-        how_it_works: (inheritedLandingPageTemplate as any).fields?.how_it_works || (inheritedLandingPageTemplate as any).how_it_works,
-        requirements: (inheritedLandingPageTemplate as any).fields?.requirements || (inheritedLandingPageTemplate as any).requirements,
-        support_info: (inheritedLandingPageTemplate as any).fields?.support_info || (inheritedLandingPageTemplate as any).support_info,
-      }
-      setFormData(prev => ({ ...prev, landing_page_data: landingPageData }))
-    }
-  }, [inheritedLandingPageTemplate, mode, userExplicitlyChangedTemplate])
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleTemplateSelect = (templateId: string) => {
-    // Check if this is the first template selection (for new campaigns) or no actual change
-    if (!userExplicitlyChangedTemplate && mode === 'create' && !formData.name && !formData.description) {
-      // First time selection in create mode with no data - apply immediately
-      applyTemplateSelection(templateId)
-      return
+  // New simplified template handlers
+  const handleTemplateSelect = (templateId: string | null) => {
+    if (templateId) {
+      const selectedTemplate = templates.find(t => (t.documentId || t.id) === templateId)
+      const campaignType = selectedTemplate?.campaign_type || 'custom'
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        campaign_template: templateId,
+        campaign_type: campaignType
+      }))
+      setSelectedTemplateId(templateId)
+      
+      // Show success toast when user explicitly selects a template
+      toast({
+        title: "Template Applied",
+        description: `"${selectedTemplate?.name}" template has been applied as initial values.`,
+      });
+    } else {
+      // Start from scratch - clear any template reference
+      setFormData(prev => ({ 
+        ...prev, 
+        campaign_template: '',
+        campaign_type: 'custom'
+      }))
+      setSelectedTemplateId(null)
+      setTemplateApplied(true) // Skip template application
     }
     
-    // Check if selecting the same template
-    if (templateId === selectedTemplateId) {
-      return
-    }
-    
-    // Show confirmation dialog for template changes that could override existing values
-    setPendingTemplateId(templateId)
-    setShowTemplateConfirmDialog(true)
+    setCurrentStep(1) // Move to Vitals tab
   }
 
-  const applyTemplateSelection = (templateId: string) => {
-    // Find the selected template to get its campaign_type
-    const selectedTemplate = templates.find(t => (t.documentId || t.id) === templateId)
-    const campaignType = selectedTemplate?.campaign_type || 'custom'
-    
-    setFormData(prev => ({ 
-      ...prev, 
-      campaign_template: templateId,
-      campaign_type: campaignType  // Add campaign_type to form data
-    }))
-    setSelectedTemplateId(templateId)
-    setUserExplicitlyChangedTemplate(true)
-  }
-
-  const handleConfirmTemplateChange = () => {
-    if (pendingTemplateId) {
-      applyTemplateSelection(pendingTemplateId)
-    }
-    setShowTemplateConfirmDialog(false)
-    setPendingTemplateId(null)
-  }
-
-  const handleCancelTemplateChange = () => {
-    setShowTemplateConfirmDialog(false)
-    setPendingTemplateId(null)
+  const handleSkipTemplate = () => {
+    setSelectedTemplateId(null)
+    setTemplateApplied(true)
+    setCurrentStep(1) // Move to Vitals tab
   }
 
   const handleQuestionsChange = (questions: OnboardingQuestion[]) => {
@@ -423,28 +374,11 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     setLocalOnboardingQuestions(questions);
   };
 
-  const applyTemplateOnboardingFields = async (templateId: string, targetCampaignId: string) => {
-    if (!templateId || !targetCampaignId) return
-    setApplyingTemplate(true)
-    try {
-      const result = await applyOnboardingTemplate(targetCampaignId, templateId)
-      if (result.success) {
-        toast({ title: 'Success', description: 'Template onboarding fields applied successfully' })
-        await fetchFields(targetCampaignId)
-      } else {
-        toast({ variant: "destructive", title: 'Error', description: `Failed to apply template: ${result.error || 'Unknown error'}` })
-      }
-    } catch (error) {
-      console.error('Error applying template onboarding fields:', error)
-      toast({ variant: "destructive", title: 'Error', description: 'Failed to apply template onboarding fields' })
-    } finally {
-      setApplyingTemplate(false)
-    }
-  }
 
   const validateStep = (step: number): boolean => {
     switch (step) {
-      case 1: return !!(formData.campaign_template && formData.client && formData.name);
+      case 0: return true; // Template selection always valid
+      case 1: return !!(formData.client && formData.name);
       case 2: return !!(formData.guild_id);
       case 3: return !!(formData.bot_name);
       default: return true;
@@ -464,7 +398,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   }
 
   const handleBack = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1))
+    const minStep = mode === 'create' ? 0 : 1
+    setCurrentStep(prev => Math.max(prev - 1, minStep))
   }
 
   const handleSave = async () => {
@@ -543,12 +478,14 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
   const renderContent = () => {
     switch (currentStep) {
-      case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} handleTemplateSelect={handleTemplateSelect} clients={clients as any} templates={templates} clientsLoading={clientsLoading} templatesLoading={templatesLoading} />;
+      case 0: return <TemplateSelectionTab templates={templates} templatesLoading={templatesLoading} onTemplateSelect={handleTemplateSelect} onSkipTemplate={handleSkipTemplate} />;
+      case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} clients={clients as any} />;
       case 2: return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 3: return <BotIdentityTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={localOnboardingQuestions as OnboardingQuestion[]} onQuestionsChange={handleQuestionsChange} />;
       case 5: return <AccessAndModerationTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 6: return <AdvancedTab formData={formData} handleFieldChange={handleFieldChange} inheritedLandingPageTemplate={inheritedLandingPageTemplate} mode={mode} campaignId={campaignDocumentId ?? undefined} />;
+      case 7: return <ReviewTab formData={formData} questions={localOnboardingQuestions as OnboardingQuestion[]} clients={clients as any} onSave={handleSave} isSaving={isSaving} onBack={handleBack} />;
       default: return null;
     }
   }
@@ -573,7 +510,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         <nav className="flex-shrink-0 w-64">
           <div className="sticky top-0">
             <ol className="space-y-2">
-              {TABS.map((tab) => (
+              {TABS.filter(tab => mode === 'edit' ? tab.id > 0 : true).map((tab) => (
                 <li key={tab.id}>
                   <button
                     onClick={() => setCurrentStep(tab.id)}
@@ -606,9 +543,9 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           <div className="pb-6">
             <Card>
               <CardHeader>
-                <CardTitle>{TABS[currentStep - 1].title}</CardTitle>
+                <CardTitle>{TABS[currentStep]?.title || 'Step'}</CardTitle>
                 <CardDescription>
-                  Step {currentStep} of {TABS.length}
+                  Step {currentStep + 1} of {TABS.length}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -616,66 +553,28 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
               </CardContent>
             </Card>
 
-            <div className="mt-6 flex justify-between">
-              <Button
-                variant="outline"
-                onClick={handleBack}
-                disabled={currentStep === 1 || isSaving}
-              >
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Back
-              </Button>
-              
-              {currentStep < TABS.length ? (
+            {/* Don't show navigation buttons on template selection step and review step */}
+            {currentStep !== 0 && currentStep !== TABS.length - 1 && (
+              <div className="mt-6 flex justify-between">
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={currentStep === (mode === 'create' ? 0 : 1) || isSaving}
+                >
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                
                 <Button onClick={handleNext} disabled={isSaving}>
                   Next
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
-              ) : (
-                <Button onClick={handleSave} disabled={isSaving}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {isSaving ? 'Saving...' : 'Save Campaign'}
-                </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Template Change Confirmation Dialog */}
-      <AlertDialog open={showTemplateConfirmDialog} onOpenChange={setShowTemplateConfirmDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Change Campaign Template?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Changing the campaign template will override existing values in your campaign configuration, including:
-              <br /><br />
-              • Bot identity and personality settings
-              <br />
-              • Onboarding questions and flow
-              <br />
-              • Landing page template and content
-              <br />
-              • Campaign description and settings
-              <br /><br />
-              {mode === 'edit' ? 
-                'This action will modify your existing campaign configuration.' :
-                'Any changes you\'ve made will be replaced with the template defaults.'
-              }
-              <br /><br />
-              Are you sure you want to continue?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelTemplateChange}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmTemplateChange}>
-              {mode === 'edit' ? 'Update Campaign' : 'Apply Template'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }
