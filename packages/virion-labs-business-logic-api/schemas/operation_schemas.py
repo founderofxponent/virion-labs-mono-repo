@@ -335,6 +335,7 @@ class OnboardingResponseListResponse(BaseModel):
 
 class CampaignTemplateResponse(BaseModel):
     id: int
+    documentId: Optional[str] = None
     name: str
     description: Optional[str] = None
     campaign_type: str

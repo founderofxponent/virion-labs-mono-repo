@@ -621,7 +621,7 @@ export interface ApiCampaignTemplateCampaignTemplate
     singularName: 'campaign-template';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     campaign_type: Schema.Attribute.Enumeration<

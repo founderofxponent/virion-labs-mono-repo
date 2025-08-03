@@ -316,6 +316,20 @@ class StrapiClient:
                 return None
             raise
 
+    async def get_campaign_template_by_id(self, template_id: int) -> Optional[CampaignTemplate]:
+        """Fetches a single campaign template by its numeric ID from Strapi."""
+        logger.info(f"StrapiClient: Fetching campaign template with ID '{template_id}' from Strapi.")
+        try:
+            response = await self._request("GET", f"campaign-templates/{template_id}", params={"populate": "*"})
+            if response and response.get("data"):
+                return CampaignTemplate(**response["data"])
+            return None
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"Campaign template with ID {template_id} not found.")
+                return None
+            raise
+
     async def get_onboarding_responses(self, filters: Optional[Dict] = None) -> List[CampaignOnboardingResponse]:
         """Fetches a list of campaign onboarding responses from Strapi."""
         logger.info("StrapiClient: Fetching campaign onboarding responses from Strapi.")
