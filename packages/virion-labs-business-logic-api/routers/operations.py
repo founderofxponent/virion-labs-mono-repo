@@ -326,7 +326,29 @@ async def get_campaign_landing_page_operation(campaign_id: str):
         result = await campaign_service.get_landing_page_operation(campaign_id=campaign_id)
         if not result:
             raise HTTPException(status_code=404, detail="Landing page not found")
-        return result
+        
+        campaign_dict = None
+        if result.campaign:
+            campaign_dict = result.campaign.model_dump()
+
+        return CampaignLandingPageResponse(
+            id=result.id,
+            offer_title=result.offer_title,
+            offer_description=result.offer_description,
+            offer_highlights=result.offer_highlights,
+            offer_value=result.offer_value,
+            offer_expiry_date=result.offer_expiry_date,
+            hero_image_url=result.hero_image_url,
+            product_images=result.product_images,
+            video_url=result.video_url,
+            what_you_get=result.what_you_get,
+            how_it_works=result.how_it_works,
+            requirements=result.requirements,
+            support_info=result.support_info,
+            inherited_from_template=result.inherited_from_template,
+            landing_page_template=result.landing_page_template,
+            campaign=campaign_dict
+        )
         
     except Exception as e:
         logger.error(f"Campaign landing page operation failed: {e}")

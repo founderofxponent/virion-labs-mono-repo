@@ -424,7 +424,7 @@ export interface ApiCampaignLandingPageCampaignLandingPage
     singularName: 'campaign-landing-page';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     campaign: Schema.Attribute.Relation<'oneToOne', 'api::campaign.campaign'>;
