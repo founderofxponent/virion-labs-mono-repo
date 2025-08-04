@@ -33,7 +33,7 @@ export interface CampaignLandingPage {
   offer_highlights?: any;
   offer_value?: string;
   offer_expiry_date?: string;
-  hero_image_url?: Media;
+  hero_image_url?: string;
   product_images?: any;
   video_url?: string;
   what_you_get?: string;

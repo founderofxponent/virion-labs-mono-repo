@@ -27,14 +27,7 @@
       "type": "datetime"
     },
     "hero_image_url": {
-      "type": "media",
-      "multiple": false,
-      "allowedTypes": [
-        "images",
-        "files",
-        "videos",
-        "audios"
-      ]
+      "type": "text"
     },
     "product_images": {
       "type": "json"

@@ -431,9 +431,7 @@ export interface ApiCampaignLandingPageCampaignLandingPage
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    hero_image_url: Schema.Attribute.Media<
-      'images' | 'files' | 'videos' | 'audios'
-    >;
+    hero_image_url: Schema.Attribute.Text;
     how_it_works: Schema.Attribute.RichText;
     inherited_from_template: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<false>;

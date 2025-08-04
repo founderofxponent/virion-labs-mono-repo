@@ -353,12 +353,12 @@ class CampaignLandingPageBase(BaseModel):
 
 class CampaignLandingPage(CampaignLandingPageBase):
     id: int
-    hero_image_url: Optional[Media] = None
+    hero_image_url: Optional[str] = None
     landing_page_template: Optional[LandingPageTemplate] = None
     campaign: Optional[Campaign] = None
 
 class StrapiCampaignLandingPageUpdate(CampaignLandingPageBase):
-    hero_image_url: Optional[int] = None  # Media ID
+    hero_image_url: Optional[str] = None  # URL string
     landing_page_template: Optional[int] = None  # Relation ID
     campaign: Optional[int] = None  # Relation ID
 
