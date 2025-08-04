@@ -7,7 +7,7 @@
     "displayName": "Campaign Onboarding Field"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {

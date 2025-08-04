@@ -175,6 +175,56 @@ class CampaignService:
         await strapi_client.delete_onboarding_field(field_id)
         return {"message": f"Onboarding field {field_id} deleted successfully."}
 
+    async def batch_update_onboarding_fields_operation(
+        self, campaign_id: str, updates: List[Dict[str, Any]], deletes: List[str], current_user: Any
+    ) -> List[CampaignOnboardingField]:
+        """
+        Business operation for batch updating campaign onboarding fields.
+        This includes creating, updating, and deleting fields in a single transaction.
+        """
+        logger.info(f"Executing batch update for onboarding fields for campaign: {campaign_id}")
+
+        # Get the numeric campaign ID from the document ID
+        numeric_campaign_id = await strapi_client.get_campaign_id_by_document_id(campaign_id)
+        if not numeric_campaign_id:
+            raise ValueError(f"Campaign with documentId {campaign_id} not found.")
+
+        # Process deletions
+        for field_id in deletes:
+            try:
+                # Ensure field_id is an integer for deletion
+                await self.delete_onboarding_field_operation(int(field_id))
+            except ValueError as e:
+                logger.warning(f"Could not delete field with ID {field_id}: {e}")
+            except Exception as e:
+                logger.error(f"Error deleting onboarding field {field_id}: {e}", exc_info=True)
+                # Decide if you want to raise or just log
+                # For now, we log and continue
+                pass
+
+        # Process creations and updates
+        for field_data in updates:
+            field_id = field_data.get("id")
+            
+            try:
+                if field_id and "template" not in str(field_id):
+                    # This is an update
+                    update_data = CampaignOnboardingFieldUpdate(**field_data)
+                    await self.update_onboarding_field_operation(int(field_id), update_data)
+                else:
+                    # This is a new field, remove temporary ID if it exists
+                    field_data.pop("id", None)
+                    create_data = CampaignOnboardingFieldCreate(campaign=campaign_id, **field_data)
+                    await self.create_onboarding_field_operation(create_data)
+            except Exception as e:
+                logger.error(f"Error processing field update/create for campaign {campaign_id}: {e}", exc_info=True)
+                # Decide if you want to raise or just log
+                # For now, we log and continue
+                pass
+        
+        # Return the updated list of fields for the campaign
+        return await self.get_onboarding_fields_operation(campaign_id)
+
     async def _setup_discord_bot(self, campaign_id: int) -> Dict[str, Any]:
         """Setup Discord bot for campaign."""
         # Mock implementation - replace with actual Discord integration

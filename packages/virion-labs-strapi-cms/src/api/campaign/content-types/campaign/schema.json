@@ -98,7 +98,8 @@
     "campaign_onboarding_fields": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::campaign-onboarding-field.campaign-onboarding-field"
+      "target": "api::campaign-onboarding-field.campaign-onboarding-field",
+      "mappedBy": "campaign"
     },
     "campaign_onboarding_responses": {
       "type": "relation",

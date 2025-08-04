@@ -506,7 +506,7 @@ export interface ApiCampaignOnboardingFieldCampaignOnboardingField
     singularName: 'campaign-onboarding-field';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     campaign: Schema.Attribute.Relation<'manyToOne', 'api::campaign.campaign'>;

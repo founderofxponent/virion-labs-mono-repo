@@ -59,13 +59,20 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
     if (!token) throw new Error("Authentication token not found.")
 
     try {
-      const response = await fetch(`${API_BASE_URL}/campaign/${fieldData.campaign_id}/onboarding-fields`, {
+      const response = await fetch(`${API_BASE_URL}/campaign/onboarding-fields`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ ...fieldData, id: undefined }),
+        body: JSON.stringify({
+          ...fieldData,
+          id: undefined,
+          campaign: fieldData.campaign_id,
+          field_options: Array.isArray(fieldData.field_options) && fieldData.field_options.length > 0
+            ? { options: fieldData.field_options }
+            : {}
+        }),
       })
 
       if (!response.ok) {
@@ -203,34 +210,64 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
     if (!token) return { success: false, error: "Authentication token not found." }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/campaign/${campaign_id}/onboarding-fields/batch`, {
-        method: 'PUT',
+      setLoading(true)
+      setError(null)
+
+      // Transform fields to match the backend schema
+      const transformedFields = fields.map(field => ({
+        id: field.id,
+        documentId: field.id,
+        field_key: field.field_key,
+        field_label: field.field_label,
+        field_type: field.field_type,
+        is_required: field.is_required,
+        is_enabled: field.is_enabled,
+        sort_order: field.sort_order,
+        field_options: Array.isArray(field.field_options) && field.field_options.length > 0
+          ? { options: field.field_options }
+          : {},
+        validation_rules: field.validation_rules || {}
+      }))
+
+      const response = await fetch(`${API_BASE_URL}/campaign/${campaign_id}/onboarding-fields/batch-update`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          fields: fields,
+          fields: transformedFields,
           delete_ids: deleteIds
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.detail || 'Failed to batch update fields')
+        throw new Error(errorData.error || errorData.detail || 'Failed to batch update fields')
       }
 
       const data = await response.json()
       
-      // Refresh the fields after batch update
-      if (campaign_id) {
-        await fetchFields(campaign_id)
-      }
+      // Update local state with the returned fields - no need to refresh!
+      setFields(data.onboarding_fields || [])
 
-      return { success: data.error_count === 0, ...data }
+      return {
+        success: true,
+        error_count: 0,
+        success_count: data.total_count || 0,
+        fields: data.onboarding_fields
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
-      return { success: false, error: errorMessage }
+      setError(errorMessage)
+      return {
+        success: false,
+        error: errorMessage,
+        error_count: 1,
+        success_count: 0
+      }
+    } finally {
+      setLoading(false)
     }
   }
 

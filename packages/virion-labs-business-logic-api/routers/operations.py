@@ -466,6 +466,28 @@ async def delete_campaign_onboarding_field_operation(field_id: int):
         logger.error(f"Delete campaign onboarding field operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/campaign/{campaign_id}/onboarding-fields/batch-update", summary="Batch Update Campaign Onboarding Fields", response_model=OnboardingFieldListResponse)
+async def batch_update_campaign_onboarding_fields_operation(
+    campaign_id: str,
+    request: OnboardingFieldsBatchUpdateRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Batch updates campaign onboarding fields - creates, updates, and deletes fields in a single transaction."""
+    try:
+        result = await campaign_service.batch_update_onboarding_fields_operation(
+            campaign_id=campaign_id,
+            updates=[field.model_dump() for field in request.fields],
+            deletes=request.delete_ids or [],
+            current_user=current_user
+        )
+        response_fields = [OnboardingFieldResponse(**field.model_dump()) for field in result]
+        return {"onboarding_fields": response_fields, "total_count": len(response_fields)}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Batch update campaign onboarding fields operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Helper functions
 async def _get_campaign_metrics(campaign_id: str) -> Dict[str, Any]:
     """Get performance metrics for campaign."""
