@@ -61,6 +61,8 @@ export function LandingPageConfig({
   onChange, 
   onPreview 
 }: LandingPageConfigProps) {
+  console.log('📄 LandingPageConfig render:', { campaignId, campaignType, initialData, hasInitialData: !!initialData });
+  
   const { page: landingPage, loading, createPage, updatePage, fetchPage } = useCampaignLandingPageApi()
   const { templates: availableTemplates, loading: templatesLoading, fetchSingleTemplate } = useLandingPageTemplatesAPI(campaignType)
   
@@ -85,10 +87,10 @@ export function LandingPageConfig({
   })
 
   useEffect(() => {
-    if (campaignId) {
+    if (campaignId && !initialData) {
       fetchPage(campaignId)
     }
-  }, [campaignId, fetchPage])
+  }, [campaignId, fetchPage, initialData])
 
   useEffect(() => {
     if (initialData) {
@@ -100,9 +102,9 @@ export function LandingPageConfig({
   const [isInherited, setIsInherited] = useState(false)
   const [inheritedTemplateName, setInheritedTemplateName] = useState<string>('')
 
-  // Update data when landing page loads
+  // Update data when landing page loads (only if no initialData was provided)
   useEffect(() => {
-    if (landingPage) {
+    if (landingPage && !initialData) {
       setData({
         landing_page_template_id: landingPage.landing_page_template?.documentId || '',
         offer_title: Array.isArray(landingPage.offer_title) ? landingPage.offer_title[0] : landingPage.offer_title || '',
@@ -128,7 +130,7 @@ export function LandingPageConfig({
         setInheritedTemplateName(inheritedTemplate?.name || 'Unknown Template')
       }
     }
-  }, [landingPage, availableTemplates])
+  }, [landingPage, availableTemplates, initialData])
 
   const updateData = (updates: Partial<LandingPageConfigData>) => {
     const newData = { ...data, ...updates }
@@ -246,8 +248,8 @@ export function LandingPageConfig({
     updateData({ product_images: images })
   }
 
-  // Only show loading if we're waiting for existing campaign data in edit mode
-  if (loading && campaignId) {
+  // Only show loading if we're waiting for existing campaign data in edit mode and no initialData provided
+  if (loading && campaignId && !initialData) {
     return (
       <div className="space-y-6">
         {/* Tabs Skeleton */}

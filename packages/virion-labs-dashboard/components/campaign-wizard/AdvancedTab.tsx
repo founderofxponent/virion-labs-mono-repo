@@ -26,7 +26,15 @@ export function AdvancedTab({
   mode,
   campaignId,
 }: AdvancedTabProps) {
+  console.log('🔧 AdvancedTab render:', { 
+    mode, 
+    campaignId, 
+    'formData.landing_page_data': formData.landing_page_data,
+    inheritedLandingPageTemplate: inheritedLandingPageTemplate?.fields
+  });
+
   const handleLandingPageDataChange = (data: any) => {
+    console.log('🔧 AdvancedTab handleLandingPageDataChange:', data);
     handleFieldChange("landing_page_data", {
       ...formData.landing_page_data,
       ...data,

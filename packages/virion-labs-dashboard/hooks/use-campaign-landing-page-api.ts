@@ -11,17 +11,18 @@ export function useCampaignLandingPageApi() {
   const [error, setError] = useState<string | null>(null)
 
   const API_BASE_URL = "http://localhost:8000"
-  const getToken = () => localStorage.getItem('auth_token')
+  const getToken = useCallback(() => localStorage.getItem('auth_token'), [])
 
   const fetchPage = useCallback(async (campaignId: string) => {
-    if (!user) {
+    const token = getToken()
+    if (!token) {
       setLoading(false)
+      setError("Authentication token not found.")
       return
     }
 
     setLoading(true)
     setError(null)
-    const token = getToken()
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/${campaignId}/landing-page`, {
@@ -32,13 +33,16 @@ export function useCampaignLandingPageApi() {
         throw new Error(errorData.detail || 'Failed to fetch campaign landing page')
       }
       const data = await response.json()
-      setPage(data.page || null)
+      console.log('🌐 Landing page API response:', data)
+      // The API returns the page data directly, not wrapped in a page property
+      setPage(data || null)
+      console.log('🌐 Set page to:', data || null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [getToken])
 
   const createPage = useCallback(async (campaignId: string, pageData: any) => {
     const token = getToken()
@@ -63,12 +67,12 @@ export function useCampaignLandingPageApi() {
       }
 
       // Refetch the page to include the new page
-      fetchPage(campaignId)
+      await fetchPage(campaignId)
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     }
-  }, [fetchPage])
+  }, [getToken, fetchPage])
 
   const updatePage = useCallback(async (pageId: string, pageData: any) => {
     const token = getToken()
@@ -92,15 +96,10 @@ export function useCampaignLandingPageApi() {
         throw new Error(errorData.detail || 'Failed to update campaign landing page')
       }
 
-      // Refetch the page to reflect the updated page
-      // This assumes the component knows the campaignId to refetch
-      // A more robust solution might involve a global state manager.
-      // For now, we will rely on the component to trigger a refetch.
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     }
-  }, [])
+  }, [getToken])
 
   const deletePage = useCallback(async (pageId: string, campaignId: string) => {
     const token = getToken()
@@ -123,12 +122,12 @@ export function useCampaignLandingPageApi() {
       }
 
       // Refetch the page to reflect the deletion
-      fetchPage(campaignId)
+      await fetchPage(campaignId)
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     }
-  }, [fetchPage])
+  }, [getToken, fetchPage])
 
   return {
     page,

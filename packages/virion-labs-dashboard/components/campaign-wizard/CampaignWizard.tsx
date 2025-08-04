@@ -275,15 +275,22 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   }, [mode, editCampaign])
 
   useEffect(() => {
+    console.log('🏠 Landing page data effect triggered:', { mode, landingPage, hasLandingPage: !!landingPage });
     if (mode === 'edit' && landingPage) {
+      console.log('🏠 Processing landing page data:', landingPage);
       const { id, campaign, createdAt, updatedAt, publishedAt, documentId, ...rest } = landingPage;
-      setFormData(prev => ({
-        ...prev,
-        landing_page_data: {
-          ...prev.landing_page_data,
-          ...rest
-        }
-      }));
+      console.log('🏠 Extracted rest data:', rest);
+      setFormData(prev => {
+        const newFormData = {
+          ...prev,
+          landing_page_data: {
+            ...prev.landing_page_data,
+            ...rest
+          }
+        };
+        console.log('🏠 Setting formData.landing_page_data:', newFormData.landing_page_data);
+        return newFormData;
+      });
     }
   }, [mode, landingPage, setFormData]);
 
