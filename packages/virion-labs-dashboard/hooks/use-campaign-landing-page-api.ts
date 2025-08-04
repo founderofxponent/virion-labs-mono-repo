@@ -18,7 +18,7 @@ export function useCampaignLandingPageApi() {
     if (!token) {
       setLoading(false)
       setError("Authentication token not found.")
-      return
+      return null
     }
 
     setLoading(true)
@@ -37,8 +37,10 @@ export function useCampaignLandingPageApi() {
       // The API returns the page data directly, not wrapped in a page property
       setPage(data || null)
       console.log('🌐 Set page to:', data || null)
+      return data || null
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
+      return null
     } finally {
       setLoading(false)
     }

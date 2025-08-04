@@ -187,19 +187,44 @@ export function LandingPageConfig({
       const template = await fetchSingleTemplate(templateId)
       if (template) {
         // Map the template's default fields to the landing page data structure
-        const templateFields = {
-          offer_title: template.default_offer_title,
-          offer_description: template.default_offer_description,
-          offer_highlights: template.default_offer_highlights,
-          offer_value: template.default_offer_value,
-          offer_expiry_date: template.default_offer_expiry_date ? new Date(template.default_offer_expiry_date) : null,
-          hero_image_url: template.default_hero_image_url,
-          product_images: template.default_product_images,
-          video_url: template.default_video_url,
-          what_you_get: template.default_what_you_get,
-          how_it_works: template.default_how_it_works,
-          requirements: template.default_requirements,
-          support_info: template.default_support_info,
+        // Only include fields that have actual values to avoid overwriting with undefined
+        const templateFields: Partial<LandingPageConfigData> = {}
+        
+        if (template.default_offer_title) {
+          templateFields.offer_title = template.default_offer_title
+        }
+        if (template.default_offer_description) {
+          templateFields.offer_description = template.default_offer_description
+        }
+        if (template.default_offer_highlights && template.default_offer_highlights.length > 0) {
+          templateFields.offer_highlights = template.default_offer_highlights
+        }
+        if (template.default_offer_value) {
+          templateFields.offer_value = template.default_offer_value
+        }
+        if (template.default_offer_expiry_date) {
+          templateFields.offer_expiry_date = new Date(template.default_offer_expiry_date)
+        }
+        if (template.default_hero_image_url) {
+          templateFields.hero_image_url = template.default_hero_image_url
+        }
+        if (template.default_product_images && template.default_product_images.length > 0) {
+          templateFields.product_images = template.default_product_images
+        }
+        if (template.default_video_url) {
+          templateFields.video_url = template.default_video_url
+        }
+        if (template.default_what_you_get) {
+          templateFields.what_you_get = template.default_what_you_get
+        }
+        if (template.default_how_it_works) {
+          templateFields.how_it_works = template.default_how_it_works
+        }
+        if (template.default_requirements) {
+          templateFields.requirements = template.default_requirements
+        }
+        if (template.default_support_info) {
+          templateFields.support_info = template.default_support_info
         }
         
         updateData({

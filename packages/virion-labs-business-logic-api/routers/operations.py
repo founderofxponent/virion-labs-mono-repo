@@ -338,15 +338,16 @@ async def delete_campaign_operation(campaign_id: str, current_user: User = Depen
         logger.error(f"Campaign delete operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/campaign/{campaign_id}/landing-page", summary="Get Campaign Landing Page", response_model=CampaignLandingPageResponse)
+@router.get("/campaign/{campaign_id}/landing-page", summary="Get Campaign Landing Page")
 async def get_campaign_landing_page_operation(campaign_id: str):
     """
     Business operation for getting the landing page for a specific campaign.
+    Returns null if no landing page is found.
     """
     try:
         result = await campaign_service.get_landing_page_operation(campaign_id=campaign_id)
         if not result:
-            raise HTTPException(status_code=404, detail="Landing page not found")
+            return None
         
         campaign_dict = None
         if result.campaign:

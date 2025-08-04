@@ -64,36 +64,36 @@ export function useLandingPageTemplatesAPI(campaignType?: string, category?: str
 
   const transformApiTemplate = (apiTemplate: any): LandingPageTemplate => {
     // Handle both nested attributes structure and flat structure from Strapi
-    const attributes = apiTemplate.attributes || apiTemplate;
+    const source = apiTemplate.attributes || apiTemplate;
     
     return {
       id: apiTemplate.id,
       documentId: apiTemplate.documentId,
-      name: attributes.name || apiTemplate.name,
-      description: attributes.description || attributes.Description || apiTemplate.Description,
-      campaign_types: attributes.campaign_types || apiTemplate.campaign_types || [],
-      template_structure: attributes.template_structure || apiTemplate.template_structure || {},
-      default_content: attributes.default_content || apiTemplate.default_content || {},
-      customizable_fields: attributes.customizable_fields || apiTemplate.customizable_fields || [],
-      color_scheme: attributes.color_scheme || apiTemplate.color_scheme || {},
-      layout_config: attributes.layout_config || apiTemplate.layout_config || {},
-      category: attributes.category || apiTemplate.category,
-      is_active: attributes.is_active !== undefined ? attributes.is_active : (apiTemplate.is_active !== undefined ? apiTemplate.is_active : true),
-      created_at: attributes.created_at || attributes.createdAt || apiTemplate.createdAt || '',
-      updated_at: attributes.updated_at || attributes.updatedAt || apiTemplate.updatedAt || '',
+      name: source.name,
+      description: source.description || source.Description,
+      campaign_types: source.campaign_types || [],
+      template_structure: source.template_structure || {},
+      default_content: source.default_content || {},
+      customizable_fields: source.customizable_fields || [],
+      color_scheme: source.color_scheme || {},
+      layout_config: source.layout_config || {},
+      category: source.category,
+      is_active: source.is_active !== undefined ? source.is_active : true,
+      created_at: source.created_at || source.createdAt || '',
+      updated_at: source.updated_at || source.updatedAt || '',
       // Add default template fields for populating form data
-      default_offer_title: attributes.default_offer_title || apiTemplate.default_offer_title,
-      default_offer_description: attributes.default_offer_description || apiTemplate.default_offer_description,
-      default_offer_highlights: attributes.default_offer_highlights || apiTemplate.default_offer_highlights,
-      default_offer_value: attributes.default_offer_value || apiTemplate.default_offer_value,
-      default_offer_expiry_date: attributes.default_offer_expiry_date || apiTemplate.default_offer_expiry_date,
-      default_hero_image_url: attributes.default_hero_image_url || apiTemplate.default_hero_image_url,
-      default_product_images: attributes.default_product_images || apiTemplate.default_product_images,
-      default_video_url: attributes.default_video_url || apiTemplate.default_video_url,
-      default_what_you_get: attributes.default_what_you_get || apiTemplate.default_what_you_get,
-      default_how_it_works: attributes.default_how_it_works || apiTemplate.default_how_it_works,
-      default_requirements: attributes.default_requirements || apiTemplate.default_requirements,
-      default_support_info: attributes.default_support_info || apiTemplate.default_support_info,
+      default_offer_title: source.default_offer_title,
+      default_offer_description: source.default_offer_description,
+      default_offer_highlights: source.default_offer_highlights,
+      default_offer_value: source.default_offer_value,
+      default_offer_expiry_date: source.default_offer_expiry_date,
+      default_hero_image_url: source.default_hero_image_url,
+      default_product_images: source.default_product_images,
+      default_video_url: source.default_video_url,
+      default_what_you_get: source.default_what_you_get,
+      default_how_it_works: source.default_how_it_works,
+      default_requirements: source.default_requirements,
+      default_support_info: source.default_support_info,
     }
   }
 
@@ -153,8 +153,8 @@ export function useLandingPageTemplatesAPI(campaignType?: string, category?: str
         throw new Error(errorData.detail || 'Failed to fetch landing page template')
       }
       
-      const data: ApiSingleResponse = await response.json()
-      return transformApiTemplate(data.landing_page_template)
+      const data = await response.json()
+      return transformApiTemplate(data)
 
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'An error occurred')
@@ -243,36 +243,36 @@ export function useLandingPageTemplateAPI(templateId?: string) {
 
   const transformApiTemplate = (apiTemplate: any): LandingPageTemplate => {
     // Handle both nested attributes structure and flat structure from Strapi
-    const attributes = apiTemplate.attributes || apiTemplate;
+    const source = apiTemplate.attributes || apiTemplate;
     
     return {
       id: apiTemplate.id,
       documentId: apiTemplate.documentId,
-      name: attributes.name || apiTemplate.name,
-      description: attributes.description || attributes.Description || apiTemplate.Description,
-      campaign_types: attributes.campaign_types || apiTemplate.campaign_types || [],
-      template_structure: attributes.template_structure || apiTemplate.template_structure || {},
-      default_content: attributes.default_content || apiTemplate.default_content || {},
-      customizable_fields: attributes.customizable_fields || apiTemplate.customizable_fields || [],
-      color_scheme: attributes.color_scheme || apiTemplate.color_scheme || {},
-      layout_config: attributes.layout_config || apiTemplate.layout_config || {},
-      category: attributes.category || apiTemplate.category,
-      is_active: attributes.is_active !== undefined ? attributes.is_active : (apiTemplate.is_active !== undefined ? apiTemplate.is_active : true),
-      created_at: attributes.created_at || attributes.createdAt || apiTemplate.createdAt || '',
-      updated_at: attributes.updated_at || attributes.updatedAt || apiTemplate.updatedAt || '',
+      name: source.name,
+      description: source.description || source.Description,
+      campaign_types: source.campaign_types || [],
+      template_structure: source.template_structure || {},
+      default_content: source.default_content || {},
+      customizable_fields: source.customizable_fields || [],
+      color_scheme: source.color_scheme || {},
+      layout_config: source.layout_config || {},
+      category: source.category,
+      is_active: source.is_active !== undefined ? source.is_active : true,
+      created_at: source.created_at || source.createdAt || '',
+      updated_at: source.updated_at || source.updatedAt || '',
       // Add default template fields for populating form data
-      default_offer_title: attributes.default_offer_title || apiTemplate.default_offer_title,
-      default_offer_description: attributes.default_offer_description || apiTemplate.default_offer_description,
-      default_offer_highlights: attributes.default_offer_highlights || apiTemplate.default_offer_highlights,
-      default_offer_value: attributes.default_offer_value || apiTemplate.default_offer_value,
-      default_offer_expiry_date: attributes.default_offer_expiry_date || apiTemplate.default_offer_expiry_date,
-      default_hero_image_url: attributes.default_hero_image_url || apiTemplate.default_hero_image_url,
-      default_product_images: attributes.default_product_images || apiTemplate.default_product_images,
-      default_video_url: attributes.default_video_url || apiTemplate.default_video_url,
-      default_what_you_get: attributes.default_what_you_get || apiTemplate.default_what_you_get,
-      default_how_it_works: attributes.default_how_it_works || apiTemplate.default_how_it_works,
-      default_requirements: attributes.default_requirements || apiTemplate.default_requirements,
-      default_support_info: attributes.default_support_info || apiTemplate.default_support_info,
+      default_offer_title: source.default_offer_title,
+      default_offer_description: source.default_offer_description,
+      default_offer_highlights: source.default_offer_highlights,
+      default_offer_value: source.default_offer_value,
+      default_offer_expiry_date: source.default_offer_expiry_date,
+      default_hero_image_url: source.default_hero_image_url,
+      default_product_images: source.default_product_images,
+      default_video_url: source.default_video_url,
+      default_what_you_get: source.default_what_you_get,
+      default_how_it_works: source.default_how_it_works,
+      default_requirements: source.default_requirements,
+      default_support_info: source.default_support_info,
     }
   }
 
@@ -305,8 +305,8 @@ export function useLandingPageTemplateAPI(templateId?: string) {
         throw new Error(errorData.detail || 'Failed to fetch landing page template')
       }
       
-      const data: ApiSingleResponse = await response.json()
-      setTemplate(transformApiTemplate(data.landing_page_template))
+      const data = await response.json()
+      setTemplate(transformApiTemplate(data))
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')

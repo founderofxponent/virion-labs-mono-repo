@@ -472,9 +472,18 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
           throw new Error("Failed to get campaign documentId after saving.");
         }
 
-        if (landingPage && landingPage.documentId) {
-          await updatePage(landingPage.documentId, { ...cleanLandingPageData, campaign: campaignDocumentId });
+        if (mode === 'edit') {
+          // Ensure we have the latest landing page data before deciding
+          const currentLandingPage = await fetchPage(campaignDocumentId);
+          
+          if (currentLandingPage && currentLandingPage.documentId) {
+            await updatePage(currentLandingPage.documentId, { ...cleanLandingPageData, campaign: campaignDocumentId });
+          } else {
+            // In edit mode but no existing landing page - still need to create one
+            await createPage(campaignDocumentId, cleanLandingPageData);
+          }
         } else {
+          // Create mode
           await createPage(campaignDocumentId, cleanLandingPageData);
         }
       }
