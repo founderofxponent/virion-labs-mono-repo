@@ -31,7 +31,7 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
       setLoading(true)
       setError(null)
 
-      const response = await fetch(`${API_BASE_URL}/campaign/onboarding-fields/${campaign_id}`, {
+      const response = await fetch(`${API_BASE_URL}/campaign/${campaign_id}/onboarding-fields`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
