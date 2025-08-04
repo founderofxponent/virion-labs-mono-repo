@@ -104,12 +104,16 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
   useEffect(() => {
     if (campaignDocumentId) {
+      console.log('🔍 Fetching page for campaignDocumentId:', campaignDocumentId)
       fetchPage(campaignDocumentId)
+      // fetchFields is handled automatically by the hook when campaignDocumentId changes
     }
   }, [campaignDocumentId, fetchPage])
 
   useEffect(() => {
+    console.log('📋 onboardingFields updated:', { onboardingFields, length: onboardingFields?.length, campaignDocumentId })
     if (onboardingFields && onboardingFields.length > 0) {
+      console.log('✅ Setting localOnboardingQuestions from API data:', onboardingFields)
       setLocalOnboardingQuestions(onboardingFields.map(f => ({
         ...f,
         id: f.documentId,
@@ -118,20 +122,40 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         sort_order: f.sort_order ?? 0,
       })));
     }
-  }, [onboardingFields]);
+  }, [onboardingFields, campaignDocumentId]);
 
   const effectiveOnboardingFields = React.useMemo(() => {
+    console.log('🎯 effectiveOnboardingFields recalculating:', { 
+      mode, 
+      localOnboardingQuestions: localOnboardingQuestions.length, 
+      onboardingFields: onboardingFields?.length,
+      campaignDocumentId 
+    })
+    
+    // In edit mode, prioritize database fields first, then local modifications
+    if (mode === 'edit') {
+      if (localOnboardingQuestions.length > 0) {
+        console.log('🟢 Using localOnboardingQuestions:', localOnboardingQuestions)
+        return { fields: localOnboardingQuestions, source: 'local' as const, isTemplate: false }
+      }
+      if (onboardingFields && onboardingFields.length > 0) {
+        console.log('🟡 Using onboardingFields:', onboardingFields)
+        return { fields: onboardingFields, source: 'database' as const, isTemplate: false }
+      }
+      console.log('🔴 No fields found, returning empty')
+      return { fields: [], source: 'none' as const, isTemplate: false }
+    }
+    
+    // In create mode, prioritize local modifications first, then template
     if (localOnboardingQuestions.length > 0) {
       return { fields: localOnboardingQuestions, source: 'local' as const, isTemplate: false }
     }
-    if (onboardingFields && onboardingFields.length > 0) {
-      return { fields: onboardingFields, source: 'database' as const, isTemplate: false }
-    }
+    
     // Handle nested template_config structure
     const template_config = templateWithLandingPage?.template_config || templateWithLandingPage;
     const template_onboarding_fields = template_config?.onboarding_fields || templateWithLandingPage?.onboarding_fields;
     
-    if (mode === 'create' && template_onboarding_fields && template_onboarding_fields.length > 0) {
+    if (template_onboarding_fields && template_onboarding_fields.length > 0) {
       return {
         fields: template_onboarding_fields.map((field, index) => ({
           id: `template-${field.id}`, field_label: field.question, field_type: field.type, sort_order: index,
@@ -217,6 +241,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   useEffect(() => {
     if (mode === 'edit' && editCampaign) {
       const campaign = editCampaign
+      console.log('🏗️ Setting campaignDocumentId from editCampaign:', campaign.documentId)
       setCampaignDocumentId(campaign.documentId || null);
       
       setFormData({
@@ -260,7 +285,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         }
       }));
     }
-  }, [mode, landingPage]);
+  }, [mode, landingPage, setFormData]);
 
   // Simple one-time template application
   useEffect(() => {
@@ -487,10 +512,10 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} clients={clients as any} />;
       case 2: return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 3: return <BotIdentityTab formData={formData} handleFieldChange={handleFieldChange} />;
-      case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={localOnboardingQuestions as OnboardingQuestion[]} onQuestionsChange={handleQuestionsChange} />;
+      case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={effectiveOnboardingFields.fields as OnboardingQuestion[]} onQuestionsChange={handleQuestionsChange} />;
       case 5: return <AccessAndModerationTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 6: return <AdvancedTab formData={formData} handleFieldChange={handleFieldChange} inheritedLandingPageTemplate={inheritedLandingPageTemplate} mode={mode} campaignId={campaignDocumentId ?? undefined} />;
-      case 7: return <ReviewTab formData={formData} questions={localOnboardingQuestions as OnboardingQuestion[]} clients={clients as any} onSave={handleSave} isSaving={isSaving} onBack={handleBack} />;
+      case 7: return <ReviewTab formData={formData} questions={effectiveOnboardingFields.fields as OnboardingQuestion[]} clients={clients as any} onSave={handleSave} isSaving={isSaving} onBack={handleBack} />;
       default: return null;
     }
   }

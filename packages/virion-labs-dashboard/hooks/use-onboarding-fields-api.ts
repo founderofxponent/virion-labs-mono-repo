@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { CampaignOnboardingField, OnboardingQuestion, UpdateOnboardingFieldData } from "@/schemas/campaign-onboarding-field";
 import { CreateOnboardingFieldData } from "@/schemas/campaign-onboarding-field";
 
@@ -10,9 +10,9 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
   const [error, setError] = useState<string | null>(null)
   const API_BASE_URL = "http://localhost:8000/api/v1/operations"
 
-  const getToken = () => localStorage.getItem('auth_token')
+  const getToken = useCallback(() => localStorage.getItem('auth_token'), [])
 
-  const fetchFields = async (campaign_id?: string): Promise<CampaignOnboardingField[] | void> => {
+  const fetchFields = useCallback(async (campaign_id?: string): Promise<CampaignOnboardingField[] | void> => {
     if (!campaign_id) {
       setLoading(false)
       setFields([])
@@ -42,7 +42,7 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
       }
 
       const data = await response.json()
-      const fields = data.fields || [];
+      const fields = data.onboarding_fields || data.fields || [];
       setFields(fields);
       return fields;
     } catch (err) {
@@ -52,9 +52,9 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [getToken])
 
-  const createField = async (fieldData: CreateOnboardingFieldData) => {
+  const createField = useCallback(async (fieldData: CreateOnboardingFieldData) => {
     const token = getToken()
     if (!token) throw new Error("Authentication token not found.")
 
@@ -91,9 +91,9 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       return { success: false, error: errorMessage }
     }
-  }
+  }, [getToken, fetchFields])
 
-  const updateField = async (updateData: UpdateOnboardingFieldData) => {
+  const updateField = useCallback(async (updateData: UpdateOnboardingFieldData) => {
     const token = getToken()
     if (!token) throw new Error("Authentication token not found.")
 
@@ -141,9 +141,9 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       return { success: false, error: errorMessage }
     }
-  }
+  }, [getToken, fields])
 
-  const deleteField = async (documentId: string) => {
+  const deleteField = useCallback(async (documentId: string) => {
     const token = getToken()
     if (!token) throw new Error("Authentication token not found.")
 
@@ -166,9 +166,9 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       return { success: false, error: errorMessage }
     }
-  }
+  }, [getToken, fields])
 
-  const applyTemplate = async (campaign_id: string, template_id: string) => {
+  const applyTemplate = useCallback(async (campaign_id: string, template_id: string) => {
     const token = getToken()
     if (!token) return { success: false, error: "Authentication token not found." }
 
@@ -198,7 +198,7 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred'
       return { success: false, error: errorMessage }
     }
-  }
+  }, [getToken, fetchFields])
 
   const reorderFields = async (reorderedFields: CampaignOnboardingField[]) => {
     // This will require a new endpoint
