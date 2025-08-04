@@ -70,6 +70,7 @@ export function BotIdentityTab({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="helpful">Helpful</SelectItem>
+              <SelectItem value="friendly">Friendly</SelectItem>
               <SelectItem value="witty">Witty</SelectItem>
               <SelectItem value="formal">Formal</SelectItem>
               <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
@@ -89,6 +90,7 @@ export function BotIdentityTab({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="friendly">Friendly</SelectItem>
+              <SelectItem value="casual">Casual</SelectItem>
               <SelectItem value="concise">Concise</SelectItem>
               <SelectItem value="detailed">Detailed</SelectItem>
             </SelectContent>
