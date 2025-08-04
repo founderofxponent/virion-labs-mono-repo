@@ -27,7 +27,10 @@ interface ReviewTabProps {
 }
 
 export function ReviewTab({ formData, questions, clients, onSave, isSaving, onBack }: ReviewTabProps) {
-  const selectedClient = clients.find(c => c.id.toString() === formData.client)
+  const selectedClient = clients.find(c => 
+    (c.documentId && c.documentId === formData.client) || 
+    c.id.toString() === formData.client
+  )
   
   return (
     <div className="space-y-6">

@@ -42,7 +42,7 @@ export function VitalsTab({
           </SelectTrigger>
           <SelectContent>
             {clients.map(client => (
-              <SelectItem key={client.id} value={client.id.toString()}>
+              <SelectItem key={client.id} value={client.documentId || client.id.toString()}>
                 {client.name}
               </SelectItem>
             ))}

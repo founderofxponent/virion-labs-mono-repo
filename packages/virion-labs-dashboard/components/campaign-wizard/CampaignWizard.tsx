@@ -222,7 +222,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       setFormData({
         campaign_template: '', // Clear template reference in edit mode
         campaign_type: campaign.campaign_type || 'custom',
-        client: campaign.client_id,
+        client: campaign.client?.documentId || campaign.client_id,
         name: campaign.name,
         guild_id: campaign.guild_id, 
         channel_id: campaign.channel_id || '',
@@ -427,7 +427,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         savedCampaign = await updateCampaign(campaignId!, campaignSubmitData);
       }
 
-      const targetCampaignId = savedCampaign.documentId;
+      const targetCampaignId = savedCampaign.documentId || savedCampaign.id?.toString();
       if (!targetCampaignId) {
         throw new Error("Failed to get campaign ID after saving.");
       }

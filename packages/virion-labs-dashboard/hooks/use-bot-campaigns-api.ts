@@ -118,7 +118,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
     const result = await response.json()
     await fetchCampaigns() // Refresh the list
-    return result.campaign;
+    return result;
   }
 
   const updateCampaign = async (id: string, data: UpdateCampaignData): Promise<Campaign> => {
@@ -141,7 +141,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
     const result = await response.json()
     await fetchCampaigns() // Refresh the list
-    return result.campaign;
+    return result;
   }
 
   const deleteCampaign = async (id: string): Promise<void> => {
@@ -181,7 +181,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
     const result = await response.json()
     await fetchCampaigns() // Refresh the list
-    return result.campaign;
+    return result;
   }
 
   const archiveCampaign = async (id: string): Promise<Campaign> => {
@@ -202,7 +202,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
 
     const result = await response.json()
     await fetchCampaigns() // Refresh the list
-    return result.campaign;
+    return result;
   }
 
   const fetchSingleCampaign = useCallback(async (campaignId: string): Promise<Campaign> => {
@@ -225,7 +225,7 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
       
       const data = await response.json()
       // The backend returns the campaign object directly
-      return data.campaign as Campaign
+      return data as Campaign
 
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : 'An error occurred')
