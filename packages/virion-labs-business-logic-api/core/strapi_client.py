@@ -218,7 +218,7 @@ class StrapiClient:
     async def create_campaign(self, campaign_data: StrapiCampaignCreate) -> Campaign:
         """Creates a new campaign in Strapi using a validated Pydantic model."""
         logger.info("StrapiClient: Creating a new campaign in Strapi.")
-        payload = campaign_data.model_dump(exclude_unset=True)
+        payload = campaign_data.model_dump(exclude_unset=True, mode='json')
         data = {"data": payload}
         response = await self._request("POST", "campaigns", data=data)
         return Campaign(**response.get("data"))
@@ -226,7 +226,7 @@ class StrapiClient:
     async def update_campaign(self, document_id: str, update_data: StrapiCampaignUpdate) -> Campaign:
         """Updates a campaign in Strapi using its documentId and a validated Pydantic model."""
         logger.info(f"StrapiClient: Updating campaign {document_id} in Strapi.")
-        payload = update_data.model_dump(exclude_unset=True)
+        payload = update_data.model_dump(exclude_unset=True, mode='json')
         data = {"data": payload}
         params = {"populate": "*"}  # Ensure relations are populated in the response
         response = await self._request("PUT", f"campaigns/{document_id}", data=data, params=params)
@@ -566,7 +566,7 @@ class StrapiClient:
     async def create_referral_link(self, link_data: StrapiReferralLinkCreate) -> ReferralLink:
         """Creates a new referral link in Strapi using a validated Pydantic model."""
         logger.info("StrapiClient: Creating a new referral link in Strapi.")
-        payload = link_data.model_dump(exclude_unset=True)
+        payload = link_data.model_dump(exclude_unset=True, mode='json')
         logger.info(f"StrapiClient: Payload being sent to Strapi: {payload}")
         data = {"data": payload}
         logger.info(f"StrapiClient: Final data structure being sent: {data}")
@@ -576,7 +576,7 @@ class StrapiClient:
     async def update_referral_link(self, document_id: str, link_data: StrapiReferralLinkUpdate) -> ReferralLink:
         """Updates a referral link in Strapi using its ID and a validated Pydantic model."""
         logger.info(f"StrapiClient: Updating referral link {document_id} in Strapi.")
-        payload = link_data.model_dump(exclude_unset=True)
+        payload = link_data.model_dump(exclude_unset=True, mode='json')
         data = {"data": payload}
         response = await self._request("PUT", f"referral-links/{document_id}", data=data)
         return ReferralLink(**response.get("data"))
@@ -720,7 +720,7 @@ class StrapiClient:
     async def create_campaign_landing_page(self, page_data: StrapiCampaignLandingPageCreate) -> CampaignLandingPage:
         """Creates a new campaign landing page in Strapi."""
         logger.info("StrapiClient: Creating a new campaign landing page in Strapi.")
-        payload = page_data.model_dump(exclude_unset=True)
+        payload = page_data.model_dump(exclude_unset=True, mode='json')
         data = {"data": payload}
         response = await self._request("POST", "campaign-landing-pages", data=data)
         return CampaignLandingPage(**response.get("data"))
@@ -730,7 +730,7 @@ class StrapiClient:
         logger.info(f"CLIENT: Updating campaign landing page {page_id} in Strapi.")
         
         # Convert the Pydantic model to a dictionary, excluding unset fields.
-        update_payload = page_data.model_dump(exclude_unset=True)
+        update_payload = page_data.model_dump(exclude_unset=True, mode='json')
 
         # If campaign is present as a document ID string, convert it to a numeric ID
         if 'campaign' in update_payload and isinstance(update_payload['campaign'], str):

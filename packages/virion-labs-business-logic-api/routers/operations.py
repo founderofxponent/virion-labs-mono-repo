@@ -268,7 +268,8 @@ async def list_campaigns_operation(
 async def create_campaign_operation(request: CampaignCreateRequest, current_user: User = Depends(get_current_user)):
     """Creates a new campaign."""
     try:
-        campaign_data = CampaignCreate(**request.model_dump())
+        logger.info(f"Received campaign creation request: {request.model_dump_json(indent=2)}")
+        campaign_data = CampaignCreate(**request.model_dump(mode='json'))
         created_campaign = await campaign_service.create_campaign_operation(campaign_data)
         return _to_campaign_response(created_campaign)
     except ValueError as e:
@@ -295,7 +296,7 @@ async def get_campaign_operation(campaign_id: str, current_user: User = Depends(
 async def update_campaign_operation(campaign_id: str, request: CampaignUpdateRequest, current_user: User = Depends(get_current_user)):
     """Updates a campaign."""
     try:
-        update_data = CampaignUpdate(**request.model_dump(exclude_unset=True))
+        update_data = CampaignUpdate(**request.model_dump(exclude_unset=True, mode='json'))
         updated_campaign = await campaign_service.update_campaign_operation(
             document_id=campaign_id,
             campaign_data=update_data
@@ -407,7 +408,13 @@ async def create_campaign_onboarding_field_operation(request: OnboardingFieldCre
     try:
         service_data = CampaignOnboardingFieldCreate(**request.model_dump())
         result = await campaign_service.create_onboarding_field_operation(field_data=service_data)
-        return result
+        
+        # Convert Campaign model instance to dictionary for proper serialization
+        response_data = result.model_dump()
+        if response_data.get('campaign') and hasattr(result.campaign, 'model_dump'):
+            response_data['campaign'] = result.campaign.model_dump()
+        
+        return OnboardingFieldResponse(**response_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -419,7 +426,15 @@ async def list_campaign_onboarding_fields_operation(campaign_id: str):
     """Lists all onboarding fields for a specific campaign."""
     try:
         fields = await campaign_service.get_onboarding_fields_operation(campaign_id=campaign_id)
-        return {"onboarding_fields": fields, "total_count": len(fields)}
+        # Convert Campaign model instances to dictionaries for proper serialization
+        serialized_fields = []
+        for field in fields:
+            field_dict = field.model_dump()
+            if field_dict.get('campaign') and hasattr(field.campaign, 'model_dump'):
+                field_dict['campaign'] = field.campaign.model_dump()
+            serialized_fields.append(OnboardingFieldResponse(**field_dict))
+        
+        return {"onboarding_fields": serialized_fields, "total_count": len(serialized_fields)}
     except Exception as e:
         logger.error(f"List campaign onboarding fields operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -432,8 +447,11 @@ async def get_campaign_onboarding_field_operation(field_id: str):
         if not result:
             raise HTTPException(status_code=404, detail="Onboarding field not found")
         
-        # Manually construct the response to ensure validators are applied
+        # Convert Campaign model instance to dictionary for proper serialization
         response_data = result.model_dump()
+        if response_data.get('campaign') and hasattr(result.campaign, 'model_dump'):
+            response_data['campaign'] = result.campaign.model_dump()
+        
         return OnboardingFieldResponse(**response_data)
     except HTTPException:
         raise
@@ -447,7 +465,13 @@ async def update_campaign_onboarding_field_operation(field_id: int, request: Onb
     try:
         service_data = CampaignOnboardingFieldUpdate(**request.model_dump(exclude_unset=True))
         result = await campaign_service.update_onboarding_field_operation(field_id=field_id, field_data=service_data)
-        return result
+        
+        # Convert Campaign model instance to dictionary for proper serialization
+        response_data = result.model_dump()
+        if response_data.get('campaign') and hasattr(result.campaign, 'model_dump'):
+            response_data['campaign'] = result.campaign.model_dump()
+        
+        return OnboardingFieldResponse(**response_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -480,7 +504,14 @@ async def batch_update_campaign_onboarding_fields_operation(
             deletes=request.delete_ids or [],
             current_user=current_user
         )
-        response_fields = [OnboardingFieldResponse(**field.model_dump()) for field in result]
+        # Convert Campaign model instances to dictionaries for proper serialization
+        response_fields = []
+        for field in result:
+            field_dict = field.model_dump()
+            if field_dict.get('campaign') and hasattr(field.campaign, 'model_dump'):
+                field_dict['campaign'] = field.campaign.model_dump()
+            response_fields.append(OnboardingFieldResponse(**field_dict))
+        
         return {"onboarding_fields": response_fields, "total_count": len(response_fields)}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

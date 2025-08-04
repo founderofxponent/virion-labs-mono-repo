@@ -44,7 +44,7 @@ class CampaignService:
         if not client:
             raise ValueError(f"Client with documentId {client_doc_id} not found.")
 
-        create_payload = campaign_data.model_dump()
+        create_payload = campaign_data.model_dump(mode='json')
         create_payload['client'] = client.id
 
         strapi_data = StrapiCampaignCreate(**create_payload)
@@ -54,7 +54,7 @@ class CampaignService:
         """Business operation for updating a campaign."""
         logger.info(f"Executing update campaign operation for campaign: {document_id}")
 
-        update_dict = campaign_data.model_dump(exclude_unset=True)
+        update_dict = campaign_data.model_dump(exclude_unset=True, mode='json')
 
         # Resolve client documentId to numeric ID if provided
         if 'client' in update_dict and isinstance(update_dict['client'], str):
@@ -87,7 +87,7 @@ class CampaignService:
         if not campaign_id:
             raise ValueError(f"Campaign with documentId {campaign_doc_id} not found.")
 
-        create_payload = page_data.model_dump()
+        create_payload = page_data.model_dump(mode='json')
         create_payload['campaign'] = campaign_id
 
         strapi_data = StrapiCampaignLandingPageCreate(**create_payload)
@@ -97,7 +97,7 @@ class CampaignService:
         """Business operation for updating a landing page."""
         logger.info(f"SERVICE: Executing update landing page operation for page: {page_id}")
 
-        update_dict = page_data.model_dump(exclude_unset=True)
+        update_dict = page_data.model_dump(exclude_unset=True, mode='json')
 
         # If campaign is present as a document ID string, convert it to a numeric ID
         if 'campaign' in update_dict and isinstance(update_dict['campaign'], str):

@@ -103,11 +103,10 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-          name: data.name,
-          guild_id: data.guild_id,
-          client: data.client,
-          campaign_data: data,
-          setup_options: {}
+        ...data,
+        start_date: data.start_date ? new Date(data.start_date).toISOString() : null,
+        end_date: data.end_date ? new Date(data.end_date).toISOString() : null,
+        setup_options: {}
       })
     })
 
@@ -131,7 +130,11 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        start_date: data.start_date ? new Date(data.start_date).toISOString() : null,
+        end_date: data.end_date ? new Date(data.end_date).toISOString() : null,
+      }),
     })
 
     if (!response.ok) {
