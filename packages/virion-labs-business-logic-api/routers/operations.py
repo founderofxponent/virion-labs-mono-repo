@@ -85,7 +85,7 @@ def _to_campaign_response(campaign: Campaign) -> CampaignResponse:
     
     return CampaignResponse(
         id=campaign.id,
-        documentId=getattr(campaign, 'documentId', ''),
+        documentId=campaign.documentId or '',
         name=campaign.name,
         description=campaign.description,
         campaign_type=campaign.campaign_type,

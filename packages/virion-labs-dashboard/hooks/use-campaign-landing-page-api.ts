@@ -48,13 +48,13 @@ export function useCampaignLandingPageApi() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/${campaignId}/landing-pages`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/operations/campaign/landing-pages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(pageData)
+        body: JSON.stringify({ ...pageData, campaign: campaignId })
       })
 
       if (!response.ok) {

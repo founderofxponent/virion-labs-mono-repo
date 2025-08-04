@@ -435,10 +435,15 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
       // Step 2: Save landing page data separately
       if (landing_page_data) {
         const { landing_page_template_id, ...cleanLandingPageData } = landing_page_data;
+        const campaignDocumentId = savedCampaign.documentId;
+        if (!campaignDocumentId) {
+          throw new Error("Failed to get campaign documentId after saving.");
+        }
+
         if (landingPage && landingPage.documentId) {
-          await updatePage(landingPage.documentId, { ...cleanLandingPageData, campaign: targetCampaignId });
+          await updatePage(landingPage.documentId, { ...cleanLandingPageData, campaign: campaignDocumentId });
         } else {
-          await createPage(targetCampaignId, { ...cleanLandingPageData, campaign: targetCampaignId });
+          await createPage(campaignDocumentId, cleanLandingPageData);
         }
       }
 

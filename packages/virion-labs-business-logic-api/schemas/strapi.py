@@ -237,6 +237,7 @@ class CampaignInfluencerAccess(BaseModel):
 
 class Campaign(BaseModel):
     id: int
+    documentId: Optional[str] = None
     name: str
     description: Optional[str] = None
     campaign_type: Optional[Literal['referral_onboarding', 'community_engagement', 'product_promotion', 'custom', 'vip_support']] = None
