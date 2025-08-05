@@ -538,6 +538,22 @@ class StrapiClient:
         logger.info(f"StrapiClient: Deleting landing page template {document_id} from Strapi.")
         await self._request("DELETE", f"landing-page-templates/{document_id}")
         return {"status": "deleted", "documentId": document_id}
+
+    async def get_landing_page_template_id_by_document_id(self, document_id: str) -> Optional[int]:
+        """Gets the numeric ID of a landing page template by its documentId."""
+        logger.info(f"StrapiClient: Getting numeric ID for landing page template {document_id}.")
+        filters = {
+            "filters[documentId][$eq]": document_id,
+            "fields[0]": "id"
+        }
+        response = await self._request("GET", "landing-page-templates", params=filters)
+        templates = response.get("data", [])
+        if templates:
+            template_id = templates[0].get("id")
+            logger.info(f"Found numeric ID: {template_id} for documentId: {document_id}")
+            return template_id
+        logger.warning(f"No landing page template found with documentId: {document_id}")
+        return None
     # endregion
 
     async def get_referral_links(self, filters: Optional[Dict] = None) -> List[ReferralLink]:

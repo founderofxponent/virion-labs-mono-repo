@@ -90,6 +90,16 @@ class CampaignService:
         create_payload = page_data.model_dump(mode='json')
         create_payload['campaign'] = campaign_id
 
+        # Convert landing_page_template documentId to numeric ID if present
+        if 'landing_page_template' in create_payload and isinstance(create_payload['landing_page_template'], str):
+            template_doc_id = create_payload['landing_page_template']
+            template_id = await strapi_client.get_landing_page_template_id_by_document_id(template_doc_id)
+            if template_id:
+                create_payload['landing_page_template'] = template_id
+            else:
+                logger.warning(f"Could not find landing page template with documentId: {template_doc_id}. Removing from payload to prevent validation errors.")
+                create_payload.pop('landing_page_template', None)
+
         strapi_data = StrapiCampaignLandingPageCreate(**create_payload)
         return await strapi_client.create_campaign_landing_page(strapi_data)
 
@@ -107,6 +117,16 @@ class CampaignService:
                 update_dict['campaign'] = campaign_id
             else:
                 logger.warning(f"Could not find campaign with documentId: {campaign_doc_id}. Relation will not be updated.")
+
+        # If landing_page_template is present as a document ID string, convert it to a numeric ID
+        if 'landing_page_template' in update_dict and isinstance(update_dict['landing_page_template'], str):
+            template_doc_id = update_dict['landing_page_template']
+            template_id = await strapi_client.get_landing_page_template_id_by_document_id(template_doc_id)
+            if template_id:
+                update_dict['landing_page_template'] = template_id
+            else:
+                logger.warning(f"Could not find landing page template with documentId: {template_doc_id}. Removing from payload to prevent validation errors.")
+                update_dict.pop('landing_page_template', None)
 
         # Map the service model to the Strapi data model
         strapi_page_data = StrapiCampaignLandingPageUpdate(**update_dict)

@@ -151,10 +151,19 @@ class LandingPageTemplateBase(BaseModel):
     category: Optional[str] = None
     campaign_types: Optional[List[str]] = None
     template_structure: Optional[Dict[str, Any]] = None
+    default_content: Optional[Dict[str, Any]] = None
     customizable_fields: Optional[List[str]] = None
     default_offer_title: Optional[str] = None
     default_offer_description: Optional[str] = None
     default_offer_highlights: Optional[List[str]] = None
+    default_offer_value: Optional[str] = None
+    default_hero_image_url: Optional[str] = None
+    default_video_url: Optional[str] = None
+    default_what_you_get: Optional[str] = None
+    default_how_it_works: Optional[str] = None
+    default_requirements: Optional[str] = None
+    default_support_info: Optional[str] = None
+    default_product_images: Optional[List[str]] = None
     color_scheme: Optional[Dict[str, Any]] = None
     layout_config: Optional[Dict[str, Any]] = None
     preview_image_url: Optional[str] = None
@@ -363,6 +372,8 @@ class StrapiCampaignLandingPageUpdate(CampaignLandingPageBase):
     campaign: Optional[int] = None  # Relation ID
 
 class StrapiCampaignLandingPageCreate(CampaignLandingPageBase):
+    hero_image_url: Optional[str] = None  # URL string
+    landing_page_template: Optional[int] = None  # Relation ID
     campaign: int # Relation ID
 
 class UserSetting(BaseModel):

@@ -7,7 +7,7 @@
     "displayName": "Landing Page Template"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
@@ -86,6 +86,12 @@
       "type": "boolean",
       "required": true,
       "default": false
+    },
+    "campaign_landing_pages": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-landing-page.campaign-landing-page",
+      "mappedBy": "landing_page_template"
     }
   }
 }

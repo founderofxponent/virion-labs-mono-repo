@@ -32,6 +32,7 @@ import { CampaignLandingPageInsert } from "@/lib/supabase"
 
 interface LandingPageConfigData {
   landing_page_template_id?: string
+  inherited_from_template?: boolean
   offer_title?: string
   offer_description?: string
   offer_highlights?: string[]
@@ -71,6 +72,7 @@ export function LandingPageConfig({
   
   const [data, setData] = useState<LandingPageConfigData>({
     landing_page_template_id: '',
+    inherited_from_template: false,
     offer_title: '',
     offer_description: '',
     offer_highlights: [],
@@ -107,6 +109,7 @@ export function LandingPageConfig({
     if (landingPage && !initialData) {
       setData({
         landing_page_template_id: landingPage.landing_page_template?.documentId || '',
+        inherited_from_template: landingPage.inherited_from_template || false,
         offer_title: Array.isArray(landingPage.offer_title) ? landingPage.offer_title[0] : landingPage.offer_title || '',
         offer_description: landingPage.offer_description || '',
         offer_highlights: landingPage.offer_highlights || [],
@@ -152,13 +155,14 @@ export function LandingPageConfig({
       if (template) {
         const templateData = {
           landing_page_template_id: template.documentId, // Use documentId for Strapi v5
+          inherited_from_template: true,
           offer_title: template.default_offer_title,
           offer_description: template.default_offer_description,
           offer_highlights: template.default_offer_highlights,
           offer_value: template.default_offer_value,
           offer_expiry_date: template.default_offer_expiry_date ? new Date(template.default_offer_expiry_date) : null,
           hero_image_url: template.default_hero_image_url,
-          product_images: template.default_product_images,
+          product_images: template.default_product_images || template.default_content?.product_images,
           video_url: template.default_video_url,
           what_you_get: template.default_what_you_get,
           how_it_works: template.default_how_it_works,
@@ -178,7 +182,8 @@ export function LandingPageConfig({
     if (templateId === "blank") {
       // Clear template data but keep existing form data
       updateData({
-        landing_page_template_id: ""
+        landing_page_template_id: "",
+        inherited_from_template: false
       })
       return
     }
@@ -208,8 +213,10 @@ export function LandingPageConfig({
         if (template.default_hero_image_url) {
           templateFields.hero_image_url = template.default_hero_image_url
         }
-        if (template.default_product_images && template.default_product_images.length > 0) {
-          templateFields.product_images = template.default_product_images
+        // Check both default_product_images and default_content.product_images
+        const productImages = template.default_product_images || template.default_content?.product_images
+        if (productImages && productImages.length > 0) {
+          templateFields.product_images = productImages
         }
         if (template.default_video_url) {
           templateFields.video_url = template.default_video_url
@@ -229,6 +236,7 @@ export function LandingPageConfig({
         
         updateData({
           landing_page_template_id: template.documentId, // Use documentId for Strapi v5
+          inherited_from_template: true,
           ...templateFields
         })
       }

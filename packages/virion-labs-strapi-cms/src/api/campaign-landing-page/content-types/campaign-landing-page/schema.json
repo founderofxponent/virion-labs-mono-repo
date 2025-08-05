@@ -53,8 +53,9 @@
     },
     "landing_page_template": {
       "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::landing-page-template.landing-page-template"
+      "relation": "manyToOne",
+      "target": "api::landing-page-template.landing-page-template",
+      "inversedBy": "campaign_landing_pages"
     },
     "campaign": {
       "type": "relation",

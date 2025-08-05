@@ -436,7 +436,7 @@ export interface ApiCampaignLandingPageCampaignLandingPage
     inherited_from_template: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<false>;
     landing_page_template: Schema.Attribute.Relation<
-      'oneToOne',
+      'manyToOne',
       'api::landing-page-template.landing-page-template'
     >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
@@ -810,9 +810,13 @@ export interface ApiLandingPageTemplateLandingPageTemplate
     singularName: 'landing-page-template';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
+    campaign_landing_pages: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::campaign-landing-page.campaign-landing-page'
+    >;
     campaign_types: Schema.Attribute.JSON & Schema.Attribute.Required;
     category: Schema.Attribute.String;
     color_scheme: Schema.Attribute.JSON;
