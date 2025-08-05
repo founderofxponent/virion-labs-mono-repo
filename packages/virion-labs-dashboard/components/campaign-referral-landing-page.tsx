@@ -118,9 +118,13 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
   const handleJoinDiscord = async () => {
     setJoining(true);
     try {
-      const response = await fetch('/api/discord/create-managed-invite', {
+      const businessLogicApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const response = await fetch(`${businessLogicApiUrl}/api/v1/integrations/discord/create-managed-invite`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || ''
+        },
         body: JSON.stringify({ referral_code: referralCode }),
       });
 
@@ -132,7 +136,7 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
         // Fallback to old URL if API fails, and alert the user.
         toast({
           title: "Could not create a tracked invite.",
-          description: "Redirecting you to a general invite. You may need to enter the referral code manually.",
+          description: result.message || "Redirecting you to a general invite. You may need to enter the referral code manually.",
           variant: "destructive",
         })
         if (data?.referral_link.discord_invite_url) {

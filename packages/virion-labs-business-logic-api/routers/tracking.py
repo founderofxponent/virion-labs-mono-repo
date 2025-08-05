@@ -393,6 +393,7 @@ async def get_referral_campaign_data(referral_code: str):
             "id": str(referral_link.campaign.id) if referral_link.campaign else None,
             "campaign_name": referral_link.campaign.name if referral_link.campaign else "Referral Campaign",
             "campaign_type": "referral",
+            "guild_id": referral_link.campaign.guild_id if referral_link.campaign else None,
             "brand_color": referral_link.campaign.brand_color if (referral_link.campaign and referral_link.campaign.brand_color) else "#6366f1",
             "clients": {
                 "name": referral_link.campaign.client.name if (referral_link.campaign and referral_link.campaign.client) else "Client Name",

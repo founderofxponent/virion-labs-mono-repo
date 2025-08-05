@@ -58,3 +58,13 @@ class OnboardingSubmitRequest(BaseModel):
 class OnboardingSubmitResponse(BaseModel):
     success: bool
     message: str
+
+# Discord Invite Schemas
+
+class CreateManagedInviteRequest(BaseModel):
+    referral_code: str
+
+class CreateManagedInviteResponse(BaseModel):
+    success: bool
+    invite_url: Optional[str] = None
+    message: Optional[str] = None

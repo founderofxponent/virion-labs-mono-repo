@@ -15,6 +15,128 @@ class IntegrationService:
     def __init__(self):
         self.discord_domain = DiscordDomain()
 
+    async def create_managed_invite(self, referral_code: str) -> Dict[str, Any]:
+        """
+        Create a managed Discord invite for a referral campaign.
+        """
+        try:
+            logger.info(f"Creating managed Discord invite for referral code: {referral_code}")
+            
+            # Find the referral link to get campaign info
+            filters = {
+                "filters[referral_code][$eq]": referral_code,
+                "populate[0]": "campaign",
+            }
+            referral_links = await strapi_client.get_referral_links(filters=filters)
+            
+            if not referral_links:
+                return {
+                    "success": False,
+                    "message": f"Referral link with code '{referral_code}' not found"
+                }
+            
+            referral_link = referral_links[0]
+            campaign = referral_link.campaign
+            
+            if not campaign or not campaign.guild_id:
+                return {
+                    "success": False,
+                    "message": "Campaign Discord server not configured"
+                }
+            
+            # Create Discord invite using Discord API
+            if not settings.DISCORD_BOT_TOKEN:
+                logger.warning("DISCORD_BOT_TOKEN not configured, cannot create managed invite")
+                # Return fallback to existing discord_invite_url if available
+                fallback_url = getattr(referral_link, 'discord_invite_url', None)
+                if fallback_url:
+                    return {
+                        "success": True,
+                        "invite_url": fallback_url,
+                        "message": "Using fallback invite URL"
+                    }
+                return {
+                    "success": False,
+                    "message": "Discord bot not configured and no fallback invite available"
+                }
+            
+            # Use Discord API to create a managed invite
+            # First, get the guild's channels to find a suitable channel for the invite
+            guild_id = campaign.guild_id
+            
+            async with httpx.AsyncClient() as client:
+                # Get guild channels
+                headers = {"Authorization": f"Bot {settings.DISCORD_BOT_TOKEN}"}
+                
+                channels_response = await client.get(
+                    f"https://discord.com/api/v10/guilds/{guild_id}/channels",
+                    headers=headers
+                )
+                
+                if channels_response.status_code != 200:
+                    logger.error(f"Failed to get guild channels: {channels_response.status_code} - {channels_response.text}")
+                    return {
+                        "success": False,
+                        "message": "Failed to access Discord server"
+                    }
+                
+                channels = channels_response.json()
+                
+                # Find a suitable channel (preferably general or system channel)
+                target_channel_id = campaign.channel_id  # Use campaign's specific channel if set
+                
+                if not target_channel_id:
+                    # Find the first text channel that the bot can create invites in
+                    for channel in channels:
+                        if channel.get('type') == 0:  # Text channel
+                            target_channel_id = channel['id']
+                            break
+                
+                if not target_channel_id:
+                    return {
+                        "success": False,
+                        "message": "No suitable channel found for invite creation"
+                    }
+                
+                # Create the invite
+                invite_data = {
+                    "max_age": 0,  # Never expires
+                    "max_uses": 0,  # Unlimited uses
+                    "temporary": False,  # Permanent membership
+                    "unique": True  # Create a unique invite
+                }
+                
+                invite_response = await client.post(
+                    f"https://discord.com/api/v10/channels/{target_channel_id}/invites",
+                    headers=headers,
+                    json=invite_data
+                )
+                
+                if invite_response.status_code == 200:
+                    invite_json = invite_response.json()
+                    invite_url = f"https://discord.gg/{invite_json['code']}"
+                    
+                    logger.info(f"Successfully created Discord invite: {invite_url}")
+                    return {
+                        "success": True,
+                        "invite_url": invite_url,
+                        "message": "Discord invite created successfully"
+                    }
+                else:
+                    logger.error(f"Failed to create Discord invite: {invite_response.status_code} - {invite_response.text}")
+                    return {
+                        "success": False,
+                        "message": "Failed to create Discord invite"
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Error creating managed Discord invite: {e}")
+            return {
+                "success": False,
+                "message": "Internal error creating Discord invite"
+            }
+
+
     async def get_discord_campaigns(self, guild_id: str, channel_id: str, join_campaigns_channel_id: str) -> List[Campaign]:
         """
         Business operation for fetching Discord campaigns.

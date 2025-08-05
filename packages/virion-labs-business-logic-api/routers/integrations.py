@@ -8,6 +8,9 @@ from schemas.integration_schemas import (
     OnboardingStartResponse,
     OnboardingSubmitRequest,
     OnboardingSubmitResponse,
+    CreateManagedInviteRequest,
+    CreateManagedInviteResponse,
+
 )
 from services.integration_service import integration_service
 from core.auth import get_api_key
@@ -85,3 +88,15 @@ async def submit_discord_onboarding(request: OnboardingSubmitRequest, api_key: s
     except Exception as e:
         logger.error(f"Failed to submit Discord onboarding: {e}")
         raise HTTPException(status_code=500, detail="Failed to complete onboarding.")
+
+@router.post("/discord/create-managed-invite", response_model=CreateManagedInviteResponse)
+async def create_managed_invite(request: CreateManagedInviteRequest, api_key: str = Depends(get_api_key)):
+    """
+    Create a managed Discord invite for a referral campaign.
+    """
+    try:
+        result = await integration_service.create_managed_invite(request.referral_code)
+        return CreateManagedInviteResponse(**result)
+    except Exception as e:
+        logger.error(f"Failed to create managed Discord invite: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create Discord invite.")
