@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useUserSettings } from "@/hooks/use-user-settings"
 import { useToast } from "@/hooks/use-toast"
+import { useDiscordSettingsApi } from "@/hooks/use-discord-settings-api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +49,7 @@ export function SettingsPage() {
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="privacy">Privacy</TabsTrigger>
+          {isAdmin && <TabsTrigger value="discord">Discord</TabsTrigger>}
           {isAdmin && <TabsTrigger value="api">API Keys</TabsTrigger>}
         </TabsList>
 
@@ -66,6 +68,12 @@ export function SettingsPage() {
         <TabsContent value="privacy" className="space-y-4">
           <PrivacySettings />
         </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="discord" className="space-y-4">
+            <DiscordSettings />
+          </TabsContent>
+        )}
 
         {isAdmin && (
           <TabsContent value="api" className="space-y-4">
@@ -1309,5 +1317,138 @@ function ApiSettings() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+function DiscordSettings() {
+  const { settings, loading, error, saving, updateSettings } = useDiscordSettingsApi()
+  const { toast } = useToast()
+  const [formData, setFormData] = useState({
+    verified_role_id: "",
+  })
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        verified_role_id: settings.verified_role_id || "",
+      })
+    }
+  }, [settings])
+
+  const handleSave = async () => {
+    try {
+      const result = await updateSettings({
+        verified_role_id: formData.verified_role_id.trim() || null
+      })
+      
+      if (result.success) {
+        toast({
+          title: "✅ Discord settings updated successfully!",
+          description: "The verified role ID has been saved.",
+          duration: 4000,
+        })
+        setSaveSuccess(true)
+        
+        // Reset success state after 3 seconds
+        setTimeout(() => {
+          setSaveSuccess(false)
+        }, 3000)
+      } else {
+        throw new Error(result.error || "Failed to update Discord settings")
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update Discord settings. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            Loading Discord settings...
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center text-red-600">
+            <p>Error loading Discord settings: {error}</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Discord Settings</CardTitle>
+        <CardDescription>
+          Configure Discord bot settings for user access management
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="verified-role-id">Verified Role ID</Label>
+          <Input
+            id="verified-role-id"
+            placeholder="Enter Discord role ID (e.g., 1234567890123456789)"
+            value={formData.verified_role_id}
+            onChange={(e) => setFormData(prev => ({ ...prev, verified_role_id: e.target.value }))}
+          />
+          <p className="text-sm text-muted-foreground">
+            This role will be assigned to users when their access requests are manually approved.
+            You can find the role ID by right-clicking on the role in Discord (with Developer Mode enabled).
+          </p>
+        </div>
+        
+        <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+          <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">How to find a Discord Role ID:</h4>
+          <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-decimal list-inside">
+            <li>Enable Developer Mode in Discord (User Settings → Advanced → Developer Mode)</li>
+            <li>Go to your Discord server</li>
+            <li>Right-click on the role you want to use</li>
+            <li>Click "Copy Role ID"</li>
+            <li>Paste the ID into the field above</li>
+          </ol>
+        </div>
+      </CardContent>
+      <CardFooter>
+        <Button 
+          onClick={handleSave} 
+          disabled={saving || saveSuccess}
+          className={`${saveSuccess ? 'bg-green-600 hover:bg-green-700' : ''}`}
+        >
+          {saving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving Settings...     
+            </>
+          ) : saveSuccess ? (
+            <>
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Settings Saved!
+            </>
+          ) : (
+            <>
+              <Save className="mr-2 h-4 w-4" />
+              Save Settings
+            </>
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }

@@ -1,4 +1,4 @@
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
 const { ApiService } = require('../services/ApiService');
 
 class RequestAccessHandler {
@@ -12,7 +12,7 @@ class RequestAccessHandler {
     try {
       const userId = interaction.customId.split('_').pop();
       if (interaction.user.id !== userId) {
-        return interaction.reply({ content: 'This button is not for you.', ephemeral: true });
+        return interaction.reply({ content: 'This button is not for you.', flags: MessageFlags.Ephemeral });
       }
 
       const modal = new ModalBuilder()
@@ -43,11 +43,16 @@ class RequestAccessHandler {
 
   async handleModalSubmission(interaction) {
     try {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      const userId = interaction.customId.split('_').pop();
+      // Extract user ID from customId: access_request_modal_${userId}
+      const userId = interaction.customId.replace('access_request_modal_', '');
       const fullName = interaction.fields.getTextInputValue('full_name');
       const email = interaction.fields.getTextInputValue('email');
+
+      this.logger.info(`[RequestAccessHandler] Modal customId: ${interaction.customId}`);
+      this.logger.info(`[RequestAccessHandler] Extracted userId: ${userId}`);
+      this.logger.info(`[RequestAccessHandler] Actual user ID: ${interaction.user.id}`);
 
       const payload = {
         user_id: userId,
@@ -56,6 +61,8 @@ class RequestAccessHandler {
         email: email,
         name: fullName,
       };
+
+      this.logger.info(`[RequestAccessHandler] Payload: ${JSON.stringify(payload)}`);
 
       const response = await this.apiService.submitAccessRequest(payload);
       const message = response.data?.message || 'An error occurred while processing your request.';

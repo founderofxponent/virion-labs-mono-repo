@@ -17,8 +17,8 @@ async def migrate_onboarding_flow():
         logger.info(f"Found {len(campaigns)} campaigns to process.")
 
         for campaign in campaigns:
-            campaign_id = campaign.get("id")
-            onboarding_flow = campaign.get("onboarding_flow")
+            campaign_id = getattr(campaign, "id", None)
+            onboarding_flow = getattr(campaign, "onboarding_flow", None)
 
             if not campaign_id or not onboarding_flow or not isinstance(onboarding_flow, list):
                 logger.info(f"Skipping campaign {campaign_id or 'Unknown'}: No valid onboarding_flow found.")

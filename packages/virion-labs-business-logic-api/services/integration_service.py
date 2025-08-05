@@ -174,7 +174,7 @@ class IntegrationService:
                 duplicates = {doc_id: count for doc_id, count in id_counts.items() if count > 1}
                 logger.warning(f"Duplicate documentIds: {duplicates}")
             
-            result_campaigns = [Campaign(**c) for c in filtered_campaigns]
+            result_campaigns = filtered_campaigns
             logger.info(f"✅ Returning {len(result_campaigns)} campaigns to Discord bot")
             
             return result_campaigns
@@ -185,23 +185,65 @@ class IntegrationService:
     async def request_discord_access(self, access_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Business operation for handling a Discord access request.
-        This involves creating a user profile.
+        This creates a Discord request access record for admin review.
         """
         try:
-            # In a real scenario, you might check for an existing user first.
-            profile_data = {
-                "discord_user_id": access_data["user_id"],
-                "discord_username": access_data["user_tag"],
-                "email": access_data["email"],
+            discord_user_id = access_data["user_id"]
+            guild_id = access_data["guild_id"]
+            
+            # Check if a request already exists for this user with pending or approved status
+            existing_requests = await strapi_client.get_discord_request_accesses({
+                "filters[discord_user_id][$eq]": discord_user_id,
+                "filters[guild_id][$eq]": guild_id,
+                "filters[$or][0][request_status][$eq]": "pending",
+                "filters[$or][1][request_status][$eq]": "approved"
+            })
+            
+            if existing_requests:
+                logger.info(f"Duplicate request attempt for discord_user_id: {discord_user_id}, guild_id: {guild_id}")
+                return {
+                    "success": False, 
+                    "message": "You already have a pending or approved request for this server."
+                }
+            
+            # Construct data payload for Discord Request Access content type
+            request_data = {
                 "full_name": access_data["name"],
-                "is_verified": True # Automatically verify on submission for now
+                "email": access_data["email"],
+                "discord_user_id": discord_user_id,
+                "discord_username": access_data["user_tag"],
+                "guild_id": guild_id,
+                "request_status": "approved"
             }
-            await strapi_client.create_user_profile(profile_data)
             
-            # Here you would also trigger giving the user the 'Verified' role in Discord.
-            # This would likely involve a call to a Discord API client.
+            # Create the Discord request access record
+            await strapi_client.create_discord_request_access(request_data)
             
-            return {"success": True, "message": "Access granted successfully."}
+            # Get the verified role ID from Discord settings and assign it
+            discord_settings = await strapi_client.get_discord_setting()
+            role_assigned = False
+            
+            if discord_settings and discord_settings.verified_role_id:
+                role_assigned = await self._assign_discord_role(
+                    guild_id, 
+                    discord_user_id, 
+                    discord_settings.verified_role_id
+                )
+                
+                if role_assigned:
+                    logger.info(f"Successfully assigned verified role {discord_settings.verified_role_id} to user {discord_user_id}")
+                else:
+                    logger.warning(f"Failed to assign verified role to user {discord_user_id}")
+            else:
+                logger.warning("No verified role ID configured in Discord settings")
+            
+            logger.info(f"Successfully created and auto-approved Discord access request for user {discord_user_id} in guild {guild_id}")
+            
+            if role_assigned:
+                return {"success": True, "message": "Access granted! You have been approved and the verified role has been assigned."}
+            else:
+                return {"success": True, "message": "Access granted! You have been approved, but the role assignment failed. Please contact an admin."}
+            
         except Exception as e:
             logger.error(f"Failed to process Discord access request: {e}")
             return {"success": False, "message": "An error occurred."}
@@ -346,19 +388,47 @@ class IntegrationService:
 
     async def has_verified_role(self, user_id: str, guild_id: str) -> bool:
         """
-        Check if a Discord user has the verified role in a guild.
-        This is a placeholder - in real implementation, this would check Discord API.
+        Check if a Discord user has the verified role in a guild using Discord API.
         """
         try:
-            # For now, check if user profile exists and is verified
-            user_profiles = await strapi_client.get_user_profiles({
-                "filters[discord_user_id][$eq]": user_id
-            })
+            # Get the verified role ID from Discord settings
+            discord_settings = await strapi_client.get_discord_setting()
+            if not discord_settings or not discord_settings.verified_role_id:
+                logger.warning("No verified role ID configured in Discord settings")
+                return False
             
-            if user_profiles:
-                return user_profiles[0].get("is_verified", False)
+            verified_role_id = discord_settings.verified_role_id
             
-            return False
+            # Check if Discord bot token is configured
+            if not settings.DISCORD_BOT_TOKEN:
+                logger.warning("DISCORD_BOT_TOKEN not configured, cannot check role")
+                return False
+            
+            # Use Discord API to check if user has the role
+            async with httpx.AsyncClient() as client:
+                headers = {"Authorization": f"Bot {settings.DISCORD_BOT_TOKEN}"}
+                
+                # Get guild member info
+                response = await client.get(
+                    f"https://discord.com/api/v10/guilds/{guild_id}/members/{user_id}",
+                    headers=headers
+                )
+                
+                if response.status_code == 404:
+                    # User is not a member of the guild
+                    return False
+                elif response.status_code != 200:
+                    logger.error(f"Discord API error checking member: {response.status_code} - {response.text}")
+                    return False
+                
+                member_data = response.json()
+                user_role_ids = member_data.get("roles", [])
+                
+                # Check if user has the verified role
+                has_role = verified_role_id in user_role_ids
+                logger.info(f"User {user_id} has verified role {verified_role_id}: {has_role}")
+                return has_role
+                
         except Exception as e:
             logger.error(f"Failed to check verified role: {e}")
             return False

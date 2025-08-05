@@ -38,7 +38,7 @@ from schemas.operation_schemas import (
     CampaignAccessRequestUpdateRequest,
     CampaignAccessRequestListResponse,
 )
-from schemas.strapi import Campaign
+from schemas.strapi import Campaign, StrapiDiscordSettingUpdate
 from domain.campaigns.schemas import (
     CampaignLandingPageCreate, CampaignLandingPageUpdate,
     CampaignOnboardingFieldCreate,
@@ -56,6 +56,10 @@ from domain.onboarding.schemas import (
 from domain.campaign_access.schemas import (
     CampaignInfluencerAccessCreate,
     CampaignInfluencerAccessUpdate
+)
+from domain.integrations.discord.schemas import (
+    DiscordSettingUpdate,
+    DiscordSettingResponse
 )
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
@@ -941,4 +945,49 @@ async def update_campaign_access_request_operation(
         
     except Exception as e:
         logger.error(f"Campaign access request update failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/discord/settings", response_model=DiscordSettingResponse)
+async def get_discord_settings_operation(current_user: User = Depends(get_current_user)):
+    """Gets Discord settings."""
+    try:
+        settings = await strapi_client.get_discord_setting()
+        if not settings:
+            # Return default settings if none exist
+            return DiscordSettingResponse(
+                id=None,
+                verified_role_id=None,
+                createdAt=None,
+                updatedAt=None,
+                publishedAt=None
+            )
+        return DiscordSettingResponse(
+            id=settings.id,
+            verified_role_id=settings.verified_role_id,
+            createdAt=settings.createdAt,
+            updatedAt=settings.updatedAt,
+            publishedAt=settings.publishedAt
+        )
+    except Exception as e:
+        logger.error(f"Get Discord settings operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/discord/settings", response_model=DiscordSettingResponse)
+async def update_discord_settings_operation(
+    request: DiscordSettingUpdate, 
+    current_user: User = Depends(get_current_user)
+):
+    """Updates Discord settings."""
+    try:
+        update_data = StrapiDiscordSettingUpdate(**request.model_dump(exclude_unset=True))
+        updated_settings = await strapi_client.update_discord_setting(update_data)
+        return DiscordSettingResponse(
+            id=updated_settings.id,
+            verified_role_id=updated_settings.verified_role_id,
+            createdAt=updated_settings.createdAt,
+            updatedAt=updated_settings.updatedAt,
+            publishedAt=updated_settings.publishedAt
+        )
+    except Exception as e:
+        logger.error(f"Update Discord settings operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

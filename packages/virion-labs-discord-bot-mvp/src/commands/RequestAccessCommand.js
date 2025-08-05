@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { ApiService } = require('../services/ApiService');
 
 class RequestAccessCommand {
@@ -13,7 +13,7 @@ class RequestAccessCommand {
       const hasRole = await this.apiService.hasVerifiedRole(interaction.user.id, interaction.guildId);
 
       if (hasRole.has_role) {
-        return interaction.reply({ content: 'You already have the verified role.', ephemeral: true });
+        return interaction.reply({ content: 'You already have the verified role.', flags: MessageFlags.Ephemeral });
       }
 
       const embed = new EmbedBuilder()
@@ -28,11 +28,11 @@ class RequestAccessCommand {
           .setStyle(ButtonStyle.Primary)
       );
 
-      await interaction.reply({ embeds: [embed], components: [components], ephemeral: true });
+      await interaction.reply({ embeds: [embed], components: [components], flags: MessageFlags.Ephemeral });
 
     } catch (error) {
       this.logger.error('❌ Error in RequestAccessCommand:', error);
-      interaction.reply({ content: 'An error occurred while processing your request.', ephemeral: true });
+      interaction.reply({ content: 'An error occurred while processing your request.', flags: MessageFlags.Ephemeral });
     }
   }
 }

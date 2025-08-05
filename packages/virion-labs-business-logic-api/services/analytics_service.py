@@ -453,11 +453,11 @@ class AnalyticsService:
             if not campaign:
                 continue
             
-            campaign_id = campaign.get("documentId")
+            campaign_id = getattr(campaign, "documentId", None)
             if campaign_id not in summary_map:
                 summary_map[campaign_id] = {
                     "campaign_id": campaign_id,
-                    "campaign_name": campaign.get("name", "Unknown"),
+                    "campaign_name": getattr(campaign, "name", "Unknown"),
                     "total_responses": 0,
                     "completed_responses": 0 # Assuming 'is_completed' field exists
                 }

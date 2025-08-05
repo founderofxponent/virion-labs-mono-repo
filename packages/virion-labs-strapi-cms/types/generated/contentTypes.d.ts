@@ -801,6 +801,73 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiDiscordRequestAccessDiscordRequestAccess
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'discord_request_accesses';
+  info: {
+    displayName: 'Discord Request Access';
+    pluralName: 'discord-request-accesses';
+    singularName: 'discord-request-access';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    discord_user_id: Schema.Attribute.String & Schema.Attribute.Required;
+    discord_username: Schema.Attribute.String & Schema.Attribute.Required;
+    email: Schema.Attribute.Email & Schema.Attribute.Required;
+    full_name: Schema.Attribute.String & Schema.Attribute.Required;
+    guild_id: Schema.Attribute.String & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::discord-request-access.discord-request-access'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    request_status: Schema.Attribute.Enumeration<
+      ['pending', 'approved', 'rejected']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'pending'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDiscordSettingDiscordSetting
+  extends Struct.SingleTypeSchema {
+  collectionName: 'discord_settings';
+  info: {
+    displayName: 'Discord Setting';
+    pluralName: 'discord-settings';
+    singularName: 'discord-setting';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::discord-setting.discord-setting'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    verified_role_id: Schema.Attribute.String;
+  };
+}
+
 export interface ApiLandingPageTemplateLandingPageTemplate
   extends Struct.CollectionTypeSchema {
   collectionName: 'landing_page_templates';
@@ -1572,6 +1639,8 @@ declare module '@strapi/strapi' {
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
       'api::campaign.campaign': ApiCampaignCampaign;
       'api::client.client': ApiClientClient;
+      'api::discord-request-access.discord-request-access': ApiDiscordRequestAccessDiscordRequestAccess;
+      'api::discord-setting.discord-setting': ApiDiscordSettingDiscordSetting;
       'api::landing-page-template.landing-page-template': ApiLandingPageTemplateLandingPageTemplate;
       'api::referral-analytic.referral-analytic': ApiReferralAnalyticReferralAnalytic;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;

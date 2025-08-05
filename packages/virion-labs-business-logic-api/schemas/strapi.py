@@ -11,6 +11,7 @@ from domain.onboarding.schemas import (
     CampaignOnboardingResponseCreate
 )
 from domain.users.schemas import UserSettingBase, UserSettingCreate, UserSettingUpdate
+from domain.integrations.discord.schemas import DiscordSettingBase, DiscordSettingCreate, DiscordSettingUpdate
 
 class Role(BaseModel):
     id: int
@@ -412,6 +413,22 @@ class StrapiUserSettingCreate(UserSettingCreate):
     pass
 
 class StrapiUserSettingUpdate(UserSettingUpdate):
+    pass
+
+class DiscordSetting(BaseModel):
+    """Strapi Discord setting model."""
+    id: int
+    verified_role_id: Optional[str] = None
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
+    publishedAt: Optional[str] = None
+
+class StrapiDiscordSettingCreate(DiscordSettingCreate):
+    """Strapi schema for creating Discord settings."""
+    pass
+
+class StrapiDiscordSettingUpdate(DiscordSettingUpdate):
+    """Strapi schema for updating Discord settings."""
     pass
 
 # Update forward references to resolve circular dependencies

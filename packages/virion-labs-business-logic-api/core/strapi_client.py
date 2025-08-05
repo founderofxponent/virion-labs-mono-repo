@@ -36,7 +36,10 @@ from schemas.strapi import (
     StrapiUserSettingUpdate,
     CampaignInfluencerAccess,
     User,
-    Media
+    Media,
+    DiscordSetting,
+    StrapiDiscordSettingCreate,
+    StrapiDiscordSettingUpdate
 )
 
 logger = logging.getLogger(__name__)
@@ -467,6 +470,28 @@ class StrapiClient:
             logger.warning(f"Failed to update setting side of relationship: {e}")
             
         return user_response
+
+    async def get_discord_setting(self) -> Optional[DiscordSetting]:
+        """Fetches the Discord setting (single type) from Strapi."""
+        logger.info("StrapiClient: Fetching Discord setting from Strapi.")
+        try:
+            response = await self._request("GET", "discord-setting")
+            if response and response.get("data"):
+                return DiscordSetting(**response.get("data"))
+            return None
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.info("Discord setting not found (404), it may not be initialized yet")
+                return None
+            raise
+
+    async def update_discord_setting(self, setting_data: StrapiDiscordSettingUpdate) -> DiscordSetting:
+        """Updates the Discord setting (single type) in Strapi."""
+        logger.info("StrapiClient: Updating Discord setting in Strapi.")
+        payload = setting_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
+        response = await self._request("PUT", "discord-setting", data=data)
+        return DiscordSetting(**response.get("data"))
 
     async def get_user(self, user_id: int) -> Dict:
         """Fetches a single user by their ID from Strapi."""
@@ -925,6 +950,23 @@ class StrapiClient:
             except httpx.RequestError as e:
                 logger.exception("Strapi API request error during password reset")
                 return False
+
+    async def get_discord_request_accesses(self, filters: Optional[Dict] = None) -> List[Dict]:
+        """Fetches a list of Discord request access records from Strapi."""
+        logger.info("StrapiClient: Fetching Discord request access records from Strapi.")
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        
+        response = await self._request("GET", "discord-request-accesses", params=params)
+        return response.get("data", [])
+
+    async def create_discord_request_access(self, data: Dict) -> Dict:
+        """Creates a new Discord request access record in Strapi."""
+        logger.info("StrapiClient: Creating Discord request access record in Strapi.")
+        request_data = {"data": data}
+        response = await self._request("POST", "discord-request-accesses", data=request_data)
+        return response.get("data", {})
 
 # Global client instance
 strapi_client = StrapiClient()
