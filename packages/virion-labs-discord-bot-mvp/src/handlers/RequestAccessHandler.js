@@ -50,13 +50,16 @@ class RequestAccessHandler {
       const email = interaction.fields.getTextInputValue('email');
 
       const payload = {
-        discord_user_id: userId,
-        full_name: fullName,
+        user_id: userId,
+        user_tag: interaction.user.tag,
+        guild_id: interaction.guild.id,
         email: email,
+        name: fullName,
       };
 
       const response = await this.apiService.submitAccessRequest(payload);
-      await interaction.editReply(response.data.message);
+      const message = response.data?.message || 'An error occurred while processing your request.';
+      await interaction.editReply(message);
 
       // In a real implementation, you would use the role ID from the API response
       // to assign the role to the user.
@@ -67,6 +70,11 @@ class RequestAccessHandler {
 
     } catch (error) {
       this.logger.error('❌ Error in RequestAccessHandler.handleModalSubmission:', error);
+      try {
+        await interaction.editReply('An error occurred while processing your request. Please try again.');
+      } catch (replyError) {
+        this.logger.error('❌ Failed to send error message to user:', replyError);
+      }
     }
   }
 }

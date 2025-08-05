@@ -401,6 +401,24 @@ class StrapiClient:
         response = await self._request("POST", "users", data=user_data)
         return response
 
+    async def create_user_profile(self, profile_data: Dict) -> Dict:
+        """Creates a user profile in Strapi with Discord integration data."""
+        logger.info("StrapiClient: Creating user profile with Discord data in Strapi.")
+        
+        # Map profile data to user fields expected by Strapi
+        user_data = {
+            "username": profile_data.get("discord_username", ""),
+            "email": profile_data.get("email", ""),
+            "full_name": profile_data.get("full_name", ""),
+            "discord_user_id": profile_data.get("discord_user_id", ""),
+            "is_verified": profile_data.get("is_verified", False),
+            "confirmed": True,  # Auto-confirm users created via Discord
+            "blocked": False
+        }
+        
+        response = await self._request("POST", "users", data=user_data)
+        return response
+
     async def update_user(self, user_id: int, user_data: Dict) -> Dict:
         """Updates a user in Strapi using its ID."""
         logger.info(f"StrapiClient: Updating user {user_id} in Strapi.")

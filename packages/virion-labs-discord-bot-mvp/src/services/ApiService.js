@@ -12,7 +12,7 @@ class ApiService {
     const url = `${this.baseUrl}${endpoint}`;
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`,
+      'X-API-Key': this.apiKey,
       ...options.headers,
     };
 
@@ -112,11 +112,23 @@ class ApiService {
   // --- Access Request Endpoints ---
 
   async submitAccessRequest(payload) {
-    this.logger.info(`[ApiService] Submitting access request for user ${payload.user_id}`);
-    return this._request('/api/v1/integrations/discord/request-access', {
+    this.logger.info(`[ApiService] Submitting access request for user ${payload.discord_user_id}`);
+    const response = await this._request('/api/v1/integrations/discord/request-access', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
+
+    // Standardize the response to what the handler expects.
+    // A successful response might have a `message`. An error from the API has a `detail` field.
+    const isSuccess = response && !response.detail;
+    const message = isSuccess ? (response.message || 'Your request has been submitted successfully.') : response.detail;
+
+    return {
+      success: isSuccess,
+      data: {
+        message: message
+      }
+    };
   }
 
   async hasVerifiedRole(userId, guildId) {

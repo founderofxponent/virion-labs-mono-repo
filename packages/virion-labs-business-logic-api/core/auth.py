@@ -11,7 +11,7 @@ from schemas.strapi import UserSetting
  
 logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
-api_key_header = APIKeyHeader(name="Authorization")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 class StrapiUser(BaseModel):
     id: int
@@ -77,23 +77,13 @@ async def get_current_user(user_data: dict = Depends(get_current_user_from_token
             detail=f"Error creating user object: {e}"
         )
 
-async def get_api_key(key: str = Depends(api_key_header)):
+async def get_api_key(x_api_key: str = Depends(api_key_header)):
     """
     Dependency to validate a static API key for service-to-service communication.
     """
-    parts = key.split()
-
-    if len(parts) != 2 or parts[0].lower() != "bearer":
+    if not x_api_key or x_api_key != settings.API_KEY:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header. Expected 'Bearer <key>'",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing API Key",
         )
-    
-    token = parts[1]
-    if token == settings.API_KEY:
-        return token
-    
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid API Key",
-    )
+    return x_api_key
