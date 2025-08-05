@@ -250,6 +250,14 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
                 </Badge>
               </div>
             )}
+            {campaign.offer_expiry_date && (
+              <div className="mt-2">
+                <Badge variant="outline" className="text-sm px-3 py-1 border-orange-200 text-orange-700">
+                  <Clock className="h-4 w-4 mr-1" />
+                  Expires: {new Date(campaign.offer_expiry_date).toLocaleDateString()}
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
 
@@ -380,9 +388,36 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
                 </CardHeader>
                 <CardContent>
                   <div className="prose prose-gray max-w-none">
-                    <div className="text-gray-700 leading-relaxed whitespace-pre-line">
-                      {campaign.how_it_works}
-                    </div>
+                    {campaign.how_it_works.includes('\n') ? (
+                      <div className="space-y-3">
+                        {campaign.how_it_works.split('\n').map((step, index) => {
+                          const trimmedStep = step.trim()
+                          if (!trimmedStep) return null
+                          
+                          const isNumberedStep = /^\d+[.\)]/.test(trimmedStep)
+                          
+                          return (
+                            <div key={index} className={`flex gap-3 ${isNumberedStep ? 'items-start' : ''}`}>
+                              {isNumberedStep && (
+                                <div 
+                                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 mt-0.5"
+                                  style={{ backgroundColor: brandColor }}
+                                >
+                                  {index + 1}
+                                </div>
+                              )}
+                              <div className={`text-gray-700 leading-relaxed ${isNumberedStep ? 'flex-1' : ''}`}>
+                                {isNumberedStep ? trimmedStep.replace(/^\d+[.\)]\s*/, '') : trimmedStep}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-gray-700 leading-relaxed whitespace-pre-line">
+                        {campaign.how_it_works}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

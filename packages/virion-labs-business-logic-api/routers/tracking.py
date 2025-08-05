@@ -342,6 +342,15 @@ async def get_referral_campaign_data(referral_code: str):
         
         referral_link = referral_links[0]
         
+        # Fetch campaign landing page data if campaign exists
+        landing_page_data = None
+        if referral_link.campaign and referral_link.campaign.documentId:
+            try:
+                landing_page_data = await strapi_client.get_campaign_landing_page(referral_link.campaign.documentId)
+                logger.info(f"Found landing page data for campaign: {referral_link.campaign.documentId}")
+            except Exception as e:
+                logger.warning(f"Could not fetch landing page data for campaign {referral_link.campaign.documentId}: {e}")
+
         # Check if link is active
         if not referral_link.is_active:
             # Return disabled link with status information
@@ -380,6 +389,33 @@ async def get_referral_campaign_data(referral_code: str):
                 }
             }
         
+        campaign_data = {
+            "id": str(referral_link.campaign.id) if referral_link.campaign else None,
+            "campaign_name": referral_link.campaign.name if referral_link.campaign else "Referral Campaign",
+            "campaign_type": "referral",
+            "brand_color": referral_link.campaign.brand_color if (referral_link.campaign and referral_link.campaign.brand_color) else "#6366f1",
+            "clients": {
+                "name": referral_link.campaign.client.name if (referral_link.campaign and referral_link.campaign.client) else "Client Name",
+                "industry": referral_link.campaign.client.industry if (referral_link.campaign and referral_link.campaign.client) else "Technology"
+            }
+        }
+
+        if landing_page_data:
+            campaign_data.update({
+                "offer_title": landing_page_data.offer_title,
+                "offer_description": landing_page_data.offer_description,
+                "offer_highlights": landing_page_data.offer_highlights if isinstance(landing_page_data.offer_highlights, list) else [],
+                "offer_value": landing_page_data.offer_value,
+                "offer_expiry_date": landing_page_data.offer_expiry_date,
+                "hero_image_url": landing_page_data.hero_image_url,
+                "product_images": landing_page_data.product_images if isinstance(landing_page_data.product_images, list) else [],
+                "video_url": landing_page_data.video_url,
+                "what_you_get": landing_page_data.what_you_get,
+                "how_it_works": landing_page_data.how_it_works,
+                "requirements": landing_page_data.requirements,
+                "support_info": landing_page_data.support_info
+            })
+
         # Return active link data for landing page
         return {
             "link_disabled": False,
@@ -390,16 +426,7 @@ async def get_referral_campaign_data(referral_code: str):
                 "platform": referral_link.platform,
                 "influencer_id": str(referral_link.influencer.id) if referral_link.influencer else None,
             },
-            "campaign": {
-                "id": str(referral_link.campaign.id) if referral_link.campaign else None,
-                "campaign_name": referral_link.campaign.name if referral_link.campaign else "Referral Campaign",
-                "campaign_type": "referral",
-                "brand_color": referral_link.campaign.brand_color if (referral_link.campaign and referral_link.campaign.brand_color) else "#6366f1",
-                "clients": {
-                    "name": referral_link.campaign.client.name if (referral_link.campaign and referral_link.campaign.client) else "Client Name",
-                    "industry": referral_link.campaign.client.industry if (referral_link.campaign and referral_link.campaign.client) else "Technology"
-                }
-            },
+            "campaign": campaign_data,
             "influencer": {
                 "full_name": referral_link.influencer.full_name if referral_link.influencer else "Unknown Influencer",
                 "avatar_url": referral_link.influencer.avatar_url.url if (referral_link.influencer and referral_link.influencer.avatar_url) else None
