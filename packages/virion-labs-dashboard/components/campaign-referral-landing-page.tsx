@@ -390,9 +390,8 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
                   <div className="prose prose-gray max-w-none">
                     {campaign.how_it_works.includes('\n') ? (
                       <div className="space-y-3">
-                        {campaign.how_it_works.split('\n').map((step, index) => {
+                        {campaign.how_it_works.split('\n').filter(step => step.trim()).map((step, index) => {
                           const trimmedStep = step.trim()
-                          if (!trimmedStep) return null
                           
                           const isNumberedStep = /^\d+[.\)]/.test(trimmedStep)
                           
@@ -593,4 +592,4 @@ export function CampaignReferralLandingPage({ referralCode }: Props) {
       </div>
     </div>
   )
-} 
+}
