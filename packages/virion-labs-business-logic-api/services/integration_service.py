@@ -1,6 +1,7 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import httpx
 from core.strapi_client import strapi_client
+from schemas.strapi import StrapiCampaignOnboardingStartCreate, StrapiCampaignOnboardingResponseCreate, StrapiCampaignOnboardingCompletionCreate
 from domain.integrations.discord.domain import DiscordDomain
 from schemas.integration_schemas import Campaign
 from core.config import settings
@@ -279,33 +280,37 @@ class IntegrationService:
             
             # Create a record to signify the start of the onboarding process
             try:
-                start_data = {
-                    "discord_user_id": discord_user_id,
-                    "discord_username": discord_username,
-                    "campaign": document_id,
-                    "started_at": datetime.now(timezone.utc).isoformat()
-                }
-                await strapi_client.create_onboarding_start(start_data)
-                logger.info(f"Successfully created onboarding_start record for user {discord_user_id} on campaign {document_id}")
+                # Get the numeric campaign ID from the document ID
+                numeric_campaign_id = await strapi_client.get_campaign_id_by_document_id(document_id)
+                if numeric_campaign_id:
+                    start_data = StrapiCampaignOnboardingStartCreate(
+                        discord_user_id=discord_user_id,
+                        discord_username=discord_username,
+                        campaign=numeric_campaign_id
+                    )
+                    await strapi_client.create_onboarding_start(start_data)
+                    logger.info(f"Successfully created onboarding_start record for user {discord_user_id} on campaign {document_id}")
+                else:
+                    logger.warning(f"Could not find numeric ID for campaign {document_id}")
             except Exception as e:
                 # Log a warning but don't fail the entire process
                 logger.warning(f"Could not create onboarding_start record for user {discord_user_id} on campaign {document_id}: {e}")
 
             # Fetch onboarding fields from Strapi using documentId
-            fields_data = await strapi_client.get_onboarding_fields(document_id)
+            fields_data = await strapi_client.get_onboarding_fields_by_campaign(document_id)
             
             # Transform Strapi field data to match our schema format
             transformed_fields = []
             for field in fields_data:
                 transformed_field = {
-                    "field_key": field.get("field_key", ""),
-                    "field_label": field.get("field_label", ""),
-                    "field_type": field.get("field_type", "text"),
-                    "field_placeholder": field.get("field_placeholder"),
-                    "field_description": field.get("field_description"),
-                    "field_options": field.get("field_options", []) if field.get("field_options") else None,
-                    "is_required": field.get("is_required", False),
-                    "validation_rules": field.get("validation_rules")
+                    "field_key": field.field_key or "",
+                    "field_label": field.field_label or "",
+                    "field_type": field.field_type or "text",
+                    "field_placeholder": field.field_placeholder,
+                    "field_description": field.field_description,
+                    "field_options": self._extract_field_options(field.field_options),
+                    "is_required": field.is_required or False,
+                    "validation_rules": field.validation_rules
                 }
                 transformed_fields.append(transformed_field)
             
@@ -336,24 +341,30 @@ class IntegrationService:
                     logger.error(f"Campaign with ID {campaign_id} not found")
                     return {"success": False, "message": "Campaign not found"}
             
+            # Get the numeric campaign ID from the document ID for Strapi relations
+            numeric_campaign_id = await strapi_client.get_campaign_id_by_document_id(document_id)
+            if not numeric_campaign_id:
+                logger.error(f"Could not find numeric campaign ID for document ID: {document_id}")
+                return {"success": False, "message": "Campaign not found"}
+
             # Save each onboarding response
             for field_key, field_value in responses.items():
-                response_data = {
-                    "discord_user_id": discord_user_id,
-                    "discord_username": discord_username,
-                    "field_key": field_key,
-                    "field_value": field_value,
-                    "campaign": document_id
-                }
+                response_data = StrapiCampaignOnboardingResponseCreate(
+                    discord_user_id=discord_user_id,
+                    discord_username=discord_username,
+                    field_key=field_key,
+                    field_value=field_value,
+                    campaign=numeric_campaign_id
+                )
                 await strapi_client.create_onboarding_response(response_data)
 
             # Create a single record to mark the onboarding as complete
-            completion_data = {
-                "discord_user_id": discord_user_id,
-                "discord_username": discord_username,
-                "campaign": document_id,
-                "completed_at": datetime.now(timezone.utc).isoformat()
-            }
+            completion_data = StrapiCampaignOnboardingCompletionCreate(
+                discord_user_id=discord_user_id,
+                discord_username=discord_username,
+                campaign=numeric_campaign_id,
+                completed_at=datetime.now(timezone.utc).isoformat()
+            )
             await strapi_client.create_onboarding_completion(completion_data)
 
             # Update campaign statistics (increment successful_onboardings)
@@ -432,6 +443,25 @@ class IntegrationService:
         except Exception as e:
             logger.error(f"Failed to check verified role: {e}")
             return False
+
+    def _extract_field_options(self, field_options: Any) -> Optional[List[str]]:
+        """
+        Extract field options from Strapi response format.
+        Handles both direct list format and nested dictionary format.
+        """
+        if not field_options:
+            return None
+        
+        # If it's already a list, return as is
+        if isinstance(field_options, list):
+            return field_options
+        
+        # If it's a dictionary with 'options' key, extract the list
+        if isinstance(field_options, dict) and 'options' in field_options:
+            return field_options['options']
+        
+        # Fallback: return None for unexpected formats
+        return None
 
     async def _assign_discord_role(self, guild_id: str, user_id: str, role_id: str) -> bool:
         """

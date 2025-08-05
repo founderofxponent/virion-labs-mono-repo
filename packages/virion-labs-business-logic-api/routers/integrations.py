@@ -27,7 +27,8 @@ async def get_discord_campaigns(guild_id: str, channel_id: str, join_campaigns_c
     """
     try:
         campaigns = await integration_service.get_discord_campaigns(guild_id, channel_id, join_campaigns_channel_id)
-        return GetCampaignsResponse(campaigns=campaigns)
+        campaigns_dicts = [campaign.model_dump() for campaign in campaigns]
+        return GetCampaignsResponse(campaigns=campaigns_dicts)
     except Exception as e:
         logger.error(f"Failed to get Discord campaigns: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve campaigns.")

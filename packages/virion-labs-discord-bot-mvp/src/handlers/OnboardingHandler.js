@@ -1,4 +1,4 @@
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { ApiService } = require('../services/ApiService');
 
 class OnboardingHandler {
@@ -6,6 +6,8 @@ class OnboardingHandler {
     this.config = config;
     this.logger = logger;
     this.apiService = new ApiService(config, logger);
+    // Cache for storing onboarding questions per user/campaign
+    this.questionsCache = new Map();
   }
 
   async handleStartButton(interaction) {
@@ -21,39 +23,80 @@ class OnboardingHandler {
         return interaction.reply({ content: 'This button is not for you.', ephemeral: true });
       }
 
+      // Defer the reply immediately to avoid timeout
+      await interaction.deferReply({ ephemeral: true });
+
       const response = await this.apiService.startOnboarding(campaignId, userId, interaction.user.username);
       if (!response.success) {
-        // Check for the specific "already completed" message from the API
         if (response.message && response.message.includes('already completed')) {
-          this.logger.info(`[Onboarding] User ${userId} has already completed onboarding for campaign ${campaignId}. Not showing modal.`);
-          return interaction.reply({ content: `✅ ${response.message}`, ephemeral: true });
+          this.logger.info(`[Onboarding] User ${userId} has already completed onboarding for campaign ${campaignId}.`);
+          return interaction.editReply({ content: `✅ ${response.message}` });
         }
-        // For all other errors, show a generic failure message
         this.logger.error(`[Onboarding] Failed to start for user ${userId} on campaign ${campaignId}. API Response: ${JSON.stringify(response)}`);
-        return interaction.reply({ content: 'An error occurred while trying to start the onboarding process. Please try again later.', ephemeral: true });
+        return interaction.editReply({ content: 'An error occurred while trying to start the onboarding process. Please try again later.' });
       }
   
-      // Check if there are any onboarding fields configured
       if (!response.data || !response.data.questions || response.data.questions.length === 0) {
         this.logger.warn(`[Onboarding] No onboarding fields configured for campaign ${campaignId}.`);
-        return interaction.reply({
+        return interaction.editReply({
           content: '⚠️ This campaign has no onboarding fields configured. Please contact the campaign administrator.',
-          ephemeral: true
         });
       }
   
+      // Cache the questions for quick modal display
+      const cacheKey = `${campaignId}_${userId}`;
+      this.questionsCache.set(cacheKey, response.data.questions);
+
+      // Instead of showing a modal directly, show a button to open it.
+      const openModalButton = new ButtonBuilder()
+        .setCustomId(`open_onboarding_modal_${campaignId}_${userId}`)
+        .setLabel('Begin Onboarding')
+        .setStyle(ButtonStyle.Primary);
+
+      const row = new ActionRowBuilder().addComponents(openModalButton);
+
+      await interaction.editReply({
+        content: 'Please click the button below to begin the onboarding process.',
+        components: [row],
+        ephemeral: true,
+      });
+
+    } catch (error) {
+      this.logger.error('❌ Error in OnboardingHandler.handleStartButton:', error);
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: 'An unexpected error occurred. Please try again.' });
+      }
+    }
+  }
+
+  async handleOpenModalButton(interaction) {
+    try {
+      const parts = interaction.customId.split('_');
+      const userId = parts[parts.length - 1];
+      const campaignId = parts.slice(3, -1).join('_');
+
+      this.logger.info(`[Onboarding] User ${userId} clicked open modal button for campaign ${campaignId}.`);
+
+      // Get questions from cache to avoid API delay
+      const cacheKey = `${campaignId}_${userId}`;
+      const questions = this.questionsCache.get(cacheKey);
+      
+      if (!questions || questions.length === 0) {
+        this.logger.error(`[Onboarding] No cached questions found for user ${userId} and campaign ${campaignId}. User may need to restart the process.`);
+        return interaction.reply({ content: 'Could not retrieve onboarding questions. Please try starting over.', ephemeral: true });
+      }
+
       const modal = new ModalBuilder()
         .setCustomId(`onboarding_modal_${campaignId}_${userId}`)
         .setTitle('Onboarding');
   
-      response.data.questions.forEach(question => {
+      questions.forEach(question => {
         const textInput = new TextInputBuilder()
           .setCustomId(question.field_key)
           .setLabel(question.field_label)
           .setStyle(this._getInputStyle(question.field_type))
           .setRequired(question.is_required || false);
         
-        // Add placeholder if provided
         if (question.field_placeholder) {
           textInput.setPlaceholder(question.field_placeholder);
         }
@@ -65,7 +108,7 @@ class OnboardingHandler {
       await interaction.showModal(modal);
 
     } catch (error) {
-      this.logger.error('❌ Error in OnboardingHandler.handleStartButton:', error);
+      this.logger.error('❌ Error in OnboardingHandler.handleOpenModalButton:', error);
     }
   }
 
@@ -100,6 +143,10 @@ class OnboardingHandler {
 
       this.logger.info(`[Onboarding] Successfully submitted for user ${userId}. Replying with: "${replyMessage}"`);
       await interaction.editReply(replyMessage);
+
+      // Clean up cached questions after successful submission
+      const cacheKey = `${campaignId}_${userId}`;
+      this.questionsCache.delete(cacheKey);
 
     } catch (error) {
       this.logger.error(`❌ Error in OnboardingHandler.handleModalSubmission for user ${userId} on campaign ${campaignId}:`, error);

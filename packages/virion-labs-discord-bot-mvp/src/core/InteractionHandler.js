@@ -40,6 +40,8 @@ class InteractionHandler {
     const { customId } = interaction;
     if (customId.startsWith('start_onboarding_')) {
       await this.onboardingHandler.handleStartButton(interaction);
+    } else if (customId.startsWith('open_onboarding_modal_')) {
+      await this.onboardingHandler.handleOpenModalButton(interaction);
     } else if (customId.startsWith('request_access_submit_')) {
       await this.requestAccessHandler.handleAccessRequestSubmission(interaction);
     }

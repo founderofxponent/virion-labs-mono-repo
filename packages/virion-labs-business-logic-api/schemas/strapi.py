@@ -90,6 +90,9 @@ class ReferralLink(ReferralLinkBase):
 class StrapiCampaignOnboardingResponseCreate(CampaignOnboardingResponseCreate):
     pass
 
+class StrapiCampaignOnboardingCompletionCreate(CampaignOnboardingCompletionCreate):
+    pass
+
 class CampaignOnboardingResponse(CampaignOnboardingResponseBase):
     id: int
     documentId: str
