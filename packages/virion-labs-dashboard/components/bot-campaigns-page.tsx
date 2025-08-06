@@ -161,10 +161,8 @@ export default function BotCampaignsPage() {
 
   
 
-  const handlePreviewLandingPage = () => {
-    // TODO: Implement preview via business logic API
-    // For now, show an alert that this feature needs to be implemented
-    alert('Landing page preview will be available once the campaign has active referral links. Create a referral link first, then use the /r/{code} URL to preview.')
+  const handlePreviewLandingPage = (campaignId: string) => {
+    window.open(`/bot-campaigns/preview?campaignId=${campaignId}`, '_blank')
   }
 
   const handlePublishToDiscord = async () => {
@@ -554,7 +552,7 @@ export default function BotCampaignsPage() {
                     </div>
                   </CardContent>
                   <div className="px-6 py-3 bg-muted/30 border-t flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={handlePreviewLandingPage}>
+                    <Button variant="outline" size="sm" onClick={() => handlePreviewLandingPage(campaign.documentId || campaign.id)}>
                       <Eye className="h-4 w-4 mr-2" />
                       Preview
                     </Button>

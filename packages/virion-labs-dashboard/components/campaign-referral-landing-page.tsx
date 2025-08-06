@@ -62,20 +62,28 @@ interface CampaignData {
 }
 
 interface Props {
-  referralCode: string
+  referralCode?: string
+  campaign?: CampaignData
 }
 
-export function CampaignReferralLandingPage({ referralCode }: Props) {
-  const [data, setData] = useState<CampaignData | null>(null)
-  const [loading, setLoading] = useState(true)
+export function CampaignReferralLandingPage({ referralCode, campaign: mockCampaign }: Props) {
+  const [data, setData] = useState<CampaignData | null>(mockCampaign || null)
+  const [loading, setLoading] = useState(!mockCampaign)
   const [error, setError] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
 
   useEffect(() => {
-    fetchCampaignData()
-    // Track the click
-    trackClick()
-  }, [referralCode])
+    if (mockCampaign) return
+
+    if (referralCode) {
+      fetchCampaignData()
+      // Track the click
+      trackClick()
+    } else {
+      setError("No referral code provided.")
+      setLoading(false)
+    }
+  }, [referralCode, mockCampaign])
 
   const fetchCampaignData = async () => {
     try {
