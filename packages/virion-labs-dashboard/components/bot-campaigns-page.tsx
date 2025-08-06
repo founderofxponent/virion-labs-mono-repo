@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
+import api from "@/lib/api"
 import { 
   Plus,
   Server,
@@ -226,27 +227,18 @@ export default function BotCampaignsPage() {
         description: `Your CSV export for "${campaignName}" is being generated. This may take a moment...`,
       });
 
-      const response = await fetch('/api/business-logic/analytics/export/onboarding-data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Assuming you have a way to get the auth token
-          // 'Authorization': `Bearer ${yourAuthToken}`,
-        },
-        body: JSON.stringify({
-          select_mode: 'single',
-          campaign_ids: [String(campaignId)],
-          file_format: 'csv',
-          date_range: 'all',
-        }),
+      const response = await api.post('/api/v1/analytics/export/onboarding-data', {
+        select_mode: 'single',
+        campaign_ids: [String(campaignId)],
+        file_format: 'csv',
+        date_range: 'all',
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: "An unknown error occurred" }));
-        throw new Error(errorData.detail || errorData.message || "Failed to start export process");
+      if (response.status !== 202) {
+        throw new Error(response.data?.detail || response.data?.message || "Failed to start export process");
       }
 
-      const exportResult = await response.json();
+      const exportResult = response.data;
       const downloadUrl = exportResult.download_url;
 
       if (!downloadUrl) {
@@ -574,16 +566,28 @@ export default function BotCampaignsPage() {
                           
                           if (status === 'deleted') {
                             return (
-                              <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Export CSV
-                              </DropdownMenuItem>
+                              <>
+                                <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/responses`)}>
+                                  <Users className="h-4 w-4 mr-2" />
+                                  View Responses
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Export CSV
+                                </DropdownMenuItem>
+                              </>
                             )
                           }
                           
                           if (status === 'archived') {
                             return (
                               <>
+                                <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/responses`)}>
+                                  <Users className="h-4 w-4 mr-2" />
+                                  View Responses
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
                                   <Download className="h-4 w-4 mr-2" />
                                   Export CSV
@@ -608,6 +612,11 @@ export default function BotCampaignsPage() {
                           // Active or inactive campaigns
                           return (
                             <>
+                              <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/responses`)}>
+                                <Users className="h-4 w-4 mr-2" />
+                                View Responses
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
                                 <Download className="h-4 w-4 mr-2" />
                                 Export CSV

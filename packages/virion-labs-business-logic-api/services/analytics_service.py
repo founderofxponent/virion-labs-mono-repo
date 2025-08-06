@@ -425,12 +425,31 @@ class AnalyticsService:
             output.write("No data found for the selected criteria.")
             return output.getvalue().encode('utf-8'), "text/csv"
 
-        # Dynamically create headers from all possible keys
-        headers = sorted(list(set(key for item in data for key in item.model_dump().keys())))
+        # Flatten data for CSV export - replace nested objects with readable values
+        flattened_data = []
+        for item in data:
+            item_dict = item.model_dump()
+            
+            # Replace campaign object with campaign name
+            if 'campaign' in item_dict and isinstance(item_dict['campaign'], dict):
+                item_dict['campaign_name'] = item_dict['campaign'].get('name', 'Unknown Campaign')
+                item_dict['client_name'] = item_dict['campaign'].get('client', {}).get('name', 'Unknown Client') if item_dict['campaign'].get('client') else 'Unknown Client'
+                del item_dict['campaign']
+            
+            # Replace referral_link object with referral_link info
+            if 'referral_link' in item_dict and isinstance(item_dict['referral_link'], dict):
+                item_dict['referral_link_title'] = item_dict['referral_link'].get('title', 'Unknown Link')
+                item_dict['referral_url'] = item_dict['referral_link'].get('referral_url', '')
+                del item_dict['referral_link']
+            
+            flattened_data.append(item_dict)
+
+        # Dynamically create headers from flattened data
+        headers = sorted(list(set(key for item in flattened_data for key in item.keys())))
         
         writer = csv.DictWriter(output, fieldnames=headers)
         writer.writeheader()
-        writer.writerows([item.model_dump() for item in data])
+        writer.writerows(flattened_data)
         
         return output.getvalue().encode('utf-8'), "text/csv"
 
