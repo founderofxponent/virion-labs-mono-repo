@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, computed_field
 from typing import List, Optional, Dict, Any, Literal, Union
 from datetime import datetime
 from domain.influencers.schemas import ReferralLinkBase, ReferralLinkCreate, ReferralLinkUpdate, ReferralLinkResponse
@@ -443,10 +443,25 @@ class EmailTemplate(BaseModel):
     body: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = True
-    variables: Optional[List[str]] = None
+    variables_raw: Optional[List[Union[str, Dict[str, Any]]]] = Field(None, alias='variables')
     createdAt: Optional[str] = None
     updatedAt: Optional[str] = None
     publishedAt: Optional[str] = None
+    
+    @computed_field
+    @property
+    def variables(self) -> Optional[List[str]]:
+        """Convert variables from Strapi format to simple string list."""
+        if not self.variables_raw:
+            return None
+        
+        result = []
+        for var in self.variables_raw:
+            if isinstance(var, str):
+                result.append(var)
+            elif isinstance(var, dict) and 'name' in var:
+                result.append(var['name'])
+        return result if result else None
 
 class StrapiEmailTemplateCreate(BaseModel):
     """Schema for creating email templates in Strapi."""

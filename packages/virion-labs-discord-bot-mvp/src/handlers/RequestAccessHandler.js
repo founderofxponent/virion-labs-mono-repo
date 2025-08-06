@@ -67,6 +67,21 @@ class RequestAccessHandler {
       const response = await this.apiService.submitAccessRequest(payload);
       const message = response.data?.message || 'An error occurred while processing your request.';
       await interaction.editReply(message);
+      
+      // Send access request email notification
+      if (response.success) {
+        try {
+          await this.sendAccessRequestEmail({
+            userId: userId,
+            username: interaction.user.tag,
+            email: email,
+            fullName: fullName,
+            guildName: interaction.guild.name
+          });
+        } catch (emailError) {
+          this.logger.warn(`[RequestAccess] Failed to send access request email: ${emailError.message}`);
+        }
+      }
 
       // In a real implementation, you would use the role ID from the API response
       // to assign the role to the user.
@@ -82,6 +97,30 @@ class RequestAccessHandler {
       } catch (replyError) {
         this.logger.error('❌ Failed to send error message to user:', replyError);
       }
+    }
+  }
+  
+  /**
+   * Send access request email notification
+   * @param {Object} data - Email data
+   * @private
+   */
+  async sendAccessRequestEmail(data) {
+    try {
+      await this.apiService.sendTemplateEmail({
+        template_id: 'discord-access-request',
+        recipient_email: data.email,
+        variables: {
+          username: data.username,
+          full_name: data.fullName,
+          email: data.email,
+          guild_name: data.guildName
+        }
+      });
+      this.logger.info(`[RequestAccess] Access request email sent to ${data.email} for user ${data.userId}`);
+    } catch (error) {
+      this.logger.error(`[RequestAccess] Failed to send access request email: ${error.message}`);
+      throw error;
     }
   }
 }

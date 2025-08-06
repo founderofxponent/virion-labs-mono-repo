@@ -39,6 +39,21 @@ class OnboardingHandler {
       this.logger.info(`[Onboarding] Found cached campaign: ${campaignData.name}`);
 
       const response = await this.apiService.startOnboarding(campaignId, userId, interaction.user.username);
+      
+      // Send onboarding started email notification
+      if (response.success) {
+        try {
+          await this.sendOnboardingStartedEmail({
+            userId,
+            username: interaction.user.username,
+            campaignId,
+            campaignName: campaignData.name,
+            guildName: interaction.guild.name
+          });
+        } catch (emailError) {
+          this.logger.warn(`[Onboarding] Failed to send onboarding started email: ${emailError.message}`);
+        }
+      }
       if (!response.success) {
         if (response.message && response.message.includes('already completed')) {
           this.logger.info(`[Onboarding] User ${userId} has already completed onboarding for campaign ${campaignId}.`);
@@ -181,7 +196,24 @@ class OnboardingHandler {
         replyMessage += ' You have been granted a new role!';
       }
 
-      this.logger.info(`[Onboarding] Successfully submitted for user ${userId}. Replying with: "${replyMessage}"`);
+      this.logger.info(`[Onboarding] Successfully submitted for user ${userId}. Replying with: "${replyMessage}"`);      
+      
+      // Send onboarding completion email notification
+      if (response.success) {
+        try {
+          const campaignData = this.apiService.getCachedCampaign(campaignId);
+          await this.sendOnboardingCompletionEmail({
+            userId,
+            username: interaction.user.username,
+            campaignId,
+            campaignName: campaignData?.name || 'Campaign',
+            guildName: interaction.guild.name,
+            responses: payload.responses
+          });
+        } catch (emailError) {
+          this.logger.warn(`[Onboarding] Failed to send onboarding completion email: ${emailError.message}`);
+        }
+      }
       await interaction.editReply(replyMessage);
 
       // Clean up cached questions after successful submission
@@ -191,6 +223,65 @@ class OnboardingHandler {
     } catch (error) {
       this.logger.error(`❌ Error in OnboardingHandler.handleModalSubmission for user ${userId} on campaign ${campaignId}:`, error);
       await interaction.editReply('An error occurred while submitting your onboarding information.');
+    }
+  }
+
+  /**
+   * Send onboarding started email notification
+   * @param {Object} data - Email data
+   * @private
+   */
+  async sendOnboardingStartedEmail(data) {
+    try {
+      await this.apiService.sendTemplateEmail({
+        template_id: 'discord-onboarding-started',
+        recipient_email: data.email || `${data.username}@discord.placeholder`, // Would need to collect email
+        variables: {
+          username: data.username,
+          campaign_name: data.campaignName,
+          guild_name: data.guildName
+        }
+      });
+      this.logger.info(`[Onboarding] Onboarding started email sent for user ${data.userId}`);
+    } catch (error) {
+      this.logger.error(`[Onboarding] Failed to send onboarding started email: ${error.message}`);
+      throw error;
+    }
+  }
+  
+  /**
+   * Send onboarding completion email notification
+   * @param {Object} data - Email data
+   * @private
+   */
+  async sendOnboardingCompletionEmail(data) {
+    try {
+      // Extract email from responses if available
+      let recipientEmail = data.email;
+      if (!recipientEmail && data.responses) {
+        recipientEmail = Object.values(data.responses).find(value => 
+          typeof value === 'string' && value.includes('@') && value.includes('.')
+        );
+      }
+      
+      if (!recipientEmail) {
+        this.logger.warn(`[Onboarding] No email found for user ${data.userId}, skipping completion email`);
+        return;
+      }
+
+      await this.apiService.sendTemplateEmail({
+        template_id: 'discord-onboarding-completion',
+        recipient_email: recipientEmail,
+        variables: {
+          username: data.username,
+          campaign_name: data.campaignName,
+          guild_name: data.guildName
+        }
+      });
+      this.logger.info(`[Onboarding] Onboarding completion email sent to ${recipientEmail} for user ${data.userId}`);
+    } catch (error) {
+      this.logger.error(`[Onboarding] Failed to send onboarding completion email: ${error.message}`);
+      throw error;
     }
   }
 

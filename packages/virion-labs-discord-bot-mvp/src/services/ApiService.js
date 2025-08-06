@@ -150,6 +150,25 @@ class ApiService {
     return this._request(`/api/v1/integrations/discord/user/${userId}/has-verified-role/${guildId}`);
   }
 
+  // --- Email Endpoints ---
+  
+  async sendTemplateEmail(emailData) {
+    this.logger.info(`[ApiService] Sending template email: ${emailData.template_id} to ${emailData.recipient_email}`);
+    const response = await this._request('/api/v1/email/send-template', {
+      method: 'POST',
+      body: JSON.stringify({
+        template_id: emailData.template_id,
+        to: emailData.recipient_email,
+        variables: emailData.variables
+      }),
+    });
+    
+    return {
+      success: response.success || !response.error,
+      message: response.message || 'Email sent successfully'
+    };
+  }
+
   // --- Referral Endpoints ---
 
   async trackMemberJoin(userId, inviteCode) {

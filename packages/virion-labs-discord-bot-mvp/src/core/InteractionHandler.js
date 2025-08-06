@@ -60,9 +60,58 @@ class InteractionHandler {
   }
 
   async handleGuildMemberAdd(member) {
-    // In the refactored bot, this will call the API.
-    // For the MVP, we'll just log it.
     this.logger.info(`👋 New member joined: ${member.user.tag}`);
+    
+    // Send member joined email notification to administrators
+    try {
+      await this.sendMemberJoinedEmail({
+        userId: member.user.id,
+        username: member.user.tag,
+        guildName: member.guild.name,
+        joinedAt: new Date().toISOString()
+      });
+    } catch (emailError) {
+      this.logger.warn(`[GuildMemberAdd] Failed to send member joined email: ${emailError.message}`);
+    }
+  }
+
+  /**
+   * Send member joined email notification to administrators
+   * @param {Object} data - Email data
+   * @private
+   */
+  async sendMemberJoinedEmail(data) {
+    try {
+      // Get admin emails from config or environment
+      const adminEmails = this.config.admin?.emails || process.env.ADMIN_EMAILS?.split(',') || [];
+      
+      if (adminEmails.length === 0) {
+        this.logger.warn('[GuildMemberAdd] No admin emails configured, skipping member joined notification');
+        return;
+      }
+
+      // Send to each admin
+      for (const adminEmail of adminEmails) {
+        if (adminEmail.trim()) {
+          await this.apiService.sendTemplateEmail({
+            template_id: 'discord-member-joined',
+            recipient_email: adminEmail.trim(),
+            variables: {
+              username: data.username,
+              user_id: data.userId,
+              guild_name: data.guildName,
+              joined_at: new Date(data.joinedAt).toLocaleString(),
+              invite_code: data.inviteCode || 'Unknown'
+            }
+          });
+        }
+      }
+      
+      this.logger.info(`[GuildMemberAdd] Member joined emails sent to ${adminEmails.length} administrators`);
+    } catch (error) {
+      this.logger.error(`[GuildMemberAdd] Failed to send member joined email: ${error.message}`);
+      throw error;
+    }
   }
 }
 
