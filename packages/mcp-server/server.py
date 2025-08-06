@@ -326,9 +326,25 @@ class VirionLabsMCPServer:
                 ]:
                     return await call_next(request)
 
-                # Check for Authorization header
+                # Check for Authorization header or x-api-key header
                 auth_header = request.headers.get("Authorization")
-                if not auth_header or not auth_header.startswith("Bearer "):
+                api_key = request.headers.get("x-api-key")
+                
+                token = None
+                auth_method = None
+                
+                if auth_header and auth_header.startswith("Bearer "):
+                    token = auth_header[7:]
+                    auth_method = "bearer"
+                elif api_key:
+                    # Check if this is service-to-service authentication with MCP_API_TOKEN
+                    if api_key == self.api_client.config.mcp_api_token:
+                        token = api_key
+                        auth_method = "service"
+                    else:
+                        token = api_key
+                        auth_method = "api_key"
+                else:
                     return JSONResponse(
                         status_code=401,
                         content={"error": "unauthorized", "error_description": "Access token required"},
@@ -339,32 +355,44 @@ class VirionLabsMCPServer:
                         }
                     )
                 
-                # Extract and validate token
-                token = auth_header[7:]
-                logger.info(f"Full Authorization header: {auth_header}")
-                logger.info(f"Extracted token: {token[:10]}...")
+                # Log authentication method and token
+                logger.info(f"Using {auth_method} authentication: {token[:10]}...")
+                
                 try:
-                    # Validate token by calling the business logic API's introspection endpoint
-                    auth_api_url = f"{self.api_client.config.base_url}/api/auth/me"
-                    headers = {"Authorization": f"Bearer {token}"}
-                    
-                    logger.info(f"Attempting to validate token with Business Logic API at: {auth_api_url}")
+                    # Handle different authentication methods
+                    if auth_method == "service":
+                        # Service-to-service authentication - skip user validation
+                        logger.info("Service-to-service authentication validated")
+                        request.state.user = {"service": True, "email": "service@mcp-server"}
+                        request.state.token = token
+                        token_context.set(token)
+                    else:
+                        # User token validation for bearer and api_key methods
+                        auth_api_url = f"{self.api_client.config.base_url}/api/auth/me"
+                        
+                        # Use appropriate header format based on auth method
+                        if auth_method == "bearer":
+                            headers = {"Authorization": f"Bearer {token}"}
+                        else:  # api_key
+                            headers = {"x-api-key": token}
+                        
+                        logger.info(f"Attempting to validate {auth_method} token with Business Logic API at: {auth_api_url}")
 
-                    import httpx
-                    async with httpx.AsyncClient() as client:
-                        response = await client.get(auth_api_url, headers=headers)
-                    
-                    response.raise_for_status() # Raises exception for 4xx/5xx responses
-                    
-                    user_data = response.json()
-                    logger.info(f"Token validated successfully for user: {user_data.get('email')}")
+                        import httpx
+                        async with httpx.AsyncClient() as client:
+                            response = await client.get(auth_api_url, headers=headers)
+                        
+                        response.raise_for_status() # Raises exception for 4xx/5xx responses
+                        
+                        user_data = response.json()
+                        logger.info(f"Token validated successfully for user: {user_data.get('email')}")
 
-                    # Store user info and token in request state
-                    request.state.user = user_data
-                    request.state.token = token
-                    
-                    # Set token in context var for access in tool calls
-                    token_context.set(token)
+                        # Store user info and token in request state
+                        request.state.user = user_data
+                        request.state.token = token
+                        
+                        # Set token in context var for access in tool calls
+                        token_context.set(token)
                         
                 except httpx.HTTPStatusError as e:
                     logger.warning(f"Token validation failed. API returned status {e.response.status_code}")
