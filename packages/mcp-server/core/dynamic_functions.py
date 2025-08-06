@@ -68,7 +68,7 @@ class DynamicFunctionRegistry:
     def _generate_function_name(self, operation: Dict[str, Any], method: str, path: str) -> str:
         """
         Generates a descriptive function name from the operation details.
-        e.g., "api.users.get_user_by_id"
+        e.g., "operations.create_campaign", "client.create"
         """
         if operation.get("operationId"):
             op_id = operation["operationId"]
@@ -77,8 +77,34 @@ class DynamicFunctionRegistry:
             if '.' in op_id and len(op_id.split('.')) == 2:
                 return op_id
             
-            # Format: get_user_api_users__user_id__get -> api.users.get_user
-            # Example: handle_access_request_api_admin_access_requests_post -> admin.handle_access_request
+            # Handle FastAPI auto-generated operation IDs
+            # Format: create_campaign_operation_api_v1_operations_campaign_create_post
+            # Extract meaningful parts: function name + path components
+            if "_api_v1_" in op_id:
+                # Split on _api_v1_ to get function name and path parts
+                function_part, path_part = op_id.split("_api_v1_", 1)
+                
+                # Remove trailing _post, _get, etc.
+                path_part = path_part.rsplit(f"_{method.lower()}", 1)[0]
+                
+                # Extract the main resource from path (e.g., "operations_campaign" -> "campaign")
+                path_components = path_part.split("_")
+                if len(path_components) >= 2:
+                    # Use the parent resource (operations) and specific resource (campaign)
+                    parent_resource = path_components[0]  # operations
+                    specific_resource = path_components[1]  # campaign
+                    
+                    # Clean up function name (e.g., create_campaign_operation -> create)
+                    action = function_part.replace(f"_{specific_resource}_operation", "").replace("_operation", "")
+                    
+                    return f"{specific_resource}.{action}"
+                else:
+                    # Fallback to using the first path component
+                    parent_resource = path_components[0] if path_components else "unknown"
+                    action = function_part.replace("_operation", "")
+                    return f"{parent_resource}.{action}"
+            
+            # Legacy logic for other operation ID formats
             clean_op_id = op_id.replace("_api", "").replace("_", ".")
             parts = clean_op_id.split('.')
             if len(parts) >= 2:
@@ -87,10 +113,27 @@ class DynamicFunctionRegistry:
                 tag = parts[1] if parts[1] not in ['api', 'models'] else parts[2] if len(parts) > 2 else parts[1]
                 return f"{tag}.{action}"
 
-
+        # Fallback to path-based naming using tags and path
         tags = operation.get("tags", ["default"])
-        # Fallback to path-based naming
-        # e.g., /api/users/{user_id} -> api.users.get_by_id
+        
+        # Extract meaningful path components for cleaner names
+        # e.g., /api/v1/operations/campaign/create -> campaign.create
+        path_parts = [p for p in path.split("/") if p and p not in ["api", "v1"]]
+        
+        if len(path_parts) >= 2:
+            # Use the specific resource and action
+            # e.g., ["operations", "campaign", "create"] -> "campaign.create"
+            if len(path_parts) >= 3 and path_parts[0] in ["operations"]:
+                resource = path_parts[1]  # campaign
+                action = path_parts[2] if len(path_parts) > 2 else method.lower()  # create
+                return f"{resource}.{action}"
+            else:
+                # Use last two parts
+                resource = path_parts[-2]
+                action = path_parts[-1] if not path_parts[-1].startswith("{") else method.lower()
+                return f"{resource}.{action}"
+        
+        # Final fallback
         clean_path = path.replace("/api/", "").replace("/", ".").replace("{", "_").replace("}", "_")
         return f"{tags[0].lower()}.{method.lower()}{clean_path}"
 
