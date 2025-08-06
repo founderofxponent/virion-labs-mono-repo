@@ -45,3 +45,15 @@ class EmailTemplatesListResponse(BaseModel):
     """Schema for templates list response."""
     templates: List[EmailTemplateResponse] = Field(..., description="List of email templates")
     total: Optional[int] = Field(None, description="Total number of templates")
+
+class SendTestEmailRequest(BaseModel):
+    """Schema for sending test emails."""
+    template_id: str = Field(..., description="Template ID to use for the test email")
+    to_email: str = Field(..., description="Recipient email address")
+    variables: Dict[str, str] = Field(default_factory=dict, description="Variables to substitute in the template")
+
+class SendTestEmailResponse(BaseModel):
+    """Schema for test email send response."""
+    message: str = Field(..., description="Success message")
+    template_id: str = Field(..., description="Template ID used")
+    recipient: str = Field(..., description="Recipient email address")

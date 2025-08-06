@@ -48,6 +48,18 @@ export interface EmailTemplatesResponse {
   total?: number
 }
 
+export interface SendTestEmailRequest {
+  template_id: string
+  to_email: string
+  variables?: Record<string, string>
+}
+
+export interface SendTestEmailResponse {
+  message: string
+  template_id: string
+  recipient: string
+}
+
 export function useEmailTemplatesApi() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -146,6 +158,20 @@ export function useEmailTemplatesApi() {
     }
   }, [])
 
+  const sendTestEmail = useCallback(async (request: SendTestEmailRequest): Promise<SendTestEmailResponse> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await api.post<SendTestEmailResponse>('/api/v1/templates/send-test', request)
+      return response.data
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to send test email')
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   return {
     loading,
     error,
@@ -155,5 +181,6 @@ export function useEmailTemplatesApi() {
     updateTemplate,
     deleteTemplate,
     renderTemplate,
+    sendTestEmail,
   }
 }

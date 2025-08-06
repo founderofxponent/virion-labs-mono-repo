@@ -3,13 +3,16 @@ from typing import Optional, List
 from core.auth import get_current_user
 from core.auth import StrapiUser as User
 from services.template_service import template_service
+from services.email_service import email_service
 from schemas.template_schemas import (
     EmailTemplateCreate,
     EmailTemplateUpdate, 
     EmailTemplateResponse,
     EmailTemplatesListResponse,
     TemplateRenderRequest,
-    TemplateRenderResponse
+    TemplateRenderResponse,
+    SendTestEmailRequest,
+    SendTestEmailResponse
 )
 from schemas.strapi import StrapiEmailTemplateCreate, StrapiEmailTemplateUpdate
 import logging
@@ -247,3 +250,50 @@ async def render_template(
     except Exception as e:
         logger.error(f"Failed to render template: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An internal error occurred while rendering the template.")
+
+@router.post("/send-test", response_model=SendTestEmailResponse, summary="Send Test Email")
+async def send_test_email(
+    test_request: SendTestEmailRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Send a test email using a template. Admin access required.
+    """
+    try:
+        _check_admin_role(current_user)
+        
+        # Verify template exists
+        template = await template_service.get_template_by_id(test_request.template_id)
+        if not template:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Template with template_id '{test_request.template_id}' not found"
+            )
+        
+        # Render the template
+        rendered = await template_service.render_template(
+            test_request.template_id, 
+            test_request.variables
+        )
+        
+        # Send the test email using the email service
+        from services.email_service import TemplateEmail
+        template_email = TemplateEmail(
+            to=test_request.to_email,
+            template_id=test_request.template_id,
+            variables=test_request.variables
+        )
+        
+        await email_service.send_template_email(template_email)
+        
+        return SendTestEmailResponse(
+            message="Test email sent successfully",
+            template_id=test_request.template_id,
+            recipient=test_request.to_email
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to send test email: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred while sending the test email.")

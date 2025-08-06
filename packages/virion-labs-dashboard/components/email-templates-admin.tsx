@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
-import { useEmailTemplatesApi, type EmailTemplate, type EmailTemplateCreate, type EmailTemplateUpdate } from "@/hooks/use-email-templates-api"
+import { useEmailTemplatesApi, type EmailTemplate, type EmailTemplateCreate, type EmailTemplateUpdate, type SendTestEmailRequest } from "@/hooks/use-email-templates-api"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -58,7 +58,8 @@ export function EmailTemplatesAdmin() {
     createTemplate, 
     updateTemplate, 
     deleteTemplate, 
-    renderTemplate 
+    renderTemplate,
+    sendTestEmail 
   } = useEmailTemplatesApi()
 
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
@@ -66,6 +67,7 @@ export function EmailTemplatesAdmin() {
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showPreviewDialog, setShowPreviewDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showTestEmailDialog, setShowTestEmailDialog] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [formData, setFormData] = useState<TemplateFormData>({
@@ -79,6 +81,8 @@ export function EmailTemplatesAdmin() {
   const [variablesInput, setVariablesInput] = useState("")
   const [previewVariables, setPreviewVariables] = useState<Record<string, string>>({})
   const [renderedPreview, setRenderedPreview] = useState<{ subject: string; body: string } | null>(null)
+  const [testEmail, setTestEmail] = useState("")
+  const [testEmailVariables, setTestEmailVariables] = useState<Record<string, string>>({})
 
   // Load templates on component mount
   useEffect(() => {
@@ -233,6 +237,46 @@ export function EmailTemplatesAdmin() {
     setShowPreviewDialog(true)
   }
 
+  const openTestEmailDialog = (template: EmailTemplate) => {
+    setSelectedTemplate(template)
+    setTestEmail("")
+    // Initialize test email variables
+    const initialVariables: Record<string, string> = {}
+    template.variables?.forEach(variable => {
+      initialVariables[variable] = `Sample ${variable}`
+    })
+    setTestEmailVariables(initialVariables)
+    setShowTestEmailDialog(true)
+  }
+
+  const handleSendTestEmail = async () => {
+    if (!selectedTemplate || !testEmail) return
+    
+    try {
+      const testRequest: SendTestEmailRequest = {
+        template_id: selectedTemplate.template_id,
+        to_email: testEmail,
+        variables: testEmailVariables
+      }
+      
+      await sendTestEmail(testRequest)
+      toast({
+        title: "Success",
+        description: `Test email sent successfully to ${testEmail}`,
+      })
+      setShowTestEmailDialog(false)
+      setTestEmail("")
+      setTestEmailVariables({})
+    } catch (error) {
+      console.error("Failed to send test email:", error)
+      toast({
+        title: "Error",
+        description: "Failed to send test email",
+        variant: "destructive",
+      })
+    }
+  }
+
   const filteredTemplates = templates.filter(template => 
     template.template_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     template.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -254,10 +298,6 @@ export function EmailTemplatesAdmin() {
           <h1 className="text-2xl font-bold">Email Template Management</h1>
           <p className="text-muted-foreground">Manage email templates used throughout the platform</p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Template
-        </Button>
       </div>
 
       <div className="flex items-center gap-4">
@@ -297,6 +337,14 @@ export function EmailTemplatesAdmin() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openTestEmailDialog(template)}
+                      title="Send test email"
+                    >
+                      <Mail className="w-4 h-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -538,6 +586,61 @@ export function EmailTemplatesAdmin() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Test Email Dialog */}
+      <Dialog open={showTestEmailDialog} onOpenChange={setShowTestEmailDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Send Test Email</DialogTitle>
+            <DialogDescription>
+              Send a test email using the template "{selectedTemplate?.template_id}" to verify it works correctly.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="test_email">Recipient Email Address</Label>
+              <Input
+                id="test_email"
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="Enter email address to send test to"
+              />
+            </div>
+            
+            {selectedTemplate?.variables && selectedTemplate.variables.length > 0 && (
+              <div className="space-y-2">
+                <Label>Template Variables</Label>
+                {selectedTemplate.variables.map((variable) => (
+                  <div key={variable} className="flex items-center gap-2">
+                    <Label className="min-w-[100px] text-sm">{variable}:</Label>
+                    <Input
+                      value={testEmailVariables[variable] || ''}
+                      onChange={(e) => setTestEmailVariables({
+                        ...testEmailVariables,
+                        [variable]: e.target.value
+                      })}
+                      placeholder={`Value for {${variable}}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTestEmailDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendTestEmail}
+              disabled={!testEmail || loading}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Send Test Email
             </Button>
           </DialogFooter>
         </DialogContent>
