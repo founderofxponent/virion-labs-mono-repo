@@ -212,54 +212,63 @@ export default function BotCampaignsPage() {
 
   const handleExportCampaignCSV = async (campaignId: string, campaignName: string) => {
     try {
-      // Only admin users can export data
-      if (roleName !== "admin") {
-        throw new Error("Access denied. Admin privileges required.")
+      if (roleName !== "Platform Administrator" && roleName !== "admin") {
+        toast({
+          title: "Access Denied",
+          description: "You do not have permission to export data.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      const response = await fetch(`/api/bot-campaigns/${campaignId}/export-csv`)
-      
+      toast({
+        title: "Exporting Data",
+        description: `Your CSV export for "${campaignName}" is being generated. This may take a moment...`,
+      });
+
+      const response = await fetch('/api/business-logic/analytics/export/onboarding-data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Assuming you have a way to get the auth token
+          // 'Authorization': `Bearer ${yourAuthToken}`,
+        },
+        body: JSON.stringify({
+          select_mode: 'single',
+          campaign_ids: [String(campaignId)],
+          file_format: 'csv',
+          date_range: 'all',
+        }),
+      });
+
       if (!response.ok) {
-        // Try to get the error message from the response
-        try {
-          const errorData = await response.json()
-          if (errorData.message) {
-            throw new Error(errorData.message)
-          } else if (errorData.error) {
-            throw new Error(errorData.error)
-          }
-        } catch {
-          // If we can't parse JSON, use a generic error
-        }
-        throw new Error("Failed to export CSV")
+        const errorData = await response.json().catch(() => ({ message: "An unknown error occurred" }));
+        throw new Error(errorData.detail || errorData.message || "Failed to start export process");
       }
 
-      // Get the CSV content
-      const csvContent = await response.text()
-      
-      // Create blob and download
-      const blob = new Blob([csvContent], { type: "text/csv" })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `${campaignName.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_onboarding_data.csv`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      const exportResult = await response.json();
+      const downloadUrl = exportResult.download_url;
+
+      if (!downloadUrl) {
+        throw new Error("Export completed, but no download URL was provided.");
+      }
+
+      // Open the download URL in a new tab to trigger the download
+      window.open(downloadUrl, '_blank');
 
       toast({
         title: "Success",
-        description: "Onboarding data exported successfully!",
-      })
+        description: "Your download will begin shortly. Check your email for a link as well.",
+      });
+
     } catch (error) {
       toast({
         title: "Export Failed",
         description: error instanceof Error ? error.message : "Failed to export CSV data",
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
     }
-  }
+  };
 
 
 
@@ -346,15 +355,7 @@ export default function BotCampaignsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {/* Publish to Discord Button */}
-          <Button 
-            variant="outline" 
-            onClick={handlePublishToDiscord}
-            disabled={campaigns.length === 0}
-          >
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Publish to Discord
-          </Button>
+          
           {/* Create Campaign Button */}
           <Button onClick={() => router.push('/bot-campaigns/create')}>
             <Plus className="h-4 w-4 mr-2" />

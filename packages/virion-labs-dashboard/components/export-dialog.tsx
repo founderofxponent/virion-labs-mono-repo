@@ -22,19 +22,19 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/hooks/use-toast"
-import { useExportOnboardingData, CampaignExportStats } from "@/hooks/use-analytics-api"
+import { useAnalytics } from "@/hooks/use-analytics"
+import { useExportOnboardingData } from "@/hooks/use-analytics-api"
 import { OnboardingExportRequest } from "@/hooks/use-analytics-api"
 
 interface Campaign {
   id: string
-  campaign_name: string
+  documentId: string
+  name: string
   client_name: string
-  client_industry: string
   is_active: boolean
-  total_responses: number
-  completed_responses: number
-  unique_fields: string[]
-  created_at: string
+  total_starts: number
+  total_completions: number
+  completion_rate: number
 }
 
 interface ExportDialogProps {
@@ -45,6 +45,7 @@ interface ExportDialogProps {
 export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) {
   const { user, profile } = useAuth()
   const { toast } = useToast()
+  const { analyticsData, loading: isFetchingCampaigns } = useAnalytics()
   const [open, setOpen] = useState(false)
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([])
@@ -53,13 +54,30 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
   const [dateRange, setDateRange] = useState<"7" | "30" | "90" | "365" | "all">("30")
   const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
 
-  const { mutate: exportData, isPending: isExporting, data: exportResponse, error: exportError } = useExportOnboardingData();
+  const { mutate: exportData, isPending: isExporting } = useExportOnboardingData();
+
+  useEffect(() => {
+    if (analyticsData?.campaigns) {
+      // Map the analytics campaign data to the simpler format used in this dialog
+      const campaignData = analyticsData.campaigns.map(c => ({
+        id: c.id,
+        documentId: String(c.documentId || c.id),
+        name: c.name,
+        client_name: c.client_name || 'N/A',
+        is_active: c.is_active,
+        total_starts: c.total_starts,
+        total_completions: c.total_completions,
+        completion_rate: c.completion_rate,
+      }));
+      setCampaigns(campaignData);
+    }
+  }, [analyticsData]);
 
   // Set default campaign if provided
   useEffect(() => {
     if (defaultCampaignId && campaigns.length > 0) {
       setSelectMode("single")
-      setSelectedCampaigns([defaultCampaignId])
+      setSelectedCampaigns([String(defaultCampaignId)])
     }
   }, [defaultCampaignId, campaigns])
 
@@ -88,23 +106,24 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
     if (selectedCampaigns.length === campaigns.length) {
       setSelectedCampaigns([])
     } else {
-      setSelectedCampaigns(campaigns.map(c => c.id))
+      setSelectedCampaigns(campaigns.map(c => c.documentId))
     }
   }
 
   const getSelectedCampaignsData = () => {
+    const sourceCampaigns = campaigns || [];
     if (selectMode === "all") {
       return {
-        campaigns: campaigns,
-        totalResponses: campaigns.reduce((sum, c) => sum + c.total_responses, 0),
-        totalCompleted: campaigns.reduce((sum, c) => sum + c.completed_responses, 0)
+        campaigns: sourceCampaigns,
+        totalResponses: sourceCampaigns.reduce((sum, c) => sum + c.total_starts, 0),
+        totalCompleted: sourceCampaigns.reduce((sum, c) => sum + c.total_completions, 0)
       }
     } else {
-      const selected = campaigns.filter(c => selectedCampaigns.includes(c.id))
+      const selected = sourceCampaigns.filter(c => selectedCampaigns.includes(c.documentId))
       return {
         campaigns: selected,
-        totalResponses: selected.reduce((sum, c) => sum + c.total_responses, 0),
-        totalCompleted: selected.reduce((sum, c) => sum + c.completed_responses, 0)
+        totalResponses: selected.reduce((sum, c) => sum + c.total_starts, 0),
+        totalCompleted: selected.reduce((sum, c) => sum + c.total_completions, 0)
       }
     }
   }
@@ -130,7 +149,7 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
 
     const requestData: OnboardingExportRequest = {
       select_mode: selectMode,
-      campaign_ids: selectMode === "all" ? undefined : selectedCampaigns,
+      campaign_ids: selectMode === "all" ? undefined : selectedCampaigns.map(String),
       file_format: format,
       date_range: dateRange,
     };
@@ -142,7 +161,9 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
           description: `Your download will begin shortly.`,
         });
         // Trigger download
-        window.location.href = data.download_url;
+        if (data.download_url) {
+          window.open(data.download_url, '_blank');
+        }
         setOpen(false);
       },
       onError: (error) => {
@@ -224,7 +245,7 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
               </div>
               
               <ScrollArea className="h-64 border rounded-md p-4">
-                {isExporting ? (
+                {isFetchingCampaigns ? (
                   <div className="flex items-center justify-center h-32">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                     <span className="ml-2 text-muted-foreground">Loading campaigns...</span>
@@ -237,21 +258,21 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
                   <div className="space-y-2">
                     {campaigns.map((campaign) => (
                       <div
-                        key={campaign.id}
+                        key={campaign.documentId}
                         className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedCampaigns.includes(campaign.id)
+                          selectedCampaigns.includes(campaign.documentId)
                             ? 'bg-primary/5 border-primary'
                             : 'hover:bg-muted/50'
                         }`}
-                        onClick={() => handleCampaignToggle(campaign.id)}
+                        onClick={() => handleCampaignToggle(campaign.documentId)}
                       >
                         {selectMode === "multiple" ? (
                           <Checkbox
-                            checked={selectedCampaigns.includes(campaign.id)}
+                            checked={selectedCampaigns.includes(campaign.documentId)}
                             onChange={() => {}}
                           />
                         ) : (
-                          selectedCampaigns.includes(campaign.id) ? (
+                          selectedCampaigns.includes(campaign.documentId) ? (
                             <CheckCircle2 className="h-4 w-4 text-primary" />
                           ) : (
                             <Circle className="h-4 w-4 text-muted-foreground" />
@@ -259,7 +280,7 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium truncate">{campaign.campaign_name}</p>
+                            <p className="font-medium truncate">{campaign.name}</p>
                             {campaign.is_active ? (
                               <Badge variant="default">Active</Badge>
                             ) : (
@@ -267,13 +288,8 @@ export function ExportDialog({ trigger, defaultCampaignId }: ExportDialogProps) 
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground">
-                            {campaign.client_name} • {campaign.total_responses} responses • {campaign.completed_responses} completed
+                            {campaign.client_name} • {campaign.total_starts} responses • {campaign.total_completions} completed
                           </p>
-                          {campaign.unique_fields.length > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Fields: {campaign.unique_fields.join(', ')}
-                            </p>
-                          )}
                         </div>
                       </div>
                     ))}
