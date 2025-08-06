@@ -4,7 +4,7 @@ from core.strapi_client import strapi_client
 from domain.users.schemas import UserSettingUpdate, UserSettingResponse
 from schemas.strapi import StrapiUserSettingUpdate, StrapiUserSettingCreate
 from schemas.user_schemas import User
-from services.email_service import email_service, Email
+from services.email_service import email_service, Email, TemplateEmail
 import logging
 
 logger = logging.getLogger(__name__)
@@ -67,12 +67,12 @@ class UserService:
 
                     # Step 3: Send welcome email
                     try:
-                        email_data = Email(
+                        template_email_data = TemplateEmail(
                             to=user['email'],
-                            subject="Welcome to Virion Labs!",
-                            html="<h1>Welcome!</h1><p>Thank you for joining Virion Labs. We're excited to have you on board.</p>"
+                            template_id="user-welcome-email",
+                            variables={}
                         )
-                        await email_service.send_email(email_data)
+                        await email_service.send_template_email(template_email_data)
                     except Exception as e:
                         logger.error(f"Failed to send welcome email to user {user_id}: {e}")
                 else:

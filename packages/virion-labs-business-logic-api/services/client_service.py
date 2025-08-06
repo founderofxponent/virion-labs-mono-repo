@@ -34,7 +34,7 @@ from core.auth import StrapiUser
 from domain.clients.domain import ClientDomain
 from domain.clients.schemas import Client, ClientCreate, ClientUpdate
 from schemas.strapi import StrapiClientCreate, StrapiClientUpdate
-from services.email_service import email_service, Email
+from services.email_service import email_service, Email, TemplateEmail
 
 logger = logging.getLogger(__name__)
 
@@ -67,16 +67,14 @@ class ClientService:
         # Send welcome email to the client's contact person
         try:
             if created_client.contact_email:
-                email_data = Email(
+                template_email_data = TemplateEmail(
                     to=created_client.contact_email,
-                    subject="Welcome to Virion Labs!",
-                    html=f"""
-                    <h1>Welcome, {created_client.name}!</h1>
-                    <p>Your client profile has been created in the Virion Labs platform.</p>
-                    <p>We're excited to partner with you.</p>
-                    """
+                    template_id="client-welcome-email",
+                    variables={
+                        "client_name": created_client.name
+                    }
                 )
-                await email_service.send_email(email_data)
+                await email_service.send_template_email(template_email_data)
         except Exception as e:
             logger.error(f"Failed to send welcome email to new client {created_client.name}: {e}")
         

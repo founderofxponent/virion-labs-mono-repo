@@ -868,6 +868,44 @@ export interface ApiDiscordSettingDiscordSetting
   };
 }
 
+export interface ApiEmailTemplateEmailTemplate
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'email_templates';
+  info: {
+    displayName: 'Email Template';
+    pluralName: 'email-templates';
+    singularName: 'email-template';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    body: Schema.Attribute.Text;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.String;
+    is_active: Schema.Attribute.Boolean &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::email-template.email-template'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    subject: Schema.Attribute.String & Schema.Attribute.Required;
+    template_id: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    variables: Schema.Attribute.JSON;
+  };
+}
+
 export interface ApiLandingPageTemplateLandingPageTemplate
   extends Struct.CollectionTypeSchema {
   collectionName: 'landing_page_templates';
@@ -1641,6 +1679,7 @@ declare module '@strapi/strapi' {
       'api::client.client': ApiClientClient;
       'api::discord-request-access.discord-request-access': ApiDiscordRequestAccessDiscordRequestAccess;
       'api::discord-setting.discord-setting': ApiDiscordSettingDiscordSetting;
+      'api::email-template.email-template': ApiEmailTemplateEmailTemplate;
       'api::landing-page-template.landing-page-template': ApiLandingPageTemplateLandingPageTemplate;
       'api::referral-analytic.referral-analytic': ApiReferralAnalyticReferralAnalytic;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;

@@ -39,7 +39,10 @@ from schemas.strapi import (
     Media,
     DiscordSetting,
     StrapiDiscordSettingCreate,
-    StrapiDiscordSettingUpdate
+    StrapiDiscordSettingUpdate,
+    EmailTemplate,
+    StrapiEmailTemplateCreate,
+    StrapiEmailTemplateUpdate
 )
 
 logger = logging.getLogger(__name__)
@@ -977,6 +980,52 @@ class StrapiClient:
         request_data = {"data": data}
         response = await self._request("POST", "discord-request-accesses", data=request_data)
         return response.get("data", {})
+
+    async def get_email_templates(self, filters: Optional[Dict] = None) -> List[EmailTemplate]:
+        """Fetches a list of email templates from Strapi."""
+        logger.info("StrapiClient: Fetching email templates from Strapi.")
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        
+        response = await self._request("GET", "email-templates", params=params)
+        return [EmailTemplate(**item) for item in response.get("data", [])]
+
+    async def get_email_template(self, document_id: str) -> Optional[EmailTemplate]:
+        """Fetches a single email template by document ID from Strapi."""
+        logger.info(f"StrapiClient: Fetching email template {document_id} from Strapi.")
+        try:
+            response = await self._request("GET", f"email-templates/{document_id}", params={"populate": "*"})
+            if response and response.get("data"):
+                return EmailTemplate(**response.get("data"))
+            return None
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"Email template with documentId {document_id} not found.")
+                return None
+            raise
+
+    async def create_email_template(self, template_data: StrapiEmailTemplateCreate) -> EmailTemplate:
+        """Creates a new email template in Strapi."""
+        logger.info("StrapiClient: Creating new email template in Strapi.")
+        payload = template_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
+        response = await self._request("POST", "email-templates", data=data)
+        return EmailTemplate(**response.get("data"))
+
+    async def update_email_template(self, document_id: str, template_data: StrapiEmailTemplateUpdate) -> EmailTemplate:
+        """Updates an email template in Strapi using document ID."""
+        logger.info(f"StrapiClient: Updating email template {document_id} in Strapi.")
+        payload = template_data.model_dump(exclude_unset=True)
+        data = {"data": payload}
+        response = await self._request("PUT", f"email-templates/{document_id}", data=data)
+        return EmailTemplate(**response.get("data"))
+
+    async def delete_email_template(self, document_id: str) -> Dict:
+        """Deletes an email template in Strapi using document ID."""
+        logger.info(f"StrapiClient: Deleting email template {document_id} from Strapi.")
+        response = await self._request("DELETE", f"email-templates/{document_id}")
+        return response if response else {"status": "deleted"}
 
 # Global client instance
 strapi_client = StrapiClient()

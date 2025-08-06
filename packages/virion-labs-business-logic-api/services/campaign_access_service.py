@@ -24,7 +24,7 @@ from domain.campaign_access.schemas import (
 )
 from schemas.strapi import CampaignInfluencerAccess
 from core.auth import StrapiUser as User
-from services.email_service import email_service, Email
+from services.email_service import email_service, Email, TemplateEmail
 from datetime import datetime
 import logging
 
@@ -88,18 +88,16 @@ class CampaignAccessService:
             try:
                 admins = await strapi_client.get_users_by_role("Administrator")
                 for admin in admins:
-                    email_data = Email(
+                    template_email_data = TemplateEmail(
                         to=admin['email'],
-                        subject="New Campaign Access Request",
-                        html=f"""
-                        <h1>New Campaign Access Request</h1>
-                        <p>An influencer has requested access to a campaign.</p>
-                        <p><b>Influencer:</b> {user.get('username', 'N/A')} ({user.get('email', 'N/A')})</p>
-                        <p><b>Campaign:</b> {campaign.name}</p>
-                        <p>Please log in to the admin panel to review the request.</p>
-                        """
+                        template_id="new-campaign-access-request",
+                        variables={
+                            "influencer_name": user.get('username', 'N/A'),
+                            "influencer_email": user.get('email', 'N/A'),
+                            "campaign_name": campaign.name
+                        }
                     )
-                    await email_service.send_email(email_data)
+                    await email_service.send_template_email(template_email_data)
             except Exception as e:
                 logger.error(f"Failed to send admin notification email for new access request: {e}")
 
@@ -228,17 +226,16 @@ class CampaignAccessService:
             try:
                 if updated_access.user and updated_access.user.email:
                     status = updated_access.request_status
-                    email_data = Email(
+                    template_email_data = TemplateEmail(
                         to=updated_access.user.email,
-                        subject=f"Update on your Campaign Access Request",
-                        html=f"""
-                        <h1>Your Campaign Access Request has been {status}.</h1>
-                        <p><b>Campaign:</b> {updated_access.campaign.name}</p>
-                        <p><b>Status:</b> {status}</p>
-                        <p><b>Admin Response:</b> {updated_access.admin_response or 'N/A'}</p>
-                        """
+                        template_id="campaign-access-update",
+                        variables={
+                            "campaign_name": updated_access.campaign.name,
+                            "status": status,
+                            "admin_response": updated_access.admin_response or 'N/A'
+                        }
                     )
-                    await email_service.send_email(email_data)
+                    await email_service.send_template_email(template_email_data)
             except Exception as e:
                 logger.error(f"Failed to send influencer notification email for access request update: {e}")
             

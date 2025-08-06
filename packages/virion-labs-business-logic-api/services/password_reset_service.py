@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel, EmailStr
 
 from core.strapi_client import strapi_client
-from services.email_service import email_service, Email
+from services.email_service import email_service, Email, TemplateEmail
 from core.config import settings
 
 class PasswordResetToken(BaseModel):
@@ -46,17 +46,30 @@ class PasswordResetService:
         token = await self.create_reset_token(email)
         reset_link = f"{settings.FRONTEND_URL}/password-reset?token={token}"
 
-        email_data = Email(
-            to=email,
-            subject="Reset Your Password",
-            html=f"""
-            <h1>Password Reset Request</h1>
-            <p>You requested a password reset. Click the link below to set a new password:</p>
-            <a href="{reset_link}">{reset_link}</a>
-            <p>This link will expire in {settings.PASSWORD_RESET_EXPIRE_MINUTES} minutes.</p>
-            """
-        )
-        await email_service.send_email(email_data)
+        # Try to use template first, fall back to hardcoded email if template not found
+        try:
+            template_email_data = TemplateEmail(
+                to=email,
+                template_id="password-reset",
+                variables={
+                    "reset_link": reset_link,
+                    "expires_minutes": str(settings.PASSWORD_RESET_EXPIRE_MINUTES)
+                }
+            )
+            await email_service.send_template_email(template_email_data)
+        except Exception as template_error:
+            # Fall back to hardcoded email if template system fails
+            email_data = Email(
+                to=email,
+                subject="Reset Your Password",
+                html=f"""
+                <h1>Password Reset Request</h1>
+                <p>You requested a password reset. Click the link below to set a new password:</p>
+                <a href="{reset_link}">{reset_link}</a>
+                <p>This link will expire in {settings.PASSWORD_RESET_EXPIRE_MINUTES} minutes.</p>
+                """
+            )
+            await email_service.send_email(email_data)
 
     async def reset_password(self, token: str, new_password: str) -> bool:
         """Resets the user's password using a valid token."""

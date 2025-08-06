@@ -12,6 +12,7 @@ import {
   Target,
   UserCheck,
   BarChart3,
+  Mail,
 } from "lucide-react"
 import { cn, generateInitials } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -91,6 +92,12 @@ export function Sidebar() {
       href: "/admin/access-requests",
       icon: UserCheck,
       active: pathname === "/admin/access-requests",
+    },
+    {
+      title: "Email Templates",
+      href: "/email-templates",
+      icon: Mail,
+      active: pathname === "/email-templates",
     },
     {
       title: "Settings",

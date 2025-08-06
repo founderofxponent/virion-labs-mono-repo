@@ -434,6 +434,38 @@ class StrapiDiscordSettingUpdate(DiscordSettingUpdate):
     """Strapi schema for updating Discord settings."""
     pass
 
+class EmailTemplate(BaseModel):
+    """Email template model from Strapi."""
+    id: int
+    documentId: Optional[str] = None
+    template_id: str
+    subject: str
+    body: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = True
+    variables: Optional[List[str]] = None
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
+    publishedAt: Optional[str] = None
+
+class StrapiEmailTemplateCreate(BaseModel):
+    """Schema for creating email templates in Strapi."""
+    template_id: str
+    subject: str
+    body: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = True
+    variables: Optional[List[str]] = None
+
+class StrapiEmailTemplateUpdate(BaseModel):
+    """Schema for updating email templates in Strapi."""
+    template_id: Optional[str] = None
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    variables: Optional[List[str]] = None
+
 # Update forward references to resolve circular dependencies
 ReferralLink.update_forward_refs()
 CampaignOnboardingResponse.update_forward_refs()
