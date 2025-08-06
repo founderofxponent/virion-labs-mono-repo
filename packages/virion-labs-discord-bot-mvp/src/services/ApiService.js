@@ -6,6 +6,8 @@ class ApiService {
     this.logger = logger;
     this.baseUrl = config.api.baseUrl;
     this.apiKey = config.api.apiKey;
+    // Cache for storing campaign data
+    this.campaignCache = new Map();
   }
 
   async _request(endpoint, options = {}) {
@@ -33,6 +35,16 @@ class ApiService {
 
   // --- Campaign Endpoints ---
 
+  getCachedCampaign(campaignId) {
+    return this.campaignCache.get(campaignId);
+  }
+
+  cacheCampaign(campaign) {
+    // Use documentId as the key since that's what's used in button customIds
+    this.campaignCache.set(campaign.documentId, campaign);
+    this.logger.debug(`[ApiService] Cached campaign: ${campaign.documentId} - ${campaign.name}`);
+  }
+
   async getAvailableCampaigns(guildId, channelId, joinCampaignsChannelId) {
     this.logger.info(`[ApiService] Fetching available campaigns for guild ${guildId}, channel: ${channelId}`);
     let url = `/api/v1/integrations/discord/campaigns/${guildId}?channel_id=${channelId}`;
@@ -49,6 +61,8 @@ class ApiService {
       this.logger.info(`[ApiService] Received ${response.campaigns.length} campaigns`);
       response.campaigns.forEach((campaign, index) => {
         this.logger.info(`[ApiService] Campaign ${index + 1}: id=${campaign.id}, documentId=${campaign.documentId}, name="${campaign.name}"`);
+        // Cache each campaign for later use
+        this.cacheCampaign(campaign);
       });
       
       // Check for duplicate documentIds in API response

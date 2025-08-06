@@ -1,11 +1,11 @@
-const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { ApiService } = require('../services/ApiService');
 
 class OnboardingHandler {
-  constructor(config, logger) {
+  constructor(config, logger, apiService) {
     this.config = config;
     this.logger = logger;
-    this.apiService = new ApiService(config, logger);
+    this.apiService = apiService || new ApiService(config, logger);
     // Cache for storing onboarding questions per user/campaign
     this.questionsCache = new Map();
   }
@@ -25,6 +25,18 @@ class OnboardingHandler {
 
       // Defer the reply immediately to avoid timeout
       await interaction.deferReply({ ephemeral: true });
+
+      // Get campaign details from cache
+      this.logger.debug(`[Onboarding] Looking for cached campaign: ${campaignId}`);
+      const campaignData = this.apiService.getCachedCampaign(campaignId);
+      if (!campaignData) {
+        this.logger.error(`[Onboarding] No cached campaign data found for campaign ${campaignId}`);
+        // Log all cached campaigns for debugging
+        const allCachedKeys = Array.from(this.apiService.campaignCache.keys());
+        this.logger.error(`[Onboarding] Currently cached campaign IDs: ${JSON.stringify(allCachedKeys)}`);
+        return interaction.editReply({ content: 'Campaign information not found. Please try running /join again to refresh campaign data.' });
+      }
+      this.logger.info(`[Onboarding] Found cached campaign: ${campaignData.name}`);
 
       const response = await this.apiService.startOnboarding(campaignId, userId, interaction.user.username);
       if (!response.success) {
@@ -47,6 +59,34 @@ class OnboardingHandler {
       const cacheKey = `${campaignId}_${userId}`;
       this.questionsCache.set(cacheKey, response.data.questions);
 
+      // Create a rich embed with campaign details
+      const embed = new EmbedBuilder()
+        .setTitle(`🚀 ${campaignData.name}`)
+        .setColor('#6366f1')
+        .setDescription(campaignData.description || 'Ready to begin onboarding for this campaign.');
+
+      // Add additional fields if they exist in the campaign data
+      if (campaignData.requirements) {
+        embed.addFields({ name: '📋 Requirements', value: campaignData.requirements, inline: false });
+      }
+      
+      if (campaignData.reward_description) {
+        embed.addFields({ name: '🎁 Rewards', value: campaignData.reward_description, inline: false });
+      }
+
+      if (campaignData.start_date || campaignData.end_date) {
+        let timeInfo = '';
+        if (campaignData.start_date) {
+          timeInfo += `**Start:** ${new Date(campaignData.start_date).toLocaleDateString()}\n`;
+        }
+        if (campaignData.end_date) {
+          timeInfo += `**End:** ${new Date(campaignData.end_date).toLocaleDateString()}`;
+        }
+        embed.addFields({ name: '📅 Timeline', value: timeInfo.trim(), inline: true });
+      }
+
+      embed.setFooter({ text: 'Click the button below to begin the onboarding process.' });
+
       // Instead of showing a modal directly, show a button to open it.
       const openModalButton = new ButtonBuilder()
         .setCustomId(`open_onboarding_modal_${campaignId}_${userId}`)
@@ -56,7 +96,7 @@ class OnboardingHandler {
       const row = new ActionRowBuilder().addComponents(openModalButton);
 
       await interaction.editReply({
-        content: 'Please click the button below to begin the onboarding process.',
+        embeds: [embed],
         components: [row],
         ephemeral: true,
       });

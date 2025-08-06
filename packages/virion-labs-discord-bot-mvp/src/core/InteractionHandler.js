@@ -2,14 +2,17 @@ const { JoinCommand } = require('../commands/JoinCommand');
 const { RequestAccessCommand } = require('../commands/RequestAccessCommand');
 const { OnboardingHandler } = require('../handlers/OnboardingHandler');
 const { RequestAccessHandler } = require('../handlers/RequestAccessHandler');
+const { ApiService } = require('../services/ApiService');
 
 class InteractionHandler {
   constructor(config, logger) {
     this.config = config;
     this.logger = logger;
-    this.joinCommand = new JoinCommand(config, logger);
+    // Create a shared ApiService instance
+    this.apiService = new ApiService(config, logger);
+    this.joinCommand = new JoinCommand(config, logger, this.apiService);
     this.requestAccessCommand = new RequestAccessCommand(config, logger);
-    this.onboardingHandler = new OnboardingHandler(config, logger);
+    this.onboardingHandler = new OnboardingHandler(config, logger, this.apiService);
     this.requestAccessHandler = new RequestAccessHandler(config, logger);
   }
 

@@ -2,10 +2,10 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const { ApiService } = require('../services/ApiService');
 
 class JoinCommand {
-  constructor(config, logger) {
+  constructor(config, logger, apiService) {
     this.config = config;
     this.logger = logger;
-    this.apiService = new ApiService(config, logger);
+    this.apiService = apiService || new ApiService(config, logger);
   }
 
   async execute(interaction) {
