@@ -64,6 +64,8 @@ import {
   RotateCcw
 } from "lucide-react"
 
+
+
 export default function BotCampaignsPage() {
   const router = useRouter()
   const { profile } = useAuth()
@@ -145,10 +147,9 @@ export default function BotCampaignsPage() {
     const query = searchQuery.toLowerCase()
     return (
       campaign.name.toLowerCase().includes(query) ||
-      (campaign.client_name && campaign.client_name.toLowerCase().includes(query)) ||
+      (campaign.client?.name && campaign.client.name.toLowerCase().includes(query)) ||
       campaign.guild_id.toLowerCase().includes(query) ||
-      (campaign.type && campaign.type.toLowerCase().includes(query)) ||
-      (campaign.template && campaign.template.toLowerCase().includes(query))
+      (campaign.campaign_type && campaign.campaign_type.toLowerCase().includes(query))
     )
   })
 
@@ -600,7 +601,7 @@ export default function BotCampaignsPage() {
                           <div className="flex-shrink-0">
                             <div 
                               className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
-                              style={{ backgroundColor: '#6366f1' }}
+                              style={{ backgroundColor: campaign.brand_color || '#6366f1' }}
                             >
                               <Bot className="h-5 w-5" />
                             </div>
@@ -608,17 +609,17 @@ export default function BotCampaignsPage() {
                           <div>
                             <div className="font-medium">{campaign.name}</div>
                             <div className="text-sm text-muted-foreground">
-                              {campaign.display_name} • v{campaign.configuration_version}
+                              {campaign.bot_name}
                             </div>
                           </div>
                         </div>
                       </TableCell>
                       
                       <TableCell>
-                        <div className="font-medium">{campaign.client_name}</div>
-                        {campaign.client_industry && (
+                        <div className="font-medium">{campaign.client?.name || 'No client'}</div>
+                        {campaign.client?.industry && (
                           <div className="text-sm text-muted-foreground">
-                            {campaign.client_industry}
+                            {campaign.client.industry}
                           </div>
                         )}
                       </TableCell>
@@ -639,14 +640,14 @@ export default function BotCampaignsPage() {
                       </TableCell>
                       
                       <TableCell>
-                        <Badge className={getTemplateColor(campaign.template || '')}>
-                          {campaign.template?.replace('_', ' ')}
+                        <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300">
+                          {campaign.campaign_type?.replace('_', ' ') || 'N/A'}
                         </Badge>
                       </TableCell>
                       
                       <TableCell>
-                        <Badge className={getCampaignTypeColor(campaign.type || '')}>
-                          {campaign.type?.replace('_', ' ')}
+                        <Badge className={getCampaignTypeColor(campaign.campaign_type || '')}>
+                          {campaign.campaign_type?.replace('_', ' ')}
                         </Badge>
                       </TableCell>
                       
@@ -679,25 +680,25 @@ export default function BotCampaignsPage() {
                         <div className="space-y-1">
                           <div className="flex items-center text-xs">
                             <MessageSquare className="h-3 w-3 mr-1" />
-                            {campaign.total_interactions || 0} interactions
+                            {campaign.total_starts || 0} started
                           </div>
                           <div className="flex items-center text-xs">
                             <Users className="h-3 w-3 mr-1" />
-                            {campaign.successful_onboardings || 0} onboarded
+                            {campaign.total_completions || 0} onboarded
                           </div>
                           <div className="flex items-center text-xs">
                             <TrendingUp className="h-3 w-3 mr-1" />
-                            {campaign.referral_conversions || 0} referrals
+                            {Math.round(campaign.completion_rate || 0)}% rate
                           </div>
                         </div>
                       </TableCell>
                       
                       <TableCell>
                         <div className="text-sm">
-                          {formatDate(campaign.updated_at || '')}
+                          {campaign.end_date ? formatDate(campaign.end_date) : 'No end date'}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Created {formatDate(campaign.created_at || '')}
+                          Started {campaign.start_date ? formatDate(campaign.start_date) : 'No start date'}
                         </div>
                       </TableCell>
                       

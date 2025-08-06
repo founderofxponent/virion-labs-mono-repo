@@ -60,6 +60,10 @@ export interface Campaign {
   last_activity_at?: string;
   created_at?: string;
   updated_at?: string;
+  // Metrics
+  total_starts?: number;
+  total_completions?: number;
+  completion_rate?: number;
 }
 
 /**
@@ -90,6 +94,9 @@ export type CampaignListItem = Pick<
   | 'updated_at'
   | 'successful_onboardings'
   | 'is_deleted'
+  | 'total_starts'
+  | 'total_completions'
+  | 'completion_rate'
 >;
 
 /**

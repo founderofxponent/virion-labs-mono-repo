@@ -89,6 +89,10 @@ class CampaignResponse(CampaignBase):
     has_access: Optional[bool] = None
     request_status: Optional[Literal['pending', 'approved', 'denied']] = None
     discord_server_name: Optional[str] = None
+    # Metrics fields
+    total_starts: Optional[int] = 0
+    total_completions: Optional[int] = 0
+    completion_rate: Optional[float] = 0.0
 
 class CampaignListResponse(BaseModel):
     """Defines the structure for the response of the campaign list operation."""

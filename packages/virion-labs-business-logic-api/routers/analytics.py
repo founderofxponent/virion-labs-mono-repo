@@ -22,6 +22,8 @@ async def get_dashboard_analytics(current_user: User = Depends(get_current_user)
         logger.error(f"Analytics dashboard endpoint failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="An error occurred while fetching dashboard analytics.")
 
+
+
 @router.get("/performance-report", summary="Get Performance Report")
 async def get_performance_report(timeframe: str = "30d", current_user: User = Depends(get_current_user)):
     """Provides a daily breakdown of key performance metrics."""

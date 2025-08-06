@@ -7,6 +7,7 @@ from services.landing_page_template_service import landing_page_template_service
 from services.referral_service import referral_service
 from services.onboarding_service import onboarding_service
 from services.campaign_access_service import campaign_access_service
+from services.analytics_service import analytics_service # Import analytics service
 from schemas.operation_schemas import (
     ClientCreateRequest, ClientResponse,
     ClientListResponse, ClientUpdateRequest,
@@ -224,7 +225,7 @@ async def list_campaigns_operation(
     limit: int = 50,
     current_user: User = Depends(get_current_user)
 ):
-    """Lists all campaigns with optional filters."""
+    """Lists all campaigns with optional filters and includes performance metrics."""
     try:
         filters = {
             "pagination[page]": page,
@@ -237,8 +238,21 @@ async def list_campaigns_operation(
 
         campaigns_data = await campaign_service.list_campaigns_operation(filters)
         
-        # Convert Strapi models to Pydantic response models
-        campaign_responses = [_to_campaign_response(c) for c in campaigns_data]
+        # Convert Strapi models to Pydantic response models and add metrics
+        campaign_responses = []
+        for campaign in campaigns_data:
+            # Get analytics data for the campaign
+            analytics_data = await analytics_service.get_onboarding_funnel_analytics(campaign.id)
+            
+            # Convert to response model
+            campaign_response = _to_campaign_response(campaign)
+            
+            # Add metrics to the response
+            campaign_response.total_starts = analytics_data.get('total_starts', 0)
+            campaign_response.total_completions = analytics_data.get('total_completions', 0)
+            campaign_response.completion_rate = analytics_data.get('completion_rate', 0.0)
+            
+            campaign_responses.append(campaign_response)
         
         # If influencer_id is provided, enhance campaigns with access request status
         if influencer_id:
@@ -249,32 +263,20 @@ async def list_campaigns_operation(
             )
             
             # Create a lookup map for access requests by campaign_id
-            access_lookup = {}
-            for access_req in access_requests:
-                access_lookup[access_req.campaign_id] = access_req
+            access_lookup = {req.campaign_id: req for req in access_requests}
             
             # Enhance campaign responses with access status
-            enhanced_campaigns = []
             for campaign in campaign_responses:
                 access_req = access_lookup.get(campaign.id)
-                
-                # Create a new campaign dict with enhanced data
-                campaign_dict = campaign.model_dump()
                 if access_req:
-                    campaign_dict["has_access"] = access_req.request_status == "approved"
-                    campaign_dict["request_status"] = access_req.request_status
+                    campaign.has_access = access_req.request_status == "approved"
+                    campaign.request_status = access_req.request_status
                 else:
-                    campaign_dict["has_access"] = False
-                    campaign_dict["request_status"] = None
+                    campaign.has_access = False
+                    campaign.request_status = None
                 
                 # Add discord_server_name - this should come from campaign data
-                campaign_dict["discord_server_name"] = campaign.guild_id
-                
-                # Create new CampaignResponse with enhanced data
-                enhanced_campaign = CampaignResponse(**campaign_dict)
-                enhanced_campaigns.append(enhanced_campaign)
-            
-            campaign_responses = enhanced_campaigns
+                campaign.discord_server_name = campaign.guild_id
         
         total_count = len(campaign_responses)
 
