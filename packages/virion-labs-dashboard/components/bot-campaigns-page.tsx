@@ -1,31 +1,16 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { format } from "date-fns"
 import { useAuth } from "@/components/auth-provider"
-import { useBotCampaignsAPI, getCampaignStatus, type CampaignStatus } from "@/hooks/use-bot-campaigns-api"
+import { useBotCampaignsAPI, getCampaignStatus } from "@/hooks/use-bot-campaigns-api"
 import { useClients } from "@/hooks/use-clients"
-import { type CampaignTemplate } from "@/lib/campaign-templates"
-import { LandingPageConfig } from "@/components/landing-page-config"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
@@ -35,30 +20,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
-import { formatDate, cn } from "@/lib/utils"
 import { 
-  Bot, 
-  Settings, 
-  Activity, 
-  Square, 
   Plus,
   Server,
   Users,
-  Zap,
-  Palette,
-  Code,
   Edit,
   Trash2,
   MoreHorizontal,
-  Copy,
-  ExternalLink,
-  Target,
   TrendingUp,
   Hash,
   MessageSquare,
   Archive,
   Eye,
-  Filter,
   Search,
   Download,
   RotateCcw
@@ -72,74 +45,48 @@ export default function BotCampaignsPage() {
   const { toast } = useToast()
   const { clients } = useClients()
   const [filterClient, setFilterClient] = useState("all")
-  const [filterTemplate, setFilterTemplate] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const [templates, setTemplates] = useState<CampaignTemplate[]>([])
-  const [templatesLoading, setTemplatesLoading] = useState(true)
   const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
 
-  // Load templates from API
-  useEffect(() => {
-    const loadTemplates = async () => {
-      try {
-        setTemplatesLoading(true)
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-            throw new Error("Authentication token not found.");
-        }
-        const response = await fetch('http://localhost:8000/api/v1/operations/campaign-template/list', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        })
-        if (response.ok) {
-          const data = await response.json()
-          setTemplates(data.templates || [])
-        }
-      } catch (error) {
-        console.error("Failed to load campaign templates:", error)
-      } finally {
-        setTemplatesLoading(false)
-      }
-    }
-    loadTemplates();
-  }, []);
 
   const filters = useMemo(() => ({
-    ...(filterClient !== "all" && { client_id: filterClient }),
-    ...(filterTemplate !== "all" && { template: filterTemplate }),
     // Handle status filtering with better UX logic
     ...(filterStatus === "active" && { is_active: true }),
     ...(filterStatus === "inactive" && { is_active: false }),
-    // Better UX: "All" shows only active/inactive, not archived/deleted
-    include_archived: filterStatus === "archived",
-    only_archived: filterStatus === "archived",
-    include_deleted: filterStatus === "deleted",
-    only_deleted: filterStatus === "deleted"
-  }), [filterClient, filterTemplate, filterStatus])
+    // TODO: Implement archived and deleted status filtering
+    // The API parameters for archived/deleted campaigns need to be properly implemented
+    // include_archived: filterStatus === "archived",
+    // only_archived: filterStatus === "archived",
+    // include_deleted: filterStatus === "deleted",
+    // only_deleted: filterStatus === "deleted"
+  }), [filterStatus])
 
   const {
     campaigns,
     loading,
-    error,
-    createCampaign,
-    updateCampaign,
     deleteCampaign,
     unarchiveCampaign,
-    archiveCampaign,
-    refresh
+    archiveCampaign
   } = useBotCampaignsAPI(filters)
 
   // Debug logging to help troubleshoot campaigns not showing
   // console.log('🔍 Bot Campaigns Filter Debug:', { filterStatus, filters, campaignCount: campaigns.length, campaigns, loading, error })
 
-  // Filter campaigns based on search query and status
+  // Filter campaigns based on search query, client filter, and status
   const filteredCampaigns = campaigns.filter(campaign => {
     // Handle inactive status more precisely (not paused, not archived, not deleted, just inactive)
     if (filterStatus === "inactive") {
       const status = getCampaignStatus(campaign)
       if (status !== "inactive") return false
+    }
+    
+    // Filter by client if not "all"
+    if (filterClient !== "all") {
+      const campaignClientId = campaign.client?.id || campaign.client?.documentId
+      // Convert both to strings for comparison since filterClient is a string from Select
+      const campaignClientIdStr = String(campaignClientId)
+      if (campaignClientIdStr !== filterClient) return false
     }
     
     // Then check search query
@@ -153,13 +100,6 @@ export default function BotCampaignsPage() {
     )
   })
 
-  const handleCampaignCreated = (campaign: any) => {
-    toast({
-      title: "Success",
-      description: "Bot campaign created successfully"
-    })
-    refresh() // Refresh the campaigns list
-  }
 
   const handleDeleteCampaign = async (campaignId: string) => {
     if (!confirm(`Are you sure you want to delete this campaign? This will move it to the deleted items.`)) {
@@ -172,7 +112,7 @@ export default function BotCampaignsPage() {
         title: "Success",
         description: "Campaign deleted successfully"
       })
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : `Failed to delete campaign`,
@@ -221,7 +161,7 @@ export default function BotCampaignsPage() {
 
   
 
-  const handlePreviewLandingPage = (campaign: any) => {
+  const handlePreviewLandingPage = () => {
     // TODO: Implement preview via business logic API
     // For now, show an alert that this feature needs to be implemented
     alert('Landing page preview will be available once the campaign has active referral links. Create a referral link first, then use the /r/{code} URL to preview.')
@@ -290,7 +230,7 @@ export default function BotCampaignsPage() {
           } else if (errorData.error) {
             throw new Error(errorData.error)
           }
-        } catch (jsonError) {
+        } catch {
           // If we can't parse JSON, use a generic error
         }
         throw new Error("Failed to export CSV")
@@ -325,16 +265,6 @@ export default function BotCampaignsPage() {
 
 
 
-  const getTemplateColor = (template: string) => {
-    switch (template) {
-      case 'referral_campaign': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
-      case 'support_campaign': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-      case 'standard': return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-      case 'advanced': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
-      case 'custom': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-    }
-  }
 
   const getCampaignTypeColor = (type: string) => {
     switch (type) {
@@ -346,92 +276,62 @@ export default function BotCampaignsPage() {
     }
   }
 
-  const CampaignTableSkeleton = () => (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Campaign</TableHead>
-            <TableHead>Client</TableHead>
-            <TableHead>Discord Server</TableHead>
-            <TableHead>Template</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Metrics</TableHead>
-            <TableHead>Updated</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {Array.from({ length: 3 }).map((_, index) => (
-            <TableRow key={index}>
-              {/* Campaign */}
-              <TableCell>
-                <div className="flex items-center space-x-3">
-                  <Skeleton className="w-10 h-10 rounded-lg" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-24" />
+  const CampaignListSkeleton = () => (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <Card key={index}>
+          <CardContent className="p-6">
+            {/* Header Row Skeleton */}
+            <div className="grid grid-cols-12 gap-4 items-start mb-6">
+              {/* Campaign Info - 8 columns */}
+              <div className="col-span-12 lg:col-span-8">
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex gap-2 mt-2">
+                    <Skeleton className="h-6 w-24 rounded-full" />
+                    <Skeleton className="h-6 w-16 rounded-full" />
                   </div>
                 </div>
-              </TableCell>
+              </div>
               
-              {/* Client */}
-              <TableCell>
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              </TableCell>
-              
-              {/* Discord Server */}
-              <TableCell>
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-              </TableCell>
-              
-              {/* Template */}
-              <TableCell>
-                <Skeleton className="h-6 w-20 rounded-full" />
-              </TableCell>
-              
-              {/* Type */}
-              <TableCell>
-                <Skeleton className="h-6 w-24 rounded-full" />
-              </TableCell>
-              
-              {/* Status */}
-              <TableCell>
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-16 rounded-full" />
-                  <Skeleton className="h-3 w-20" />
-                </div>
-              </TableCell>
-              
-              {/* Metrics */}
-              <TableCell>
-                <div className="space-y-2">
-                  <Skeleton className="h-3 w-24" />
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              </TableCell>
-              
-              {/* Updated */}
-              <TableCell>
+              {/* Action Buttons - 4 columns */}
+              <div className="col-span-12 lg:col-span-4 flex gap-2 justify-end">
+                <Skeleton className="h-8 w-16" />
+                <Skeleton className="h-8 w-12" />
+                <Skeleton className="h-8 w-8" />
+              </div>
+            </div>
+
+            {/* Content Grid Skeleton */}
+            <div className="grid grid-cols-12 gap-6">
+              {/* Client - 4 columns */}
+              <div className="col-span-12 sm:col-span-6 lg:col-span-4 space-y-2">
+                <Skeleton className="h-3 w-12" />
                 <Skeleton className="h-4 w-20" />
-              </TableCell>
-              
-              {/* Actions */}
-              <TableCell className="text-right">
-                <Skeleton className="h-8 w-8 rounded ml-auto" />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                <Skeleton className="h-3 w-16" />
+              </div>
+
+              {/* Discord Server - 4 columns */}
+              <div className="col-span-12 sm:col-span-6 lg:col-span-4 space-y-2">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+
+              {/* Performance - 4 columns */}
+              <div className="col-span-12 sm:col-span-6 lg:col-span-4 space-y-2">
+                <Skeleton className="h-3 w-16" />
+                <div className="space-y-1">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 
@@ -503,27 +403,6 @@ export default function BotCampaignsPage() {
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="template-filter" className="text-sm font-medium">Template</Label>
-              <Select value={filterTemplate} onValueChange={setFilterTemplate}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All templates" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templatesLoading ? (
-                                            <SelectItem value="loading" disabled>Loading templates...</SelectItem>
-                  ) : (
-                    <>
-                      {templates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
 
             <div>
               <Label htmlFor="status-filter" className="text-sm font-medium">Status</Label>
@@ -535,8 +414,9 @@ export default function BotCampaignsPage() {
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                  <SelectItem value="deleted">Deleted</SelectItem>
+                  {/* TODO: Implement archived and deleted status options */}
+                  {/* <SelectItem value="archived">Archived</SelectItem> */}
+                  {/* <SelectItem value="deleted">Deleted</SelectItem> */}
                 </SelectContent>
               </Select>
             </div>
@@ -560,17 +440,17 @@ export default function BotCampaignsPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <CampaignTableSkeleton />
+            <CampaignListSkeleton />
           ) : filteredCampaigns.length === 0 ? (
             <div className="text-center py-8">
-              <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No campaigns found</h3>
               <p className="text-muted-foreground mb-4">
-                {searchQuery || filterClient !== "all" || filterTemplate !== "all" || filterStatus !== "all"
+                {searchQuery || filterClient !== "all" || filterStatus !== "all"
                   ? "No campaigns match your current filters."
                   : "Get started by creating your first bot campaign."}
               </p>
-              {!searchQuery && filterClient === "all" && filterTemplate === "all" && filterStatus === "all" && (
+              {!searchQuery && filterClient === "all" && filterStatus === "all" && (
                 <Button onClick={() => router.push('/bot-campaigns/create')}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Your First Campaign
@@ -578,162 +458,74 @@ export default function BotCampaignsPage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Campaign</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Discord Server</TableHead>
-                    <TableHead>Template</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Metrics</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCampaigns.map((campaign) => (
-                    <TableRow key={campaign.documentId || campaign.id}>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <div className="flex-shrink-0">
-                            <div 
-                              className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold"
-                              style={{ backgroundColor: campaign.brand_color || '#6366f1' }}
-                            >
-                              <Bot className="h-5 w-5" />
-                            </div>
-                          </div>
-                          <div>
-                            <div className="font-medium">{campaign.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {campaign.bot_name}
-                            </div>
+            <div className="space-y-4">
+              {filteredCampaigns.map((campaign) => (
+                <Card key={campaign.documentId || campaign.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    {/* Header Row - Fixed Grid */}
+                    <div className="grid grid-cols-12 gap-4 items-start mb-6">
+                      {/* Campaign Info - 8 columns */}
+                      <div className="col-span-12 lg:col-span-8">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-lg leading-tight mb-1">{campaign.name}</h3>
+                          <p className="text-sm text-muted-foreground mb-2">{campaign.bot_name}</p>
+                          {/* Badges moved under campaign subtitle */}
+                          <div className="flex flex-wrap gap-2">
+                            <Badge className={getCampaignTypeColor(campaign.campaign_type || '')}>
+                              {campaign.campaign_type?.replace('_', ' ')}
+                            </Badge>
+                            {(() => {
+                              const status = getCampaignStatus(campaign)
+                              const statusConfig = {
+                                active: { variant: "default" as const, label: "Active", color: "text-green-600" },
+                                archived: { variant: "outline" as const, label: "Archived", color: "text-orange-600" },
+                                deleted: { variant: "destructive" as const, label: "Deleted", color: "text-red-600" },
+                                inactive: { variant: "secondary" as const, label: "Inactive", color: "text-gray-600" }
+                              }
+                              const config = statusConfig[status]
+                              return (
+                                <Badge variant={config.variant} className={config.color}>
+                                  {config.label}
+                                </Badge>
+                              )
+                            })()}
                           </div>
                         </div>
-                      </TableCell>
+                      </div>
                       
-                      <TableCell>
-                        <div className="font-medium">{campaign.client?.name || 'No client'}</div>
-                        {campaign.client?.industry && (
-                          <div className="text-sm text-muted-foreground">
-                            {campaign.client.industry}
-                          </div>
-                        )}
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Server className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-mono text-sm">{campaign.guild_id}</span>
-                        </div>
-                        {campaign.channel_id && (
-                          <div className="flex items-center space-x-2 mt-1">
-                            <Hash className="h-3 w-3 text-muted-foreground" />
-                            <span className="font-mono text-xs text-muted-foreground">
-                              {campaign.channel_id}
-                            </span>
-                          </div>
-                        )}
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300">
-                          {campaign.campaign_type?.replace('_', ' ') || 'N/A'}
-                        </Badge>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <Badge className={getCampaignTypeColor(campaign.campaign_type || '')}>
-                          {campaign.campaign_type?.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          {(() => {
-                            const status = getCampaignStatus(campaign)
-                            const statusConfig = {
-                              active: { variant: "default" as const, label: "Active", color: "text-green-600" },
-                              archived: { variant: "outline" as const, label: "Archived", color: "text-orange-600" },
-                              deleted: { variant: "destructive" as const, label: "Deleted", color: "text-red-600" },
-                              inactive: { variant: "secondary" as const, label: "Inactive", color: "text-gray-600" }
-                            }
-                            const config = statusConfig[status]
-                            return (
-                              <Badge variant={config.variant} className={config.color}>
-                                {config.label}
-                              </Badge>
-                            )
-                          })()}
-                          {campaign.last_activity_at && (
-                            <div className="text-xs text-muted-foreground">
-                              Last seen: {formatDate(campaign.last_activity_at)}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center text-xs">
-                            <MessageSquare className="h-3 w-3 mr-1" />
-                            {campaign.total_starts || 0} started
-                          </div>
-                          <div className="flex items-center text-xs">
-                            <Users className="h-3 w-3 mr-1" />
-                            {campaign.total_completions || 0} onboarded
-                          </div>
-                          <div className="flex items-center text-xs">
-                            <TrendingUp className="h-3 w-3 mr-1" />
-                            {Math.round(campaign.completion_rate || 0)}% rate
-                          </div>
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell>
-                        <div className="text-sm">
-                          {campaign.end_date ? formatDate(campaign.end_date) : 'No end date'}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Started {campaign.start_date ? formatDate(campaign.start_date) : 'No start date'}
-                        </div>
-                      </TableCell>
-                      
-                      <TableCell className="text-right">
+                      {/* Action Buttons - 4 columns */}
+                      <div className="col-span-12 lg:col-span-4 flex gap-2 justify-end">
+                        <Button variant="outline" size="sm" onClick={handlePreviewLandingPage}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Preview
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/edit`)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
+                            <Button variant="outline" size="sm">
                               <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">More Actions</span>
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handlePreviewLandingPage(campaign)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              Preview Landing Page
-                            </DropdownMenuItem>
-                            
                             {(() => {
                               const status = getCampaignStatus(campaign)
                               
                               if (status === 'deleted') {
                                 return (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
-                                      <Download className="h-4 w-4 mr-2" />
-                                      Export CSV
-                                    </DropdownMenuItem>
-                                  </>
+                                  <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export CSV
+                                  </DropdownMenuItem>
                                 )
                               }
                               
                               if (status === 'archived') {
                                 return (
                                   <>
-                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
                                       <Download className="h-4 w-4 mr-2" />
                                       Export CSV
@@ -758,11 +550,6 @@ export default function BotCampaignsPage() {
                               // Active or inactive campaigns
                               return (
                                 <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/edit`)}>
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Edit Campaign
-                                  </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
                                     <Download className="h-4 w-4 mr-2" />
                                     Export CSV
@@ -788,11 +575,78 @@ export default function BotCampaignsPage() {
                             })()}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </div>
+                    </div>
+
+                    {/* Content Grid - Aligned Columns */}
+                    <div className="grid grid-cols-12 gap-6">
+                      {/* Client Info - 4 columns */}
+                      <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Client</Label>
+                          <div>
+                            <p className="font-semibold text-sm">{campaign.client?.name || 'No client'}</p>
+                            {campaign.client?.industry && (
+                              <p className="text-xs text-muted-foreground">{campaign.client.industry}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Discord Server Info - 4 columns */}
+                      <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Discord Server</Label>
+                          <div>
+                            <div className="flex items-center space-x-2 mb-1">
+                              <Server className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              <span className="font-mono text-xs">{campaign.guild_id}</span>
+                            </div>
+                            {campaign.channel_id && (
+                              <div className="flex items-center space-x-2">
+                                <Hash className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  {campaign.channel_id}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Performance Metrics - 4 columns */}
+                      <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Performance</Label>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-1">
+                                <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">Started</span>
+                              </div>
+                              <span className="text-xs font-semibold">{campaign.total_starts || 0}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-1">
+                                <Users className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">Completed</span>
+                              </div>
+                              <span className="text-xs font-semibold">{campaign.total_completions || 0}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-1">
+                                <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">Rate</span>
+                              </div>
+                              <span className="text-xs font-semibold">{Math.round(campaign.completion_rate || 0)}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </CardContent>
