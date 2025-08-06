@@ -85,6 +85,17 @@ class CampaignService:
             end_date=datetime.now(timezone.utc)
         )
         return await strapi_client.update_campaign(document_id, archive_data)
+    
+    async def unarchive_campaign_operation(self, document_id: str) -> Campaign:
+        """Business operation for unarchiving a campaign."""
+        logger.info(f"Executing unarchive campaign operation for campaign: {document_id}")
+        
+        # Unarchive by setting is_active to True and clearing end_date
+        unarchive_data = StrapiCampaignUpdate(
+            is_active=True,
+            end_date=None
+        )
+        return await strapi_client.update_campaign(document_id, unarchive_data)
 
     async def get_landing_page_operation(self, campaign_id: str) -> Optional[CampaignLandingPage]:
         """Business operation for getting the landing page for a campaign."""

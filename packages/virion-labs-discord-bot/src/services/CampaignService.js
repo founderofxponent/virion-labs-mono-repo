@@ -110,10 +110,10 @@ class CampaignService {
       return campaign.status;
     }
     
-    // Legacy status determination
+    // Status determination based on actual API field names
     const now = new Date();
-    const startDate = campaign.campaign_start_date ? new Date(campaign.campaign_start_date) : null;
-    const endDate = campaign.campaign_end_date ? new Date(campaign.campaign_end_date) : null;
+    const startDate = campaign.start_date ? new Date(campaign.start_date) : null;
+    const endDate = campaign.end_date ? new Date(campaign.end_date) : null;
     
     if (startDate && now < startDate) {
       return 'scheduled';

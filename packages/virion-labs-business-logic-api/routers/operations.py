@@ -356,6 +356,18 @@ async def archive_campaign_operation(campaign_id: str, current_user: User = Depe
         logger.error(f"Campaign archive operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.patch("/campaign/unarchive/{campaign_id}", response_model=CampaignResponse)
+async def unarchive_campaign_operation(campaign_id: str, current_user: User = Depends(get_current_user)):
+    """Unarchives a campaign by setting is_active to True and clearing end_date."""
+    try:
+        unarchived_campaign = await campaign_service.unarchive_campaign_operation(document_id=campaign_id)
+        return _to_campaign_response(unarchived_campaign)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Campaign unarchive operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/campaign/{campaign_id}/landing-page", summary="Get Campaign Landing Page")
 async def get_campaign_landing_page_operation(campaign_id: str):
     """
