@@ -367,6 +367,11 @@ class StrapiClient:
         """Creates a new campaign onboarding completion in Strapi."""
         logger.info("StrapiClient: Creating new campaign onboarding completion in Strapi.")
         payload = completion_data.model_dump(exclude_unset=True)
+        
+        # Add timestamp for the completion event
+        from datetime import datetime, timezone
+        payload["completed_at"] = datetime.now(timezone.utc).isoformat()
+        
         data = {"data": payload}
         response = await self._request("POST", "campaign-onboarding-completions", data=data)
         return CampaignOnboardingCompletion(**response.get("data"))
@@ -375,6 +380,11 @@ class StrapiClient:
         """Creates a new campaign onboarding start event in Strapi."""
         logger.info("StrapiClient: Creating new campaign onboarding start event in Strapi.")
         payload = start_data.model_dump(exclude_unset=True)
+        
+        # Add timestamp for the start event
+        from datetime import datetime, timezone
+        payload["started_at"] = datetime.now(timezone.utc).isoformat()
+        
         data = {"data": payload}
         response = await self._request("POST", "campaign-onboarding-starts", data=data)
         return CampaignOnboardingStart(**response.get("data"))

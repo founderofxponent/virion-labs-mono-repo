@@ -283,10 +283,15 @@ class IntegrationService:
                 # Get the numeric campaign ID from the document ID
                 numeric_campaign_id = await strapi_client.get_campaign_id_by_document_id(document_id)
                 if numeric_campaign_id:
+                    # Fetch the campaign data to get guild_id
+                    campaign_data = await strapi_client.get_campaign(document_id)
+                    guild_id = campaign_data.guild_id if campaign_data else None
+                    
                     start_data = StrapiCampaignOnboardingStartCreate(
                         discord_user_id=discord_user_id,
                         discord_username=discord_username,
-                        campaign=numeric_campaign_id
+                        campaign=numeric_campaign_id,
+                        guild_id=guild_id
                     )
                     await strapi_client.create_onboarding_start(start_data)
                     logger.info(f"Successfully created onboarding_start record for user {discord_user_id} on campaign {document_id}")
@@ -359,17 +364,20 @@ class IntegrationService:
                 await strapi_client.create_onboarding_response(response_data)
 
             # Create a single record to mark the onboarding as complete
+            # First fetch campaign data to get guild_id and for stats update
+            campaign_data = await strapi_client.get_campaign(document_id)  # Use documentId here
+            guild_id = campaign_data.guild_id if campaign_data else None
+            
             completion_data = StrapiCampaignOnboardingCompletionCreate(
                 discord_user_id=discord_user_id,
                 discord_username=discord_username,
                 campaign=numeric_campaign_id,
-                completed_at=datetime.now(timezone.utc).isoformat()
+                guild_id=guild_id
             )
             await strapi_client.create_onboarding_completion(completion_data)
 
             # Update campaign statistics (increment successful_onboardings)
             try:
-                campaign_data = await strapi_client.get_campaign(document_id)  # Use documentId here
                 if campaign_data:
                     current_count = getattr(campaign_data, 'successful_onboardings', 0)
                     update_data = {

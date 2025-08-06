@@ -7,7 +7,7 @@
     "displayName": "Campaign Onboarding Start"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {

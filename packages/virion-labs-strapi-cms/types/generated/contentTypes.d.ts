@@ -586,7 +586,7 @@ export interface ApiCampaignOnboardingStartCampaignOnboardingStart
     singularName: 'campaign-onboarding-start';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     campaign: Schema.Attribute.Relation<'manyToOne', 'api::campaign.campaign'>;
