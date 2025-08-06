@@ -1,0 +1,67 @@
+{
+  "kind": "collectionType",
+  "collectionName": "campaign_landing_pages",
+  "info": {
+    "singularName": "campaign-landing-page",
+    "pluralName": "campaign-landing-pages",
+    "displayName": "Campaign Landing Page"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "offer_title": {
+      "type": "string"
+    },
+    "offer_description": {
+      "type": "richtext"
+    },
+    "offer_highlights": {
+      "type": "json"
+    },
+    "offer_value": {
+      "type": "string"
+    },
+    "offer_expiry_date": {
+      "type": "datetime"
+    },
+    "hero_image_url": {
+      "type": "text"
+    },
+    "product_images": {
+      "type": "json"
+    },
+    "video_url": {
+      "type": "string"
+    },
+    "what_you_get": {
+      "type": "richtext"
+    },
+    "how_it_works": {
+      "type": "richtext"
+    },
+    "requirements": {
+      "type": "richtext"
+    },
+    "support_info": {
+      "type": "richtext"
+    },
+    "inherited_from_template": {
+      "type": "boolean",
+      "default": false
+    },
+    "landing_page_template": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::landing-page-template.landing-page-template",
+      "inversedBy": "campaign_landing_pages"
+    },
+    "campaign": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::campaign.campaign",
+      "mappedBy": "campaign_landing_page"
+    }
+  }
+}

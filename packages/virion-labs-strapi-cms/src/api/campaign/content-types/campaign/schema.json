@@ -1,0 +1,176 @@
+{
+  "kind": "collectionType",
+  "collectionName": "campaigns",
+  "info": {
+    "singularName": "campaign",
+    "pluralName": "campaigns",
+    "displayName": "Campaign"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "richtext"
+    },
+    "campaign_type": {
+      "type": "enumeration",
+      "enum": [
+        "referral_onboarding",
+        "community_engagement",
+        "product_promotion",
+        "custom",
+        "vip_support"
+      ]
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "start_date": {
+      "type": "datetime"
+    },
+    "end_date": {
+      "type": "datetime"
+    },
+    "guild_id": {
+      "type": "string",
+      "required": true
+    },
+    "channel_id": {
+      "type": "string"
+    },
+    "webhook_url": {
+      "type": "string"
+    },
+    "welcome_message": {
+      "type": "richtext"
+    },
+    "bot_name": {
+      "type": "string",
+      "default": "Virion Bot"
+    },
+    "bot_avatar_url": {
+      "type": "string"
+    },
+    "brand_color": {
+      "type": "string",
+      "default": "#6366f1"
+    },
+    "brand_logo_url": {
+      "type": "string"
+    },
+    "total_interactions": {
+      "type": "integer",
+      "default": 0
+    },
+    "successful_onboardings": {
+      "type": "integer",
+      "default": 0
+    },
+    "referral_conversions": {
+      "type": "integer",
+      "default": 0
+    },
+    "metadata": {
+      "type": "json"
+    },
+    "features": {
+      "type": "json"
+    },
+    "client": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::client.client",
+      "inversedBy": "campaigns"
+    },
+    "campaign_influencer_accesses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-influencer-access.campaign-influencer-access",
+      "mappedBy": "campaign"
+    },
+    "campaign_onboarding_fields": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-field.campaign-onboarding-field",
+      "mappedBy": "campaign"
+    },
+    "campaign_onboarding_responses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-response.campaign-onboarding-response",
+      "mappedBy": "campaign"
+    },
+    "campaign_onboarding_starts": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-start.campaign-onboarding-start",
+      "mappedBy": "campaign"
+    },
+    "bot_personality": {
+      "type": "string",
+      "default": "helpful"
+    },
+    "bot_response_style": {
+      "type": "string",
+      "default": "friendly"
+    },
+    "auto_role_assignment": {
+      "type": "boolean",
+      "default": false
+    },
+    "target_role_ids": {
+      "type": "json"
+    },
+    "referral_tracking_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "moderation_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "rate_limit_per_user": {
+      "type": "integer",
+      "default": 5
+    },
+    "auto_responses": {
+      "type": "json"
+    },
+    "custom_commands": {
+      "type": "json"
+    },
+    "campaign_onboarding_completions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-completion.campaign-onboarding-completion",
+      "mappedBy": "campaign"
+    },
+    "total_investment": {
+      "type": "decimal",
+      "default": 0
+    },
+    "value_per_conversion": {
+      "type": "decimal",
+      "default": 0
+    },
+    "campaign_landing_page": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::campaign-landing-page.campaign-landing-page",
+      "inversedBy": "campaign"
+    },
+    "referral_links": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::referral-link.referral-link",
+      "mappedBy": "campaign"
+    }
+  }
+}

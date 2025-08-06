@@ -1,0 +1,16 @@
+[project]
+name = "virion-labs-mcp-server"
+version = "0.1.0"
+description = "MCP server for the Virion Labs platform."
+authors = ["Virion Labs"]
+requires-python = ">=3.11"
+dependencies = [
+    "fastmcp",
+    "supabase",
+    "python-dotenv",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest",
+]

@@ -1,0 +1,18 @@
+
+{
+  "name": "virion-labs-discord-bot-ai",
+  "version": "1.0.0",
+  "description": "A dedicated Discord bot for AI-powered, chat-based campaign onboarding.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+} 

@@ -1,0 +1,18 @@
+{
+  "kind": "singleType",
+  "collectionName": "discord_settings",
+  "info": {
+    "singularName": "discord-setting",
+    "pluralName": "discord-settings",
+    "displayName": "Discord Setting"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "verified_role_id": {
+      "type": "string"
+    }
+  }
+}

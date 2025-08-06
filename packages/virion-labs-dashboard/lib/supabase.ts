@@ -1,0 +1,893 @@
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase URL or anonymous key')
+}
+
+// Database types
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  public: {
+    Tables: {
+      bots: {
+        Row: {
+          auto_deploy: boolean | null
+          avatar_url: string | null
+          client_id: string
+          commands_used: number | null
+          created_at: string | null
+          description: string | null
+          discord_bot_id: string | null
+          discord_token: string | null
+          id: string
+          invite_url: string | null
+          last_online: string | null
+          name: string
+          prefix: string | null
+          servers: number | null
+          status: string
+          template: string
+          updated_at: string | null
+          uptime_percentage: number | null
+          users: number | null
+          webhook_url: string | null
+          deployment_id: string | null
+          server_endpoint: string | null
+        }
+        Insert: {
+          auto_deploy?: boolean | null
+          avatar_url?: string | null
+          client_id: string
+          commands_used?: number | null
+          created_at?: string | null
+          description?: string | null
+          discord_bot_id?: string | null
+          discord_token?: string | null
+          id?: string
+          invite_url?: string | null
+          last_online?: string | null
+          name: string
+          prefix?: string | null
+          servers?: number | null
+          status?: string
+          template?: string
+          updated_at?: string | null
+          uptime_percentage?: number | null
+          users?: number | null
+          webhook_url?: string | null
+          deployment_id?: string | null
+          server_endpoint?: string | null
+        }
+        Update: {
+          auto_deploy?: boolean | null
+          avatar_url?: string | null
+          client_id?: string
+          commands_used?: number | null
+          created_at?: string | null
+          description?: string | null
+          discord_bot_id?: string | null
+          discord_token?: string | null
+          id?: string
+          invite_url?: string | null
+          last_online?: string | null
+          name?: string
+          prefix?: string | null
+          servers?: number | null
+          status?: string
+          template?: string
+          updated_at?: string | null
+          uptime_percentage?: number | null
+          users?: number | null
+          webhook_url?: string | null
+          deployment_id?: string | null
+          server_endpoint?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bots_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          contact_email: string | null
+          created_at: string | null
+          id: string
+          industry: string
+          influencers: number | null
+          join_date: string
+          logo: string | null
+          name: string
+          primary_contact: string | null
+          status: string
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          contact_email?: string | null
+          created_at?: string | null
+          id?: string
+          industry: string
+          influencers?: number | null
+          join_date?: string
+          logo?: string | null
+          name: string
+          primary_contact?: string | null
+          status?: string
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          contact_email?: string | null
+          created_at?: string | null
+          id?: string
+          industry?: string
+          influencers?: number | null
+          join_date?: string
+          logo?: string | null
+          name?: string
+          primary_contact?: string | null
+          status?: string
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      campaign_landing_pages: {
+        Row: {
+          id: string
+          campaign_id: string
+          offer_title: string | null
+          offer_description: string | null
+          offer_highlights: string[] | null
+          offer_value: string | null
+          offer_expiry_date: string | null
+          hero_image_url: string | null
+          product_images: string[] | null
+          video_url: string | null
+          what_you_get: string | null
+          how_it_works: string | null
+          requirements: string | null
+          support_info: string | null
+          landing_page_template_id: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          offer_title?: string | null
+          offer_description?: string | null
+          offer_highlights?: string[] | null
+          offer_value?: string | null
+          offer_expiry_date?: string | null
+          hero_image_url?: string | null
+          product_images?: string[] | null
+          video_url?: string | null
+          what_you_get?: string | null
+          how_it_works?: string | null
+          requirements?: string | null
+          support_info?: string | null
+          landing_page_template_id?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          offer_title?: string | null
+          offer_description?: string | null
+          offer_highlights?: string[] | null
+          offer_value?: string | null
+          offer_expiry_date?: string | null
+          hero_image_url?: string | null
+          product_images?: string[] | null
+          video_url?: string | null
+          what_you_get?: string | null
+          how_it_works?: string | null
+          requirements?: string | null
+          support_info?: string | null
+          landing_page_template_id?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_landing_pages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
+            referencedRelation: "discord_guild_campaigns"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      discord_guild_campaigns: {
+        Row: {
+          allowed_channels: Json | null
+          auto_responses: Json | null
+          auto_role_assignment: boolean | null
+          blocked_users: Json | null
+          bot_avatar_url: string | null
+          bot_name: string | null
+          bot_personality: string | null
+          bot_response_style: string | null
+          brand_color: string | null
+          brand_logo_url: string | null
+          campaign_end_date: string | null
+          campaign_name: string
+          campaign_start_date: string | null
+          campaign_type: string
+          channel_id: string | null
+          client_id: string
+          content_filters: Json | null
+          created_at: string | null
+          custom_commands: Json | null
+          guild_id: string
+          id: string
+          influencer_id: string | null
+          is_active: boolean | null
+          metadata: Json | null
+          moderation_enabled: boolean | null
+          onboarding_flow: Json | null
+          rate_limit_per_user: number | null
+          referral_conversions: number | null
+          referral_link_id: string | null
+          referral_tracking_enabled: boolean | null
+          successful_onboardings: number | null
+          target_role_ids: string[] | null
+          total_interactions: number | null
+          updated_at: string | null
+          webhook_url: string | null
+          welcome_message: string | null
+          // Additional fields from schema
+          template: string | null
+          prefix: string | null
+          description: string | null
+          avatar_url: string | null
+          features: Json | null
+          response_templates: Json | null
+          embed_footer: string | null
+          webhook_routes: Json | null
+          api_endpoints: Json | null
+          external_integrations: Json | null
+          commands_used: number | null
+          users_served: number | null
+          last_activity_at: string | null
+          private_channel_id: string | null
+          access_control_enabled: boolean | null
+          referral_only_access: boolean | null
+          auto_role_on_join: string | null
+          onboarding_channel_type: string | null
+          onboarding_completion_requirements: Json | null
+          private_channel_setup: Json | null
+          configuration_version: number | null
+        }
+        Insert: {
+          id?: string
+          client_id: string
+          guild_id: string
+          channel_id?: string | null
+          campaign_name: string
+          campaign_type: string
+          template?: string | null
+          prefix?: string | null
+          description?: string | null
+          avatar_url?: string | null
+          bot_name?: string | null
+          bot_avatar_url?: string | null
+          bot_personality?: string | null
+          bot_response_style?: string | null
+          brand_color?: string | null
+          brand_logo_url?: string | null
+          features?: Json | null
+          custom_commands?: Json | null
+          auto_responses?: Json | null
+          response_templates?: Json | null
+          embed_footer?: string | null
+          welcome_message?: string | null
+          webhook_url?: string | null
+          webhook_routes?: Json | null
+          api_endpoints?: Json | null
+          external_integrations?: Json | null
+          onboarding_flow?: Json | null
+          referral_link_id?: string | null
+          influencer_id?: string | null
+          referral_tracking_enabled?: boolean | null
+          auto_role_assignment?: boolean | null
+          target_role_ids?: string[] | null
+          rate_limit_per_user?: number | null
+          allowed_channels?: Json | null
+          blocked_users?: Json | null
+          moderation_enabled?: boolean | null
+          content_filters?: Json | null
+          total_interactions?: number | null
+          successful_onboardings?: number | null
+          referral_conversions?: number | null
+          commands_used?: number | null
+          users_served?: number | null
+          last_activity_at?: string | null
+          private_channel_id?: string | null
+          access_control_enabled?: boolean | null
+          referral_only_access?: boolean | null
+          auto_role_on_join?: string | null
+          onboarding_channel_type?: string | null
+          onboarding_completion_requirements?: Json | null
+          private_channel_setup?: Json | null
+          configuration_version?: number | null
+          is_active?: boolean | null
+          campaign_start_date?: string | null
+          campaign_end_date?: string | null
+          metadata?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          client_id?: string
+          guild_id?: string
+          channel_id?: string | null
+          campaign_name?: string
+          campaign_type?: string
+          template?: string | null
+          prefix?: string | null
+          description?: string | null
+          avatar_url?: string | null
+          bot_name?: string | null
+          bot_avatar_url?: string | null
+          bot_personality?: string | null
+          bot_response_style?: string | null
+          brand_color?: string | null
+          brand_logo_url?: string | null
+          features?: Json | null
+          custom_commands?: Json | null
+          auto_responses?: Json | null
+          response_templates?: Json | null
+          embed_footer?: string | null
+          welcome_message?: string | null
+          webhook_url?: string | null
+          webhook_routes?: Json | null
+          api_endpoints?: Json | null
+          external_integrations?: Json | null
+          onboarding_flow?: Json | null
+          referral_link_id?: string | null
+          influencer_id?: string | null
+          referral_tracking_enabled?: boolean | null
+          auto_role_assignment?: boolean | null
+          target_role_ids?: string[] | null
+          rate_limit_per_user?: number | null
+          allowed_channels?: Json | null
+          blocked_users?: Json | null
+          moderation_enabled?: boolean | null
+          content_filters?: Json | null
+          total_interactions?: number | null
+          successful_onboardings?: number | null
+          referral_conversions?: number | null
+          commands_used?: number | null
+          users_served?: number | null
+          last_activity_at?: string | null
+          private_channel_id?: string | null
+          access_control_enabled?: boolean | null
+          referral_only_access?: boolean | null
+          auto_role_on_join?: string | null
+          onboarding_channel_type?: string | null
+          onboarding_completion_requirements?: Json | null
+          private_channel_setup?: Json | null
+          configuration_version?: number | null
+          is_active?: boolean | null
+          campaign_start_date?: string | null
+          campaign_end_date?: string | null
+          metadata?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discord_guild_campaigns_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discord_guild_campaigns_referral_link_id_fkey"
+            columns: ["referral_link_id"]
+            isOneToOne: false
+            referencedRelation: "referral_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discord_guild_campaigns_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_links: {
+        Row: {
+          id: string
+          influencer_id: string
+          campaign_id: string | null
+          title: string
+          description: string | null
+          platform: string
+          original_url: string
+          referral_code: string
+          referral_url: string
+          thumbnail_url: string | null
+          clicks: number
+          conversions: number
+          earnings: number
+          conversion_rate: number | null
+          is_active: boolean
+          expires_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          influencer_id: string
+          campaign_id?: string | null
+          title: string
+          description?: string | null
+          platform: string
+          original_url: string
+          referral_code: string
+          referral_url: string
+          thumbnail_url?: string | null
+          clicks?: number
+          conversions?: number
+          earnings?: number
+          is_active?: boolean
+          expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          influencer_id?: string
+          campaign_id?: string | null
+          title?: string
+          description?: string | null
+          platform?: string
+          original_url?: string
+          referral_code?: string
+          referral_url?: string
+          thumbnail_url?: string | null
+          clicks?: number
+          conversions?: number
+          earnings?: number
+          is_active?: boolean
+          expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_links_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referral_links_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "discord_guild_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referral_analytics: {
+        Row: {
+          id: string
+          link_id: string
+          event_type: string
+          user_agent: string | null
+          ip_address: string | null
+          referrer: string | null
+          country: string | null
+          city: string | null
+          device_type: string | null
+          browser: string | null
+          conversion_value: number
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          link_id: string
+          event_type: string
+          user_agent?: string | null
+          ip_address?: string | null
+          referrer?: string | null
+          country?: string | null
+          city?: string | null
+          device_type?: string | null
+          browser?: string | null
+          conversion_value?: number
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          link_id?: string
+          event_type?: string
+          user_agent?: string | null
+          ip_address?: string | null
+          referrer?: string | null
+          country?: string | null
+          city?: string | null
+          device_type?: string | null
+          browser?: string | null
+          conversion_value?: number
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_analytics_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "referral_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          id: string
+          influencer_id: string
+          referral_link_id: string
+          referred_user_id: string | null
+          name: string
+          email: string
+          discord_id: string | null
+          age: number | null
+          status: string
+          source_platform: string
+          conversion_value: number
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          influencer_id: string
+          referral_link_id: string
+          referred_user_id?: string | null
+          name: string
+          email: string
+          discord_id?: string | null
+          age?: number | null
+          status?: string
+          source_platform: string
+          conversion_value?: number
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          influencer_id?: string
+          referral_link_id?: string
+          referred_user_id?: string | null
+          name?: string
+          email?: string
+          discord_id?: string | null
+          age?: number | null
+          status?: string
+          source_platform?: string
+          conversion_value?: number
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referral_link_id_fkey"
+            columns: ["referral_link_id"]
+            isOneToOne: false
+            referencedRelation: "referral_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referred_user_id_fkey"
+            columns: ["referred_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email: string
+          full_name: string
+          id: string
+          role?: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          id: string
+          user_id: string
+          bio: string | null
+          phone_number: string | null
+          twitter_handle: string | null
+          instagram_handle: string | null
+          youtube_channel: string | null
+          discord_username: string | null
+          website_url: string | null
+          email_notifications_new_referral: boolean
+          email_notifications_link_clicks: boolean
+          email_notifications_weekly_reports: boolean
+          email_notifications_product_updates: boolean
+          push_notifications_new_referral: boolean
+          push_notifications_link_clicks: boolean
+          push_notifications_weekly_reports: boolean
+          push_notifications_product_updates: boolean
+          profile_visibility: string
+          show_earnings: boolean
+          show_referral_count: boolean
+          webhook_url: string | null
+          webhook_events: string[] | null
+          api_key_regenerated_at: string | null
+          api_key: string | null
+          api_key_test: string | null
+          theme: string
+          language: string
+          timezone: string
+          currency: string
+          two_factor_enabled: boolean
+          login_notifications: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          bio?: string | null
+          phone_number?: string | null
+          twitter_handle?: string | null
+          instagram_handle?: string | null
+          youtube_channel?: string | null
+          discord_username?: string | null
+          website_url?: string | null
+          email_notifications_new_referral?: boolean
+          email_notifications_link_clicks?: boolean
+          email_notifications_weekly_reports?: boolean
+          email_notifications_product_updates?: boolean
+          push_notifications_new_referral?: boolean
+          push_notifications_link_clicks?: boolean
+          push_notifications_weekly_reports?: boolean
+          push_notifications_product_updates?: boolean
+          profile_visibility?: string
+          show_earnings?: boolean
+          show_referral_count?: boolean
+          webhook_url?: string | null
+          webhook_events?: string[] | null
+          api_key_regenerated_at?: string | null
+          api_key?: string | null
+          api_key_test?: string | null
+          theme?: string
+          language?: string
+          timezone?: string
+          currency?: string
+          two_factor_enabled?: boolean
+          login_notifications?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          bio?: string | null
+          phone_number?: string | null
+          twitter_handle?: string | null
+          instagram_handle?: string | null
+          youtube_channel?: string | null
+          discord_username?: string | null
+          website_url?: string | null
+          email_notifications_new_referral?: boolean
+          email_notifications_link_clicks?: boolean
+          email_notifications_weekly_reports?: boolean
+          email_notifications_product_updates?: boolean
+          push_notifications_new_referral?: boolean
+          push_notifications_link_clicks?: boolean
+          push_notifications_weekly_reports?: boolean
+          push_notifications_product_updates?: boolean
+          profile_visibility?: string
+          show_earnings?: boolean
+          show_referral_count?: boolean
+          webhook_url?: string | null
+          webhook_events?: string[] | null
+          api_key_regenerated_at?: string | null
+          api_key?: string | null
+          api_key_test?: string | null
+          theme?: string
+          language?: string
+          timezone?: string
+          currency?: string
+          two_factor_enabled?: boolean
+          login_notifications?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+// Optimized configuration for free tier
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  db: {
+    schema: 'public'
+  },
+  global: {
+    headers: {
+      'x-my-custom-header': 'virion-labs-dashboard'
+    }
+  },
+  // Optimize for free tier limitations
+  realtime: {
+    params: {
+      eventsPerSecond: 2 // Reduce real-time events
+    }
+  }
+})
+
+export type UserRole = 'influencer' | 'admin' | 'client'
+export type BotStatus = 'Online' | 'Offline' | 'Maintenance' | 'Error'
+export type BotTemplate = 'standard' | 'advanced' | 'custom'
+export type Platform = 'YouTube' | 'Instagram' | 'TikTok' | 'Twitter' | 'Facebook' | 'LinkedIn' | 'Other'
+export type AnalyticsEventType = 'click' | 'conversion'
+
+export interface UserProfile {
+  id: string
+  email: string
+  full_name: string
+  avatar_url: string | null
+  role: UserRole
+  created_at: string
+  updated_at: string
+}
+
+export type Client = Database['public']['Tables']['clients']['Row']
+export type ClientInsert = Database['public']['Tables']['clients']['Insert']
+export type ClientUpdate = Database['public']['Tables']['clients']['Update']
+
+export type Bot = Database['public']['Tables']['bots']['Row']
+export type BotInsert = Database['public']['Tables']['bots']['Insert']
+export type BotUpdate = Database['public']['Tables']['bots']['Update']
+
+export type ReferralLink = Database['public']['Tables']['referral_links']['Row']
+export type ReferralLinkInsert = Database['public']['Tables']['referral_links']['Insert']
+export type ReferralLinkUpdate = Database['public']['Tables']['referral_links']['Update']
+
+export type ReferralAnalytics = Database['public']['Tables']['referral_analytics']['Row']
+export type ReferralAnalyticsInsert = Database['public']['Tables']['referral_analytics']['Insert']
+export type ReferralAnalyticsUpdate = Database['public']['Tables']['referral_analytics']['Update']
+
+export type Referral = Database['public']['Tables']['referrals']['Row']
+export type ReferralInsert = Database['public']['Tables']['referrals']['Insert']
+export type ReferralUpdate = Database['public']['Tables']['referrals']['Update']
+
+export type UserSettings = Database['public']['Tables']['user_settings']['Row']
+export type UserSettingsInsert = Database['public']['Tables']['user_settings']['Insert']
+export type UserSettingsUpdate = Database['public']['Tables']['user_settings']['Update']
+
+export type CampaignLandingPage = Database['public']['Tables']['campaign_landing_pages']['Row']
+export type CampaignLandingPageInsert = Database['public']['Tables']['campaign_landing_pages']['Insert']
+export type CampaignLandingPageUpdate = Database['public']['Tables']['campaign_landing_pages']['Update']
+
+export type DiscordGuildCampaign = Database['public']['Tables']['discord_guild_campaigns']['Row']
+export type DiscordGuildCampaignInsert = Database['public']['Tables']['discord_guild_campaigns']['Insert']
+export type DiscordGuildCampaignUpdate = Database['public']['Tables']['discord_guild_campaigns']['Update']
+
+// Extended Bot type with client information
+export interface BotWithClient extends Bot {
+  client?: {
+    id: string
+    name: string
+    industry: string
+  }
+}
+
+// Extended ReferralLink type with analytics
+export interface ReferralLinkWithAnalytics extends ReferralLink {
+  campaign_context?: {
+    campaign_id: string
+    campaign_name: string
+    campaign_type: string
+    client_name: string
+  } | null
+  analytics?: {
+    totalClicks: number
+    totalConversions: number
+    conversionRate: number
+    recentClicks: number
+    recentConversions: number
+  }
+}
+
+// Extended Referral type with link information
+export interface ReferralWithLink extends Referral {
+  referral_link?: {
+    id: string
+    title: string
+    platform: string
+    referral_code: string
+  }
+} 

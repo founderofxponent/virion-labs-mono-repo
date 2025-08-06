@@ -1,0 +1,49 @@
+{
+  "kind": "collectionType",
+  "collectionName": "campaign_templates",
+  "info": {
+    "singularName": "campaign-template",
+    "pluralName": "campaign-templates",
+    "displayName": "Campaign Template"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "richtext"
+    },
+    "campaign_type": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "referral_onboarding",
+        "community_engagement",
+        "product_promotion",
+        "custom",
+        "vip_support"
+      ]
+    },
+    "template_config": {
+      "type": "json",
+      "required": true
+    },
+    "category": {
+      "type": "string"
+    },
+    "is_default": {
+      "type": "boolean",
+      "default": false
+    },
+    "landing_page_template": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::landing-page-template.landing-page-template"
+    }
+  }
+}

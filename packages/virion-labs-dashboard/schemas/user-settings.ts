@@ -1,0 +1,34 @@
+export interface UserSettings {
+  id: string
+  bio?: string
+  phone_number?: string
+  twitter_handle?: string
+  instagram_handle?: string
+  linkedin_handle?: string
+  youtube_handle?: string
+  tiktok_handle?: string
+  twitch_handle?: string
+  website_url?: string
+  theme: string
+  language: string
+  timezone: string
+  currency: string
+  profile_visibility: string
+  show_earnings: boolean
+  show_referral_count: boolean
+  email_notifications: boolean
+  push_notifications: boolean
+  marketing_emails: boolean
+  security_alerts: boolean
+  campaign_updates: boolean
+  referral_notifications: boolean
+  webhook_url?: string
+  webhook_events: string[]
+  two_factor_enabled: boolean
+  login_notifications: boolean
+  api_key?: string
+  api_key_test?: string
+  api_key_regenerated_at?: string
+  created_at: string
+  updated_at: string
+}

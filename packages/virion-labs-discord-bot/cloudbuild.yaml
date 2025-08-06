@@ -1,0 +1,117 @@
+# Google Cloud Build Configuration for Virion Labs Discord Bot
+# Automated build and deployment to Cloud Run
+
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-f'
+      - 'Dockerfile.gcp'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/virion-discord-bot:$BUILD_ID'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/virion-discord-bot:latest'
+      - '.'
+    id: 'build-image'
+
+  # Push the image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/virion-discord-bot:$BUILD_ID'
+    id: 'push-image'
+    waitFor: ['build-image']
+
+  # Push the latest tag
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/virion-discord-bot:latest'
+    id: 'push-latest'
+    waitFor: ['build-image']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Get the secret and convert .env format to YAML format for Cloud Run
+        gcloud secrets versions access latest --secret=discord-bot-env > .env.temp
+        
+        # Convert .env format to YAML format for --env-vars-file
+        # Exclude reserved Cloud Run environment variables like PORT
+        echo "# Environment variables for Cloud Run" > .env.production.yaml
+        grep -v '^#' .env.temp | grep -v '^$' | grep -v '^PORT=' | while IFS='=' read -r key value; do
+          echo "$key: '$value'" >> .env.production.yaml
+        done
+        
+        # Clean up temp file
+        rm .env.temp
+    id: 'access-secret'
+    waitFor: ['push-image']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'virion-discord-bot'
+      - '--image=gcr.io/$PROJECT_ID/virion-discord-bot:$BUILD_ID'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--max-instances=10'
+      - '--min-instances=1'
+      - '--timeout=300'
+      - '--port=8080'
+      - '--env-vars-file=.env.production.yaml'
+    id: 'deploy-cloudrun'
+    waitFor: ['access-secret']
+
+# Build options for optimization
+options:
+  # Use high-performance machine for faster builds
+  machineType: 'E2_HIGHCPU_8'
+  
+  # Enable Docker layer caching for faster builds
+  env:
+    - 'DOCKER_BUILDKIT=1'
+  
+  # Optimize for build speed and size
+  substitution_option: 'ALLOW_LOOSE'
+  
+
+# Substitutions for flexible deployment
+substitutions:
+  # Default region (can be overridden)
+  _REGION: 'us-central1'
+  
+  # Service name (can be overridden)
+  _SERVICE_NAME: 'virion-discord-bot'
+  
+  # Memory allocation (optimized for Discord bots)
+  _MEMORY: '512Mi'
+  
+  # CPU allocation
+  _CPU: '1'
+  
+  # Maximum instances for auto-scaling
+  _MAX_INSTANCES: '10'
+  
+  # Minimum instances (keep at least 1 for persistent Discord connection)
+  _MIN_INSTANCES: '1'
+
+# Logs configuration
+logsBucket: 'gs://${PROJECT_ID}_cloudbuild'
+
+# Build tags for organization
+tags:
+  - 'discord-bot'
+  - 'virion-labs'
+  - 'cloud-run'
+
+# Build timeout (Discord bots are lightweight)
+timeout: '600s' 

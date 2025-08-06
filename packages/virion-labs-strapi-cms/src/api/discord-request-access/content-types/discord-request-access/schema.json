@@ -1,0 +1,45 @@
+{
+  "kind": "collectionType",
+  "collectionName": "discord_request_accesses",
+  "info": {
+    "singularName": "discord-request-access",
+    "pluralName": "discord-request-accesses",
+    "displayName": "Discord Request Access"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "full_name": {
+      "type": "string",
+      "required": true
+    },
+    "email": {
+      "type": "email",
+      "required": true
+    },
+    "discord_user_id": {
+      "type": "string",
+      "required": true
+    },
+    "discord_username": {
+      "type": "string",
+      "required": true
+    },
+    "request_status": {
+      "type": "enumeration",
+      "required": true,
+      "default": "pending",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ]
+    },
+    "guild_id": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

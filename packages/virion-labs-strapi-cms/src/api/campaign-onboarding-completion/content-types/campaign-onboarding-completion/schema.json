@@ -1,0 +1,35 @@
+{
+  "kind": "collectionType",
+  "collectionName": "campaign_onboarding_completions",
+  "info": {
+    "singularName": "campaign-onboarding-completion",
+    "pluralName": "campaign-onboarding-completions",
+    "displayName": "Campaign Onboarding Completion"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "discord_user_id": {
+      "type": "string",
+      "required": true
+    },
+    "discord_username": {
+      "type": "string",
+      "required": true
+    },
+    "guild_id": {
+      "type": "string"
+    },
+    "completed_at": {
+      "type": "datetime"
+    },
+    "campaign": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::campaign.campaign",
+      "inversedBy": "campaign_onboarding_completions"
+    }
+  }
+}

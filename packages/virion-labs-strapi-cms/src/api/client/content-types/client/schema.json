@@ -1,0 +1,63 @@
+{
+  "kind": "collectionType",
+  "collectionName": "clients",
+  "info": {
+    "singularName": "client",
+    "pluralName": "clients",
+    "displayName": "Client"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "industry": {
+      "type": "string",
+      "required": true
+    },
+    "logo": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "influencers": {
+      "type": "integer",
+      "default": 0
+    },
+    "client_status": {
+      "type": "enumeration",
+      "default": "active",
+      "enum": [
+        "active",
+        "inactive"
+      ]
+    },
+    "join_date": {
+      "type": "date"
+    },
+    "website": {
+      "type": "string"
+    },
+    "primary_contact": {
+      "type": "string"
+    },
+    "contact_email": {
+      "type": "email"
+    },
+    "campaigns": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign.campaign",
+      "mappedBy": "client"
+    }
+  }
+}

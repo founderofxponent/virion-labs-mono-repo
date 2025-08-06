@@ -1,0 +1,123 @@
+{
+  "kind": "collectionType",
+  "collectionName": "referral_links",
+  "info": {
+    "singularName": "referral-link",
+    "pluralName": "referral-links",
+    "displayName": "Referral Link"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "richtext"
+    },
+    "platform": {
+      "type": "string",
+      "required": true
+    },
+    "original_url": {
+      "type": "string",
+      "required": true
+    },
+    "referral_code": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "referral_url": {
+      "type": "string",
+      "required": true
+    },
+    "thumbnail_url": {
+      "type": "media",
+      "multiple": true,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "clicks": {
+      "type": "integer",
+      "default": 0
+    },
+    "conversions": {
+      "type": "integer",
+      "default": 0
+    },
+    "conversion_rate": {
+      "type": "decimal"
+    },
+    "earnings": {
+      "type": "decimal",
+      "default": 0
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "expires_at": {
+      "type": "datetime"
+    },
+    "discord_invite_url": {
+      "type": "string"
+    },
+    "discord_guild_id": {
+      "type": "string"
+    },
+    "redirect_to_discord": {
+      "type": "boolean",
+      "default": false
+    },
+    "landing_page_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "last_conversion_at": {
+      "type": "datetime"
+    },
+    "private_channel_id": {
+      "type": "string"
+    },
+    "access_role_id": {
+      "type": "string"
+    },
+    "custom_invite_code": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "json"
+    },
+    "referral_analytics": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::referral-analytic.referral-analytic"
+    },
+    "campaign_onboarding_responses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::campaign-onboarding-response.campaign-onboarding-response",
+      "mappedBy": "referral_link"
+    },
+    "influencer": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "referral_links"
+    },
+    "campaign": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::campaign.campaign",
+      "inversedBy": "referral_links"
+    }
+  }
+}
