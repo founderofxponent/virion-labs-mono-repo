@@ -462,29 +462,26 @@ export default function BotCampaignsPage() {
               {filteredCampaigns.map((campaign) => (
                 <Card key={campaign.documentId || campaign.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-6">
-                    {/* Header Row - Fixed Grid */}
-                    <div className="grid grid-cols-12 gap-4 items-start mb-6">
-                      {/* Campaign Info - 8 columns */}
-                      <div className="col-span-12 lg:col-span-8">
-                        <div className="min-w-0">
-                          <h3 className="font-semibold text-lg leading-tight mb-1">{campaign.name}</h3>
+                    {/* Content Grid - All columns inline using full width with visual separation */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-0 divide-x divide-border">
+                      {/* Campaign Info - 3 columns */}
+                      <div className="lg:col-span-3 space-y-2 pr-4 lg:pr-6">
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Campaign</Label>
+                        <div>
+                          <h3 className="font-bold text-base leading-tight mb-1">{campaign.name}</h3>
                           <p className="text-sm text-muted-foreground mb-2">{campaign.bot_name}</p>
-                          {/* Badges moved under campaign subtitle */}
-                          <div className="flex flex-wrap gap-2">
-                            <Badge className={getCampaignTypeColor(campaign.campaign_type || '')}>
-                              {campaign.campaign_type?.replace('_', ' ')}
-                            </Badge>
+                          <div className="flex flex-wrap gap-1.5">
                             {(() => {
                               const status = getCampaignStatus(campaign)
                               const statusConfig = {
-                                active: { variant: "default" as const, label: "Active", color: "text-green-600" },
-                                archived: { variant: "outline" as const, label: "Archived", color: "text-orange-600" },
-                                deleted: { variant: "destructive" as const, label: "Deleted", color: "text-red-600" },
-                                inactive: { variant: "secondary" as const, label: "Inactive", color: "text-gray-600" }
+                                active: { variant: "outline" as const, label: "Active", className: "border-green-200 text-green-700 bg-green-50" },
+                                archived: { variant: "outline" as const, label: "Archived", className: "border-orange-200 text-orange-700 bg-orange-50" },
+                                deleted: { variant: "outline" as const, label: "Deleted", className: "border-red-200 text-red-700 bg-red-50" },
+                                inactive: { variant: "outline" as const, label: "Inactive", className: "border-gray-200 text-gray-600 bg-gray-50" }
                               }
                               const config = statusConfig[status]
                               return (
-                                <Badge variant={config.variant} className={config.color}>
+                                <Badge variant={config.variant} className={config.className} size="sm">
                                   {config.label}
                                 </Badge>
                               )
@@ -492,159 +489,152 @@ export default function BotCampaignsPage() {
                           </div>
                         </div>
                       </div>
-                      
-                      {/* Action Buttons - 4 columns */}
-                      <div className="col-span-12 lg:col-span-4 flex gap-2 justify-end">
-                        <Button variant="outline" size="sm" onClick={handlePreviewLandingPage}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          Preview
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/edit`)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">More Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {(() => {
-                              const status = getCampaignStatus(campaign)
-                              
-                              if (status === 'deleted') {
-                                return (
-                                  <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Export CSV
-                                  </DropdownMenuItem>
-                                )
-                              }
-                              
-                              if (status === 'archived') {
-                                return (
-                                  <>
-                                    <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
-                                      <Download className="h-4 w-4 mr-2" />
-                                      Export CSV
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleUnarchiveCampaign(String(campaign.documentId || campaign.id))}>
-                                      <RotateCcw className="h-4 w-4 mr-2" />
-                                      Unarchive
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
-                                      onClick={() => handleDeleteCampaign(String(campaign.documentId || campaign.id))}
-                                      className="text-red-600"
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </>
-                                )
-                              }
-                              
-                              // Active or inactive campaigns
-                              return (
-                                <>
-                                  <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Export CSV
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem 
-                                    onClick={() => handleArchiveCampaign(String(campaign.documentId || campaign.id))}
-                                    className="text-orange-600"
-                                  >
-                                    <Archive className="h-4 w-4 mr-2" />
-                                    Archive
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem 
-                                    onClick={() => handleDeleteCampaign(String(campaign.documentId || campaign.id))}
-                                    className="text-red-600"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </>
-                              )
-                            })()}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </div>
-
-                    {/* Content Grid - Aligned Columns */}
-                    <div className="grid grid-cols-12 gap-6">
-                      {/* Client Info - 4 columns */}
-                      <div className="col-span-12 sm:col-span-6 lg:col-span-4">
-                        <div className="space-y-2">
-                          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Client</Label>
-                          <div>
-                            <p className="font-semibold text-sm">{campaign.client?.name || 'No client'}</p>
-                            {campaign.client?.industry && (
-                              <p className="text-xs text-muted-foreground">{campaign.client.industry}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
 
                       {/* Discord Server Info - 4 columns */}
-                      <div className="col-span-12 sm:col-span-6 lg:col-span-4">
-                        <div className="space-y-2">
-                          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Discord Server</Label>
-                          <div>
-                            <div className="flex items-center space-x-2 mb-1">
+                      <div className="lg:col-span-4 space-y-2 px-4 lg:px-6">
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Discord Server</Label>
+                        <div className="flex flex-wrap gap-4">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-xs text-muted-foreground mb-1">Guild ID</span>
+                            <div className="flex items-center space-x-1">
                               <Server className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              <span className="font-mono text-xs">{campaign.guild_id}</span>
+                              <span className="font-mono text-sm text-foreground truncate">{campaign.guild_id}</span>
                             </div>
-                            {campaign.channel_id && (
-                              <div className="flex items-center space-x-2">
-                                <Hash className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                <span className="font-mono text-xs text-muted-foreground">
-                                  {campaign.channel_id}
-                                </span>
-                              </div>
-                            )}
                           </div>
+                          {campaign.channel_id && (
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs text-muted-foreground mb-1">Channel ID</span>
+                              <div className="flex items-center space-x-1">
+                                <Hash className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                                <span className="font-mono text-sm text-foreground truncate">{campaign.channel_id}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {/* Performance Metrics - 4 columns */}
-                      <div className="col-span-12 sm:col-span-6 lg:col-span-4">
-                        <div className="space-y-2">
-                          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Performance</Label>
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-1">
-                                <MessageSquare className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">Started</span>
-                              </div>
-                              <span className="text-xs font-semibold">{campaign.total_starts || 0}</span>
+                      {/* Client Info - 2 columns */}
+                      <div className="lg:col-span-2 space-y-2 px-4 lg:px-6">
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Client</Label>
+                        <div>
+                          <p className="font-medium text-sm">{campaign.client?.name || 'No client'}</p>
+                          {campaign.client?.industry && (
+                            <p className="text-xs text-muted-foreground">{campaign.client.industry}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Performance Metrics - 3 columns */}
+                      <div className="lg:col-span-3 space-y-2 pl-4 lg:pl-6">
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Performance</Label>
+                        <div className="flex flex-wrap gap-4">
+                          <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground mb-1">Started</span>
+                            <div className="flex items-center space-x-1">
+                              <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-sm font-medium text-foreground">{campaign.total_starts || 0}</span>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-1">
-                                <Users className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">Completed</span>
-                              </div>
-                              <span className="text-xs font-semibold">{campaign.total_completions || 0}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground mb-1">Completed</span>
+                            <div className="flex items-center space-x-1">
+                              <Users className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-sm font-medium text-foreground">{campaign.total_completions || 0}</span>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-1">
-                                <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">Rate</span>
-                              </div>
-                              <span className="text-xs font-semibold">{Math.round(campaign.completion_rate || 0)}%</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground mb-1">Rate</span>
+                            <div className="flex items-center space-x-1">
+                              <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-sm font-medium text-foreground">{Math.round(campaign.completion_rate || 0)}%</span>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </CardContent>
+                  <div className="px-6 py-3 bg-muted/30 border-t flex justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={handlePreviewLandingPage}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Preview
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/edit`)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">More Actions</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {(() => {
+                          const status = getCampaignStatus(campaign)
+                          
+                          if (status === 'deleted') {
+                            return (
+                              <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Export CSV
+                              </DropdownMenuItem>
+                            )
+                          }
+                          
+                          if (status === 'archived') {
+                            return (
+                              <>
+                                <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Export CSV
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleUnarchiveCampaign(String(campaign.documentId || campaign.id))}>
+                                  <RotateCcw className="h-4 w-4 mr-2" />
+                                  Unarchive
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteCampaign(String(campaign.documentId || campaign.id))}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )
+                          }
+                          
+                          // Active or inactive campaigns
+                          return (
+                            <>
+                              <DropdownMenuItem onClick={() => handleExportCampaignCSV(String(campaign.documentId || campaign.id), campaign.name)}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Export CSV
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleArchiveCampaign(String(campaign.documentId || campaign.id))}
+                                className="text-orange-600"
+                              >
+                                <Archive className="h-4 w-4 mr-2" />
+                                Archive
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteCampaign(String(campaign.documentId || campaign.id))}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          )
+                        })()}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </Card>
               ))}
             </div>
