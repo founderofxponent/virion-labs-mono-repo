@@ -344,6 +344,18 @@ async def delete_campaign_operation(campaign_id: str, current_user: User = Depen
         logger.error(f"Campaign delete operation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.patch("/campaign/archive/{campaign_id}", response_model=CampaignResponse)
+async def archive_campaign_operation(campaign_id: str, current_user: User = Depends(get_current_user)):
+    """Archives a campaign by setting is_active to False and end_date to now."""
+    try:
+        archived_campaign = await campaign_service.archive_campaign_operation(document_id=campaign_id)
+        return _to_campaign_response(archived_campaign)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Campaign archive operation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/campaign/{campaign_id}/landing-page", summary="Get Campaign Landing Page")
 async def get_campaign_landing_page_operation(campaign_id: str):
     """

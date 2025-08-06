@@ -73,6 +73,18 @@ class CampaignService:
         logger.info(f"Executing delete campaign operation for campaign: {document_id}")
         await strapi_client.delete_campaign(document_id)
         return {"message": f"Campaign {document_id} deleted successfully."}
+    
+    async def archive_campaign_operation(self, document_id: str) -> Campaign:
+        """Business operation for archiving a campaign."""
+        logger.info(f"Executing archive campaign operation for campaign: {document_id}")
+        
+        # Archive by setting is_active to False and end_date to now
+        from datetime import datetime, timezone
+        archive_data = StrapiCampaignUpdate(
+            is_active=False,
+            end_date=datetime.now(timezone.utc)
+        )
+        return await strapi_client.update_campaign(document_id, archive_data)
 
     async def get_landing_page_operation(self, campaign_id: str) -> Optional[CampaignLandingPage]:
         """Business operation for getting the landing page for a campaign."""
