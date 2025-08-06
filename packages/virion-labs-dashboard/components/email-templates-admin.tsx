@@ -13,7 +13,6 @@ import { Switch } from "@/components/ui/switch"
 import { 
   Plus, 
   Edit, 
-  Trash2, 
   Eye,
   Mail,
   Search,
@@ -27,16 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 
 interface TemplateFormData {
@@ -57,7 +46,6 @@ export function EmailTemplatesAdmin() {
     fetchTemplates, 
     createTemplate, 
     updateTemplate, 
-    deleteTemplate, 
     renderTemplate,
     sendTestEmail 
   } = useEmailTemplatesApi()
@@ -66,7 +54,6 @@ export function EmailTemplatesAdmin() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showPreviewDialog, setShowPreviewDialog] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showTestEmailDialog, setShowTestEmailDialog] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
@@ -157,27 +144,6 @@ export function EmailTemplatesAdmin() {
     }
   }
 
-  const handleDeleteTemplate = async () => {
-    if (!selectedTemplate) return
-    
-    try {
-      await deleteTemplate(selectedTemplate.documentId!)
-      toast({
-        title: "Success",
-        description: "Email template deleted successfully",
-      })
-      setShowDeleteDialog(false)
-      setSelectedTemplate(null)
-      loadTemplates()
-    } catch (error) {
-      console.error("Failed to delete template:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete email template",
-        variant: "destructive",
-      })
-    }
-  }
 
   const handlePreviewTemplate = async () => {
     if (!selectedTemplate) return
@@ -358,17 +324,6 @@ export function EmailTemplatesAdmin() {
                       onClick={() => openEditDialog(template)}
                     >
                       <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedTemplate(template)
-                        setShowDeleteDialog(true)
-                      }}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
@@ -646,24 +601,6 @@ export function EmailTemplatesAdmin() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Email Template</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete the template "{selectedTemplate?.template_id}"? 
-              This action cannot be undone and may break email functionality if the template is in use.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTemplate} className="bg-red-600 hover:bg-red-700">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }
