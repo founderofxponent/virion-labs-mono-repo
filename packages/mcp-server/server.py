@@ -293,8 +293,12 @@ class VirionLabsMCPServer:
             """OAuth 2.0 Protected Resource Metadata per RFC 9728."""
             # Use the request's base URL for Cloud Run deployment
             base_url = str(request.base_url).rstrip('/')
-            # Ensure HTTPS for Cloud Run
-            if base_url.startswith('http://') and 'run.app' in base_url:
+            # Ensure HTTPS for Cloud Run and other production environments
+            if base_url.startswith('http://') and (
+                'run.app' in base_url or 
+                'virionlabs.io' in base_url or 
+                'mcp.virionlabs.io' in base_url
+            ):
                 base_url = base_url.replace('http://', 'https://')
             server_url = f"{base_url}/mcp/"
             return JSONResponse({
@@ -415,10 +419,14 @@ class VirionLabsMCPServer:
                 # Log all response headers for debugging
                 logger.info(f"Response headers: {response.headers}")
 
-                # Ensure redirects use HTTPS in Cloud Run
+                # Ensure redirects use HTTPS in Cloud Run and other production environments
                 if response.status_code == 307 and "location" in response.headers:
                     location = response.headers["location"]
-                    if location.startswith("http://") and "run.app" in location:
+                    if location.startswith("http://") and (
+                        "run.app" in location or 
+                        "virionlabs.io" in location or 
+                        "mcp.virionlabs.io" in location
+                    ):
                         response.headers["location"] = location.replace("http://", "https://")
                         logger.info(f"Rewrote redirect location to HTTPS: {response.headers['location']}")
 
