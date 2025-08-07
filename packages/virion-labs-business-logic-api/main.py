@@ -63,7 +63,7 @@ async def get_oauth_server_metadata():
     Provides OAuth 2.0 Authorization Server Metadata.
     This tells clients how to interact with our new auth flow.
     """
-    base_url = "http://localhost:8000" # Should be from settings
+    base_url = settings.API_URL
     return {
         "issuer": base_url,
         "authorization_endpoint": f"{base_url}/api/auth/login/google",

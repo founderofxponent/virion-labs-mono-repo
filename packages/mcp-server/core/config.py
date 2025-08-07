@@ -33,7 +33,7 @@ class DatabaseConfig:
 @dataclass
 class APIConfig:
     """API configuration settings."""
-    base_url: str = os.getenv("API_BASE_URL", "http://localhost:8000")
+    base_url: str = os.getenv("API_BASE_URL", "https://api.virionlabs.io")
     mcp_api_token: str = os.getenv("MCP_API_TOKEN", "")
     
     def __post_init__(self):
