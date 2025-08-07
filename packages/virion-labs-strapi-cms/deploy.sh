@@ -16,8 +16,17 @@ echo "Service: $SERVICE_NAME"
 
 # Load environment variables from .env file
 if [ -f .env ]; then
-    export $(grep -v '^#' .env | grep '=' | xargs)
-    echo "Loaded environment variables from .env"
+    echo "Loading environment variables from .env:"
+    # Load standard .env format (KEY=value) and echo each one
+    while IFS= read -r line; do
+        if [[ ! "$line" =~ ^# ]] && [[ "$line" =~ = ]] && [[ -n "$line" ]]; then
+            echo "  Loading: $line"
+            # Remove quotes from values before exporting
+            line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/="\([^"]*\)"/=\1/')
+            export "$line"
+        fi
+    done < .env
+    echo "Successfully loaded environment variables from .env"
 else
     echo "Warning: .env file not found, using default values"
 fi
@@ -38,7 +47,7 @@ gcloud run deploy $SERVICE_NAME \
   --max-instances=10 \
   --timeout=3600 \
   --concurrency=1000 \
-  --set-env-vars="NODE_ENV=production,HOST=${HOST},PORT=1337,APP_KEYS=${APP_KEYS},API_TOKEN_SALT=${API_TOKEN_SALT},ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET},TRANSFER_TOKEN_SALT=${TRANSFER_TOKEN_SALT},JWT_SECRET=${JWT_SECRET},ENCRYPTION_KEY=${ENCRYPTION_KEY},GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET},DATABASE_CLIENT=${DATABASE_CLIENT},DATABASE_HOST=${DATABASE_HOST},DATABASE_PORT=${DATABASE_PORT},DATABASE_NAME=${DATABASE_NAME},DATABASE_USERNAME=${DATABASE_USERNAME},DATABASE_PASSWORD=${DATABASE_PASSWORD},DATABASE_SSL=${DATABASE_SSL},DATABASE_SSL_REJECT_UNAUTHORIZED=${DATABASE_SSL_REJECT_UNAUTHORIZED},RESEND_API_KEY=${RESEND_API_KEY}" \
+  --set-env-vars="NODE_ENV=production,HOST=${HOST},PUBLIC_URL=${PUBLIC_URL},APP_KEYS=${APP_KEYS},API_TOKEN_SALT=${API_TOKEN_SALT},ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET},TRANSFER_TOKEN_SALT=${TRANSFER_TOKEN_SALT},JWT_SECRET=${JWT_SECRET},ENCRYPTION_KEY=${ENCRYPTION_KEY},GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET},DATABASE_CLIENT=${DATABASE_CLIENT},DATABASE_HOST=${DATABASE_HOST},DATABASE_PORT=${DATABASE_PORT},DATABASE_NAME=${DATABASE_NAME},DATABASE_USERNAME=${DATABASE_USERNAME},DATABASE_PASSWORD=${DATABASE_PASSWORD},DATABASE_SSL=${DATABASE_SSL},DATABASE_SSL_REJECT_UNAUTHORIZED=${DATABASE_SSL_REJECT_UNAUTHORIZED},RESEND_API_KEY=${RESEND_API_KEY}" \
   --execution-environment=gen2
 
 echo "Deployment complete!"
