@@ -1,11 +1,14 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useBotCampaignsAPI } from "@/hooks/use-bot-campaigns-api"
 import { Campaign } from "@/schemas/campaign"
 import { CampaignReferralLandingPage } from "@/components/campaign-referral-landing-page"
 import { Skeleton } from "@/components/ui/skeleton"
+
+// This page should not be prerendered
+export const dynamic = 'force-dynamic';
 
 // This is a mock structure for the CampaignData expected by the landing page
 // We build this from the actual campaign data fetched from the API
@@ -51,7 +54,7 @@ const createMockCampaignData = (campaign: Campaign) => ({
   },
 })
 
-export default function CampaignPreviewPage() {
+function CampaignPreviewContent() {
   const searchParams = useSearchParams()
   const campaignId = searchParams.get('campaignId')
   const { fetchSingleCampaign } = useBotCampaignsAPI()
@@ -101,4 +104,22 @@ export default function CampaignPreviewPage() {
   const mockData = createMockCampaignData(campaign)
 
   return <CampaignReferralLandingPage campaign={mockData} />
+}
+
+export default function CampaignPreviewPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-8 space-y-4">
+        <Skeleton className="h-12 w-1/2" />
+        <Skeleton className="h-8 w-1/3" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+      </div>
+    }>
+      <CampaignPreviewContent />
+    </Suspense>
+  )
 }
