@@ -1,4 +1,4 @@
-export default [
+export default ({ env }) => [
   'strapi::logger',
   'strapi::errors',
   'strapi::security',
@@ -10,9 +10,11 @@ export default [
     name: 'strapi::session',
     config: {
       cookie: {
-        secure: process.env.NODE_ENV === 'production' && process.env.TRUST_PROXY === 'true',
+        secure: false,
         sameSite: 'lax',
       },
+      // Force the underlying koa-session to not use secure cookies
+      secure: false,
     },
   },
   'strapi::favicon',
