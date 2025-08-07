@@ -1,4 +1,12 @@
 /** @type {import('next').NextConfig} */
+
+// Build-time environment variable logging
+console.log('=== BUILD TIME ENVIRONMENT VARIABLES ===')
+console.log('NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL)
+console.log('NEXT_PUBLIC_BUSINESS_LOGIC_API_URL:', process.env.NEXT_PUBLIC_BUSINESS_LOGIC_API_URL)
+console.log('NODE_ENV:', process.env.NODE_ENV)
+console.log('==========================================')
+
 const nextConfig = {
   output: 'standalone',
   eslint: {

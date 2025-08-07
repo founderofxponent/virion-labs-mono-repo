@@ -14,14 +14,6 @@ echo "Project: $PROJECT_ID"
 echo "Region: $REGION"
 echo "Service: $SERVICE_NAME"
 
-# Load environment variables from .env file
-if [ -f .env.production ]; then
-    export $(grep -v '^#' .env.production | grep '=' | xargs)
-    echo "Loaded environment variables from .env.production"
-else
-    echo "Warning: .env.production file not found, using default values"
-fi
-
 # Ensure we're using the correct project
 gcloud config set project $PROJECT_ID
 
