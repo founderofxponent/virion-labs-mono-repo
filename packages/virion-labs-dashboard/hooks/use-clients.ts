@@ -18,7 +18,7 @@ export function useClients() {
   const [error, setError] = useState<string | null>(null)
   const [campaignCounts, setCampaignCounts] = useState<Record<string, number>>({})
 
-  const API_BASE_URL = "http://localhost:8000/api/v1/operations"
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations`
 
   const getToken = () => localStorage.getItem('auth_token')
 

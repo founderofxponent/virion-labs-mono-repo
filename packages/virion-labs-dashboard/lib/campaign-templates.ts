@@ -175,7 +175,7 @@ async function fetchTemplatesFromAPI(): Promise<CampaignTemplate[]> {
     if (!token) {
         throw new Error("Authentication token not found.");
     }
-    const response = await fetch('http://localhost:8000/api/v1/operations/campaign-template/list', {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations/campaign-template/list`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -220,7 +220,7 @@ export async function getCampaignTemplateAsync(templateId: string): Promise<Camp
     if (!token) {
         throw new Error("Authentication token not found.");
     }
-    const response = await fetch(`http://localhost:8000/api/v1/operations/campaign-template/get/${encodeURIComponent(templateId)}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations/campaign-template/get/${encodeURIComponent(templateId)}`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -246,7 +246,7 @@ export async function getCampaignTemplatesByCategoryAsync(category: string): Pro
     if (!token) {
         throw new Error("Authentication token not found.");
     }
-    const response = await fetch(`http://localhost:8000/api/v1/operations/campaign-template/list?category=${encodeURIComponent(category)}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations/campaign-template/list?category=${encodeURIComponent(category)}`, {
         headers: {
             'Authorization': `Bearer ${token}`
         }

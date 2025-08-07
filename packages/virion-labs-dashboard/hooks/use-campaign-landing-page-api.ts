@@ -10,7 +10,7 @@ export function useCampaignLandingPageApi() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = "http://localhost:8000"
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   const getToken = useCallback(() => localStorage.getItem('auth_token'), [])
 
   const fetchPage = useCallback(async (campaignId: string) => {
