@@ -21,6 +21,7 @@ import os
 import mcp.types as types
 from mcp.server.lowlevel import Server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+import httpx
 
 from core.config import AppConfig
 from core.api_client import APIClient
@@ -300,13 +301,26 @@ class VirionLabsMCPServer:
                 'mcp.virionlabs.io' in base_url
             ):
                 base_url = base_url.replace('http://', 'https://')
-            server_url = f"{base_url}/mcp/"
+            server_url = f"{base_url}/mcp"
             return JSONResponse({
                 "resource": server_url,
                 "authorization_servers": [self.config.api.base_url],
                 "scopes_supported": ["mcp"],
                 "bearer_methods_supported": ["header"],
                 "resource_documentation": f"{base_url}/docs"
+            })
+
+        async def oauth_authorization_server_metadata(request):
+            """OAuth 2.0 Authorization Server Metadata per RFC 8414."""
+            return JSONResponse({
+                "issuer": self.config.api.base_url,
+                "authorization_endpoint": f"{self.config.api.base_url}/api/auth/login/google",
+                "token_endpoint": f"{self.config.api.base_url}/api/auth/token",
+                "registration_endpoint": f"{self.config.api.base_url}/api/auth/register",
+                "scopes_supported": ["openid", "profile", "email"],
+                "response_types_supported": ["code"],
+                "grant_types_supported": ["authorization_code"],
+                "code_challenge_methods_supported": ["S256"]
             })
 
         async def redirect_to_metadata(request: Request):
@@ -382,8 +396,7 @@ class VirionLabsMCPServer:
                         
                         logger.info(f"Attempting to validate {auth_method} token with Business Logic API at: {auth_api_url}")
 
-                        import httpx
-                        async with httpx.AsyncClient() as client:
+                        async with httpx.AsyncClient(timeout=30.0) as client:
                             response = await client.get(auth_api_url, headers=headers)
                         
                         response.raise_for_status() # Raises exception for 4xx/5xx responses
@@ -399,7 +412,7 @@ class VirionLabsMCPServer:
                         token_context.set(token)
                         
                 except httpx.HTTPStatusError as e:
-                    logger.warning(f"Token validation failed. API returned status {e.response.status_code}")
+                    logger.warning(f"Token validation failed. API returned status {e.response.status_code}. Response: {e.response.text}")
                     return JSONResponse(
                         status_code=401,
                         content={"error": "invalid_token", "error_description": "The access token is invalid or expired"},
@@ -409,10 +422,10 @@ class VirionLabsMCPServer:
                         }
                     )
                 except Exception as e:
-                    logger.error(f"An unexpected error occurred during token validation: {e}")
+                    logger.error(f"An unexpected error occurred during token validation: {e}", exc_info=True)
                     return JSONResponse(
                         status_code=500,
-                        content={"error": "server_error", "error_description": "Could not process token validation"},
+                        content={"error": "server_error", "error_description": f"Token validation failed: {str(e)}"},
                     )
                 
                 response = await call_next(request)
@@ -433,10 +446,10 @@ class VirionLabsMCPServer:
                 return response
 
         routes = [
-            # Mount the MCP application with a trailing slash to enforce consistent URL handling.
-            # Starlette will automatically redirect requests to /mcp to /mcp/.
-            Mount("/mcp/", app=mcp_app),
+            # Mount the MCP application at /mcp to match client expectations
+            Mount("/mcp", app=mcp_app),
             Route("/.well-known/oauth-protected-resource", oauth_protected_resource_metadata, methods=["GET"]),
+            Route("/.well-known/oauth-authorization-server", oauth_authorization_server_metadata, methods=["GET"]),
             Route("/.well-known/oauth-protected-resource/mcp", redirect_to_metadata, methods=["GET"]),
         ]
         
