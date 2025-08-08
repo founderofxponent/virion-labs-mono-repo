@@ -1,8 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any, Optional, List
+from pydantic import BaseModel
 from services.client_service import client_service
 from services.campaign_service import campaign_service
 from services.campaign_template_service import campaign_template_service
+from services.product_service import product_service
 from services.landing_page_template_service import landing_page_template_service
 from services.referral_service import referral_service
 from services.onboarding_service import onboarding_service
@@ -120,6 +122,29 @@ def _to_campaign_response(campaign: Campaign) -> CampaignResponse:
         value_per_conversion=campaign.value_per_conversion,
         client=client_response
     )
+
+# --- Products ---
+class ProductResponse(BaseModel):
+    id: int
+    documentId: Optional[str] = None
+    name: str
+
+class ProductListResponse(BaseModel):
+    products: List[ProductResponse]
+
+class ProductCreateRequest(BaseModel):
+    name: str
+    client: int
+
+@router.get("/products", response_model=ProductListResponse)
+async def list_products():
+    items = await product_service.list()
+    return {"products": [{"id": i.id, "documentId": getattr(i, 'documentId', None), "name": i.name} for i in items]}
+
+@router.post("/products", response_model=ProductResponse)
+async def create_product(request: ProductCreateRequest):
+    created = await product_service.create(request.model_dump())
+    return {"id": created.id, "documentId": getattr(created, 'documentId', None), "name": created.name}
 
 # Client Operations
 @router.post("/client/create", response_model=ClientResponse, status_code=201)

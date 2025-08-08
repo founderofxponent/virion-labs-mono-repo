@@ -735,6 +735,7 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     moderation_enabled: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<true>;
     name: Schema.Attribute.String & Schema.Attribute.Required;
+    products: Schema.Attribute.Relation<'manyToMany', 'api::product.product'>;
     publishedAt: Schema.Attribute.DateTime;
     rate_limit_per_user: Schema.Attribute.Integer &
       Schema.Attribute.DefaultTo<5>;
@@ -760,6 +761,55 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
       Schema.Attribute.DefaultTo<0>;
     webhook_url: Schema.Attribute.String;
     welcome_message: Schema.Attribute.RichText;
+  };
+}
+
+export interface ApiClientLeadClientLead extends Struct.CollectionTypeSchema {
+  collectionName: 'client_leads';
+  info: {
+    displayName: 'Client Lead';
+    pluralName: 'client-leads';
+    singularName: 'client-lead';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'users-permissions': {
+      enabled: true;
+    };
+  };
+  attributes: {
+    client: Schema.Attribute.Relation<'oneToOne', 'api::client.client'>;
+    company_name: Schema.Attribute.String & Schema.Attribute.Required;
+    contact_email: Schema.Attribute.Email & Schema.Attribute.Required;
+    contact_name: Schema.Attribute.String;
+    contact_phone: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    discovery_calls: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::discovery-call.discovery-call'
+    >;
+    industry: Schema.Attribute.String;
+    lead_status: Schema.Attribute.Enumeration<
+      ['new', 'contacted', 'qualified', 'scheduled', 'converted', 'archived']
+    > &
+      Schema.Attribute.DefaultTo<'new'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::client-lead.client-lead'
+    > &
+      Schema.Attribute.Private;
+    notes: Schema.Attribute.RichText;
+    publishedAt: Schema.Attribute.DateTime;
+    requirements: Schema.Attribute.RichText;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    website: Schema.Attribute.String;
   };
 }
 
@@ -793,6 +843,7 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
     logo: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
     name: Schema.Attribute.String & Schema.Attribute.Required;
     primary_contact: Schema.Attribute.String;
+    products: Schema.Attribute.Relation<'oneToMany', 'api::product.product'>;
     publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -865,6 +916,52 @@ export interface ApiDiscordSettingDiscordSetting
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     verified_role_id: Schema.Attribute.String;
+  };
+}
+
+export interface ApiDiscoveryCallDiscoveryCall
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'discovery_calls';
+  info: {
+    displayName: 'Discovery Call';
+    pluralName: 'discovery-calls';
+    singularName: 'discovery-call';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'users-permissions': {
+      enabled: true;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    duration_minutes: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<30>;
+    google_event_id: Schema.Attribute.String;
+    lead: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::client-lead.client-lead'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::discovery-call.discovery-call'
+    > &
+      Schema.Attribute.Private;
+    meeting_url: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    scheduled_at: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    status: Schema.Attribute.Enumeration<
+      ['scheduled', 'completed', 'cancelled']
+    > &
+      Schema.Attribute.DefaultTo<'scheduled'>;
+    timezone: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -958,6 +1055,51 @@ export interface ApiLandingPageTemplateLandingPageTemplate
     preview_image_url: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     template_structure: Schema.Attribute.JSON & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiProductProduct extends Struct.CollectionTypeSchema {
+  collectionName: 'products';
+  info: {
+    displayName: 'Product';
+    pluralName: 'products';
+    singularName: 'product';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'users-permissions': {
+      enabled: true;
+    };
+  };
+  attributes: {
+    campaigns: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::campaign.campaign'
+    >;
+    client: Schema.Attribute.Relation<'manyToOne', 'api::client.client'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.RichText;
+    images: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios',
+      true
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::product.product'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    price: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    sku: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1676,11 +1818,14 @@ declare module '@strapi/strapi' {
       'api::campaign-onboarding-start.campaign-onboarding-start': ApiCampaignOnboardingStartCampaignOnboardingStart;
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
       'api::campaign.campaign': ApiCampaignCampaign;
+      'api::client-lead.client-lead': ApiClientLeadClientLead;
       'api::client.client': ApiClientClient;
       'api::discord-request-access.discord-request-access': ApiDiscordRequestAccessDiscordRequestAccess;
       'api::discord-setting.discord-setting': ApiDiscordSettingDiscordSetting;
+      'api::discovery-call.discovery-call': ApiDiscoveryCallDiscoveryCall;
       'api::email-template.email-template': ApiEmailTemplateEmailTemplate;
       'api::landing-page-template.landing-page-template': ApiLandingPageTemplateLandingPageTemplate;
+      'api::product.product': ApiProductProduct;
       'api::referral-analytic.referral-analytic': ApiReferralAnalyticReferralAnalytic;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;
       'api::user-setting.user-setting': ApiUserSettingUserSetting;

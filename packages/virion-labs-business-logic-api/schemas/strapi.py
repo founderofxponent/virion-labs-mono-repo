@@ -496,3 +496,62 @@ CampaignLandingPage.update_forward_refs()
 StrapiCampaignCreate.update_forward_refs()
 StrapiCampaignUpdate.update_forward_refs()
 LandingPageTemplate.update_forward_refs()
+ 
+class ProductBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    sku: Optional[str] = None
+    price: Optional[float] = 0
+ 
+class Product(ProductBase):
+    id: int
+    documentId: Optional[str] = None
+    images: Optional[List[Media]] = None
+    client: Optional[Client] = None
+ 
+class StrapiProductCreate(ProductBase):
+    client: int
+ 
+class StrapiProductUpdate(ProductBase):
+    name: Optional[str] = None
+    client: Optional[int] = None
+ 
+class ClientLeadBase(BaseModel):
+    company_name: str
+    contact_name: Optional[str] = None
+    contact_email: str
+    contact_phone: Optional[str] = None
+    website: Optional[str] = None
+    industry: Optional[str] = None
+    requirements: Optional[str] = None
+    lead_status: Optional[Literal['new', 'contacted', 'qualified', 'scheduled', 'converted', 'archived']] = 'new'
+ 
+class ClientLead(ClientLeadBase):
+    id: int
+    documentId: Optional[str] = None
+    client: Optional[Client] = None
+ 
+class StrapiClientLeadCreate(ClientLeadBase):
+    pass
+ 
+class StrapiClientLeadUpdate(ClientLeadBase):
+    company_name: Optional[str] = None
+ 
+class DiscoveryCallBase(BaseModel):
+    scheduled_at: datetime
+    timezone: Optional[str] = None
+    duration_minutes: Optional[int] = 30
+    google_event_id: Optional[str] = None
+    meeting_url: Optional[str] = None
+    status: Optional[Literal['scheduled', 'completed', 'cancelled']] = 'scheduled'
+ 
+class DiscoveryCall(DiscoveryCallBase):
+    id: int
+    documentId: Optional[str] = None
+    lead: Optional[ClientLead] = None
+ 
+class StrapiDiscoveryCallCreate(DiscoveryCallBase):
+    lead: int
+ 
+class StrapiDiscoveryCallUpdate(DiscoveryCallBase):
+    lead: Optional[int] = None

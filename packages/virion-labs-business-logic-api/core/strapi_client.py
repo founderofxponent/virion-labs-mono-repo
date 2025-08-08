@@ -42,7 +42,16 @@ from schemas.strapi import (
     StrapiDiscordSettingUpdate,
     EmailTemplate,
     StrapiEmailTemplateCreate,
-    StrapiEmailTemplateUpdate
+    StrapiEmailTemplateUpdate,
+    Product,
+    StrapiProductCreate,
+    StrapiProductUpdate,
+    ClientLead,
+    StrapiClientLeadCreate,
+    StrapiClientLeadUpdate,
+    DiscoveryCall,
+    StrapiDiscoveryCallCreate,
+    StrapiDiscoveryCallUpdate
 )
 
 logger = logging.getLogger(__name__)
@@ -119,6 +128,59 @@ class StrapiClient:
         
         response = await self._request("GET", "clients", params=params)
         return [Client(**item) for item in response.get("data", [])]
+
+    # Products
+    async def get_products(self, filters: Optional[Dict] = None) -> List[Product]:
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        response = await self._request("GET", "products", params=params)
+        return [Product(**item) for item in response.get("data", [])]
+
+    async def get_product(self, document_id: str) -> Optional[Product]:
+        response = await self._request("GET", f"products/{document_id}", params={"populate": "*"})
+        data = response.get("data")
+        return Product(**data) if data else None
+
+    async def create_product(self, payload: StrapiProductCreate) -> Product:
+        response = await self._request("POST", "products", data={"data": payload.model_dump()})
+        return Product(**response.get("data"))
+
+    async def update_product(self, document_id: str, payload: StrapiProductUpdate) -> Product:
+        response = await self._request("PUT", f"products/{document_id}", data={"data": payload.model_dump(exclude_unset=True)})
+        return Product(**response.get("data"))
+
+    # Client Leads
+    async def create_client_lead(self, payload: StrapiClientLeadCreate) -> ClientLead:
+        response = await self._request("POST", "client-leads", data={"data": payload.model_dump()})
+        return ClientLead(**response.get("data"))
+
+    async def update_client_lead(self, document_id: str, payload: StrapiClientLeadUpdate) -> ClientLead:
+        response = await self._request("PUT", f"client-leads/{document_id}", data={"data": payload.model_dump(exclude_unset=True)})
+        return ClientLead(**response.get("data"))
+
+    async def get_client_leads(self, filters: Optional[Dict] = None) -> List[ClientLead]:
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        response = await self._request("GET", "client-leads", params=params)
+        return [ClientLead(**item) for item in response.get("data", [])]
+
+    # Discovery Calls
+    async def create_discovery_call(self, payload: StrapiDiscoveryCallCreate) -> DiscoveryCall:
+        response = await self._request("POST", "discovery-calls", data={"data": payload.model_dump()})
+        return DiscoveryCall(**response.get("data"))
+
+    async def update_discovery_call(self, document_id: str, payload: StrapiDiscoveryCallUpdate) -> DiscoveryCall:
+        response = await self._request("PUT", f"discovery-calls/{document_id}", data={"data": payload.model_dump(exclude_unset=True)})
+        return DiscoveryCall(**response.get("data"))
+    
+    async def get_discovery_calls(self, filters: Optional[Dict] = None) -> List[DiscoveryCall]:
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        response = await self._request("GET", "discovery-calls", params=params)
+        return [DiscoveryCall(**item) for item in response.get("data", [])]
 
     async def create_client(self, client_data: StrapiClientCreate) -> Client:
         """Creates a new client in Strapi using a validated Pydantic model."""

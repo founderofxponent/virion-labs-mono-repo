@@ -58,6 +58,12 @@
       "relation": "oneToMany",
       "target": "api::campaign.campaign",
       "mappedBy": "client"
+    },
+    "products": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::product.product",
+      "mappedBy": "client"
     }
   }
 }

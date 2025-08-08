@@ -167,6 +167,9 @@ export function ClientsPage() {
           <p className="text-muted-foreground">Manage all your client brands and their influencers</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => router.push('/clients/dashboard')}>
+            Open Client Dashboard
+          </Button>
           <Dialog open={showAddClient} onOpenChange={setShowAddClient}>
             <DialogTrigger asChild>
               <Button>
