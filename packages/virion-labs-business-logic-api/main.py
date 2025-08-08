@@ -66,10 +66,10 @@ async def get_oauth_server_metadata():
     base_url = settings.API_URL
     return {
         "issuer": base_url,
-        "authorization_endpoint": f"{base_url}/api/auth/login/google",
-        "token_endpoint": f"{base_url}/api/auth/token", # Point to the new token endpoint
+        "authorization_endpoint": f"{base_url}/api/auth/authorize",
+        "token_endpoint": f"{base_url}/api/auth/token",
         "registration_endpoint": f"{base_url}/api/auth/register",
-        "response_types_supported": ["code"], # We now properly support the 'code' flow
+        "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code"],
         "scopes_supported": ["openid", "profile", "email"],
         "code_challenge_methods_supported": ["S256"],

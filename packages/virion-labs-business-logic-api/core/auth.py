@@ -29,6 +29,10 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> di
     """
     import httpx
     
+    # Sanitize accidental double-prefix (e.g., "Bearer Bearer <jwt>") passed through upstream clients
+    if token and token.lower().startswith("bearer "):
+        token = token[7:].strip()
+
     strapi_users_me_url = f"{settings.STRAPI_URL}/api/users/me"
     headers = {"Authorization": f"Bearer {token}"}
     params = [("populate", "role"), ("populate", "user_setting")]

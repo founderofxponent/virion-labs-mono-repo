@@ -301,6 +301,7 @@ class VirionLabsMCPServer:
                 'mcp.virionlabs.io' in base_url
             ):
                 base_url = base_url.replace('http://', 'https://')
+            # Resource must match the client-expected endpoint exactly (no trailing slash)
             server_url = f"{base_url}/mcp"
             return JSONResponse({
                 "resource": server_url,
@@ -312,19 +313,30 @@ class VirionLabsMCPServer:
 
         async def oauth_authorization_server_metadata(request):
             """OAuth 2.0 Authorization Server Metadata per RFC 8414."""
-            return JSONResponse({
-                "issuer": self.config.api.base_url,
-                "authorization_endpoint": f"{self.config.api.base_url}/api/auth/login/google",
-                "token_endpoint": f"{self.config.api.base_url}/api/auth/token",
-                "registration_endpoint": f"{self.config.api.base_url}/api/auth/register",
-                "scopes_supported": ["openid", "profile", "email"],
-                "response_types_supported": ["code"],
-                "grant_types_supported": ["authorization_code"],
-                "code_challenge_methods_supported": ["S256"]
-            })
+            # Forward metadata from the business logic API to avoid drift
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.get(f"{self.config.api.base_url}/.well-known/oauth-authorization-server")
+                    resp.raise_for_status()
+                    return JSONResponse(resp.json())
+            except Exception as e:
+                logger.warning(f"Failed to fetch upstream OAuth metadata: {e}. Falling back to static config.")
+                return JSONResponse({
+                    "issuer": self.config.api.base_url,
+                    "authorization_endpoint": f"{self.config.api.base_url}/api/auth/authorize",
+                    "token_endpoint": f"{self.config.api.base_url}/api/auth/token",
+                    "registration_endpoint": f"{self.config.api.base_url}/api/auth/register",
+                    "scopes_supported": ["openid", "profile", "email"],
+                    "response_types_supported": ["code"],
+                    "grant_types_supported": ["authorization_code"],
+                    "code_challenge_methods_supported": ["S256"]
+                })
 
         async def redirect_to_metadata(request: Request):
             return RedirectResponse(url="/.well-known/oauth-protected-resource")
+
+        async def redirect_to_auth_metadata(request: Request):
+            return RedirectResponse(url="/.well-known/oauth-authorization-server")
 
         class AuthMiddleware(BaseHTTPMiddleware):
             def __init__(self, app, api_client):
@@ -356,7 +368,10 @@ class VirionLabsMCPServer:
                 auth_method = None
                 
                 if auth_header and auth_header.startswith("Bearer "):
-                    token = auth_header[7:]
+                    token = auth_header[7:].strip()
+                    # Sanitize accidental double-prefix like "Bearer Bearer <jwt>"
+                    if token.lower().startswith("bearer "):
+                        token = token[7:].strip()
                     auth_method = "bearer"
                 elif api_key:
                     # Check if this is service-to-service authentication with MCP_API_TOKEN
@@ -470,6 +485,7 @@ class VirionLabsMCPServer:
             Route("/.well-known/oauth-protected-resource", oauth_protected_resource_metadata, methods=["GET"]),
             Route("/.well-known/oauth-authorization-server", oauth_authorization_server_metadata, methods=["GET"]),
             Route("/.well-known/oauth-protected-resource/mcp", redirect_to_metadata, methods=["GET"]),
+            Route("/.well-known/oauth-authorization-server/mcp", redirect_to_auth_metadata, methods=["GET"]),
         ]
         
         app = Starlette(routes=routes, lifespan=lifespan)
