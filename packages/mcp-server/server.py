@@ -489,6 +489,11 @@ class VirionLabsMCPServer:
         ]
         
         app = Starlette(routes=routes, lifespan=lifespan)
+        # Disable automatic trailing-slash redirects to keep /mcp exact
+        try:
+            app.router.redirect_slashes = False
+        except Exception:
+            pass
         
         # Add auth middleware
         app.add_middleware(AuthMiddleware, api_client=self.api_client)
