@@ -335,6 +335,10 @@ class VirionLabsMCPServer:
                 # Log all request headers for debugging
                 logger.info(f"Request headers: {request.headers}")
 
+                # Allow CORS preflight requests to pass through
+                if request.method == "OPTIONS":
+                    return await call_next(request)
+
                 # Skip auth for metadata endpoints
                 if request.url.path in [
                     "/.well-known/oauth-protected-resource",
@@ -363,13 +367,28 @@ class VirionLabsMCPServer:
                         token = api_key
                         auth_method = "api_key"
                 else:
+                    # Build proper discovery pointers per RFC 9728 (Protected Resource Metadata)
+                    base_url = str(request.base_url).rstrip('/')
+                    # Ensure HTTPS for known production domains
+                    if base_url.startswith('http://') and (
+                        'run.app' in base_url or 
+                        'virionlabs.io' in base_url or 
+                        'mcp.virionlabs.io' in base_url
+                    ):
+                        base_url = base_url.replace('http://', 'https://')
+
+                    authorization_uri = f"{base_url}/.well-known/oauth-protected-resource"
+                    resource_uri = f"{base_url}/mcp"
+
                     return JSONResponse(
                         status_code=401,
                         content={"error": "unauthorized", "error_description": "Access token required"},
                         headers={
-                            "WWW-Authenticate": f'Bearer realm="{self.api_client.config.base_url}", '
-                                              f'authorization_uri="{self.api_client.config.base_url}/api/oauth/authorize", '
-                                              f'resource="{request.base_url}"'
+                            "WWW-Authenticate": (
+                                f'Bearer realm="{base_url}", '
+                                f'authorization_uri="{authorization_uri}", '
+                                f'resource="{resource_uri}"'
+                            )
                         }
                     )
                 
