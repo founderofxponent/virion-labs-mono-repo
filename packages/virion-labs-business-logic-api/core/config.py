@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     API_KEY: str
     FRONTEND_URL: str = "http://localhost:3000"
     PASSWORD_RESET_EXPIRE_MINUTES: int = 30
+    # Notifications
+    ADMIN_EMAIL: Optional[str] = "joshua@updates.virionlabs.io"
 
     class Config:
         env_file = ".env"

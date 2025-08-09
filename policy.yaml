@@ -1,0 +1,3 @@
+constraint: constraints/iam.allowedPolicyMemberDomains
+list_policy:
+  all_values: ALLOW

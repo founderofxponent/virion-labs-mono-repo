@@ -825,8 +825,10 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
   };
   attributes: {
     campaigns: Schema.Attribute.Relation<'oneToMany', 'api::campaign.campaign'>;
-    client_status: Schema.Attribute.Enumeration<['active', 'inactive']> &
-      Schema.Attribute.DefaultTo<'active'>;
+    client_status: Schema.Attribute.Enumeration<
+      ['pending', 'active', 'inactive']
+    > &
+      Schema.Attribute.DefaultTo<'pending'>;
     contact_email: Schema.Attribute.Email;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &

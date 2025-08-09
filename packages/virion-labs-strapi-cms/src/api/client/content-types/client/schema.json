@@ -35,8 +35,9 @@
     },
     "client_status": {
       "type": "enumeration",
-      "default": "active",
+      "default": "pending",
       "enum": [
+        "pending",
         "active",
         "inactive"
       ]

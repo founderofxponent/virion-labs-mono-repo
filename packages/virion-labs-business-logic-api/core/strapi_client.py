@@ -101,6 +101,8 @@ class StrapiClient:
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 logger.info(f"Making Strapi request: {method} {url} with params {params}")
+                if data:
+                    logger.info(f"Request data: {data}")
                 response = await client.request(
                     method=method,
                     url=url,
@@ -173,11 +175,13 @@ class StrapiClient:
 
     # Discovery Calls
     async def create_discovery_call(self, payload: StrapiDiscoveryCallCreate) -> DiscoveryCall:
-        response = await self._request("POST", "discovery-calls", data={"data": payload.model_dump()})
+        data = {"data": payload.model_dump(exclude_unset=True, mode='json')}
+        response = await self._request("POST", "discovery-calls", data=data)
         return DiscoveryCall(**response.get("data"))
 
     async def update_discovery_call(self, document_id: str, payload: StrapiDiscoveryCallUpdate) -> DiscoveryCall:
-        response = await self._request("PUT", f"discovery-calls/{document_id}", data={"data": payload.model_dump(exclude_unset=True)})
+        data = {"data": payload.model_dump(exclude_unset=True, mode='json')}
+        response = await self._request("PUT", f"discovery-calls/{document_id}", data=data)
         return DiscoveryCall(**response.get("data"))
     
     async def get_discovery_calls(self, filters: Optional[Dict] = None) -> List[DiscoveryCall]:

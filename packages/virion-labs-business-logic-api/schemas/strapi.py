@@ -217,7 +217,7 @@ class Referral(ReferralBase):
 class ClientBase(BaseModel):
     name: str
     industry: Optional[str] = None
-    client_status: Optional[Literal['active', 'inactive']] = 'active'
+    client_status: Optional[Literal['pending', 'active', 'inactive']] = 'pending'
     website: Optional[str] = None
     primary_contact: Optional[str] = None
     contact_email: Optional[str] = None

@@ -185,12 +185,14 @@ export function useClients() {
   const getStats = () => {
     const totalClients = clients.length
     const activeClients = clients.filter(client => client.client_status === 'active').length
+    const pendingClients = clients.filter(client => client.client_status === 'pending').length
     const totalInfluencers = clients.reduce((sum, client) => sum + (client.influencers || 0), 0)
     const totalCampaigns = Object.values(campaignCounts).reduce((sum, count) => sum + count, 0)
     
     return {
       totalClients,
       activeClients,
+      pendingClients,
       totalInfluencers,
       totalCampaigns,
       activePercentage: totalClients > 0 ? (activeClients / totalClients) * 100 : 0,
