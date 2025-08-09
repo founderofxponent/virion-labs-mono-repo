@@ -4,8 +4,8 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    buildCommand: cd packages/virion-labs-strapi-cms && npm cache clean --force && rm -rf node_modules/.cache && npm install && npm run build
+    startCommand: cd packages/virion-labs-strapi-cms && npm start
     healthCheckPath: /
     envVars:
       - key: NODE_ENV
