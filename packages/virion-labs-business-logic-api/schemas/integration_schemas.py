@@ -114,3 +114,6 @@ class ClientDiscordConnectionBotSyncRequest(BaseModel):
     guild_icon_url: Optional[str] = None
     channels: Optional[List[DiscordChannel]] = None
     roles: Optional[List[DiscordRole]] = None
+
+class ClientDiscordSyncStartRequest(BaseModel):
+    guild_id: str

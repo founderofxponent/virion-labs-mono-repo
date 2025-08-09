@@ -764,6 +764,49 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiClientDiscordConnectionClientDiscordConnection
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'client_discord_connections';
+  info: {
+    description: 'Stores synced Discord guilds, channels, and roles for a client';
+    displayName: 'Client Discord Connection';
+    pluralName: 'client-discord-connections';
+    singularName: 'client-discord-connection';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    channels: Schema.Attribute.JSON;
+    client: Schema.Attribute.Relation<'manyToOne', 'api::client.client'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    discord_user_id: Schema.Attribute.String;
+    discord_username: Schema.Attribute.String;
+    guild_icon_url: Schema.Attribute.String;
+    guild_id: Schema.Attribute.String & Schema.Attribute.Required;
+    guild_name: Schema.Attribute.String;
+    is_active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    last_synced_at: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::client-discord-connection.client-discord-connection'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    roles: Schema.Attribute.JSON;
+    status: Schema.Attribute.Enumeration<
+      ['not_connected', 'pending', 'connected']
+    > &
+      Schema.Attribute.DefaultTo<'pending'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiClientLeadClientLead extends Struct.CollectionTypeSchema {
   collectionName: 'client_leads';
   info: {
@@ -833,6 +876,10 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    discord_connections: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::client-discord-connection.client-discord-connection'
+    >;
     industry: Schema.Attribute.String & Schema.Attribute.Required;
     influencers: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     join_date: Schema.Attribute.Date;
@@ -1820,6 +1867,7 @@ declare module '@strapi/strapi' {
       'api::campaign-onboarding-start.campaign-onboarding-start': ApiCampaignOnboardingStartCampaignOnboardingStart;
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
       'api::campaign.campaign': ApiCampaignCampaign;
+      'api::client-discord-connection.client-discord-connection': ApiClientDiscordConnectionClientDiscordConnection;
       'api::client-lead.client-lead': ApiClientLeadClientLead;
       'api::client.client': ApiClientClient;
       'api::discord-request-access.discord-request-access': ApiDiscordRequestAccessDiscordRequestAccess;

@@ -14,6 +14,7 @@ from schemas.integration_schemas import (
     ClientDiscordConnectionResponse,
     ClientDiscordConnectionListResponse,
     ClientDiscordConnectionBotSyncRequest,
+    ClientDiscordSyncStartRequest,
 
 )
 from services.integration_service import integration_service
@@ -138,3 +139,21 @@ async def client_bot_sync_webhook(request: ClientDiscordConnectionBotSyncRequest
     except Exception as e:
         logger.error(f"Failed to handle client bot sync webhook: {e}")
         raise HTTPException(status_code=500, detail="Failed to process bot sync")
+
+@router.get("/discord/client/install-url")
+async def get_client_bot_install_url(current_user: User = Depends(get_current_user)):
+    try:
+        url = await integration_service.generate_client_bot_install_url(current_user)
+        return {"install_url": url}
+    except Exception as e:
+        logger.error(f"Failed to generate install URL: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate install URL")
+
+@router.post("/discord/client/sync/start")
+async def start_client_guild_sync(request: ClientDiscordSyncStartRequest, current_user: User = Depends(get_current_user)):
+    try:
+        result = await integration_service.start_client_guild_sync(request.guild_id, current_user)
+        return result
+    except Exception as e:
+        logger.error(f"Failed to start guild sync: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start sync")

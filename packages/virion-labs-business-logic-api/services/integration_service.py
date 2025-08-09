@@ -328,6 +328,26 @@ class IntegrationService:
             last_synced_at=attrs.get('last_synced_at')
         )
 
+    async def generate_client_bot_install_url(self, current_user) -> str:
+        """Generate OAuth2 install URL for the client-only bot."""
+        # Bot client ID should be configured via env; placeholder reads from settings.API_URL as base
+        # For now, construct a generic invite requiring applications.commands + bot
+        client_bot_client_id = getattr(settings, 'DISCORD_CLIENT_BOT_CLIENT_ID', None)
+        if not client_bot_client_id:
+            # Allow dashboard to render a placeholder linking to docs
+            raise ValueError("Client bot client ID not configured")
+        scopes = ["bot", "applications.commands"]
+        permissions = 0  # ask minimal; admin can adjust
+        return (
+            f"https://discord.com/api/oauth2/authorize?client_id={client_bot_client_id}"
+            f"&permissions={permissions}&scope={'%20'.join(scopes)}&response_type=code"
+        )
+
+    async def start_client_guild_sync(self, guild_id: str, current_user) -> Dict[str, Any]:
+        """Optional server-side kick-off; for now, just acknowledges request."""
+        # In future, we could DM the client bot or schedule a job. For MVP, return ack
+        return {"status": "pending", "guild_id": guild_id}
+
     async def request_discord_access(self, access_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Business operation for handling a Discord access request.

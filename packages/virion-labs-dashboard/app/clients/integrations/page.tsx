@@ -6,10 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useClientDiscordConnections } from '@/hooks/use-client-discord-connections'
-import { Bot, Link2, RefreshCw, Shield } from 'lucide-react'
+import { Bot, Link2, RefreshCw, Shield, ExternalLink } from 'lucide-react'
 
 export default function ClientIntegrationsPage() {
-  const { connections, loading, error, saving, upsert, refetch } = useClientDiscordConnections()
+  const { connections, loading, error, saving, upsert, refetch, installUrl } = useClientDiscordConnections()
 
   const handleMockSync = async () => {
     // This would come from the client-only bot sync command webhook
@@ -48,9 +48,14 @@ export default function ClientIntegrationsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {error && <p className="text-sm text-destructive">{error}</p>}
-                <div className="flex gap-2">
-                  <Button onClick={handleMockSync} disabled={saving}>
-                    <Link2 className="h-4 w-4 mr-2" /> Connect / Sync
+                <div className="flex gap-2 flex-wrap">
+                  <Button asChild disabled={!installUrl}>
+                    <a href={installUrl || '#'} target="_blank" rel="noreferrer">
+                      <ExternalLink className="h-4 w-4 mr-2" /> Install Bot
+                    </a>
+                  </Button>
+                  <Button onClick={handleMockSync} disabled={saving} variant="secondary">
+                    <Link2 className="h-4 w-4 mr-2" /> Sync Now
                   </Button>
                   <Button variant="outline" onClick={refetch} disabled={loading}>
                     <RefreshCw className="h-4 w-4 mr-2" /> Refresh

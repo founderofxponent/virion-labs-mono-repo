@@ -27,6 +27,7 @@ export function useClientDiscordConnections() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [installUrl, setInstallUrl] = useState<string | null>(null)
 
   const refetch = useCallback(async () => {
     if (!user) { setLoading(false); return }
@@ -50,6 +51,18 @@ export function useClientDiscordConnections() {
   }, [user])
 
   useEffect(() => { refetch() }, [refetch])
+
+  const fetchInstallUrl = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/integrations/discord/client/install-url`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      })
+      const data = await res.json()
+      if (res.ok && data.install_url) setInstallUrl(data.install_url)
+    } catch {}
+  }, [])
+
+  useEffect(() => { fetchInstallUrl() }, [fetchInstallUrl])
 
   const upsert = useCallback(async (payload: Partial<ClientDiscordConnection>) => {
     setSaving(true)
@@ -82,5 +95,5 @@ export function useClientDiscordConnections() {
     }
   }, [refetch])
 
-  return { connections, loading, saving, error, upsert, refetch }
+  return { connections, loading, saving, error, upsert, refetch, installUrl }
 }
