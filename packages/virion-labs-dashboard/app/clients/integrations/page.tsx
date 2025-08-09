@@ -78,6 +78,9 @@ export default function ClientIntegrationsPage() {
                             </div>
                             <Badge variant="secondary">{c.status || 'connected'}</Badge>
                           </div>
+                          <div className="text-xs text-muted-foreground mt-2">
+                            Tip: run <code className="px-1 py-0.5 bg-muted rounded">/sync client:&lt;your-client-documentId&gt;</code> in Discord to refresh.
+                          </div>
                         </div>
                       ))}
                     </div>

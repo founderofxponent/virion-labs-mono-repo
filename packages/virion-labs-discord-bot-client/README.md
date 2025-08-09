@@ -1,9 +1,12 @@
 # Virion Labs Client Discord Bot
 
-A dedicated bot for client servers to sync guilds, channels, and roles with the Virion Labs dashboard. This bot is separate from the public-facing campaign bot.
+A dedicated bot for client servers to sync guilds, channels, and roles with the Virion Labs dashboard. This bot supports multiple clients via `/sync client:<documentId>`.
+
+## Command
+- `/sync client:<documentId>`: Collects the current guild channels and roles and posts them to the Business Logic API. Requires the invoker to have Manage Server permissions.
 
 ## Responsibilities
-- Offer a `/sync` command that collects current guild channels and roles
+- Offer a `/sync` command with a required `client` argument (Strapi client `documentId`).
 - POST the payload to the Business Logic API webhook:
   - `POST /api/v1/integrations/discord/client/bot-sync`
   - Headers: `x-api-key: ${BUSINESS_LOGIC_API_KEY}`
@@ -22,8 +25,7 @@ A dedicated bot for client servers to sync guilds, channels, and roles with the 
 - `BUSINESS_LOGIC_API_URL`
 - `BUSINESS_LOGIC_API_KEY`
 - `DISCORD_CLIENT_BOT_TOKEN`
-- `CLIENT_DOCUMENT_ID` (passed from deployment/runtime)
 
 ## Notes
-- Keep permissions minimal: Read channels, read roles. No moderation.
-- This package is scaffolded; implement bot logic as needed.
+- Minimal permissions; only needs read access to channels/roles and register slash commands.
+- Provide the `client` documentId argument to associate the sync with the correct client.
