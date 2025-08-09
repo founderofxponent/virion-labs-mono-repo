@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: virion-labs-discord-bot-mvp
+    runtime: docker
+    plan: starter
+    region: oregon
+    branch: main
+    buildCommand: yarn install --frozen-lockfile
+    startCommand: yarn start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
+      - key: BUSINESS_LOGIC_API_URL
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: DEBUG
+        value: false
+      - key: ADMIN_EMAILS
+        sync: false

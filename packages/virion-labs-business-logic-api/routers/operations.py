@@ -327,7 +327,20 @@ async def list_campaigns_operation(
             "pagination[page]": page,
             "pagination[pageSize]": limit
         }
-        if client_id:
+        # Enforce client scoping for Client role
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            # Resolve current user's client numeric ID and force filter
+            result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result.get('clients', [])
+            if clients:
+                owned_client_id = clients[0].get('id')
+                filters["filters[client][id][$eq]"] = owned_client_id
+            else:
+                # No associated client; return empty list
+                return CampaignListResponse(campaigns=[], total_count=0, page=page, limit=limit)
+        elif client_id:
+            # For non-client roles, allow explicit filtering by client documentId
             filters["filters[client.documentId][$eq]"] = client_id
         if status:
             filters["filters[status][$eq]"] = status
@@ -391,7 +404,16 @@ async def create_campaign_operation(request: CampaignCreateRequest, current_user
     """Creates a new campaign."""
     try:
         logger.info(f"Received campaign creation request: {request.model_dump_json(indent=2)}")
-        campaign_data = CampaignCreate(**request.model_dump(mode='json'))
+        request_data = request.model_dump(mode='json')
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            # Force campaign client to the caller's client documentId
+            result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result.get('clients', [])
+            if not clients:
+                raise HTTPException(status_code=403, detail="No client associated with current user")
+            request_data['client'] = clients[0].get('documentId')
+        campaign_data = CampaignCreate(**request_data)
         created_campaign = await campaign_service.create_campaign_operation(campaign_data)
         return _to_campaign_response(created_campaign)
     except ValueError as e:
@@ -407,6 +429,13 @@ async def get_campaign_operation(campaign_id: str, current_user: User = Depends(
         campaign = await campaign_service.get_campaign_operation(campaign_id)
         if not campaign:
             raise HTTPException(status_code=404, detail="Campaign not found")
+        # Enforce ownership for Client role
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result.get('clients', [])
+            if not clients or not campaign.client or campaign.client.id != clients[0].get('id'):
+                raise HTTPException(status_code=403, detail="Forbidden: Cannot access campaigns for another client")
         return _to_campaign_response(campaign)
     except HTTPException:
         raise
@@ -418,6 +447,16 @@ async def get_campaign_operation(campaign_id: str, current_user: User = Depends(
 async def update_campaign_operation(campaign_id: str, request: CampaignUpdateRequest, current_user: User = Depends(get_current_user)):
     """Updates a campaign."""
     try:
+        # Enforce ownership for Client role
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            existing = await campaign_service.get_campaign_operation(campaign_id)
+            if not existing or not existing.client or not existing.client.id:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result.get('clients', [])
+            if not clients or existing.client.id != clients[0].get('id'):
+                raise HTTPException(status_code=403, detail="Forbidden: Cannot modify campaigns for another client")
         update_data = CampaignUpdate(**request.model_dump(exclude_unset=True, mode='json'))
         updated_campaign = await campaign_service.update_campaign_operation(
             document_id=campaign_id,
@@ -434,6 +473,16 @@ async def update_campaign_operation(campaign_id: str, request: CampaignUpdateReq
 async def delete_campaign_operation(campaign_id: str, current_user: User = Depends(get_current_user)):
     """Deletes a campaign."""
     try:
+        # Enforce ownership for Client role
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            existing = await campaign_service.get_campaign_operation(campaign_id)
+            if not existing or not existing.client or not existing.client.id:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            result_clients = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result_clients.get('clients', [])
+            if not clients or existing.client.id != clients[0].get('id'):
+                raise HTTPException(status_code=403, detail="Forbidden: Cannot delete campaigns for another client")
         result = await campaign_service.delete_campaign_operation(document_id=campaign_id)
         return result
     except Exception as e:
@@ -444,6 +493,16 @@ async def delete_campaign_operation(campaign_id: str, current_user: User = Depen
 async def archive_campaign_operation(campaign_id: str, current_user: User = Depends(get_current_user)):
     """Archives a campaign by setting is_active to False and end_date to now."""
     try:
+        # Enforce ownership for Client role
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            existing = await campaign_service.get_campaign_operation(campaign_id)
+            if not existing or not existing.client or not existing.client.id:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result.get('clients', [])
+            if not clients or existing.client.id != clients[0].get('id'):
+                raise HTTPException(status_code=403, detail="Forbidden: Cannot archive campaigns for another client")
         archived_campaign = await campaign_service.archive_campaign_operation(document_id=campaign_id)
         return _to_campaign_response(archived_campaign)
     except ValueError as e:
@@ -456,6 +515,16 @@ async def archive_campaign_operation(campaign_id: str, current_user: User = Depe
 async def unarchive_campaign_operation(campaign_id: str, current_user: User = Depends(get_current_user)):
     """Unarchives a campaign by setting is_active to True and clearing end_date."""
     try:
+        # Enforce ownership for Client role
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            existing = await campaign_service.get_campaign_operation(campaign_id)
+            if not existing or not existing.client or not existing.client.id:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result.get('clients', [])
+            if not clients or existing.client.id != clients[0].get('id'):
+                raise HTTPException(status_code=403, detail="Forbidden: Cannot unarchive campaigns for another client")
         unarchived_campaign = await campaign_service.unarchive_campaign_operation(document_id=campaign_id)
         return _to_campaign_response(unarchived_campaign)
     except ValueError as e:
@@ -465,12 +534,22 @@ async def unarchive_campaign_operation(campaign_id: str, current_user: User = De
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/campaign/{campaign_id}/landing-page", summary="Get Campaign Landing Page")
-async def get_campaign_landing_page_operation(campaign_id: str):
+async def get_campaign_landing_page_operation(campaign_id: str, current_user: User = Depends(get_current_user)):
     """
     Business operation for getting the landing page for a specific campaign.
     Returns null if no landing page is found.
     """
     try:
+        # Enforce ownership for Client role
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            existing = await campaign_service.get_campaign_operation(campaign_id)
+            if not existing or not existing.client or not existing.client.id:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            result_clients = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result_clients.get('clients', [])
+            if not clients or existing.client.id != clients[0].get('id'):
+                raise HTTPException(status_code=403, detail="Forbidden: Cannot access landing page for another client's campaign")
         result = await campaign_service.get_landing_page_operation(campaign_id=campaign_id)
         if not result:
             return None
@@ -503,11 +582,22 @@ async def get_campaign_landing_page_operation(campaign_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/campaign/landing-pages", summary="Create a Campaign Landing Page", response_model=CampaignLandingPageResponse)
-async def create_campaign_landing_page_operation(request: CampaignLandingPageCreateRequest):
+async def create_campaign_landing_page_operation(request: CampaignLandingPageCreateRequest, current_user: User = Depends(get_current_user)):
     """
     Business operation for creating a new landing page for a specific campaign.
     """
     try:
+        # Enforce ownership for Client role
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            # request.campaign is a documentId
+            existing = await campaign_service.get_campaign_operation(request.campaign)
+            if not existing or not existing.client or not existing.client.id:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            result_clients = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result_clients.get('clients', [])
+            if not clients or existing.client.id != clients[0].get('id'):
+                raise HTTPException(status_code=403, detail="Forbidden: Cannot create landing page for another client's campaign")
         page_data = CampaignLandingPageCreate(**request.model_dump())
         result = await campaign_service.create_landing_page_operation(page_data)
         return result
@@ -517,13 +607,25 @@ async def create_campaign_landing_page_operation(request: CampaignLandingPageCre
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/campaign/landing-pages/{page_id}", summary="Update a Campaign Landing Page")
-async def update_campaign_landing_page_operation(page_id: str, request: CampaignLandingPageUpdateRequest):
+async def update_campaign_landing_page_operation(page_id: str, request: CampaignLandingPageUpdateRequest, current_user: User = Depends(get_current_user)):
     """
     Business operation for updating a landing page.
     """
     try:
         logger.info(f"ROUTER: Received request to update landing page {page_id}")
         
+        # Optional ownership enforcement if campaign provided in request for Client role
+        role_name = None
+        if isinstance(current_user.role, dict):
+            role_name = current_user.role.get('name')
+        if role_name == 'Client' and request.campaign is not None:
+            existing = await campaign_service.get_campaign_operation(request.campaign)
+            if not existing or not existing.client or not existing.client.id:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            result_clients = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result_clients.get('clients', [])
+            if not clients or existing.client.id != clients[0].get('id'):
+                raise HTTPException(status_code=403, detail="Forbidden: Cannot update landing page for another client's campaign")
         # Map the API model to the service-layer model
         page_data = CampaignLandingPageUpdate(**request.model_dump(exclude_unset=True))
         
@@ -535,11 +637,13 @@ async def update_campaign_landing_page_operation(page_id: str, request: Campaign
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/campaign/landing-pages/{page_id}", summary="Delete a Campaign Landing Page")
-async def delete_campaign_landing_page_operation(page_id: str):
+async def delete_campaign_landing_page_operation(page_id: str, current_user: User = Depends(get_current_user)):
     """
     Business operation for deleting a landing page.
     """
     try:
+        # Note: Without campaign context on page_id, strict ownership check is non-trivial.
+        # Consider enhancing StrapiClient with a `get_campaign_landing_page_by_id` method to verify ownership.
         result = await campaign_service.delete_landing_page_operation(page_id=page_id)
         return result
         
@@ -550,9 +654,19 @@ async def delete_campaign_landing_page_operation(page_id: str):
 # --- Campaign Onboarding Fields CRUD ---
 
 @router.post("/campaign/onboarding-fields", summary="Create Campaign Onboarding Field", response_model=OnboardingFieldResponse)
-async def create_campaign_onboarding_field_operation(request: OnboardingFieldCreateRequest):
+async def create_campaign_onboarding_field_operation(request: OnboardingFieldCreateRequest, current_user: User = Depends(get_current_user)):
     """Creates a new onboarding field for a campaign."""
     try:
+        # Enforce ownership for Client role
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            existing = await campaign_service.get_campaign_operation(request.campaign)
+            if not existing or not existing.client or not existing.client.id:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            result_clients = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result_clients.get('clients', [])
+            if not clients or existing.client.id != clients[0].get('id'):
+                raise HTTPException(status_code=403, detail="Forbidden: Cannot create onboarding fields for another client's campaign")
         service_data = CampaignOnboardingFieldCreate(**request.model_dump())
         result = await campaign_service.create_onboarding_field_operation(field_data=service_data)
         
@@ -569,9 +683,19 @@ async def create_campaign_onboarding_field_operation(request: OnboardingFieldCre
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/campaign/{campaign_id}/onboarding-fields", summary="List Campaign Onboarding Fields", response_model=OnboardingFieldListResponse)
-async def list_campaign_onboarding_fields_operation(campaign_id: str):
+async def list_campaign_onboarding_fields_operation(campaign_id: str, current_user: User = Depends(get_current_user)):
     """Lists all onboarding fields for a specific campaign."""
     try:
+        # Enforce ownership for Client role
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        if role_name == 'Client':
+            existing = await campaign_service.get_campaign_operation(campaign_id)
+            if not existing or not existing.client or not existing.client.id:
+                raise HTTPException(status_code=404, detail="Campaign not found")
+            result_clients = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result_clients.get('clients', [])
+            if not clients or existing.client.id != clients[0].get('id'):
+                raise HTTPException(status_code=403, detail="Forbidden: Cannot list onboarding fields for another client's campaign")
         fields = await campaign_service.get_onboarding_fields_operation(campaign_id=campaign_id)
         # Convert Campaign model instances to dictionaries for proper serialization
         serialized_fields = []
