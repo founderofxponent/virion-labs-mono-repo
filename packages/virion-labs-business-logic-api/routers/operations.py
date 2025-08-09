@@ -40,6 +40,11 @@ from schemas.operation_schemas import (
     CampaignAccessRequestResponse,
     CampaignAccessRequestUpdateRequest,
     CampaignAccessRequestListResponse,
+    # Products
+    ProductResponse,
+    ProductListResponse,
+    ProductCreateRequest,
+    ProductUpdateRequest,
 )
 from schemas.strapi import Campaign, StrapiDiscordSettingUpdate
 from domain.campaigns.schemas import (
@@ -123,28 +128,94 @@ def _to_campaign_response(campaign: Campaign) -> CampaignResponse:
         client=client_response
     )
 
-# --- Products ---
-class ProductResponse(BaseModel):
-    id: int
-    documentId: Optional[str] = None
-    name: str
-
-class ProductListResponse(BaseModel):
-    products: List[ProductResponse]
-
-class ProductCreateRequest(BaseModel):
-    name: str
-    client: int
+# --- Products --- (imported from operation_schemas)
 
 @router.get("/products", response_model=ProductListResponse)
-async def list_products():
-    items = await product_service.list()
-    return {"products": [{"id": i.id, "documentId": getattr(i, 'documentId', None), "name": i.name} for i in items]}
+async def list_products(current_user: User = Depends(get_current_user)):
+    filters = {}
+    role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+    if role_name == 'Client':
+        # Resolve the client's numeric ID for the current user
+        result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+        clients = result.get('clients', [])
+        if clients:
+            client_id = clients[0].get('id')
+            filters["filters[client][id][$eq]"] = client_id
+    items = await product_service.list(filters)
+    return {"products": [
+        {
+            "id": i.id,
+            "documentId": getattr(i, 'documentId', None),
+            "name": i.name,
+            "description": getattr(i, 'description', None),
+            "sku": getattr(i, 'sku', None),
+            "price": getattr(i, 'price', None)
+        } for i in items
+    ]}
 
 @router.post("/products", response_model=ProductResponse)
-async def create_product(request: ProductCreateRequest):
-    created = await product_service.create(request.model_dump())
-    return {"id": created.id, "documentId": getattr(created, 'documentId', None), "name": created.name}
+async def create_product(request: ProductCreateRequest, current_user: User = Depends(get_current_user)):
+    payload = request.model_dump(exclude_unset=True)
+    role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+    if role_name == 'Client':
+        # Always set client ID to the caller's client to prevent spoofing
+        result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+        clients = result.get('clients', [])
+        if not clients:
+            raise HTTPException(status_code=403, detail="No client associated with current user")
+        payload['client'] = clients[0].get('id')
+    # If not a client and no explicit client provided, require one
+    elif 'client' not in payload or payload.get('client') is None:
+        raise HTTPException(status_code=400, detail="Missing client for product creation")
+    created = await product_service.create(payload, current_user)
+    return {
+        "id": created.id,
+        "documentId": getattr(created, 'documentId', None),
+        "name": created.name,
+        "description": getattr(created, 'description', None),
+        "sku": getattr(created, 'sku', None),
+        "price": getattr(created, 'price', None)
+    }
+
+@router.put("/products/{product_id}", response_model=ProductResponse)
+async def update_product(product_id: str, request: ProductUpdateRequest, current_user: User = Depends(get_current_user)):
+    role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+    payload = request.model_dump(exclude_unset=True)
+    if role_name == 'Client':
+        # Verify ownership
+        existing = await strapi_client.get_product(product_id)
+        if not existing or not existing.client or not existing.client.id:
+            raise HTTPException(status_code=404, detail="Product not found")
+        result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+        clients = result.get('clients', [])
+        if not clients or existing.client.id != clients[0].get('id'):
+            raise HTTPException(status_code=403, detail="Forbidden: Cannot modify products for another client")
+        # Do not allow clients to change product ownership
+        if 'client' in payload:
+            payload.pop('client', None)
+    updated = await product_service.update(product_id, payload, current_user)
+    return {
+        "id": updated.id,
+        "documentId": getattr(updated, 'documentId', None),
+        "name": updated.name,
+        "description": getattr(updated, 'description', None),
+        "sku": getattr(updated, 'sku', None),
+        "price": getattr(updated, 'price', None)
+    }
+
+@router.delete("/products/{product_id}")
+async def delete_product(product_id: str, current_user: User = Depends(get_current_user)):
+    role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+    if role_name == 'Client':
+        # Verify ownership
+        existing = await strapi_client.get_product(product_id)
+        if not existing or not existing.client or not existing.client.id:
+            raise HTTPException(status_code=404, detail="Product not found")
+        result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+        clients = result.get('clients', [])
+        if not clients or existing.client.id != clients[0].get('id'):
+            raise HTTPException(status_code=403, detail="Forbidden: Cannot delete products for another client")
+    return await product_service.delete(product_id, current_user)
 
 # Client Operations
 @router.post("/client/create", response_model=ClientResponse, status_code=201)

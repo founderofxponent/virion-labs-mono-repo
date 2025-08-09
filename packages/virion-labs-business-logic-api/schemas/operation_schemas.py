@@ -41,6 +41,34 @@ class ClientUpdateRequest(BaseModel):
     website: Optional[str] = None
     primary_contact: Optional[str] = None
 
+# --- Product Operations ---
+
+class ProductResponse(BaseModel):
+    id: int
+    documentId: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    sku: Optional[str] = None
+    price: Optional[float] = None
+
+class ProductListResponse(BaseModel):
+    products: List[ProductResponse]
+
+class ProductCreateRequest(BaseModel):
+    name: str
+    # Optional: when caller is a Client, server infers their client id
+    client: Optional[int] = None
+    description: Optional[str] = None
+    sku: Optional[str] = None
+    price: Optional[float] = 0
+
+class ProductUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    sku: Optional[str] = None
+    price: Optional[float] = None
+    client: Optional[int] = None
+
 # --- Campaign Operations ---
 
 class CampaignBase(BaseModel):

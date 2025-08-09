@@ -150,6 +150,11 @@ class StrapiClient:
         response = await self._request("PUT", f"products/{document_id}", data={"data": payload.model_dump(exclude_unset=True)})
         return Product(**response.get("data"))
 
+    async def delete_product(self, document_id: str) -> Dict:
+        """Deletes a product in Strapi using its documentId."""
+        response = await self._request("DELETE", f"products/{document_id}")
+        return response if response else {"status": "deleted"}
+
     # Client Leads
     async def create_client_lead(self, payload: StrapiClientLeadCreate) -> ClientLead:
         response = await self._request("POST", "client-leads", data={"data": payload.model_dump()})

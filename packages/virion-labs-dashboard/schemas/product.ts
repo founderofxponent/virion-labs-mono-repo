@@ -1,3 +1,27 @@
+export interface Media {
+  id: number
+  url: string
+  name: string
+  alternativeText?: string
+  caption?: string
+  width?: number
+  height?: number
+  formats?: Record<string, any>
+  hash: string
+  ext: string
+}
+
+export interface ProductClient {
+  id: number
+  documentId?: string
+  name: string
+  contact_email?: string
+  industry?: string
+  client_status?: 'active' | 'inactive'
+  website?: string
+  primary_contact?: string
+}
+
 export interface Product {
   id: number
   documentId?: string
@@ -5,14 +29,18 @@ export interface Product {
   description?: string
   sku?: string
   price?: number
-  // images and client are omitted in list response but kept for type completeness
-  images?: any[]
-  client?: any
+  images?: Media[]
+  client?: ProductClient
+  createdAt?: string
+  updatedAt?: string
 }
 
 export type CreateProductData = {
   name: string
-  client: number // Strapi numeric ID for the client
+  client?: number // Server resolves for authenticated clients
+  description?: string
+  sku?: string
+  price?: number
 }
 
 export type UpdateProductData = Partial<{
@@ -22,3 +50,18 @@ export type UpdateProductData = Partial<{
   price: number
   client: number
 }>
+
+export interface ProductFormData {
+  name: string
+  description: string
+  sku: string
+  price: string | number
+}
+
+export interface ProductValidationErrors {
+  name?: string[]
+  description?: string[]
+  sku?: string[]
+  price?: string[]
+  general?: string[]
+}
