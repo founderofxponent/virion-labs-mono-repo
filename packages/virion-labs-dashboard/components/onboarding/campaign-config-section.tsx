@@ -66,7 +66,7 @@ export function CampaignConfigSection({ data, syncedServers, onUpdate }: Campaig
             Server Selection
           </CardTitle>
           <CardDescription>
-            Choose which Discord server you want to run this campaign in.
+            Choose which Discord server you want to run this campaign in. Manage connections in Clients → Integrations.
           </CardDescription>
         </CardHeader>
         <CardContent>

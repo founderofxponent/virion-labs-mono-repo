@@ -134,6 +134,12 @@ export function Sidebar() {
       active: pathname === "/onboarding",
     },
     {
+      title: "Integrations",
+      href: "/clients/integrations",
+      icon: Settings,
+      active: pathname === "/clients/integrations",
+    },
+    {
       title: "Analytics",
       href: "/analytics",
       icon: BarChart3,

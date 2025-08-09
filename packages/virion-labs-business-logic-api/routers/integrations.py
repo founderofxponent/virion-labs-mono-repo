@@ -10,10 +10,15 @@ from schemas.integration_schemas import (
     OnboardingSubmitResponse,
     CreateManagedInviteRequest,
     CreateManagedInviteResponse,
+    ClientDiscordConnectionCreateRequest,
+    ClientDiscordConnectionResponse,
+    ClientDiscordConnectionListResponse,
+    ClientDiscordConnectionBotSyncRequest,
 
 )
 from services.integration_service import integration_service
 from core.auth import get_api_key
+from core.auth import get_current_user, StrapiUser as User
 import logging
 
 logger = logging.getLogger(__name__)
@@ -101,3 +106,35 @@ async def create_managed_invite(request: CreateManagedInviteRequest, api_key: st
     except Exception as e:
         logger.error(f"Failed to create managed Discord invite: {e}")
         raise HTTPException(status_code=500, detail="Failed to create Discord invite.")
+
+# --- Client Discord Connections (Integrations page) ---
+@router.get("/discord/client/connections", response_model=ClientDiscordConnectionListResponse)
+async def list_client_discord_connections(current_user: User = Depends(get_current_user)):
+    try:
+        result = await integration_service.list_client_discord_connections(current_user)
+        return ClientDiscordConnectionListResponse(connections=result)
+    except Exception as e:
+        logger.error(f"Failed to list client discord connections: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list connections")
+
+@router.post("/discord/client/connections", response_model=ClientDiscordConnectionResponse)
+async def upsert_client_discord_connection(request: ClientDiscordConnectionCreateRequest, current_user: User = Depends(get_current_user)):
+    try:
+        connection = await integration_service.upsert_client_discord_connection(request, current_user)
+        return ClientDiscordConnectionResponse(connection=connection)
+    except Exception as e:
+        logger.error(f"Failed to upsert client discord connection: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save connection")
+
+@router.post("/discord/client/bot-sync", dependencies=[Depends(get_api_key)])
+async def client_bot_sync_webhook(request: ClientDiscordConnectionBotSyncRequest):
+    """
+    Webhook for the client-specific Discord bot to push guild, channel, and role data
+    after running a sync command inside the client's server.
+    """
+    try:
+        connection = await integration_service.upsert_client_discord_connection_from_bot(request)
+        return {"status": "ok", "connection": connection.model_dump() if hasattr(connection, 'model_dump') else connection}
+    except Exception as e:
+        logger.error(f"Failed to handle client bot sync webhook: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process bot sync")

@@ -65,6 +65,12 @@
       "relation": "oneToMany",
       "target": "api::product.product",
       "mappedBy": "client"
+    },
+    "discord_connections": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::client-discord-connection.client-discord-connection",
+      "mappedBy": "client"
     }
   }
 }

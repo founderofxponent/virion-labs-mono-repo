@@ -11,6 +11,7 @@
     "bot:dev": "cd packages/virion-labs-discord-bot && yarn dev",
     "bot:start": "cd packages/virion-labs-discord-bot && yarn start",
     "start:all": "concurrently \"yarn dashboard:dev\" \"yarn bot:start\"",
+    "client-bot:start": "cd packages/virion-labs-discord-bot-client && node src/index.js",
     "test:dashboard": "cd packages/virion-labs-dashboard && yarn test"
   },
   "devDependencies": {

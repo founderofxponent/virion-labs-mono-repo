@@ -14,6 +14,9 @@ export default function ClientOnboardingPage() {
           clientId={clientId}
           clientName={clientName}
         />
+        <div className="mt-6 text-sm text-muted-foreground">
+          Discord sync has moved to Clients → Integrations. Connect your server there; synced channels and roles will appear in Step 3.
+        </div>
       </DashboardLayout>
     </ProtectedRoute>
   )

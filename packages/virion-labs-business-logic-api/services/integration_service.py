@@ -3,7 +3,12 @@ import httpx
 from core.strapi_client import strapi_client
 from schemas.strapi import StrapiCampaignOnboardingStartCreate, StrapiCampaignOnboardingResponseCreate, StrapiCampaignOnboardingCompletionCreate
 from domain.integrations.discord.domain import DiscordDomain
-from schemas.integration_schemas import Campaign
+from schemas.integration_schemas import (
+    Campaign,
+    ClientDiscordConnection,
+    ClientDiscordConnectionCreateRequest,
+    ClientDiscordConnectionBotSyncRequest,
+)
 from core.config import settings
 import logging
 from datetime import datetime, timezone
@@ -182,6 +187,146 @@ class IntegrationService:
         except Exception as e:
             logger.error(f"Failed to get Discord campaigns: {e}")
             raise
+
+    # --- Client Discord Connections (Integrations page) ---
+    async def list_client_discord_connections(self, current_user) -> List[ClientDiscordConnection]:
+        """List connections for the current user's client (Client role) or all for Admins."""
+        # Determine client scope
+        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        filters = {"populate": "*"}
+        if role_name == 'Client':
+            # Resolve the client's numeric ID and filter connections
+            from services.client_service import client_service
+            result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result.get('clients', [])
+            if not clients:
+                return []
+            client_id = clients[0].get('id')
+            filters["filters[client][id][$eq]"] = client_id
+
+        # Use generic Strapi request for now (no typed schema yet for this CT)
+        response = await strapi_client._request("GET", "client-discord-connections", params=filters)
+        items = response.get("data", [])
+        connections: List[ClientDiscordConnection] = []
+        for item in items:
+            # Support both flat and attributes structure
+            attrs = item.get('attributes', item)
+            connections.append(ClientDiscordConnection(
+                id=item.get('id'),
+                documentId=item.get('documentId'),
+                client_id=(attrs.get('client') or {}).get('id') if isinstance(attrs.get('client'), dict) else None,
+                guild_id=attrs.get('guild_id'),
+                guild_name=attrs.get('guild_name'),
+                guild_icon_url=attrs.get('guild_icon_url'),
+                channels=attrs.get('channels'),
+                roles=attrs.get('roles'),
+                status=attrs.get('status'),
+                last_synced_at=attrs.get('last_synced_at')
+            ))
+        return connections
+
+    async def upsert_client_discord_connection(self, request: ClientDiscordConnectionCreateRequest, current_user) -> ClientDiscordConnection:
+        """Create or update a client's discord connection for a guild."""
+        # Resolve client id
+        from services.client_service import client_service
+        result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+        clients = result.get('clients', [])
+        if not clients:
+            raise ValueError("No client associated with current user")
+        client_id = clients[0].get('id')
+
+        # Check if existing record
+        filters = {
+            "filters[guild_id][$eq]": request.guild_id,
+            "filters[client][id][$eq]": client_id
+        }
+        existing = await strapi_client._request("GET", "client-discord-connections", params=filters)
+        items = existing.get('data', [])
+
+        payload = {
+            "client": client_id,
+            "guild_id": request.guild_id,
+            "guild_name": request.guild_name,
+            "guild_icon_url": request.guild_icon_url,
+            "channels": [c.model_dump() if hasattr(c, 'model_dump') else c for c in (request.channels or [])],
+            "roles": [r.model_dump() if hasattr(r, 'model_dump') else r for r in (request.roles or [])],
+            "last_synced_at": datetime.now(timezone.utc).isoformat(),
+            "status": "connected"
+        }
+
+        if items:
+            record_id = items[0].get('id')
+            resp = await strapi_client._request("PUT", f"client-discord-connections/{record_id}", data={"data": payload})
+            data = resp.get('data', {})
+        else:
+            resp = await strapi_client._request("POST", "client-discord-connections", data={"data": payload})
+            data = resp.get('data', {})
+
+        attrs = data.get('attributes', data)
+        return ClientDiscordConnection(
+            id=data.get('id'),
+            documentId=data.get('documentId'),
+            client_id=client_id,
+            guild_id=attrs.get('guild_id'),
+            guild_name=attrs.get('guild_name'),
+            guild_icon_url=attrs.get('guild_icon_url'),
+            channels=attrs.get('channels'),
+            roles=attrs.get('roles'),
+            status=attrs.get('status'),
+            last_synced_at=attrs.get('last_synced_at')
+        )
+
+    async def upsert_client_discord_connection_from_bot(self, request: ClientDiscordConnectionBotSyncRequest) -> ClientDiscordConnection:
+        """Bot-authenticated sync path: identify client by client_document_id."""
+        # Resolve client numeric ID from documentId
+        client_doc_id = request.client_document_id
+        # Strapi client is a collection; get by filter
+        client_resp = await strapi_client._request("GET", "clients", params={"filters[documentId][$eq]": client_doc_id, "fields[0]": "id"})
+        items = client_resp.get('data', [])
+        if not items:
+            raise ValueError("Client not found for provided client_document_id")
+        client_id = items[0].get('id')
+
+        # Upsert same as above but without current_user context
+        filters = {
+            "filters[guild_id][$eq]": request.guild_id,
+            "filters[client][id][$eq]": client_id
+        }
+        existing = await strapi_client._request("GET", "client-discord-connections", params=filters)
+        items = existing.get('data', [])
+
+        payload = {
+            "client": client_id,
+            "guild_id": request.guild_id,
+            "guild_name": request.guild_name,
+            "guild_icon_url": request.guild_icon_url,
+            "channels": [c.model_dump() if hasattr(c, 'model_dump') else c for c in (request.channels or [])],
+            "roles": [r.model_dump() if hasattr(r, 'model_dump') else r for r in (request.roles or [])],
+            "last_synced_at": datetime.now(timezone.utc).isoformat(),
+            "status": "connected"
+        }
+
+        if items:
+            record_id = items[0].get('id')
+            resp = await strapi_client._request("PUT", f"client-discord-connections/{record_id}", data={"data": payload})
+            data = resp.get('data', {})
+        else:
+            resp = await strapi_client._request("POST", "client-discord-connections", data={"data": payload})
+            data = resp.get('data', {})
+
+        attrs = data.get('attributes', data)
+        return ClientDiscordConnection(
+            id=data.get('id'),
+            documentId=data.get('documentId'),
+            client_id=client_id,
+            guild_id=attrs.get('guild_id'),
+            guild_name=attrs.get('guild_name'),
+            guild_icon_url=attrs.get('guild_icon_url'),
+            channels=attrs.get('channels'),
+            roles=attrs.get('roles'),
+            status=attrs.get('status'),
+            last_synced_at=attrs.get('last_synced_at')
+        )
 
     async def request_discord_access(self, access_data: Dict[str, Any]) -> Dict[str, Any]:
         """
