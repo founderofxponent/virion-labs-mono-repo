@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from core.config import settings
 from routers import health, operations, auth, users, integrations, influencer, admin, analytics, tracking, templates, email, clients, scheduling
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -47,8 +48,12 @@ app.include_router(email.router, tags=["Email"])
 app.include_router(clients.router, tags=["Clients"])
 app.include_router(scheduling.router, tags=["Scheduling"])
 
+# Create temp_exports directory if it doesn't exist
+exports_dir = "temp_exports"
+os.makedirs(exports_dir, exist_ok=True)
+
 # Mount static files directory for exports
-app.mount("/exports", StaticFiles(directory="temp_exports"), name="exports")
+app.mount("/exports", StaticFiles(directory=exports_dir), name="exports")
 
 
 @app.get("/")
