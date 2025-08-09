@@ -6,3 +6,4 @@ export * from './campaign-onboarding-field';
 export * from './referral';
 export * from './user';
 export * from './campaign-wizard';
+export * from './product';

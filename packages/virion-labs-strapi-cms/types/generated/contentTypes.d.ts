@@ -936,6 +936,10 @@ export interface ApiDiscoveryCallDiscoveryCall
     };
   };
   attributes: {
+    call_status: Schema.Attribute.Enumeration<
+      ['scheduled', 'completed', 'cancelled']
+    > &
+      Schema.Attribute.DefaultTo<'scheduled'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -954,10 +958,6 @@ export interface ApiDiscoveryCallDiscoveryCall
     meeting_url: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     scheduled_at: Schema.Attribute.DateTime & Schema.Attribute.Required;
-    status: Schema.Attribute.Enumeration<
-      ['scheduled', 'completed', 'cancelled']
-    > &
-      Schema.Attribute.DefaultTo<'scheduled'>;
     timezone: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &

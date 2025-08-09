@@ -27,7 +27,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth()
   const pathname = usePathname()
   const router = useRouter()
-  const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
+  const roleName = (typeof profile?.role === 'string' ? profile.role : profile?.role?.name)?.toLowerCase()
 
   const handleSignOut = async () => {
     await signOut()
@@ -41,13 +41,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const getDashboardTitle = () => {
     switch (roleName) {
       case "admin":
-      case "Platform Administrator":
+      case "platform administrator":
         return "Admin Dashboard"
       case "client":
         return "Client Dashboard"
       case "influencer":
       default:
-        return "Influencer Dashboard"
+        return "Client Dashboard"
     }
   }
 

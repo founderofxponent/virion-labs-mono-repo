@@ -13,6 +13,7 @@ import {
   UserCheck,
   BarChart3,
   Mail,
+  Box,
 } from "lucide-react"
 import { cn, generateInitials } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -23,8 +24,8 @@ import { useAccessRequestsApi } from "@/hooks/use-access-requests-api"
 export function Sidebar() {
   const { profile } = useAuth()
   const pathname = usePathname()
-  const userRole = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
-  const isAdmin = userRole === "admin" || userRole === "Platform Administrator"
+  const userRole = (typeof profile?.role === 'string' ? profile.role : profile?.role?.name)?.toLowerCase()
+  const isAdmin = userRole === "admin" || userRole === "platform administrator"
   const isClient = userRole === "client"
   const { requests } = useAccessRequestsApi()
   const pendingCount = requests.filter(r => r.request_status === 'pending').length
@@ -110,9 +111,27 @@ export function Sidebar() {
   const clientNavItems = [
     {
       title: "Dashboard",
-      href: "/",
+      href: "/clients/dashboard",
       icon: LayoutDashboard,
-      active: pathname === "/",
+      active: pathname === "/clients/dashboard",
+    },
+    {
+      title: "Products",
+      href: "/clients/products",
+      icon: Box,
+      active: pathname === "/clients/products",
+    },
+    {
+      title: "Campaigns",
+      href: "/clients/campaigns",
+      icon: Target,
+      active: pathname === "/clients/campaigns" || pathname.startsWith("/clients/campaigns"),
+    },
+    {
+      title: "Create Campaign",
+      href: "/onboarding",
+      icon: Target,
+      active: pathname === "/onboarding",
     },
     {
       title: "Analytics",
@@ -193,7 +212,7 @@ export function Sidebar() {
           </Avatar>
           <div className="flex flex-col items-start text-left min-w-0 flex-1">
             <span className="font-medium text-sm truncate">{profile?.full_name}</span>
-            <span className="text-xs text-muted-foreground capitalize">{typeof profile?.role === 'string' ? profile.role : profile?.role?.name}</span>
+            <span className="text-xs text-muted-foreground capitalize">{(typeof profile?.role === 'string' ? profile.role : profile?.role?.name) || ''}</span>
           </div>
         </div>
       </div>

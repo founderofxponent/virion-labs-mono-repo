@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import api from "@/lib/api"
 
-export default function WorkWithUsPage() {
+function WorkWithUsContent() {
   const [date, setDate] = useState<Date | undefined>(undefined)
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
   const [booking, setBooking] = useState(false)
@@ -145,6 +145,14 @@ export default function WorkWithUsPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function WorkWithUsPage() {
+  return (
+    <Suspense>
+      <WorkWithUsContent />
+    </Suspense>
   )
 }
 

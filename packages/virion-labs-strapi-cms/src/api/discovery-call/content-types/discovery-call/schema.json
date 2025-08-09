@@ -15,15 +15,31 @@
     }
   },
   "attributes": {
-    "scheduled_at": { "type": "datetime", "required": true },
-    "timezone": { "type": "string" },
-    "duration_minutes": { "type": "integer", "default": 30 },
-    "google_event_id": { "type": "string" },
-    "meeting_url": { "type": "string" },
-    "status": {
+    "scheduled_at": {
+      "type": "datetime",
+      "required": true
+    },
+    "timezone": {
+      "type": "string"
+    },
+    "duration_minutes": {
+      "type": "integer",
+      "default": 30
+    },
+    "google_event_id": {
+      "type": "string"
+    },
+    "meeting_url": {
+      "type": "string"
+    },
+    "call_status": {
       "type": "enumeration",
       "default": "scheduled",
-      "enum": ["scheduled", "completed", "cancelled"]
+      "enum": [
+        "scheduled",
+        "completed",
+        "cancelled"
+      ]
     },
     "lead": {
       "type": "relation",

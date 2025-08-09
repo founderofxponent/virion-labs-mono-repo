@@ -6,27 +6,60 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/components/auth-provider"
 import { useDashboardData } from "@/hooks/use-dashboard-data"
 import { useUserSettings } from "@/hooks/use-user-settings"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 export default function Home() {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute allowedRoles={["Influencer", "admin", "Platform Administrator"]} redirectTo="/clients/dashboard">
       <DashboardContent />
     </ProtectedRoute>
   )
 }
 
 function DashboardContent() {
-  const { profile, loading: authLoading } = useAuth() 
+  const { profile, loading: authLoading } = useAuth()
+  const router = useRouter()
   const { settings } = useUserSettings()
-  const { loading: dataLoading, error: dataError, data, refetch } = useDashboardData(settings)
 
-  if (!authLoading && !profile) {
-    return null;
+  // Redirect Client role to client dashboard home for a focused experience
+  useEffect(() => {
+    const rawRole = typeof profile?.role === 'string' ? profile?.role : (profile?.role as { name?: string } | undefined)?.name
+    const roleName = rawRole?.toLowerCase()
+    if (!authLoading && roleName === 'client') {
+      router.replace('/clients/dashboard')
+    }
+  }, [authLoading, profile, router])
+
+  // Show loading state while checking role and potentially redirecting
+  if (authLoading || !profile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-pulse text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
   }
-  
-  if (!profile) {
-      return null; 
+
+  // Check if the user is a client and should be redirected
+  const rawRole = typeof profile.role === 'string' ? profile.role : (profile.role as { name?: string } | undefined)?.name
+  const roleName = rawRole?.toLowerCase()
+  if (roleName === 'client') {
+    // If the redirect hasn't happened yet, show a brief loading state
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-pulse text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Redirecting to client dashboard...</p>
+        </div>
+      </div>
+    );
   }
+
+  // Only load dashboard data for non-client users
+  const { loading: dataLoading, error: dataError, data, refetch } = useDashboardData(settings)
 
   if (dataLoading) {
     return (

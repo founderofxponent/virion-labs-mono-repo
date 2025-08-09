@@ -146,7 +146,7 @@ class ClientService:
             pass  # Admin can access all clients
         elif user_role == 'Client':
             # This logic might need adjustment based on how ownership is determined
-            filters["filters[owner][id][$eq]"] = current_user.id
+            filters["filters[contact_email][$eq]"] = current_user.email
         else:
             logger.warning(f"Forbidden: User with role '{user_role}' attempted to list clients.")
             raise HTTPException(status_code=403, detail=f"Forbidden: Your role ('{user_role}') does not have permission to list clients.")

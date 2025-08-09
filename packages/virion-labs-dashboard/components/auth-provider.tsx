@@ -18,7 +18,7 @@ export type UserProfile = {
   email: string
   full_name: string
   avatar_url: string | null
-  role: string | { name: string }
+  role: string | { name: string } | null
   created_at?: string
   updated_at?: string
 }
@@ -45,15 +45,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   const createProfileFromUser = (user: User): UserProfile => {
+    const rawRole = typeof user.role === 'object' ? (user.role as any)?.name : user.role
+
+    // If the API provides a role string, normalize it.
+    if (rawRole && typeof rawRole === 'string') {
+      const normalizedRole = rawRole.toLowerCase()
+      const profile = {
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name || user.email?.split('@')[0] || 'User',
+        avatar_url: user.avatar_url || null,
+        role: normalizedRole,
+      }
+      console.log("Created profile object (from explicit role):", profile)
+      return profile
+    }
+
+    // Heuristic detection when role is null/undefined in the API response.
+    // Look for common client/admin indicators returned by the API.
+    const looksLikeClient =
+      Boolean((user as any).client_id) ||
+      Boolean((user as any).client) ||
+      (Array.isArray((user as any).clients) && (user as any).clients.length > 0) ||
+      Boolean((user as any).is_client)
+
+    const looksLikeAdmin =
+      Boolean((user as any).is_admin) ||
+      Boolean((user as any).is_platform_admin) ||
+      (Array.isArray((user as any).permissions) && (user as any).permissions.includes('manage_users')) ||
+      (typeof (user as any).role === 'string' && (user as any).role?.toLowerCase()?.includes('admin'))
+
+    // Default to 'client' when ambiguous to avoid mistakenly showing influencer dashboard
+    const guessedRole = looksLikeClient ? 'client' : looksLikeAdmin ? 'admin' : 'client'
+
     const profile = {
       id: user.id,
       email: user.email,
       full_name: user.full_name || user.email?.split('@')[0] || 'User',
       avatar_url: user.avatar_url || null,
-      role: user.role || 'influencer', // Use the role from the API directly
-    };
-    console.log("Created profile object:", profile); // Log the created profile
-    return profile;
+      role: guessedRole,
+    }
+    console.log("Created profile object (guessed role):", profile) // Log the created profile
+    console.log("Raw role from API (was null/undefined):", user.role) // Debug the raw role
+    console.log("Heuristics -> looksLikeClient:", looksLikeClient, "looksLikeAdmin:", looksLikeAdmin)
+    return profile
   }
 
   const getUser = useCallback(async () => {
