@@ -420,7 +420,7 @@ class IntegrationService:
                 connection_data = {
                     "client": client_id,
                     "guild_id": guild_id,
-                    "status": "pending_sync",  # Waiting for /sync command
+                    "status": "pending",  # Waiting for /sync command
                     "last_synced_at": None
                 }
                 
