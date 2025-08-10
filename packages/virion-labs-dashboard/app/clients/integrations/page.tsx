@@ -6,8 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useClientDiscordConnections } from '@/hooks/use-client-discord-connections'
-import { useAuth } from '@/components/auth-provider'
-import { Bot, Link2, RefreshCw, Shield, ExternalLink, Hash, Crown, Users, Clock, Zap } from 'lucide-react'
+import { Bot, RefreshCw, ExternalLink, Hash, Crown, Users, Clock, Zap } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
@@ -163,7 +162,6 @@ function DiscordServerCard({ connection }: { connection: any }) {
 
 export default function ClientIntegrationsPage() {
   const { connections, loading, error, saving, upsert, refetch, installUrl } = useClientDiscordConnections()
-  const { user } = useAuth()
 
   return (
     <ProtectedRoute allowedRoles={["client", "admin", "Platform Administrator"]}>
@@ -195,20 +193,6 @@ export default function ClientIntegrationsPage() {
                     <Button variant="outline" onClick={refetch} disabled={loading} size="sm">
                       <RefreshCw className="h-4 w-4 mr-2" /> Refresh
                     </Button>
-                    {process.env.NODE_ENV === 'development' && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          console.log('Current installUrl:', installUrl)
-                          console.log('User:', user)
-                          console.log('Loading:', loading)
-                          console.log('Error:', error)
-                        }}
-                      >
-                        Debug
-                      </Button>
-                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -300,21 +284,7 @@ export default function ClientIntegrationsPage() {
               </div>
             )}
 
-            {/* Other Integrations */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {/* Placeholder for future integrations */}
-              <Card className="border-dashed">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="h-5 w-5" /> Coming soon
-                  </CardTitle>
-                  <CardDescription>More integrations like Slack, Notion, and GitHub.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-muted-foreground">We're building out a library of integrations to supercharge your campaigns.</div>
-                </CardContent>
-              </Card>
-            </div>
+            
           </div>
         </div>
       </DashboardLayout>
