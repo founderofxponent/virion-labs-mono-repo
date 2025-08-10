@@ -14,7 +14,7 @@ if (!API_URL || !API_KEY || !BOT_TOKEN) {
   process.exit(1)
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] })
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] })
 
 const commands = [
   new SlashCommandBuilder()
@@ -70,9 +70,19 @@ client.on('interactionCreate', async (interaction) => {
   await guild.roles.fetch()
   await guild.channels.fetch()
 
+  // Try to fetch members to compute per-role member counts.
+  // Requires the Server Members Intent to be enabled in the Discord developer portal.
+  let membersFetched = false
+  try {
+    await guild.members.fetch()
+    membersFetched = true
+  } catch (e) {
+    console.warn('Guild members fetch failed (missing privileged intent?)', e.message)
+  }
+
   const roles = guild.roles.cache
     .filter(r => !r.managed)
-    .map(r => ({ id: r.id, name: r.name, color: r.color }))
+    .map(r => ({ id: r.id, name: r.name, color: r.color, memberCount: membersFetched ? r.members.size : null }))
 
   const channels = guild.channels.cache
     .filter(c => c.isTextBased?.())

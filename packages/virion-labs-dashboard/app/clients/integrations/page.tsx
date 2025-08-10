@@ -6,13 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useClientDiscordConnections } from '@/hooks/use-client-discord-connections'
-import { Bot, RefreshCw, ExternalLink, Hash, Crown, Users, Clock, Zap } from 'lucide-react'
+import { Bot, RefreshCw, ExternalLink, Hash, Crown, Users, Clock, Zap, CheckCircle2, AlertCircle, Volume2, FolderTree, Mic2, Megaphone, MessageSquare, ChevronRight, Shield, Star } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 
 function DiscordServerCard({ connection }: { connection: any }) {
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [channelsExpanded, setChannelsExpanded] = useState(false)
+  const [rolesExpanded, setRolesExpanded] = useState(false)
   
   const formatChannelType = (type?: number) => {
     switch (type) {
@@ -46,6 +47,21 @@ function DiscordServerCard({ connection }: { connection: any }) {
     return `${diffDays}d ago`
   }
 
+  const channelIcon = (type?: number) => {
+    const cls = "h-3 w-3 text-muted-foreground shrink-0"
+    switch (type) {
+      case 0: return <Hash className={cls} />
+      case 2: return <Volume2 className={cls} />
+      case 4: return <FolderTree className={cls} />
+      case 5: return <Megaphone className={cls} />
+      case 13: return <Mic2 className={cls} />
+      case 15: return <MessageSquare className={cls} />
+      default: return <Hash className={cls} />
+    }
+  }
+
+  const status: 'connected' | 'pending' | 'not_connected' = (connection.status || (connection.last_synced_at ? 'connected' : 'pending'))
+
   return (
     <Card className="border-2">
       <CardHeader className="pb-4">
@@ -73,86 +89,142 @@ function DiscordServerCard({ connection }: { connection: any }) {
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <Badge variant={connection.status === 'connected' ? 'default' : 'secondary'}>
-              {connection.status || 'connected'}
+            <Badge className={`text-xs border ${status === 'connected' ? 'bg-green-50 text-green-700 border-green-200' : status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+              {status === 'connected' ? (
+                <span className="inline-flex items-center"><CheckCircle2 className="h-3 w-3 mr-1" /> Synced</span>
+              ) : status === 'pending' ? (
+                <span className="inline-flex items-center"><Clock className="h-3 w-3 mr-1" /> Pending sync</span>
+              ) : (
+                <span className="inline-flex items-center"><AlertCircle className="h-3 w-3 mr-1" /> Not connected</span>
+              )}
             </Badge>
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
-              <span>{formatLastSync(connection.last_synced_at)}</span>
+              <span title={connection.last_synced_at ? new Date(connection.last_synced_at).toLocaleString() : 'Never synced'}>
+                {formatLastSync(connection.last_synced_at)}
+              </span>
             </div>
           </div>
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0">
-        <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full justify-between h-8 mb-3">
-              <span className="text-sm font-medium">Server Details</span>
-              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-          </CollapsibleTrigger>
-          
-          <CollapsibleContent className="space-y-4">
-            {/* Channels Section */}
-            {connection.channels && connection.channels.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <Hash className="h-4 w-4" />
-                  Channels ({connection.channels.length})
-                </h4>
-                <div className="grid gap-2 max-h-40 overflow-y-auto">
-                  {connection.channels.map((channel: any) => (
-                    <div key={channel.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <Hash className="h-3 w-3 text-muted-foreground shrink-0" />
-                        <span className="text-sm font-medium truncate">{channel.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline" className="text-xs">
+      <CardContent className="pt-0 space-y-4">
+        {/* Channels Section */}
+        {connection.channels && connection.channels.length > 0 && (
+          <div className="space-y-3">
+            <Collapsible open={channelsExpanded} onOpenChange={setChannelsExpanded}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between h-8">
+                  <div className="flex items-center gap-2">
+                    <Hash className="h-4 w-4" />
+                    <span className="text-sm font-medium">Channels</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {connection.channels.length}
+                    </Badge>
+                  </div>
+                  {channelsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent className="mt-3">
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {connection.channels
+                    .sort((a: any, b: any) => {
+                      // Sort by type first (text channels first), then by name
+                      if (a.type !== b.type) {
+                        const typeOrder = [0, 5, 15, 4, 2, 13]; // text, announcement, forum, category, voice, stage
+                        return (typeOrder.indexOf(a.type) || 999) - (typeOrder.indexOf(b.type) || 999);
+                      }
+                      return a.name.localeCompare(b.name);
+                    })
+                    .map((channel: any) => (
+                      <div key={channel.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          {channelIcon(channel.type)}
+                          <span className="text-sm font-medium">#{channel.name}</span>
+                          {channel.topic && (
+                            <span className="text-xs text-muted-foreground truncate ml-2" title={channel.topic}>
+                              — {channel.topic}
+                            </span>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="text-[10px] shrink-0">
                           {formatChannelType(channel.type)}
                         </Badge>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
-              </div>
-            )}
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        )}
 
-            {/* Roles Section */}
-            {connection.roles && connection.roles.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <Crown className="h-4 w-4" />
-                  Roles ({connection.roles.length})
-                </h4>
-                <div className="grid gap-2 max-h-40 overflow-y-auto">
-                  {connection.roles.map((role: any) => (
-                    <div key={role.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
+        {/* Roles Section */}
+        {connection.roles && connection.roles.length > 0 && (
+          <div className="space-y-3">
+            <Collapsible open={rolesExpanded} onOpenChange={setRolesExpanded}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between h-8">
+                  <div className="flex items-center gap-2">
+                    <Crown className="h-4 w-4" />
+                    <span className="text-sm font-medium">Roles</span>
+                    <Badge variant="secondary" className="text-xs">
+                      {connection.roles.filter((role: any) => role.name !== '@everyone').length}
+                    </Badge>
+                  </div>
+                  {rolesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              
+              <CollapsibleContent className="mt-3">
+                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
+                  {connection.roles
+                    .filter((role: any) => role.name !== '@everyone')
+                    .sort((a: any, b: any) => {
+                      // Sort by member count (desc) then name
+                      if (a.memberCount && b.memberCount && a.memberCount !== b.memberCount) {
+                        return b.memberCount - a.memberCount;
+                      }
+                      return a.name.localeCompare(b.name);
+                    })
+                    .map((role: any) => (
+                      <div 
+                        key={role.id} 
+                        className="flex items-center gap-2 px-3 py-1.5 bg-muted/20 border rounded-full hover:bg-muted/40 transition-colors"
+                      >
                         <div 
-                          className="w-3 h-3 rounded-full shrink-0" 
+                          className="w-2.5 h-2.5 rounded-full shrink-0" 
                           style={{ backgroundColor: formatColor(role.color) }}
                         />
-                        <span className="text-sm font-medium truncate">{role.name}</span>
+                        <span className="text-sm font-medium">
+                          {role.name?.startsWith('@') ? role.name : `@${role.name}`}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                          {role.memberCount ?? '?'}
+                        </Badge>
                       </div>
-                      {role.memberCount && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                          <Users className="h-3 w-3" />
-                          <span>{role.memberCount}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    ))}
                 </div>
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        )}
         
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-xs text-blue-800">
-            Run <code className="px-1 py-0.5 bg-blue-100 rounded font-mono">/sync</code> in your Discord server to refresh this data.
+        <div className={`mt-4 p-3 rounded-lg ${
+          status === 'pending' 
+            ? 'bg-orange-50 border border-orange-200' 
+            : 'bg-blue-50 border border-blue-200'
+        }`}>
+          <p className={`text-xs ${
+            status === 'pending' ? 'text-orange-800' : 'text-blue-800'
+          }`}>
+            {status === 'pending' ? (
+              <>Run <code className="px-1 py-0.5 bg-orange-100 rounded font-mono">/sync</code> in your Discord server then click Refresh to complete setup.</>
+            ) : status === 'connected' ? (
+              <>Run <code className="px-1 py-0.5 bg-blue-100 rounded font-mono">/sync</code> in your Discord server to refresh this data.</>
+            ) : (
+              <>Install the bot above, then run <code className="px-1 py-0.5 bg-blue-100 rounded font-mono">/sync</code> in your Discord server to get started.</>
+            )}
           </p>
         </div>
       </CardContent>
@@ -269,7 +341,7 @@ export default function ClientIntegrationsPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Connected Servers ({connections.length})</h3>
                   <Badge variant="outline" className="text-xs">
-                    {connections.filter(c => c.status === 'connected').length} active
+                    {connections.filter(c => c.status === 'connected' || (!c.status && c.last_synced_at)).length} active
                   </Badge>
                 </div>
                 
@@ -291,3 +363,4 @@ export default function ClientIntegrationsPage() {
     </ProtectedRoute>
   )
 }
+

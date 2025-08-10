@@ -318,6 +318,23 @@ class IntegrationService:
             "status": "connected"
         }
 
+        # Debug log a small sample to verify memberCount is flowing through
+        try:
+            sample_roles = payload.get("roles") or []
+            sample_preview = [
+                {
+                    "id": r.get("id"),
+                    "name": r.get("name"),
+                    "memberCount": r.get("memberCount"),
+                }
+                for r in (sample_roles[:3] if isinstance(sample_roles, list) else [])
+            ]
+            logger.info(
+                f"Bot sync upsert for guild {request.guild_id}: roles={len(sample_roles)} sample={sample_preview}"
+            )
+        except Exception:
+            pass
+
         if items:
             # In Strapi v5, use documentId for updates instead of numeric id
             record_document_id = items[0].get('documentId')
