@@ -89,6 +89,8 @@ class ClientDiscordConnection(BaseModel):
     guild_id: str
     guild_name: Optional[str] = None
     guild_icon_url: Optional[str] = None
+    discord_user_id: Optional[str] = None
+    discord_username: Optional[str] = None
     channels: Optional[List[DiscordChannel]] = None
     roles: Optional[List[DiscordRole]] = None
     status: Optional[str] = None
@@ -112,6 +114,8 @@ class ClientDiscordConnectionBotSyncRequest(BaseModel):
     guild_id: str
     guild_name: Optional[str] = None
     guild_icon_url: Optional[str] = None
+    discord_user_id: Optional[str] = None
+    discord_username: Optional[str] = None
     channels: Optional[List[DiscordChannel]] = None
     roles: Optional[List[DiscordRole]] = None
 

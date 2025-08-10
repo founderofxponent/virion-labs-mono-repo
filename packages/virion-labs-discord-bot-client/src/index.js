@@ -83,6 +83,8 @@ client.on('interactionCreate', async (interaction) => {
     guild_id: guild.id,
     guild_name: guild.name,
     guild_icon_url: guild.iconURL() || undefined,
+    discord_user_id: interaction.user.id,
+    discord_username: interaction.user.username,
     channels,
     roles,
   }
