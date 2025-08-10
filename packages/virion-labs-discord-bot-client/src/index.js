@@ -1,5 +1,9 @@
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } from 'discord.js'
 import fetch from 'node-fetch'
+import dotenv from 'dotenv'
+
+// Load environment variables
+dotenv.config()
 
 const API_URL = process.env.BUSINESS_LOGIC_API_URL
 const API_KEY = process.env.BUSINESS_LOGIC_API_KEY
@@ -18,8 +22,8 @@ const commands = [
     .setDescription('Sync channels and roles to Virion Labs dashboard')
     .addStringOption(opt => opt
       .setName('client')
-      .setDescription('Client documentId provided by the dashboard')
-      .setRequired(true)
+      .setDescription('Client documentId (optional - auto-detected if linked)')
+      .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .toJSON()
@@ -48,7 +52,28 @@ client.on('interactionCreate', async (interaction) => {
   await interaction.deferReply({ ephemeral: true })
   const guild = interaction.guild
   if (!guild) return interaction.editReply('This command must be used in a server.')
-  const clientDocumentId = interaction.options.getString('client', true)
+  
+  let clientDocumentId = interaction.options.getString('client', false)
+  
+  // If no client provided, try to auto-detect
+  if (!clientDocumentId) {
+    try {
+      const findClientRes = await fetch(`${API_URL}/api/v1/integrations/discord/client/find-by-guild/${guild.id}`, {
+        headers: { 'x-api-key': API_KEY }
+      })
+      
+      if (findClientRes.ok) {
+        const clientData = await findClientRes.json()
+        clientDocumentId = clientData.client_document_id
+      }
+    } catch (e) {
+      console.warn('Failed to auto-detect client:', e.message)
+    }
+    
+    if (!clientDocumentId) {
+      return interaction.editReply('❌ Could not auto-detect client. Please provide your client ID: `/sync client:<your-client-id>`\n\nYou can find your client ID in your Virion Labs dashboard.')
+    }
+  }
 
   await guild.roles.fetch()
   await guild.channels.fetch()

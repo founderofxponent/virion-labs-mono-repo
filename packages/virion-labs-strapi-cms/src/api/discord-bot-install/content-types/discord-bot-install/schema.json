@@ -1,0 +1,48 @@
+{
+  "kind": "collectionType",
+  "collectionName": "discord_bot_installs",
+  "info": {
+    "singularName": "discord-bot-install",
+    "pluralName": "discord-bot-installs",
+    "displayName": "Discord Bot Install",
+    "description": "Tracks Discord bot installations and OAuth states for client linking"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "client": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::client.client",
+      "inversedBy": "discord_bot_installs"
+    },
+    "state": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "guild_id": {
+      "type": "string"
+    },
+    "guild_name": {
+      "type": "string"
+    },
+    "oauth_permissions": {
+      "type": "string"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["pending", "completed", "failed"],
+      "default": "pending"
+    },
+    "expires_at": {
+      "type": "datetime",
+      "required": true
+    },
+    "completed_at": {
+      "type": "datetime"
+    }
+  }
+}

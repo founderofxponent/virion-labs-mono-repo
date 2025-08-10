@@ -71,6 +71,12 @@
       "relation": "oneToMany",
       "target": "api::client-discord-connection.client-discord-connection",
       "mappedBy": "client"
+    },
+    "discord_bot_installs": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::discord-bot-install.discord-bot-install",
+      "mappedBy": "client"
     }
   }
 }

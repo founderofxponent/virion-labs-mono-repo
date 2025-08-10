@@ -157,3 +157,46 @@ async def start_client_guild_sync(request: ClientDiscordSyncStartRequest, curren
     except Exception as e:
         logger.error(f"Failed to start guild sync: {e}")
         raise HTTPException(status_code=500, detail="Failed to start sync")
+
+@router.get("/discord/client/oauth-callback")
+async def discord_oauth_callback(code: str = None, state: str = None, guild_id: str = None, permissions: str = None, error: str = None):
+    """Handle Discord OAuth callback after bot installation."""
+    from fastapi.responses import JSONResponse
+    
+    if error:
+        logger.error(f"Discord OAuth error: {error}")
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": f"Discord authorization failed: {error}"}
+        )
+    
+    if not code or not state:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": "Missing required parameters"}
+        )
+    
+    try:
+        result = await integration_service.handle_discord_oauth_callback(code, state, guild_id, permissions)
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Failed to handle Discord OAuth callback: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Failed to process bot installation"}
+        )
+
+@router.get("/discord/client/find-by-guild/{guild_id}", dependencies=[Depends(get_api_key)])
+async def find_client_by_guild(guild_id: str):
+    """Find client document ID associated with a Discord guild."""
+    try:
+        client_document_id = await integration_service.find_client_by_guild(guild_id)
+        if client_document_id:
+            return {"client_document_id": client_document_id}
+        else:
+            raise HTTPException(status_code=404, detail="No client found for this guild")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to find client by guild: {e}")
+        raise HTTPException(status_code=500, detail="Failed to find client")

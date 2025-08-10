@@ -876,6 +876,10 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    discord_bot_installs: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::discord-bot-install.discord-bot-install'
+    >;
     discord_connections: Schema.Attribute.Relation<
       'oneToMany',
       'api::client-discord-connection.client-discord-connection'
@@ -898,6 +902,46 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     website: Schema.Attribute.String;
+  };
+}
+
+export interface ApiDiscordBotInstallDiscordBotInstall
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'discord_bot_installs';
+  info: {
+    description: 'Tracks Discord bot installations and OAuth states for client linking';
+    displayName: 'Discord Bot Install';
+    pluralName: 'discord-bot-installs';
+    singularName: 'discord-bot-install';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    client: Schema.Attribute.Relation<'manyToOne', 'api::client.client'>;
+    completed_at: Schema.Attribute.DateTime;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    expires_at: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    guild_id: Schema.Attribute.String;
+    guild_name: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::discord-bot-install.discord-bot-install'
+    > &
+      Schema.Attribute.Private;
+    oauth_permissions: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    state: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    status: Schema.Attribute.Enumeration<['pending', 'completed', 'failed']> &
+      Schema.Attribute.DefaultTo<'pending'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -1870,6 +1914,7 @@ declare module '@strapi/strapi' {
       'api::client-discord-connection.client-discord-connection': ApiClientDiscordConnectionClientDiscordConnection;
       'api::client-lead.client-lead': ApiClientLeadClientLead;
       'api::client.client': ApiClientClient;
+      'api::discord-bot-install.discord-bot-install': ApiDiscordBotInstallDiscordBotInstall;
       'api::discord-request-access.discord-request-access': ApiDiscordRequestAccessDiscordRequestAccess;
       'api::discord-setting.discord-setting': ApiDiscordSettingDiscordSetting;
       'api::discovery-call.discovery-call': ApiDiscoveryCallDiscoveryCall;

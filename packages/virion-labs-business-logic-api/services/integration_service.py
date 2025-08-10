@@ -329,24 +329,199 @@ class IntegrationService:
         )
 
     async def generate_client_bot_install_url(self, current_user) -> str:
-        """Generate OAuth2 install URL for the client-only bot."""
-        # Bot client ID should be configured via env; placeholder reads from settings.API_URL as base
-        # For now, construct a generic invite requiring applications.commands + bot
-        client_bot_client_id = getattr(settings, 'DISCORD_CLIENT_BOT_CLIENT_ID', None)
-        if not client_bot_client_id:
-            # Allow dashboard to render a placeholder linking to docs
-            raise ValueError("Client bot client ID not configured")
-        scopes = ["bot", "applications.commands"]
-        permissions = 0  # ask minimal; admin can adjust
-        return (
-            f"https://discord.com/api/oauth2/authorize?client_id={client_bot_client_id}"
-            f"&permissions={permissions}&scope={'%20'.join(scopes)}&response_type=code"
-        )
+        """Generate OAuth2 install URL for the client-only bot with client state parameter."""
+        try:
+            import secrets
+            from urllib.parse import quote
+            
+            client_bot_client_id = getattr(settings, 'DISCORD_CLIENT_BOT_CLIENT_ID', None)
+            logger.info(f"Discord client bot client ID: {client_bot_client_id}")
+            if not client_bot_client_id:
+                raise ValueError("Client bot client ID not configured")
+            
+            # Get client document ID
+            from services.client_service import client_service
+            result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result.get('clients', [])
+            if not clients:
+                raise ValueError("No client associated with current user")
+            
+            client_document_id = clients[0].get('documentId')
+            if not client_document_id:
+                raise ValueError("Client document ID not found")
+            
+            # Generate unique state parameter and store it
+            state = secrets.token_urlsafe(32)
+            
+            # Store the bot install record for OAuth callback
+            from datetime import timedelta
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)  # 15-minute expiration
+            
+            bot_install_data = {
+                "client": clients[0].get('id'),  # Strapi relation ID
+                "state": state,
+                "expires_at": expires_at.isoformat(),
+                "status": "pending"
+            }
+            
+            await strapi_client._request("POST", "discord-bot-installs", data={"data": bot_install_data})
+            
+            scopes = ["bot", "applications.commands"]
+            permissions = 268435456  # View Channels + Send Messages + Use Slash Commands
+            redirect_uri = f"{settings.FRONTEND_URL}/clients/integrations/discord-callback"
+            
+            return (
+                f"https://discord.com/api/oauth2/authorize?client_id={client_bot_client_id}"
+                f"&permissions={permissions}&scope={'%20'.join(scopes)}"
+                f"&state={quote(state)}&redirect_uri={quote(redirect_uri)}&response_type=code"
+            )
+        except Exception as e:
+            logger.error(f"Error generating install URL: {str(e)}", exc_info=True)
+            raise
 
     async def start_client_guild_sync(self, guild_id: str, current_user) -> Dict[str, Any]:
         """Optional server-side kick-off; for now, just acknowledges request."""
         # In future, we could DM the client bot or schedule a job. For MVP, return ack
         return {"status": "pending", "guild_id": guild_id}
+    
+    async def handle_discord_oauth_callback(self, code: str, state: str, guild_id: str = None, permissions: str = None) -> Dict[str, Any]:
+        """Handle Discord OAuth callback after bot installation."""
+        try:
+            # Verify state parameter and get the associated client
+            bot_install = await strapi_client._request(
+                "GET", 
+                "discord-bot-installs", 
+                params={
+                    "filters[state][$eq]": state,
+                    "filters[status][$eq]": "pending",
+                    "populate[0]": "client"
+                }
+            )
+            
+            install_records = bot_install.get('data', [])
+            if not install_records:
+                return {"success": False, "message": "Invalid or expired state parameter"}
+            
+            install_record = install_records[0]
+            
+            # Check if state has expired (Strapi v5 structure)
+            from datetime import datetime
+            expires_at = datetime.fromisoformat(install_record['expires_at'].replace('Z', '+00:00'))
+            if datetime.now(timezone.utc) > expires_at:
+                return {"success": False, "message": "Installation state has expired"}
+            
+            client_id = install_record['client']['id']
+            client_document_id = install_record['client']['documentId']
+            
+            # If guild_id is provided (from redirect_uri params), store the guild-client mapping
+            if guild_id:
+                # Create a preliminary client-discord-connection record
+                connection_data = {
+                    "client": client_id,
+                    "guild_id": guild_id,
+                    "status": "not_connected",  # Will be updated when /sync is run
+                    "last_synced_at": None
+                }
+                
+                # Check if connection already exists
+                existing_connections = await strapi_client._request(
+                    "GET",
+                    "client-discord-connections",
+                    params={
+                        "filters[guild_id][$eq]": guild_id,
+                        "filters[client][id][$eq]": client_id
+                    }
+                )
+                
+                if not existing_connections.get('data'):
+                    # Create new connection
+                    await strapi_client._request("POST", "client-discord-connections", data={"data": connection_data})
+                
+                # Update bot install record
+                await strapi_client._request(
+                    "PUT", 
+                    f"discord-bot-installs/{install_record['id']}", 
+                    data={
+                        "data": {
+                            "guild_id": guild_id,
+                            "oauth_permissions": permissions,
+                            "status": "completed",
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+                
+                return {
+                    "success": True, 
+                    "message": "Bot installed successfully! Run /sync in your Discord server to complete setup.",
+                    "client_document_id": client_document_id,
+                    "guild_id": guild_id
+                }
+            else:
+                # Mark as completed even without guild_id (partial success)
+                await strapi_client._request(
+                    "PUT", 
+                    f"discord-bot-installs/{install_record['id']}", 
+                    data={
+                        "data": {
+                            "oauth_permissions": permissions,
+                            "status": "completed",
+                            "completed_at": datetime.now(timezone.utc).isoformat()
+                        }
+                    }
+                )
+                
+                return {
+                    "success": True, 
+                    "message": "Bot installation completed. Run /sync in your Discord server to link it to your account.",
+                    "client_document_id": client_document_id
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to handle Discord OAuth callback: {e}")
+            return {"success": False, "message": "Failed to process bot installation"}
+    
+    async def find_client_by_guild(self, guild_id: str) -> Optional[str]:
+        """Find client document ID associated with a guild."""
+        try:
+            # First try to find via client-discord-connection
+            connections = await strapi_client._request(
+                "GET",
+                "client-discord-connections", 
+                params={
+                    "filters[guild_id][$eq]": guild_id,
+                    "populate[0]": "client"
+                }
+            )
+            
+            connection_records = connections.get('data', [])
+            if connection_records:
+                client_data = connection_records[0]['client']
+                if client_data:
+                    return client_data['documentId']
+            
+            # If not found, try via discord-bot-installs
+            installs = await strapi_client._request(
+                "GET",
+                "discord-bot-installs",
+                params={
+                    "filters[guild_id][$eq]": guild_id,
+                    "filters[status][$eq]": "completed",
+                    "populate[0]": "client"
+                }
+            )
+            
+            install_records = installs.get('data', [])
+            if install_records:
+                client_data = install_records[0]['client']
+                if client_data:
+                    return client_data['documentId']
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to find client by guild {guild_id}: {e}")
+            return None
 
     async def request_discord_access(self, access_data: Dict[str, Any]) -> Dict[str, Any]:
         """

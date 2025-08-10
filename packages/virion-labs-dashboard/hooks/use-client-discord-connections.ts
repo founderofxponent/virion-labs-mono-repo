@@ -54,15 +54,44 @@ export function useClientDiscordConnections() {
 
   const fetchInstallUrl = useCallback(async () => {
     try {
+      const token = getToken()
+      if (!token) {
+        console.log('No auth token found for install URL fetch')
+        return
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/v1/integrations/discord/client/install-url`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        headers: { Authorization: `Bearer ${token}` },
       })
+      
+      if (!res.ok) {
+        const errorText = await res.text()
+        console.error('Failed to fetch install URL:', res.status, errorText)
+        setError(`Failed to get bot installation URL: ${res.status}`)
+        return
+      }
+
       const data = await res.json()
-      if (res.ok && data.install_url) setInstallUrl(data.install_url)
-    } catch {}
+      console.log('Install URL response:', data)
+      
+      if (data.install_url) {
+        setInstallUrl(data.install_url)
+        console.log('Install URL set:', data.install_url)
+      } else {
+        console.error('No install_url in response:', data)
+        setError('No installation URL received from server')
+      }
+    } catch (error) {
+      console.error('Error fetching install URL:', error)
+      setError('Failed to connect to server')
+    }
   }, [])
 
-  useEffect(() => { fetchInstallUrl() }, [fetchInstallUrl])
+  useEffect(() => { 
+    if (user) {
+      fetchInstallUrl() 
+    }
+  }, [fetchInstallUrl, user])
 
   const upsert = useCallback(async (payload: Partial<ClientDiscordConnection>) => {
     setSaving(true)
