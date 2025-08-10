@@ -20,11 +20,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName('sync')
     .setDescription('Sync channels and roles to Virion Labs dashboard')
-    .addStringOption(opt => opt
-      .setName('client')
-      .setDescription('Client documentId (optional - auto-detected if linked)')
-      .setRequired(false)
-    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .toJSON()
 ]
@@ -53,26 +48,23 @@ client.on('interactionCreate', async (interaction) => {
   const guild = interaction.guild
   if (!guild) return interaction.editReply('This command must be used in a server.')
   
-  let clientDocumentId = interaction.options.getString('client', false)
-  
-  // If no client provided, try to auto-detect
-  if (!clientDocumentId) {
-    try {
-      const findClientRes = await fetch(`${API_URL}/api/v1/integrations/discord/client/find-by-guild/${guild.id}`, {
-        headers: { 'x-api-key': API_KEY }
-      })
-      
-      if (findClientRes.ok) {
-        const clientData = await findClientRes.json()
-        clientDocumentId = clientData.client_document_id
-      }
-    } catch (e) {
-      console.warn('Failed to auto-detect client:', e.message)
-    }
+  // Auto-detect client from guild mapping (created during OAuth callback)
+  let clientDocumentId
+  try {
+    const findClientRes = await fetch(`${API_URL}/api/v1/integrations/discord/client/find-by-guild/${guild.id}`, {
+      headers: { 'x-api-key': API_KEY }
+    })
     
-    if (!clientDocumentId) {
-      return interaction.editReply('❌ Could not auto-detect client. Please provide your client ID: `/sync client:<your-client-id>`\n\nYou can find your client ID in your Virion Labs dashboard.')
+    if (findClientRes.ok) {
+      const clientData = await findClientRes.json()
+      clientDocumentId = clientData.client_document_id
     }
+  } catch (e) {
+    console.warn('Failed to find client for guild:', e.message)
+  }
+  
+  if (!clientDocumentId) {
+    return interaction.editReply('❌ This Discord server is not connected to any Virion Labs client. Please install the bot through your dashboard first.\n\nGo to your Virion Labs dashboard → Integrations → Click "Install Bot" to connect this server.')
   }
 
   await guild.roles.fetch()
