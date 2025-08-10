@@ -200,3 +200,13 @@ async def find_client_by_guild(guild_id: str):
     except Exception as e:
         logger.error(f"Failed to find client by guild: {e}")
         raise HTTPException(status_code=500, detail="Failed to find client")
+
+@router.get("/discord/client/pending-connections", dependencies=[Depends(get_api_key)])
+async def get_pending_connections():
+    """Get all pending Discord connections that need to be synced."""
+    try:
+        pending_connections = await integration_service.get_pending_connections()
+        return pending_connections
+    except Exception as e:
+        logger.error(f"Failed to get pending connections: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get pending connections")

@@ -489,6 +489,43 @@ class IntegrationService:
             logger.error(f"Failed to find client by guild {guild_id}: {e}")
             return None
 
+    async def get_pending_connections(self) -> List[Dict[str, Any]]:
+        """Get all Discord connections with pending status that need to be synced."""
+        try:
+            # Find all connections with status 'pending'
+            connections = await strapi_client._request(
+                "GET",
+                "client-discord-connections", 
+                params={
+                    "filters[status][$eq]": "pending",
+                    "populate[0]": "client"
+                }
+            )
+            
+            connection_records = connections.get('data', [])
+            pending_connections = []
+            
+            for record in connection_records:
+                attrs = record.get('attributes', record)
+                client_data = attrs.get('client')
+                
+                if client_data:
+                    pending_connections.append({
+                        "id": record.get('id'),
+                        "guild_id": attrs.get('guild_id'),
+                        "guild_name": attrs.get('guild_name'),
+                        "client_document_id": client_data.get('documentId'),
+                        "status": attrs.get('status'),
+                        "last_synced_at": attrs.get('last_synced_at')
+                    })
+            
+            logger.info(f"Found {len(pending_connections)} pending connections")
+            return pending_connections
+            
+        except Exception as e:
+            logger.error(f"Failed to get pending connections: {e}")
+            return []
+
     async def request_discord_access(self, access_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Business operation for handling a Discord access request.
