@@ -14,6 +14,7 @@ import {
   BarChart3,
   Mail,
   Box,
+  Plug,
 } from "lucide-react"
 import { cn, generateInitials } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -128,22 +129,10 @@ export function Sidebar() {
       active: pathname === "/clients/campaigns" || pathname.startsWith("/clients/campaigns"),
     },
     {
-      title: "Create Campaign",
-      href: "/onboarding",
-      icon: Target,
-      active: pathname === "/onboarding",
-    },
-    {
       title: "Integrations",
       href: "/clients/integrations",
-      icon: Settings,
+      icon: Plug,
       active: pathname === "/clients/integrations",
-    },
-    {
-      title: "Analytics",
-      href: "/analytics",
-      icon: BarChart3,
-      active: pathname === "/analytics",
     },
     {
       title: "Settings",

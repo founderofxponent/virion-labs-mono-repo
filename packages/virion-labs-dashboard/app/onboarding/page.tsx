@@ -1,21 +1,23 @@
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { ClientOnboarding } from "@/components/client-onboarding"
 import { ProtectedRoute } from "@/components/protected-route"
 
 export default function ClientOnboardingPage() {
-  // In a real implementation, these would come from URL params or user session
-  const clientId = "demo-client-id"
-  const clientName = "Demo Client"
+  const router = useRouter()
+  
+  useEffect(() => {
+    // Redirect to the new campaign creation page
+    router.replace("/clients/campaigns?create=1")
+  }, [router])
   
   return (
-    <ProtectedRoute allowedRoles={["client", "admin"]}>
+    <ProtectedRoute allowedRoles={["client", "admin", "Platform Administrator"]}>
       <DashboardLayout>
-        <ClientOnboarding 
-          clientId={clientId}
-          clientName={clientName}
-        />
-        <div className="mt-6 text-sm text-muted-foreground">
-          Discord sync has moved to Clients → Integrations. Connect your server there; synced channels and roles will appear in Step 3.
+        <div className="flex items-center justify-center min-h-[400px]">
+          <p className="text-muted-foreground">Redirecting to campaign creation...</p>
         </div>
       </DashboardLayout>
     </ProtectedRoute>

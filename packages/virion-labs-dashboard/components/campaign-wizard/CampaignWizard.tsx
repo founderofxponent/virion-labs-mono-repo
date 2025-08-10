@@ -51,6 +51,12 @@ import { CampaignWizardSkeleton } from "./CampaignWizardSkeleton"
 interface CampaignWizardProps {
   mode: "create" | "edit"
   campaignId?: string
+  // When true, hides the built-in header (used when embedding in a dialog)
+  hideHeader?: boolean
+  // Control navigation after save: provide a path to navigate to, or pass null to disable navigation
+  afterSaveNavigateTo?: string | null
+  // Optional callback invoked after a successful save with the saved campaign
+  onSaved?: (campaign: Campaign) => void
 }
 
 
@@ -65,7 +71,7 @@ const TABS = [
   { id: 7, title: "Review & Save", icon: Save },
 ];
 
-export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
+export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigateTo, onSaved }: CampaignWizardProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [currentStep, setCurrentStep] = useState(mode === 'create' ? 0 : 1)
@@ -278,7 +284,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     console.log('🏠 Landing page data effect triggered:', { mode, landingPage, hasLandingPage: !!landingPage });
     if (mode === 'edit' && landingPage) {
       console.log('🏠 Processing landing page data:', landingPage);
-      const { id, campaign, createdAt, updatedAt, publishedAt, documentId, ...rest } = landingPage;
+      // Loosen destructure to avoid TS errors for fields that may not exist on the type
+      const { id, campaign, ...rest } = (landingPage as any);
       console.log('🏠 Extracted rest data:', rest);
       setFormData(prev => {
         const newFormData = {
@@ -515,7 +522,17 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         title: "Success!",
         description: `Campaign ${mode === 'create' ? 'created' : 'updated'} successfully!`,
       });
-      router.push('/bot-campaigns');
+      // Notify parent if provided
+      try {
+        if (onSaved && savedCampaign) onSaved(savedCampaign as any);
+      } catch (e) {
+        console.error('onSaved callback errored:', e);
+      }
+      // Determine navigation behavior
+      const dest = (afterSaveNavigateTo === undefined) ? '/bot-campaigns' : afterSaveNavigateTo;
+      if (dest) {
+        router.push(dest);
+      }
       router.refresh();
     } catch (error) {
       console.error(`Error saving campaign:`, error);
@@ -549,15 +566,17 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Campaigns
-        </Button>
-        <h1 className="text-2xl font-bold">
-          {mode === 'create' ? 'Create New Campaign' : 'Edit Campaign'}
-        </h1>
-      </div>
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-6">
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Campaigns
+          </Button>
+          <h1 className="text-2xl font-bold">
+            {mode === 'create' ? 'Create New Campaign' : 'Edit Campaign'}
+          </h1>
+        </div>
+      )}
       <div className="flex gap-6 h-[calc(100vh-200px)]">
         {/* Fixed Left Sidebar */}
         <nav className="flex-shrink-0 w-64">

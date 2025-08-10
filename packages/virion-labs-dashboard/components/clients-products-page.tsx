@@ -2,17 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import { useProductsAPI } from '@/hooks/use-products-api'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { AlertCircle, Package, Plus, Edit2, Trash2, DollarSign, Hash, FileText } from 'lucide-react'
+import { AlertCircle, Package, Plus, Edit2, Trash2, DollarSign, Hash, FileText, Filter, Search, ArrowUpDown, MoreVertical } from 'lucide-react'
 import { toast } from 'sonner'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
 import type { Product, ProductFormData, ProductValidationErrors } from '@/schemas/product'
 
 interface ErrorDisplayProps {
@@ -166,6 +167,8 @@ export default function ClientsProductsPage() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'sku'>('name')
 
   const handleCreateSubmit = async (formData: ProductFormData) => {
     setIsSubmitting(true)
@@ -200,8 +203,6 @@ export default function ClientsProductsPage() {
         toast.success('Product updated successfully')
         setIsEditOpen(false)
         setEditingProduct(null)
-      } else {
-        // Errors are handled by the hook and displayed in the form
       }
     } catch (error) {
       toast.error('An unexpected error occurred')
@@ -249,8 +250,32 @@ export default function ClientsProductsPage() {
 
   const formatPrice = (price?: number) => {
     if (price === undefined || price === null) return '-'
-    return `$${price.toFixed(2)}`
+    return `${price.toFixed(2)}`
   }
+
+  // Filter and sort products
+  const filteredProducts = products.filter(product => {
+    if (!searchQuery) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      product.name.toLowerCase().includes(query) ||
+      product.description?.toLowerCase().includes(query) ||
+      product.sku?.toLowerCase().includes(query)
+    )
+  })
+
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    switch (sortBy) {
+      case 'name':
+        return a.name.localeCompare(b.name)
+      case 'price':
+        return (a.price || 0) - (b.price || 0)
+      case 'sku':
+        return (a.sku || '').localeCompare(b.sku || '')
+      default:
+        return 0
+    }
+  })
 
   if (loading && products.length === 0) {
     return (
@@ -271,21 +296,110 @@ export default function ClientsProductsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Products</h1>
+          <p className="text-muted-foreground mt-2">
+            Manage your product catalog and pricing
+          </p>
+        </div>
+        <Button onClick={handleCreateOpen} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Add Product
+        </Button>
+      </div>
+
+      {/* Statistics */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{products.length}</div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Price</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {products.length > 0
+                ? formatPrice(
+                    products.reduce((sum, p) => sum + (p.price || 0), 0) / products.length
+                  )
+                : '-'}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">With SKU</CardTitle>
+            <Hash className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {products.filter(p => p.sku).length}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters and Search */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Product Management
-            </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Manage your products, pricing, and inventory
-            </p>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 max-w-md">
+              <Label htmlFor="search" className="sr-only">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  id="search"
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            
+            <div className="w-full sm:w-48">
+              <Label htmlFor="sort" className="sr-only">Sort by</Label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger id="sort">
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="price">Price</SelectItem>
+                  <SelectItem value="sku">SKU</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <Button onClick={handleCreateOpen} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            New Product
-          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Products List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Product Catalog</CardTitle>
+          <CardDescription>
+            {loading && products.length > 0 ? 'Refreshing...' : `Showing ${sortedProducts.length} of ${products.length} products`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {error && (
@@ -295,92 +409,84 @@ export default function ClientsProductsPage() {
             </Alert>
           )}
 
-          {products.length === 0 ? (
-            <div className="text-center py-8">
+          {sortedProducts.length === 0 ? (
+            <div className="text-center py-12">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No products yet</h3>
+              <h3 className="text-lg font-medium mb-2">No products found</h3>
               <p className="text-muted-foreground mb-4">
-                Get started by creating your first product
+                {searchQuery
+                  ? "Try adjusting your search terms"
+                  : "Get started by adding your first product"}
               </p>
-              <Button onClick={handleCreateOpen} className="flex items-center gap-2 mx-auto">
-                <Plus className="h-4 w-4" />
-                Create Product
-              </Button>
+              {!searchQuery && (
+                <Button onClick={handleCreateOpen} className="flex items-center gap-2 mx-auto">
+                  <Plus className="h-4 w-4" />
+                  Add Product
+                </Button>
+              )}
             </div>
           ) : (
-            <div className="space-y-4">
-              {loading && products.length > 0 && (
-                <p className="text-sm text-muted-foreground">Refreshing...</p>
-              )}
-              <div className="grid gap-4">
-                {products.map((product) => (
-                  <Card key={product.documentId || product.id} className="border-l-4 border-l-blue-500">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="font-semibold text-lg">{product.name}</h4>
-                              {product.description && (
-                                <p className="text-muted-foreground text-sm mt-1 max-w-md">
-                                  {product.description}
-                                </p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEdit(product)}
-                                className="flex items-center gap-1"
-                              >
-                                <Edit2 className="h-3 w-3" />
-                                Edit
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDelete(product)}
-                                className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                                Delete
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <div className="flex flex-wrap gap-3 text-sm">
-                            {product.sku && (
-                              <div className="flex items-center gap-1">
-                                <Hash className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-muted-foreground">SKU:</span>
-                                <Badge variant="secondary" className="text-xs">
-                                  {product.sku}
-                                </Badge>
-                              </div>
-                            )}
-                            
-                            <div className="flex items-center gap-1">
-                              <DollarSign className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-muted-foreground">Price:</span>
-                              <span className="font-medium">
-                                {formatPrice(product.price)}
-                              </span>
-                            </div>
-
-                            {product.client && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-muted-foreground">Client:</span>
-                                <span className="text-sm">{product.client.name}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {sortedProducts.map((product) => (
+                <Card key={product.documentId || product.id} className="relative group hover:shadow-lg transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-lg line-clamp-1">{product.name}</h4>
+                        {product.sku && (
+                          <Badge variant="secondary" className="text-xs mt-1">
+                            SKU: {product.sku}
+                          </Badge>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <MoreVertical className="h-4 w-4" />
+                            <span className="sr-only">Product actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleEdit(product)}>
+                            <Edit2 className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => handleDelete(product)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    
+                    {product.description && (
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {product.description}
+                      </p>
+                    )}
+                    
+                    <div className="flex items-center justify-between pt-3 border-t">
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-semibold text-lg">
+                          {formatPrice(product.price)}
+                        </span>
+                      </div>
+                      {product.client && (
+                        <span className="text-xs text-muted-foreground">
+                          {product.client.name}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </CardContent>
@@ -436,3 +542,5 @@ export default function ClientsProductsPage() {
     </div>
   )
 }
+
+// Removed duplicate, misplaced block that was outside the component
