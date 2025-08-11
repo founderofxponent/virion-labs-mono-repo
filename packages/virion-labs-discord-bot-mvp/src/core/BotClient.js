@@ -37,10 +37,10 @@ class BotClient {
       this.logger.info('🔄 Registering slash commands...');
       const commands = this.slashCommandManager.getCommands();
       await this.rest.put(
-        Routes.applicationGuildCommands(this.client.user.id, this.config.discord.guildId),
+        Routes.applicationCommands(this.client.user.id),
         { body: commands.map(cmd => cmd.toJSON()) }
       );
-      this.logger.success(`✅ Registered ${commands.length} slash commands.`);
+      this.logger.success(`✅ Registered ${commands.length} slash commands globally.`);
     } catch (error) {
       this.logger.error('❌ Failed to register slash commands:', error);
     }
