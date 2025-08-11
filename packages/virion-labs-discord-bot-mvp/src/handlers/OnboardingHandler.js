@@ -39,21 +39,6 @@ class OnboardingHandler {
       this.logger.info(`[Onboarding] Found cached campaign: ${campaignData.name}`);
 
       const response = await this.apiService.startOnboarding(campaignId, userId, interaction.user.username);
-      
-      // Send onboarding started email notification
-      if (response.success) {
-        try {
-          await this.sendOnboardingStartedEmail({
-            userId,
-            username: interaction.user.username,
-            campaignId,
-            campaignName: campaignData.name,
-            guildName: interaction.guild.name
-          });
-        } catch (emailError) {
-          this.logger.warn(`[Onboarding] Failed to send onboarding started email: ${emailError.message}`);
-        }
-      }
       if (!response.success) {
         if (response.message && response.message.includes('already completed')) {
           this.logger.info(`[Onboarding] User ${userId} has already completed onboarding for campaign ${campaignId}.`);
@@ -226,28 +211,7 @@ class OnboardingHandler {
     }
   }
 
-  /**
-   * Send onboarding started email notification
-   * @param {Object} data - Email data
-   * @private
-   */
-  async sendOnboardingStartedEmail(data) {
-    try {
-      await this.apiService.sendTemplateEmail({
-        template_id: 'discord-onboarding-started',
-        recipient_email: data.email || `${data.username}@discord.placeholder`, // Would need to collect email
-        variables: {
-          username: data.username,
-          campaign_name: data.campaignName,
-          guild_name: data.guildName
-        }
-      });
-      this.logger.info(`[Onboarding] Onboarding started email sent for user ${data.userId}`);
-    } catch (error) {
-      this.logger.error(`[Onboarding] Failed to send onboarding started email: ${error.message}`);
-      throw error;
-    }
-  }
+  
   
   /**
    * Send onboarding completion email notification
