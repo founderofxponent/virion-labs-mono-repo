@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useClientDiscordConnections } from '@/hooks/use-client-discord-connections'
-import { Bot, RefreshCw, ExternalLink, Hash, Crown, Users, Clock, Zap, CheckCircle2, AlertCircle, Volume2, FolderTree, Mic2, Megaphone, MessageSquare, ChevronRight, Shield, Star } from 'lucide-react'
+import { Bot, RefreshCw, ExternalLink, Hash, Crown, Users, Clock, Zap, CheckCircle2, AlertCircle, Volume2, FolderTree, Mic2, Megaphone, MessageSquare, ChevronRight, Shield, Star, Building2 } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
@@ -14,6 +14,11 @@ import { useState } from 'react'
 function DiscordServerCard({ connection }: { connection: any }) {
   const [channelsExpanded, setChannelsExpanded] = useState(false)
   const [rolesExpanded, setRolesExpanded] = useState(false)
+  
+  const truncateTitle = (title: string, maxLength: number = 10) => {
+    if (title.length <= maxLength) return title
+    return title.substring(0, maxLength) + '...'
+  }
   
   const formatChannelType = (type?: number) => {
     switch (type) {
@@ -65,7 +70,7 @@ function DiscordServerCard({ connection }: { connection: any }) {
   return (
     <Card className="border-2">
       <CardHeader className="pb-4">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
             {connection.guild_icon_url ? (
               <img 
@@ -78,57 +83,60 @@ function DiscordServerCard({ connection }: { connection: any }) {
                 <Bot className="h-6 w-6 text-primary" />
               </div>
             )}
-            <div>
-              <CardTitle className="text-lg">{connection.guild_name || connection.guild_id}</CardTitle>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Hash className="h-3 w-3" />
-                <span>{connection.channels?.length || 0} channels</span>
-                <Crown className="h-3 w-3 ml-2" />
-                <span>{connection.roles?.length || 0} roles</span>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-lg" title={connection.guild_name || connection.guild_id}>
+                {truncateTitle(connection.guild_name || connection.guild_id)}
+              </CardTitle>
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Building2 className="h-3 w-3 shrink-0" />
+                <span>Your Discord Server</span>
               </div>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <Badge className={`text-xs border ${status === 'connected' ? 'bg-green-50 text-green-700 border-green-200' : status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-              {status === 'connected' ? (
-                <span className="inline-flex items-center"><CheckCircle2 className="h-3 w-3 mr-1" /> Synced</span>
-              ) : status === 'pending' ? (
-                <span className="inline-flex items-center"><Clock className="h-3 w-3 mr-1" /> Pending sync</span>
-              ) : (
-                <span className="inline-flex items-center"><AlertCircle className="h-3 w-3 mr-1" /> Not connected</span>
-              )}
-            </Badge>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span title={connection.last_synced_at ? new Date(connection.last_synced_at).toLocaleString() : 'Never synced'}>
-                {formatLastSync(connection.last_synced_at)}
+          <Badge className={`text-xs border shrink-0 ${status === 'connected' ? 'bg-green-50 text-green-700 border-green-200' : status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+            {status === 'pending' ? (
+              <span className="inline-flex items-center">
+                <Clock className="h-3 w-3 mr-1" /> Pending sync
               </span>
-            </div>
-          </div>
+            ) : (
+              <span className="inline-flex items-center gap-2" title={connection.last_synced_at ? new Date(connection.last_synced_at).toLocaleString() : 'Never synced'}>
+                <span className="inline-flex items-center">
+                  {status === 'connected' ? (
+                    <><CheckCircle2 className="h-3 w-3 mr-1" /> Synced</>
+                  ) : (
+                    <><AlertCircle className="h-3 w-3 mr-1" /> Not connected</>
+                  )}
+                </span>
+                <span className="opacity-75">
+                  {formatLastSync(connection.last_synced_at)}
+                </span>
+              </span>
+            )}
+          </Badge>
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0 space-y-4">
-        {/* Channels Section */}
-        {connection.channels && connection.channels.length > 0 && (
-          <div className="space-y-3">
-            <Collapsible open={channelsExpanded} onOpenChange={setChannelsExpanded}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-between h-8">
-                  <div className="flex items-center gap-2">
-                    <Hash className="h-4 w-4" />
-                    <span className="text-sm font-medium">Channels</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {connection.channels.length}
-                    </Badge>
-                  </div>
-                  {channelsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </CollapsibleTrigger>
-              
-              <CollapsibleContent className="mt-3">
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {connection.channels
+      <CardContent className="pt-0 space-y-3">
+        {/* Channels Section - Always show */}
+        <div className="space-y-2">
+          <Collapsible open={channelsExpanded} onOpenChange={setChannelsExpanded}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between h-9 px-3 hover:bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <Hash className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm font-medium">Channels</span>
+                  <Badge variant="secondary" className="text-xs h-5">
+                    {connection.channels?.length || 0}
+                  </Badge>
+                </div>
+                {channelsExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="mt-2">
+              <div className="space-y-1 max-h-32 overflow-y-auto border rounded-md bg-muted/20 p-2">
+                {connection.channels && connection.channels.length > 0 ? (
+                  connection.channels
                     .sort((a: any, b: any) => {
                       // Sort by type first (text channels first), then by name
                       if (a.type !== b.type) {
@@ -138,47 +146,51 @@ function DiscordServerCard({ connection }: { connection: any }) {
                       return a.name.localeCompare(b.name);
                     })
                     .map((channel: any) => (
-                      <div key={channel.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/30 transition-colors">
+                      <div key={channel.id} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-background/80 transition-colors">
                         <div className="flex items-center gap-2 min-w-0 flex-1">
                           {channelIcon(channel.type)}
-                          <span className="text-sm font-medium">#{channel.name}</span>
+                          <span className="text-sm">#{channel.name}</span>
                           {channel.topic && (
                             <span className="text-xs text-muted-foreground truncate ml-2" title={channel.topic}>
                               — {channel.topic}
                             </span>
                           )}
                         </div>
-                        <Badge variant="outline" className="text-[10px] shrink-0">
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 shrink-0">
                           {formatChannelType(channel.type)}
                         </Badge>
                       </div>
-                    ))}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-        )}
-
-        {/* Roles Section */}
-        {connection.roles && connection.roles.length > 0 && (
-          <div className="space-y-3">
-            <Collapsible open={rolesExpanded} onOpenChange={setRolesExpanded}>
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" className="w-full justify-between h-8">
-                  <div className="flex items-center gap-2">
-                    <Crown className="h-4 w-4" />
-                    <span className="text-sm font-medium">Roles</span>
-                    <Badge variant="secondary" className="text-xs">
-                      {connection.roles.filter((role: any) => role.name !== '@everyone').length}
-                    </Badge>
+                    ))
+                ) : (
+                  <div className="flex items-center justify-center py-4 text-muted-foreground">
+                    <span className="text-sm">No channels available</span>
                   </div>
-                  {rolesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </CollapsibleTrigger>
-              
-              <CollapsibleContent className="mt-3">
-                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-                  {connection.roles
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+
+        {/* Roles Section - Always show */}
+        <div className="space-y-2">
+          <Collapsible open={rolesExpanded} onOpenChange={setRolesExpanded}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between h-9 px-3 hover:bg-muted/50">
+                <div className="flex items-center gap-2">
+                  <Crown className="h-4 w-4 text-purple-500" />
+                  <span className="text-sm font-medium">Roles</span>
+                  <Badge variant="secondary" className="text-xs h-5">
+                    {connection.roles?.filter((role: any) => role.name !== '@everyone').length || 0}
+                  </Badge>
+                </div>
+                {rolesExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="mt-2">
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto border rounded-md bg-muted/20 p-2">
+                {connection.roles && connection.roles.filter((role: any) => role.name !== '@everyone').length > 0 ? (
+                  connection.roles
                     .filter((role: any) => role.name !== '@everyone')
                     .sort((a: any, b: any) => {
                       // Sort by member count (desc) then name
@@ -190,40 +202,45 @@ function DiscordServerCard({ connection }: { connection: any }) {
                     .map((role: any) => (
                       <div 
                         key={role.id} 
-                        className="flex items-center gap-2 px-3 py-1.5 bg-muted/20 border rounded-full hover:bg-muted/40 transition-colors"
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-background border rounded-full hover:bg-muted/50 transition-colors text-sm"
                       >
                         <div 
-                          className="w-2.5 h-2.5 rounded-full shrink-0" 
+                          className="w-2 h-2 rounded-full shrink-0" 
                           style={{ backgroundColor: formatColor(role.color) }}
                         />
-                        <span className="text-sm font-medium">
+                        <span className="font-medium">
                           {role.name?.startsWith('@') ? role.name : `@${role.name}`}
                         </span>
-                        <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                        <Badge variant="outline" className="text-[10px] h-4 px-1">
                           {role.memberCount ?? '?'}
                         </Badge>
                       </div>
-                    ))}
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-        )}
+                    ))
+                ) : (
+                  <div className="flex items-center justify-center py-4 text-muted-foreground">
+                    <span className="text-sm">No roles available</span>
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
         
-        <div className={`mt-4 p-3 rounded-lg ${
+        {/* Status Message */}
+        <div className={`mt-3 p-3 rounded-lg border ${
           status === 'pending' 
-            ? 'bg-orange-50 border border-orange-200' 
-            : 'bg-blue-50 border border-blue-200'
+            ? 'bg-orange-50/50 border-orange-200 text-orange-800' 
+            : status === 'connected'
+            ? 'bg-blue-50/50 border-blue-200 text-blue-800'
+            : 'bg-slate-50/50 border-slate-200 text-slate-800'
         }`}>
-          <p className={`text-xs ${
-            status === 'pending' ? 'text-orange-800' : 'text-blue-800'
-          }`}>
+          <p className="text-xs">
             {status === 'pending' ? (
-              <>Run <code className="px-1 py-0.5 bg-orange-100 rounded font-mono">/sync</code> in your Discord server then click Refresh to complete setup.</>
+              <>Run <code className="px-1.5 py-0.5 bg-orange-100 rounded font-mono text-[11px]">/sync</code> in your Discord server to complete setup.</>
             ) : status === 'connected' ? (
-              <>Run <code className="px-1 py-0.5 bg-blue-100 rounded font-mono">/sync</code> in your Discord server to refresh this data.</>
+              <>Data updated when you run <code className="px-1.5 py-0.5 bg-blue-100 rounded font-mono text-[11px]">/sync</code> command.</>
             ) : (
-              <>Install the bot above, then run <code className="px-1 py-0.5 bg-blue-100 rounded font-mono">/sync</code> in your Discord server to get started.</>
+              <>Install bot and run <code className="px-1.5 py-0.5 bg-slate-100 rounded font-mono text-[11px]">/sync</code> command.</>
             )}
           </p>
         </div>
@@ -238,10 +255,10 @@ export default function ClientIntegrationsPage() {
   return (
     <ProtectedRoute allowedRoles={["client", "admin", "platform administrator"]}>
       <DashboardLayout>
-        <div className="max-w-5xl p-6 mx-auto space-y-6">
+        <div className="max-w-7xl p-6 mx-auto space-y-6">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold">Integrations</h1>
-            <p className="text-muted-foreground">Connect third-party apps to power your campaigns.</p>
+            <p className="text-muted-foreground">Connect and manage your Discord servers for campaigns.</p>
           </div>
 
           <div className="space-y-6">
@@ -255,7 +272,7 @@ export default function ClientIntegrationsPage() {
                     </CardTitle>
                     <CardDescription>Connect and manage your Discord servers for campaigns.</CardDescription>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-3 items-center">
                     <Button asChild disabled={!installUrl} size="sm">
                       <a href={installUrl || '#'} target="_blank" rel="noreferrer">
                         <ExternalLink className="h-4 w-4 mr-2" /> 
@@ -296,13 +313,51 @@ export default function ClientIntegrationsPage() {
               )}
             </Card>
 
-            {/* Connected Servers or Getting Started */}
+            {/* Statistics */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Connections</CardTitle>
+                  <Bot className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{connections.length}</div>
+                  <p className="text-xs text-muted-foreground">Discord servers connected</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Connections</CardTitle>
+                  <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">
+                    {connections.filter(c => c.connection_status === 'connected' || (!c.connection_status && c.last_synced_at)).length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Synced and active</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Pending Setup</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {connections.filter(c => c.connection_status === 'pending' || (!c.connection_status && !c.last_synced_at)).length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Awaiting sync command</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Connected Servers */}
             {loading ? (
               <Card>
                 <CardContent className="flex items-center justify-center py-12">
                   <div className="flex items-center gap-3">
                     <RefreshCw className="h-5 w-5 animate-spin" />
-                    <span className="text-muted-foreground">Loading your Discord servers...</span>
+                    <span className="text-muted-foreground">Loading Discord connections...</span>
                   </div>
                 </CardContent>
               </Card>
@@ -316,7 +371,7 @@ export default function ClientIntegrationsPage() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <h3 className="text-xl font-semibold">Connect Your First Discord Server</h3>
+                      <h3 className="text-xl font-semibold">No Discord Connections Found</h3>
                       <p className="text-muted-foreground max-w-md mx-auto">
                         Get started by connecting your Discord server to unlock powerful campaign management features.
                       </p>
@@ -339,13 +394,22 @@ export default function ClientIntegrationsPage() {
             ) : (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Connected Servers ({connections.length})</h3>
-                  <Badge variant="outline" className="text-xs">
-                    {connections.filter(c => c.connection_status === 'connected' || (!c.connection_status && c.last_synced_at)).length} active
-                  </Badge>
+                  <h3 className="text-lg font-semibold">
+                    Your Discord Connections ({connections.length})
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      {connections.filter(c => c.connection_status === 'connected' || (!c.connection_status && c.last_synced_at)).length} active
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {connections.filter(c => c.connection_status === 'pending' || (!c.connection_status && !c.last_synced_at)).length} pending
+                    </Badge>
+                  </div>
                 </div>
                 
-                <div className="grid gap-6 lg:grid-cols-2">
+                <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
                   {connections.map((connection) => (
                     <DiscordServerCard 
                       key={`${connection.id}-${connection.guild_id}`} 
