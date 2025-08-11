@@ -23,17 +23,28 @@ export function PlacementAndScheduleTab({
   const { profile } = useAuth()
   const { connections, loading, error } = useClientDiscordConnections(clientId)
   const [selectedConnection, setSelectedConnection] = useState<ClientDiscordConnection | null>(null)
+  
+  // Normalize role for consistent checks
+  const roleName = typeof profile?.role === 'string'
+    ? profile.role.toLowerCase()
+    : (profile as any)?.role?.name?.toLowerCase?.()
+  const isPlatformAdmin = roleName === 'platform administrator' || roleName === 'admin'
+  const isClient = roleName === 'client'
+  
   // For clients, connections are already filtered by backend
-  // For admins, connections are filtered by clientId if provided
+  // For admins, connections are filtered by clientId if provided via backend API
   const filteredConnections = React.useMemo(() => {
     // If user is a client, backend already filters to their connections
-    if (profile?.role === 'client') {
+    if (isClient) {
       return connections
     }
-    // If admin and clientId provided, connections are already filtered by backend
-    // If admin and no clientId, show all connections
+    // If Platform Administrator and clientId provided, backend already filters by that client
+    // If Platform Administrator and no clientId, show empty array to prevent showing all connections
+    if (isPlatformAdmin && !clientId) {
+      return []
+    }
     return connections
-  }, [connections, profile?.role])
+  }, [connections, isClient, isPlatformAdmin, clientId])
 
   // When connections load or form guild changes, select the matching connection if any
   useEffect(() => {
@@ -46,13 +57,14 @@ export function PlacementAndScheduleTab({
   // When client changes, clear selection if it no longer belongs to the selected client
   useEffect(() => {
     if (!clientId) return
-    if (selectedConnection && selectedConnection.client_id !== Number(clientId)) {
+    const numericClientId = Number(clientId)
+    if (selectedConnection && selectedConnection.client_id !== numericClientId) {
       setSelectedConnection(null)
       handleFieldChange("guild_id", "")
       handleFieldChange("channel_id", "")
       handleFieldChange("target_role_ids", [])
     }
-  }, [clientId])
+  }, [clientId, selectedConnection, handleFieldChange])
 
   const handleServerSelect = (guildId: string) => {
     const connection = filteredConnections.find(c => c.guild_id === guildId)
@@ -114,11 +126,19 @@ export function PlacementAndScheduleTab({
               value={formData.guild_id}
               onChange={e => handleFieldChange("guild_id", e.target.value)}
             />
-            {clientId && (
+            {isPlatformAdmin && !clientId && (
               <Alert className="mt-2">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  No Discord servers have been synced. Please sync your Discord server in the Integrations section first, or manually enter the Guild ID.
+                  Please select a client in the Vitals tab first to view their Discord servers.
+                </AlertDescription>
+              </Alert>
+            )}
+            {clientId && filteredConnections.length === 0 && (
+              <Alert className="mt-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No Discord servers have been synced for this client. Please sync Discord servers in the Integrations section first, or manually enter the Guild ID.
                 </AlertDescription>
               </Alert>
             )}

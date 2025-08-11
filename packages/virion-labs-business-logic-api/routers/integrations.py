@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
 from schemas.integration_schemas import (
     GetCampaignsResponse,
     RequestAccessRequest,
@@ -110,9 +111,16 @@ async def create_managed_invite(request: CreateManagedInviteRequest, api_key: st
 
 # --- Client Discord Connections (Integrations page) ---
 @router.get("/discord/client/connections", response_model=ClientDiscordConnectionListResponse)
-async def list_client_discord_connections(current_user: User = Depends(get_current_user)):
+async def list_client_discord_connections(
+    client_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
     try:
-        result = await integration_service.list_client_discord_connections(current_user)
+        logger.info(
+            f"list_client_discord_connections: user_id={getattr(current_user, 'id', None)}, "
+            f"role={getattr(current_user, 'role', None)}, client_id_param={client_id}"
+        )
+        result = await integration_service.list_client_discord_connections(current_user, client_id)
         return ClientDiscordConnectionListResponse(connections=result)
     except Exception as e:
         logger.error(f"Failed to list client discord connections: {e}")

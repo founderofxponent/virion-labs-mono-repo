@@ -28,10 +28,13 @@ export function VitalsTab({
       // For client users, automatically select the first (and likely only) client
       const clientData = clients[0]
       if (clientData) {
-        handleFieldChange("client", clientData.documentId || clientData.id.toString())
+        // Use the numeric ID for API calls, not documentId
+        handleFieldChange("client", clientData.id)
       }
     }
   }, [isClient, clients, formData.client, handleFieldChange])
+  
+
 
   return (
     <div className="space-y-6">
@@ -58,7 +61,7 @@ export function VitalsTab({
             </SelectTrigger>
             <SelectContent>
               {clients.map(client => (
-                <SelectItem key={client.id} value={client.documentId || client.id.toString()}>
+                <SelectItem key={client.id} value={client.documentId || client.id}>
                   {client.name}
                 </SelectItem>
               ))}

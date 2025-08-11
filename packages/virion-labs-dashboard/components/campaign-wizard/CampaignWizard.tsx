@@ -563,7 +563,12 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
     switch (currentStep) {
       case 0: return <TemplateSelectionTab templates={templates} templatesLoading={templatesLoading} onTemplateSelect={handleTemplateSelect} onSkipTemplate={handleSkipTemplate} />;
       case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} clients={clients as any} isClient={isClient} />;
-      case 2: return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} clientId={formData.client} />;
+      case 2: {
+        // For Discord filtering, we need the numeric client ID, not the documentId
+        const selectedClient = clients.find(c => c.documentId === formData.client || c.id === formData.client)
+        const numericClientId = selectedClient?.id
+        return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} clientId={numericClientId?.toString()} />;
+      }
       case 3: return <BotIdentityTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={effectiveOnboardingFields.fields as OnboardingQuestion[]} onQuestionsChange={handleQuestionsChange} />;
       case 5: return <AccessAndModerationTab formData={formData} handleFieldChange={handleFieldChange} />;

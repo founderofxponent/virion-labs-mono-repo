@@ -37,8 +37,15 @@ export function useClientDiscordConnections(clientId?: string) {
       // Build URL based on user role and client selection
       let url = `${API_BASE_URL}/api/v1/integrations/discord/client/connections`
       
-      // If user is admin and a specific client is selected, filter by that client
-      if (profile?.role === 'admin' && clientId) {
+      // Normalize role to string and lowercase for comparisons
+      const roleName = typeof profile?.role === 'string'
+        ? profile.role.toLowerCase()
+        : (profile as any)?.role?.name?.toLowerCase?.()
+
+      const isPlatformAdmin = roleName === 'platform administrator' || roleName === 'admin'
+
+      // If user is Platform Administrator and a specific client is selected, filter by that client
+      if (isPlatformAdmin && clientId) {
         url += `?client_id=${clientId}`
       }
       // If user is client, the backend should automatically filter to their client

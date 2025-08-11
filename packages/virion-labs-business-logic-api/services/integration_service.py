@@ -189,11 +189,16 @@ class IntegrationService:
             raise
 
     # --- Client Discord Connections (Integrations page) ---
-    async def list_client_discord_connections(self, current_user) -> List[ClientDiscordConnection]:
-        """List connections for the current user's client (Client role) or all for Admins."""
+    async def list_client_discord_connections(self, current_user, client_id: Optional[str] = None) -> List[ClientDiscordConnection]:
+        """List connections for the current user's client (Client role) or filtered by client_id for Admins."""
         # Determine client scope
         role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        logger.info(
+            f"IntegrationService.list_client_discord_connections: user_id={getattr(current_user, 'id', None)}, "
+            f"role_name={role_name}, client_id_param={client_id}"
+        )
         filters = {"populate": "*"}
+        
         if role_name == 'Client':
             # Resolve the client's numeric ID and filter connections
             from services.client_service import client_service
@@ -201,10 +206,16 @@ class IntegrationService:
             clients = result.get('clients', [])
             if not clients:
                 return []
-            client_id = clients[0].get('id')
+            resolved_client_id = clients[0].get('id')
+            filters["filters[client][id][$eq]"] = resolved_client_id
+        elif role_name == 'Platform Administrator' and client_id:
+            # For Platform Administrator users, filter by the provided client_id parameter
             filters["filters[client][id][$eq]"] = client_id
+        elif role_name == 'Platform Administrator' and not client_id:
+            logger.info("Platform Administrator without client_id param - returning unfiltered results (frontend should hide).")
 
         # Use generic Strapi request for now (no typed schema yet for this CT)
+        logger.info(f"IntegrationService.list_client_discord_connections: calling Strapi with params={filters}")
         response = await strapi_client._request("GET", "client-discord-connections", params=filters)
         items = response.get("data", [])
         connections: List[ClientDiscordConnection] = []
@@ -225,6 +236,7 @@ class IntegrationService:
                 connection_status=attrs.get('connection_status'),
                 last_synced_at=attrs.get('last_synced_at')
             ))
+        logger.info(f"IntegrationService.list_client_discord_connections: returning {len(connections)} connections")
         return connections
 
     async def upsert_client_discord_connection(self, request: ClientDiscordConnectionCreateRequest, current_user) -> ClientDiscordConnection:
