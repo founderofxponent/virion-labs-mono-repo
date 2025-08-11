@@ -801,6 +801,100 @@ async def _get_campaign_metrics(campaign_id: str) -> Dict[str, Any]:
         "roi": 145.6
     }
 
+
+@router.get("/campaign/preview/{campaign_id}", summary="Get Campaign Preview Data")
+async def get_campaign_preview_data(campaign_id: str, current_user: User = Depends(get_current_user)):
+    """
+    Gets campaign data in the same format as referral landing page for preview purposes.
+    This endpoint returns the rich data structure expected by the campaign landing page.
+    """
+    try:
+        logger.info(f"Getting campaign preview data for campaign: {campaign_id}")
+        logger.info(f"Current user: {current_user.email if current_user else 'None'}")
+        
+        # Get the campaign with full relations
+        campaign = await campaign_service.get_campaign_operation(campaign_id)
+        logger.info(f"Campaign retrieved: {campaign.name if campaign else 'None'}")
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        # Get landing page data using the same method as tracking endpoint
+        landing_page_data = None
+        if campaign and campaign.documentId:
+            try:
+                landing_page_data = await strapi_client.get_campaign_landing_page(campaign.documentId)
+                logger.info(f"Found landing page data for campaign: {campaign.documentId}")
+            except Exception as e:
+                logger.warning(f"Could not fetch landing page data for campaign {campaign.documentId}: {e}")
+        
+        # Build the rich data structure matching referral landing page format
+        campaign_data = {
+            "id": str(campaign.id),
+            "campaign_name": campaign.name,
+            "campaign_type": campaign.campaign_type or "referral",
+            "guild_id": campaign.guild_id,
+            "welcome_message": campaign.welcome_message or "Welcome to our community!",
+            "brand_color": campaign.brand_color or "#6366f1",
+            "brand_logo_url": campaign.brand_logo_url or "",
+            "clients": {
+                "name": campaign.client.name if campaign.client else "Client Name",
+                "industry": campaign.client.industry if campaign.client else "Technology",
+                "logo": campaign.client.website if campaign.client else ""
+            }
+        }
+        
+        # Add landing page specific fields
+        if landing_page_data:
+            campaign_data.update({
+                "offer_title": landing_page_data.offer_title,
+                "offer_description": landing_page_data.offer_description,
+                "offer_highlights": landing_page_data.offer_highlights if isinstance(landing_page_data.offer_highlights, list) else [],
+                "offer_value": landing_page_data.offer_value,
+                "offer_expiry_date": landing_page_data.offer_expiry_date,
+                "hero_image_url": landing_page_data.hero_image_url,
+                "product_images": landing_page_data.product_images if isinstance(landing_page_data.product_images, list) else [],
+                "video_url": landing_page_data.video_url,
+                "what_you_get": landing_page_data.what_you_get,
+                "how_it_works": landing_page_data.how_it_works,
+                "requirements": landing_page_data.requirements,
+                "support_info": landing_page_data.support_info
+            })
+        else:
+            # Fallback to campaign data
+            campaign_data.update({
+                "offer_title": campaign.name,
+                "offer_description": campaign.description or '',
+                "offer_highlights": campaign.features or [],
+                "offer_value": f"${campaign.value_per_conversion or 0} value",
+                "what_you_get": "Full access to our exclusive community",
+                "how_it_works": "1. Join the Discord server\\n2. Complete onboarding\\n3. Get rewards!",
+                "requirements": "Discord account required",
+                "support_info": "Contact support@example.com"
+            })
+        
+        # Return the complete structure matching referral landing page
+        return {
+            "link_disabled": False,
+            "referral_link": {
+                "id": str(campaign.documentId),
+                "title": campaign.name,
+                "description": campaign.description or '',
+                "platform": "discord",
+                "influencer_id": None  # Preview doesn't need specific influencer
+            },
+            "campaign": campaign_data,
+            "influencer": {
+                "full_name": "Preview Mode",
+                "avatar_url": None
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting campaign preview data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 def _get_status_insights(campaign_data: Dict[str, Any]) -> List[str]:
     """Get status insights for campaign."""
     insights = []

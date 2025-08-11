@@ -1,109 +1,156 @@
 "use client"
 
-import { useEffect, useState, Suspense } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useBotCampaignsAPI } from "@/hooks/use-bot-campaigns-api"
-import { Campaign } from "@/schemas/campaign"
-import { CampaignReferralLandingPage } from "@/components/campaign-referral-landing-page"
-import { Skeleton } from "@/components/ui/skeleton"
+import { CampaignReferralLandingPage } from '@/components/campaign-referral-landing-page'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 
-// This page should not be prerendered
-export const dynamic = 'force-dynamic';
-
-// This is a mock structure for the CampaignData expected by the landing page
-// We build this from the actual campaign data fetched from the API
-const createMockCampaignData = (campaign: Campaign) => ({
+interface CampaignData {
   referral_link: {
-    id: "mock-referral-id",
-    title: "Mock Referral Link",
-    description: "This is a preview of the referral landing page.",
-    platform: "discord",
-    discord_invite_url: "https://discord.gg/mock-invite",
-    influencer_id: "mock-influencer-id",
-  },
+    id: string
+    title: string
+    description: string
+    platform: string
+    discord_invite_url?: string
+    influencer_id: string
+  }
   campaign: {
-    id: campaign.documentId || campaign.id,
-    campaign_name: campaign.name,
-    campaign_type: campaign.campaign_type || 'referral_onboarding',
-    guild_id: campaign.guild_id,
-    welcome_message: campaign.welcome_message || "Welcome to the campaign!",
-    brand_color: campaign.brand_color || '#3B82F6',
-    brand_logo_url: campaign.brand_logo_url || '',
-    metadata: campaign.metadata || {},
-    offer_title: campaign.name,
-    offer_description: campaign.description,
-    offer_highlights: campaign.features || [],
-    offer_value: `$${campaign.value_per_conversion || '5'} Value`,
-    offer_expiry_date: campaign.end_date,
-    hero_image_url: campaign.brand_logo_url || '',
-    product_images: [],
-    video_url: '',
-    what_you_get: 'Full access to our exclusive community and special rewards.',
-    how_it_works: '1. Join the server.\n2. Complete the onboarding.\n3. Get rewards!',
-    requirements: 'A Discord account is required.',
-    support_info: 'For support, contact us at support@example.com.',
+    id: string
+    campaign_name: string
+    campaign_type: string
+    guild_id: string
+    welcome_message: string
+    brand_color: string
+    brand_logo_url: string
+    metadata: any
+    offer_title?: string
+    offer_description?: string
+    offer_highlights?: string[]
+    offer_value?: string
+    offer_expiry_date?: string
+    hero_image_url?: string
+    product_images?: string[]
+    video_url?: string
+    what_you_get?: string
+    how_it_works?: string
+    requirements?: string
+    support_info?: string
     clients: {
-      name: campaign.client?.name || 'Client Name',
-      industry: campaign.client?.industry || 'Tech',
-      logo: campaign.client?.website || '',
-    },
-  },
+      name: string
+      industry: string
+      logo: string
+    }
+  }
   influencer: {
-    full_name: "Preview Influencer",
-    avatar_url: "",
-  },
-})
+    full_name: string
+    avatar_url: string
+  }
+}
 
 function CampaignPreviewContent() {
   const searchParams = useSearchParams()
   const campaignId = searchParams.get('campaignId')
-  const { fetchSingleCampaign } = useBotCampaignsAPI()
-  const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [campaignData, setCampaignData] = useState<CampaignData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (campaignId) {
-      fetchSingleCampaign(campaignId)
-        .then(data => {
-          setCampaign(data)
-          setLoading(false)
-        })
-        .catch(err => {
-          setError(err.message)
-          setLoading(false)
-        })
-    } else {
-      setError("No campaign ID provided.")
+    if (!campaignId) {
+      setError('No campaign ID provided')
       setLoading(false)
+      return
     }
-  }, [campaignId, fetchSingleCampaign])
+
+    const fetchCampaignPreview = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+        const token = localStorage.getItem('auth_token')
+        
+        if (!token) {
+          throw new Error('Authentication token not found')
+        }
+        
+        const response = await fetch(`${apiUrl}/api/v1/operations/campaign/preview/${campaignId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch campaign preview')
+        }
+        
+        const data = await response.json()
+        setCampaignData(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load campaign preview')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCampaignPreview()
+  }, [campaignId])
 
   if (loading) {
     return (
-      <div className="p-8 space-y-4">
-        <Skeleton className="h-12 w-1/2" />
-        <Skeleton className="h-8 w-1/3" />
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-2/3" />
-        </div>
+      <div className="p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Campaign Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-8 w-full mb-4" />
+            <Skeleton className="h-32 w-full" />
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
   if (error) {
-    return <div className="p-8 text-red-500">Error: {error}</div>
+    return (
+      <div className="p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Error</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-red-500">{error}</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
-  if (!campaign) {
-    return <div className="p-8">Campaign not found.</div>
+  if (!campaignData) {
+    return (
+      <div className="p-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Campaign Not Found</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>The requested campaign could not be found.</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
-  const mockData = createMockCampaignData(campaign)
-
-  return <CampaignReferralLandingPage campaign={mockData} />
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-6xl mx-auto py-8">
+        <div className="mb-6 px-4">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Campaign Preview</h1>
+          <p className="text-gray-600">This is how your campaign will appear to users</p>
+        </div>
+        
+        <CampaignReferralLandingPage campaign={campaignData} />
+      </div>
+    </div>
+  )
 }
 
 export default function CampaignPreviewPage() {
