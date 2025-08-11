@@ -84,6 +84,12 @@ export function Sidebar() {
       active: pathname === "/admin/campaigns" || pathname.startsWith("/admin/campaigns"),
     },
     {
+      title: "Integrations",
+      href: "/admin/integrations",
+      icon: Plug,
+      active: pathname === "/admin/integrations",
+    },
+    {
       title: "Analytics",
       href: "/admin/analytics",
       icon: BarChart3,

@@ -212,7 +212,10 @@ class IntegrationService:
             # For Platform Administrator users, filter by the provided client_id parameter
             filters["filters[client][id][$eq]"] = client_id
         elif role_name == 'Platform Administrator' and not client_id:
-            logger.info("Platform Administrator without client_id param - returning unfiltered results (frontend should hide).")
+            # For Platform Administrator users without client_id, return all connections
+            logger.info("Platform Administrator without client_id param - returning all connections.")
+            # No filters needed - return all connections
+            pass
 
         # Use generic Strapi request for now (no typed schema yet for this CT)
         logger.info(f"IntegrationService.list_client_discord_connections: calling Strapi with params={filters}")
