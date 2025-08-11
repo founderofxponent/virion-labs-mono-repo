@@ -95,6 +95,7 @@ class ClientDiscordConnection(BaseModel):
     roles: Optional[List[DiscordRole]] = None
     status: Optional[str] = None
     last_synced_at: Optional[str] = None
+    verified_role_id: Optional[str] = None
 
 class ClientDiscordConnectionCreateRequest(BaseModel):
     guild_id: str
@@ -121,3 +122,13 @@ class ClientDiscordConnectionBotSyncRequest(BaseModel):
 
 class ClientDiscordSyncStartRequest(BaseModel):
     guild_id: str
+
+class AssignVerifiedRoleRequest(BaseModel):
+    connection_id: str
+    guild_id: str
+    role_id: str
+
+class AssignVerifiedRoleResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+    connection: Optional[ClientDiscordConnection] = None

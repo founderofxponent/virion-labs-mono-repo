@@ -192,7 +192,7 @@ class IntegrationService:
     async def list_client_discord_connections(self, current_user, client_id: Optional[str] = None) -> List[ClientDiscordConnection]:
         """List connections for the current user's client (Client role) or filtered by client_id for Admins."""
         # Determine client scope
-        role_name = (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else None
+        role_name = current_user.role if isinstance(current_user.role, str) else (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else 'Client'
         logger.info(
             f"IntegrationService.list_client_discord_connections: user_id={getattr(current_user, 'id', None)}, "
             f"role_name={role_name}, client_id_param={client_id}"
@@ -225,6 +225,8 @@ class IntegrationService:
         for item in items:
             # Support both flat and attributes structure
             attrs = item.get('attributes', item)
+            logger.debug(f"Processing item: {item}")
+            logger.debug(f"Attributes: {attrs}")
             connections.append(ClientDiscordConnection(
                 id=item.get('id'),
                 documentId=item.get('documentId'),
@@ -237,7 +239,8 @@ class IntegrationService:
                 channels=attrs.get('channels'),
                 roles=attrs.get('roles'),
                 connection_status=attrs.get('connection_status'),
-                last_synced_at=attrs.get('last_synced_at')
+                last_synced_at=attrs.get('last_synced_at'),
+                verified_role_id=attrs.get('verified_role_id')
             ))
         logger.info(f"IntegrationService.list_client_discord_connections: returning {len(connections)} connections")
         return connections
@@ -878,5 +881,71 @@ class IntegrationService:
             except Exception as e:
                 logger.error(f"An unexpected error occurred while assigning a Discord role: {e}")
                 return False
+
+    async def assign_verified_role_to_connection(self, connection_id: str, guild_id: str, role_id: str, current_user) -> dict:
+        """
+        Assign a verified role to a specific Discord connection.
+        """
+        try:
+            # Check if user has permissions to modify this connection
+            role_name = current_user.role if isinstance(current_user.role, str) else current_user.role.get('name', 'Client') if isinstance(current_user.role, dict) else 'Client'
+            is_admin = role_name.lower() in ['admin', 'platform administrator']
+            
+            # Get the connection to verify it exists and user has access
+            connections = await self.list_client_discord_connections(current_user, None)
+            target_connection = None
+            
+            for conn in connections:
+                if (conn.documentId == connection_id or str(conn.id) == connection_id) and conn.guild_id == guild_id:
+                    target_connection = conn
+                    break
+            
+            if not target_connection:
+                return {
+                    "success": False, 
+                    "message": "Connection not found or you don't have permission to modify it"
+                }
+            
+            # Update the connection with the verified role ID
+            update_data = {
+                "verified_role_id": role_id
+            }
+            
+            # Update in Strapi
+            if target_connection.documentId:
+                await strapi_client._request(
+                    "PUT", 
+                    f"client-discord-connections/{target_connection.documentId}", 
+                    data={"data": update_data}
+                )
+            else:
+                # This shouldn't happen in normal cases, but handle it gracefully
+                logger.warning(f"No documentId found for connection {connection_id}")
+                return {
+                    "success": False, 
+                    "message": "Unable to update connection - invalid document ID"
+                }
+            
+            # Return the updated connection
+            updated_connections = await self.list_client_discord_connections(current_user, None)
+            updated_connection = None
+            
+            for conn in updated_connections:
+                if (conn.documentId == connection_id or str(conn.id) == connection_id) and conn.guild_id == guild_id:
+                    updated_connection = conn
+                    break
+            
+            return {
+                "success": True,
+                "message": f"Successfully assigned verified role {role_id} to server {guild_id}",
+                "connection": updated_connection
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to assign verified role: {e}")
+            return {
+                "success": False,
+                "message": "Failed to assign verified role. Please try again."
+            }
 
 integration_service = IntegrationService()

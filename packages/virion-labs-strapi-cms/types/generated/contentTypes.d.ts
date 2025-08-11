@@ -804,6 +804,8 @@ export interface ApiClientDiscordConnectionClientDiscordConnection
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    verified_role_id: Schema.Attribute.String;
+    verified_role_id: Schema.Attribute.String;
   };
 }
 

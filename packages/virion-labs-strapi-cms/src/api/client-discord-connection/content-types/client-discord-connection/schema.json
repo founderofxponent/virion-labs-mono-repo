@@ -31,6 +31,10 @@
       "enum": ["not_connected", "pending", "connected"],
       "default": "pending"
     },
+    "verified_role_id": { 
+      "type": "string",
+      "description": "Discord role ID assigned as the verified role for this server"
+    },
     "is_active": { "type": "boolean", "default": true }
   }
 }

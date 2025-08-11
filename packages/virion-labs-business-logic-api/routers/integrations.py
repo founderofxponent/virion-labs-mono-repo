@@ -16,6 +16,8 @@ from schemas.integration_schemas import (
     ClientDiscordConnectionListResponse,
     ClientDiscordConnectionBotSyncRequest,
     ClientDiscordSyncStartRequest,
+    AssignVerifiedRoleRequest,
+    AssignVerifiedRoleResponse,
 
 )
 from services.integration_service import integration_service
@@ -165,6 +167,23 @@ async def start_client_guild_sync(request: ClientDiscordSyncStartRequest, curren
     except Exception as e:
         logger.error(f"Failed to start guild sync: {e}")
         raise HTTPException(status_code=500, detail="Failed to start sync")
+
+@router.post("/discord/client/assign-verified-role", response_model=AssignVerifiedRoleResponse)
+async def assign_verified_role(request: AssignVerifiedRoleRequest, current_user: User = Depends(get_current_user)):
+    """
+    Assign a verified role to a specific Discord connection/server.
+    """
+    try:
+        result = await integration_service.assign_verified_role_to_connection(
+            request.connection_id, 
+            request.guild_id, 
+            request.role_id, 
+            current_user
+        )
+        return AssignVerifiedRoleResponse(**result)
+    except Exception as e:
+        logger.error(f"Failed to assign verified role: {e}")
+        raise HTTPException(status_code=500, detail="Failed to assign verified role")
 
 @router.get("/discord/client/oauth-callback")
 async def discord_oauth_callback(code: str = None, state: str = None, guild_id: str = None, permissions: str = None, error: str = None):

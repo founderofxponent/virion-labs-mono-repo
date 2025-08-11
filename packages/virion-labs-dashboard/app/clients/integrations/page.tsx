@@ -6,12 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useClientDiscordConnections } from '@/hooks/use-client-discord-connections'
-import { Bot, RefreshCw, ExternalLink, Hash, Crown, Users, Clock, Zap, CheckCircle2, AlertCircle, Volume2, FolderTree, Mic2, Megaphone, MessageSquare, ChevronRight, Shield, Star, Building2 } from 'lucide-react'
+import { Bot, RefreshCw, ExternalLink, Hash, Crown, Users, Clock, Zap, CheckCircle2, AlertCircle, Volume2, FolderTree, Mic2, Megaphone, MessageSquare, ChevronRight, Shield, Star, Building2, Settings2 } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 
-function DiscordServerCard({ connection }: { connection: any }) {
+function DiscordServerCard({ connection, onAssignVerifiedRole }: { connection: any, onAssignVerifiedRole: (connectionId: string, guildId: string, roleId: string, roleName: string) => void }) {
   const [channelsExpanded, setChannelsExpanded] = useState(false)
   const [rolesExpanded, setRolesExpanded] = useState(false)
   
@@ -199,23 +199,54 @@ function DiscordServerCard({ connection }: { connection: any }) {
                       }
                       return a.name.localeCompare(b.name);
                     })
-                    .map((role: any) => (
-                      <div 
-                        key={role.id} 
-                        className="flex items-center gap-1.5 px-2.5 py-1 bg-background border rounded-full hover:bg-muted/50 transition-colors text-sm"
-                      >
+                    .map((role: any) => {
+                      const isVerifiedRole = connection.verified_role_id === role.id
+                      return (
                         <div 
-                          className="w-2 h-2 rounded-full shrink-0" 
-                          style={{ backgroundColor: formatColor(role.color) }}
-                        />
-                        <span className="font-medium">
-                          {role.name?.startsWith('@') ? role.name : `@${role.name}`}
-                        </span>
-                        <Badge variant="outline" className="text-[10px] h-4 px-1">
-                          {role.memberCount ?? '?'}
-                        </Badge>
-                      </div>
-                    ))
+                          key={role.id} 
+                          className={`flex items-center gap-1.5 px-2.5 py-1 border rounded-full hover:bg-muted/50 transition-colors text-sm group relative ${
+                            isVerifiedRole 
+                              ? 'bg-green-50 border-green-300 ring-1 ring-green-200' 
+                              : 'bg-background'
+                          }`}
+                        >
+                          <div 
+                            className="w-2 h-2 rounded-full shrink-0" 
+                            style={{ backgroundColor: formatColor(role.color) }}
+                          />
+                          <span className="font-medium">
+                            {role.name?.startsWith('@') ? role.name : `@${role.name}`}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] h-4 px-1">
+                            {role.memberCount ?? '?'}
+                          </Badge>
+                          {isVerifiedRole && (
+                            <Badge className="text-[9px] h-4 px-1.5 bg-green-600 hover:bg-green-700 text-white ml-1">
+                              <Shield className="h-2 w-2 mr-0.5" />
+                              Verified
+                            </Badge>
+                          )}
+                          {!isVerifiedRole && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="opacity-0 group-hover:opacity-100 h-5 w-5 p-0 ml-2 text-[10px] transition-opacity"
+                              onClick={() => {
+                                onAssignVerifiedRole(
+                                  connection.documentId || connection.id?.toString() || '', 
+                                  connection.guild_id,
+                                  role.id, 
+                                  role.name
+                                )
+                              }}
+                              title="Set as verified role"
+                            >
+                              <Shield className="h-2.5 w-2.5" />
+                            </Button>
+                          )}
+                        </div>
+                      )
+                    })
                 ) : (
                   <div className="flex items-center justify-center py-4 text-muted-foreground">
                     <span className="text-sm">No roles available</span>
@@ -226,6 +257,32 @@ function DiscordServerCard({ connection }: { connection: any }) {
           </Collapsible>
         </div>
         
+        {/* Verified Role Assignment Section */}
+        {status === 'connected' && (
+          <div className="mt-3 p-3 rounded-lg border bg-green-50/50 border-green-200">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-green-900 flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Verified Role Assignment
+              </h4>
+            </div>
+            <p className="text-xs text-green-800 mb-2">
+              Hover over any role above and click the shield icon to set it as the verified role for this server.
+            </p>
+            {connection.verified_role_id && (
+              <div className="flex items-center gap-2 text-xs text-green-800">
+                <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                <span>Current verified role: <code className="px-1 py-0.5 bg-green-100 rounded font-mono">
+                  {(() => {
+                    const verifiedRole = connection.roles?.find((role: any) => role.id === connection.verified_role_id)
+                    return verifiedRole ? (verifiedRole.name?.startsWith('@') ? verifiedRole.name : `@${verifiedRole.name}`) : connection.verified_role_id
+                  })()} 
+                </code></span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Status Message */}
         <div className={`mt-3 p-3 rounded-lg border ${
           status === 'pending' 
@@ -250,7 +307,16 @@ function DiscordServerCard({ connection }: { connection: any }) {
 }
 
 export default function ClientIntegrationsPage() {
-  const { connections, loading, error, saving, upsert, refetch, installUrl } = useClientDiscordConnections()
+  const { connections, loading, error, saving, upsert, refetch, installUrl, assignVerifiedRole, assigningRole } = useClientDiscordConnections()
+
+  const handleAssignVerifiedRole = async (connectionId: string, guildId: string, roleId: string, roleName: string) => {
+    const result = await assignVerifiedRole(connectionId, guildId, roleId)
+    if (result.success) {
+      // Success feedback will be shown via toast in the hook
+    } else {
+      // Error feedback will be shown via toast in the hook
+    }
+  }
 
   return (
     <ProtectedRoute allowedRoles={["client", "admin", "platform administrator"]}>
@@ -413,7 +479,8 @@ export default function ClientIntegrationsPage() {
                   {connections.map((connection) => (
                     <DiscordServerCard 
                       key={`${connection.id}-${connection.guild_id}`} 
-                      connection={connection} 
+                      connection={connection}
+                      onAssignVerifiedRole={handleAssignVerifiedRole}
                     />
                   ))}
                 </div>
