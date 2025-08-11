@@ -28,8 +28,8 @@ export function VitalsTab({
       // For client users, automatically select the first (and likely only) client
       const clientData = clients[0]
       if (clientData) {
-        // Use the numeric ID for API calls, not documentId
-        handleFieldChange("client", clientData.id)
+        // Use the document ID for API calls, not numeric ID
+        handleFieldChange("client", clientData.documentId || clientData.id)
       }
     }
   }, [isClient, clients, formData.client, handleFieldChange])
