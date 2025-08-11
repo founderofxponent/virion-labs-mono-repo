@@ -1,15 +1,13 @@
-"use client"
-
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { CampaignWizard } from "@/components/campaign-wizard"
+import { EmailTemplatesAdmin } from "@/components/email-templates-admin"
 import { ProtectedRoute } from "@/components/protected-route"
 
-export default function CreateCampaignPage() {
+export default function EmailTemplatesPage() {
   return (
     <ProtectedRoute allowedRoles={["admin", "Platform Administrator"]}>
       <DashboardLayout>
-        <CampaignWizard mode="create" />
+        <EmailTemplatesAdmin />
       </DashboardLayout>
     </ProtectedRoute>
   )
-} 
+}

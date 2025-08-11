@@ -73,21 +73,21 @@ export function Sidebar() {
     },
     {
       title: "Clients",
-      href: "/clients",
+      href: "/admin/clients",
       icon: Users,
-      active: pathname === "/clients",
+      active: pathname === "/admin/clients",
     },
     {
       title: "Campaigns",
-      href: "/bot-campaigns",
+      href: "/admin/campaigns",
       icon: Bot,
-      active: pathname === "/bot-campaigns" || pathname.startsWith("/bot-campaigns"),
+      active: pathname === "/admin/campaigns" || pathname.startsWith("/admin/campaigns"),
     },
     {
       title: "Analytics",
-      href: "/analytics",
+      href: "/admin/analytics",
       icon: BarChart3,
-      active: pathname === "/analytics",
+      active: pathname === "/admin/analytics",
     },
     {
       title: "Access Requests",
@@ -97,9 +97,9 @@ export function Sidebar() {
     },
     {
       title: "Email Templates",
-      href: "/email-templates",
+      href: "/admin/email-templates",
       icon: Mail,
-      active: pathname === "/email-templates",
+      active: pathname === "/admin/email-templates",
     },
     {
       title: "Settings",

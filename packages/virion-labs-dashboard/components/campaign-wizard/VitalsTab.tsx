@@ -15,11 +15,24 @@ export function VitalsTab({
   formData,
   handleFieldChange,
   clients,
+  isClient = false,
 }: {
   formData: any
   handleFieldChange: (field: string, value: any) => void
   clients: any[]
+  isClient?: boolean
 }) {
+  // If user is a client, set their client ID automatically
+  React.useEffect(() => {
+    if (isClient && clients.length > 0 && !formData.client) {
+      // For client users, automatically select the first (and likely only) client
+      const clientData = clients[0]
+      if (clientData) {
+        handleFieldChange("client", clientData.documentId || clientData.id.toString())
+      }
+    }
+  }, [isClient, clients, formData.client, handleFieldChange])
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -31,24 +44,29 @@ export function VitalsTab({
           onChange={e => handleFieldChange("name", e.target.value)}
         />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="client">Client</Label>
-        <Select
-          value={formData.client}
-          onValueChange={value => handleFieldChange("client", value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select a client" />
-          </SelectTrigger>
-          <SelectContent>
-            {clients.map(client => (
-              <SelectItem key={client.id} value={client.documentId || client.id.toString()}>
-                {client.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      
+      {/* Only show client selector for admins */}
+      {!isClient && (
+        <div className="space-y-2">
+          <Label htmlFor="client">Client</Label>
+          <Select
+            value={formData.client}
+            onValueChange={value => handleFieldChange("client", value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a client" />
+            </SelectTrigger>
+            <SelectContent>
+              {clients.map(client => (
+                <SelectItem key={client.id} value={client.documentId || client.id.toString()}>
+                  {client.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      
       <div className="space-y-2">
         <Label htmlFor="description">Description</Label>
         <Textarea

@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/components/auth-provider"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,6 +75,7 @@ const TABS = [
 export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigateTo, onSaved }: CampaignWizardProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const { profile } = useAuth()
   const [currentStep, setCurrentStep] = useState(mode === 'create' ? 0 : 1)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -89,6 +91,10 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
   const fetchedCampaignId = useRef<string | null>(null);
   
   const { clients, loading: clientsLoading } = useClients()
+  
+  // Check if user is a client
+  const userRole = (typeof profile?.role === 'string' ? profile.role : profile?.role?.name)?.toLowerCase()
+  const isClient = userRole === "client"
   const { campaigns, loading: campaignsLoading, createCampaign, updateCampaign, fetchSingleCampaign } = useBotCampaignsAPI()
   
   const { 
@@ -417,9 +423,16 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 0: return true; // Template selection always valid
-      case 1: return !!(formData.client && formData.name);
-      case 2: return !!(formData.guild_id);
-      case 3: return !!(formData.bot_name);
+      case 1: {
+        // For client users, client is auto-selected, so only validate name
+        if (isClient) {
+          return !!formData.name;
+        }
+        // For admin users, both client and name are required
+        return !!(formData.client && formData.name);
+      }
+      case 2: return !!formData.guild_id;
+      case 3: return !!formData.bot_name;
       default: return true;
     }
   }
@@ -549,8 +562,8 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
   const renderContent = () => {
     switch (currentStep) {
       case 0: return <TemplateSelectionTab templates={templates} templatesLoading={templatesLoading} onTemplateSelect={handleTemplateSelect} onSkipTemplate={handleSkipTemplate} />;
-      case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} clients={clients as any} />;
-      case 2: return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} />;
+      case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} clients={clients as any} isClient={isClient} />;
+      case 2: return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} clientId={formData.client} />;
       case 3: return <BotIdentityTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={effectiveOnboardingFields.fields as OnboardingQuestion[]} onQuestionsChange={handleQuestionsChange} />;
       case 5: return <AccessAndModerationTab formData={formData} handleFieldChange={handleFieldChange} />;
