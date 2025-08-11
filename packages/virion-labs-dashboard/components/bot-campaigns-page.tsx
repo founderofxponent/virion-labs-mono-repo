@@ -376,7 +376,7 @@ export default function BotCampaignsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Bot Campaigns</h1>
+          <h1 className="text-3xl font-bold">Campaigns</h1>
           <p className="text-muted-foreground">
             Manage your Discord bot configurations and campaigns in one place
           </p>
@@ -452,7 +452,7 @@ export default function BotCampaignsPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            Bot Campaigns ({loading ? (
+            Campaigns ({loading ? (
               <Skeleton className="inline-block h-4 w-6" />
             ) : (
               filteredCampaigns.length
