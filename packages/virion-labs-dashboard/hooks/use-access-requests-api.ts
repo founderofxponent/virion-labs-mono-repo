@@ -62,7 +62,7 @@ export function useAccessRequestsApi() {
       roleName = role.name
     }
   }
-  const isAdmin = roleName === "admin" || roleName === "Platform Administrator"
+  const isAdmin = roleName === "admin" || roleName === "platform administrator"
   const [requests, setRequests] = useState<AccessRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

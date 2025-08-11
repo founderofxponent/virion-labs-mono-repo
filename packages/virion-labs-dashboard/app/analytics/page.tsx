@@ -6,7 +6,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 
 export default function Analytics() {
   return (
-    <ProtectedRoute allowedRoles={["admin", "Platform Administrator"]}>
+    <ProtectedRoute allowedRoles={["admin", "platform administrator"]}>
       <DashboardLayout>
         <AnalyticsPage />
       </DashboardLayout>

@@ -23,7 +23,7 @@ export function useDiscordSettingsApi() {
       roleName = role.name
     }
   }
-  const isAdmin = roleName === "admin" || roleName === "Platform Administrator"
+  const isAdmin = roleName === "admin" || roleName === "platform administrator"
   
   const [settings, setSettings] = useState<DiscordSettings | null>(null)
   const [loading, setLoading] = useState(true)

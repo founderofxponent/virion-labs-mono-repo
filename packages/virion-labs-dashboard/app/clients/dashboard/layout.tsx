@@ -6,7 +6,7 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 
 export default function ClientDashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <ProtectedRoute allowedRoles={["client", "admin", "Platform Administrator"]}>
+    <ProtectedRoute allowedRoles={["client", "admin", "platform administrator"]}>
       <DashboardLayout>{children}</DashboardLayout>
     </ProtectedRoute>
   )

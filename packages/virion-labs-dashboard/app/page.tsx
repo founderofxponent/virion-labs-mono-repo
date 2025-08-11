@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation"
 
 export default function Home() {
   return (
-    <ProtectedRoute allowedRoles={["Influencer", "admin", "Platform Administrator"]} redirectTo="/clients/dashboard">
+    <ProtectedRoute allowedRoles={["Influencer", "admin", "platform administrator"]} redirectTo="/clients/dashboard">
       <DashboardContent />
     </ProtectedRoute>
   )

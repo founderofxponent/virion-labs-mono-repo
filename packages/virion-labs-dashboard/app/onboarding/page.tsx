@@ -14,7 +14,7 @@ export default function ClientOnboardingPage() {
   }, [router])
   
   return (
-    <ProtectedRoute allowedRoles={["client", "admin", "Platform Administrator"]}>
+    <ProtectedRoute allowedRoles={["client", "admin", "platform administrator"]}>
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <p className="text-muted-foreground">Redirecting to campaign creation...</p>

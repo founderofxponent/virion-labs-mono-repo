@@ -4,7 +4,7 @@ import ClientsCampaignsPage from "@/components/clients-campaigns-page"
 
 export default function ClientCampaignsPage() {
   return (
-    <ProtectedRoute allowedRoles={["client", "admin", "Platform Administrator"]}>
+    <ProtectedRoute allowedRoles={["client", "admin", "platform administrator"]}>
       <DashboardLayout>
         <ClientsCampaignsPage />
       </DashboardLayout>

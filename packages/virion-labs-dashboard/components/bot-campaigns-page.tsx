@@ -248,7 +248,7 @@ export default function BotCampaignsPage() {
 
   const handleExportCampaignCSV = async (campaignId: string, campaignName: string) => {
     try {
-      if (roleName !== "Platform Administrator" && roleName !== "admin") {
+      if (roleName !== "platform administrator" && roleName !== "admin") {
         toast({
           title: "Access Denied",
           description: "You do not have permission to export data.",

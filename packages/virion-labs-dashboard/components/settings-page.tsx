@@ -34,7 +34,7 @@ import { WebhookTester, WebhookTestResult } from "@/lib/webhook-test"
 export function SettingsPage() {
   const { profile } = useAuth()
   const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
-  const isAdmin = roleName === "admin" || roleName === "Platform Administrator"
+  const isAdmin = roleName === "admin" || roleName === "platform administrator"
 
   return (
     <div className="space-y-6">

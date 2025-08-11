@@ -4,7 +4,7 @@ import ClientsProductsPage from "@/components/clients-products-page"
 
 export default function ClientProductsPage() {
   return (
-    <ProtectedRoute allowedRoles={["client", "admin", "Platform Administrator"]}>
+    <ProtectedRoute allowedRoles={["client", "admin", "platform administrator"]}>
       <DashboardLayout>
         <ClientsProductsPage />
       </DashboardLayout>

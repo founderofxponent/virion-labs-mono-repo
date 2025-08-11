@@ -236,7 +236,7 @@ export default function ClientIntegrationsPage() {
   const { connections, loading, error, saving, upsert, refetch, installUrl } = useClientDiscordConnections()
 
   return (
-    <ProtectedRoute allowedRoles={["client", "admin", "Platform Administrator"]}>
+    <ProtectedRoute allowedRoles={["client", "admin", "platform administrator"]}>
       <DashboardLayout>
         <div className="max-w-5xl p-6 mx-auto space-y-6">
           <div className="space-y-1">

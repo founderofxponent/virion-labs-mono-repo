@@ -4,7 +4,7 @@ import { ProtectedRoute } from "@/components/protected-route"
 
 export default function EmailTemplatesPage() {
   return (
-    <ProtectedRoute allowedRoles={["admin", "Platform Administrator"]}>
+    <ProtectedRoute allowedRoles={["admin", "platform administrator"]}>
       <DashboardLayout>
         <EmailTemplatesAdmin />
       </DashboardLayout>

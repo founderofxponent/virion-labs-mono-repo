@@ -249,7 +249,7 @@ export function EmailTemplatesAdmin() {
     template.description?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  if (!profile || profile.role?.name !== "Platform Administrator") {
+  if (!profile || profile.role?.name !== "platform administrator") {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Access denied. Admin privileges required.</p>
