@@ -598,23 +598,56 @@ class IntegrationService:
             # Create the Discord request access record
             await strapi_client.create_discord_request_access(request_data)
             
-            # Get the verified role ID from Discord settings and assign it
-            discord_settings = await strapi_client.get_discord_setting()
+            # Get the verified role ID from client discord connection and assign it
             role_assigned = False
+            verified_role_id = None
             
-            if discord_settings and discord_settings.verified_role_id:
+            # First, try to get the verified role ID from the client discord connection
+            try:
+                client_connections = await strapi_client._request(
+                    "GET", 
+                    "client-discord-connections",
+                    params={
+                        "filters[guild_id][$eq]": guild_id,
+                        "populate[0]": "client"
+                    }
+                )
+                
+                connections = client_connections.get('data', [])
+                if connections:
+                    attrs = connections[0].get('attributes', connections[0])
+                    verified_role_id = attrs.get('verified_role_id')
+                    logger.info(f"Found client-specific verified role ID: {verified_role_id} for guild {guild_id}")
+                else:
+                    logger.warning(f"No client discord connection found for guild {guild_id}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to fetch client discord connection for guild {guild_id}: {e}")
+            
+            # Fallback to global Discord settings if no client-specific role ID is configured
+            if not verified_role_id:
+                logger.info("No client-specific verified role ID found, falling back to global Discord settings")
+                discord_settings = await strapi_client.get_discord_setting()
+                if discord_settings and discord_settings.verified_role_id:
+                    verified_role_id = discord_settings.verified_role_id
+                    logger.info(f"Using global verified role ID: {verified_role_id}")
+                else:
+                    logger.warning("No verified role ID configured in Discord settings")
+            
+            # Assign the role if we found a verified role ID
+            if verified_role_id:
                 role_assigned = await self._assign_discord_role(
                     guild_id, 
                     discord_user_id, 
-                    discord_settings.verified_role_id
+                    verified_role_id
                 )
                 
                 if role_assigned:
-                    logger.info(f"Successfully assigned verified role {discord_settings.verified_role_id} to user {discord_user_id}")
+                    logger.info(f"Successfully assigned verified role {verified_role_id} to user {discord_user_id}")
                 else:
                     logger.warning(f"Failed to assign verified role to user {discord_user_id}")
             else:
-                logger.warning("No verified role ID configured in Discord settings")
+                logger.warning("No verified role ID found - neither client-specific nor global")
             
             logger.info(f"Successfully created and auto-approved Discord access request for user {discord_user_id} in guild {guild_id}")
             
@@ -795,13 +828,43 @@ class IntegrationService:
         Check if a Discord user has the verified role in a guild using Discord API.
         """
         try:
-            # Get the verified role ID from Discord settings
-            discord_settings = await strapi_client.get_discord_setting()
-            if not discord_settings or not discord_settings.verified_role_id:
-                logger.warning("No verified role ID configured in Discord settings")
-                return False
+            verified_role_id = None
             
-            verified_role_id = discord_settings.verified_role_id
+            # First, try to get the verified role ID from the client discord connection
+            try:
+                client_connections = await strapi_client._request(
+                    "GET", 
+                    "client-discord-connections",
+                    params={
+                        "filters[guild_id][$eq]": guild_id,
+                        "populate[0]": "client"
+                    }
+                )
+                
+                connections = client_connections.get('data', [])
+                if connections:
+                    attrs = connections[0].get('attributes', connections[0])
+                    verified_role_id = attrs.get('verified_role_id')
+                    logger.info(f"Using client-specific verified role ID: {verified_role_id} for guild {guild_id}")
+                else:
+                    logger.warning(f"No client discord connection found for guild {guild_id}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to fetch client discord connection for guild {guild_id}: {e}")
+            
+            # Fallback to global Discord settings if no client-specific role ID is configured
+            if not verified_role_id:
+                logger.info("No client-specific verified role ID found, falling back to global Discord settings")
+                discord_settings = await strapi_client.get_discord_setting()
+                if not discord_settings or not discord_settings.verified_role_id:
+                    logger.warning("No verified role ID configured in Discord settings")
+                    return False
+                verified_role_id = discord_settings.verified_role_id
+                logger.info(f"Using global verified role ID: {verified_role_id}")
+            
+            if not verified_role_id:
+                logger.warning("No verified role ID found - neither client-specific nor global")
+                return False
             
             # Check if Discord bot token is configured
             if not settings.DISCORD_BOT_TOKEN:
