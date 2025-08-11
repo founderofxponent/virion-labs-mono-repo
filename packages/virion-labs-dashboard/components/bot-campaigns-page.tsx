@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { CampaignWizard } from "@/components/campaign-wizard/CampaignWizard"
 import { useToast } from "@/hooks/use-toast"
 import api from "@/lib/api"
+import { useDiscordIdResolver } from "@/hooks/use-discord-id-resolver"
 import { 
   Plus,
   Server,
@@ -49,6 +50,7 @@ export default function BotCampaignsPage() {
   const { profile } = useAuth()
   const { toast } = useToast()
   const { clients } = useClients()
+  const { resolveCampaignDiscordNames } = useDiscordIdResolver()
   const [filterClient, setFilterClient] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -519,18 +521,28 @@ export default function BotCampaignsPage() {
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Discord Server</Label>
                         <div className="flex flex-wrap gap-4">
                           <div className="flex flex-col min-w-0">
-                            <span className="text-xs text-muted-foreground mb-1">Guild ID</span>
+                            <span className="text-xs text-muted-foreground mb-1">Server</span>
                             <div className="flex items-center space-x-1">
                               <Server className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              <span className="font-mono text-sm text-foreground truncate">{campaign.guild_id}</span>
+                              <span className="text-sm text-foreground truncate">
+                                {(() => {
+                                  const { guildName } = resolveCampaignDiscordNames(campaign)
+                                  return guildName || campaign.guild_id
+                                })()}
+                              </span>
                             </div>
                           </div>
                           {campaign.channel_id && (
                             <div className="flex flex-col min-w-0">
-                              <span className="text-xs text-muted-foreground mb-1">Channel ID</span>
+                              <span className="text-xs text-muted-foreground mb-1">Channel</span>
                               <div className="flex items-center space-x-1">
                                 <Hash className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                <span className="font-mono text-sm text-foreground truncate">{campaign.channel_id}</span>
+                                <span className="text-sm text-foreground truncate">
+                                  {(() => {
+                                    const { channelName } = resolveCampaignDiscordNames(campaign)
+                                    return channelName || campaign.channel_id
+                                  })()}
+                                </span>
                               </div>
                             </div>
                           )}

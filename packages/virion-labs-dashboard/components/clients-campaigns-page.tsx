@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useAuth } from '@/components/auth-provider'
 import { useBotCampaignsAPI, getCampaignStatus } from '@/hooks/use-bot-campaigns-api'
+import { useDiscordIdResolver } from '@/hooks/use-discord-id-resolver'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -46,6 +47,7 @@ export default function ClientsCampaignsPage() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { resolveCampaignDiscordNames } = useDiscordIdResolver()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const filters = useMemo(() => ({}), [])
@@ -289,7 +291,10 @@ export default function ClientsCampaignsPage() {
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg">{campaign.name}</h3>
                           <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                            <span>Guild ID: {campaign.guild_id}</span>
+                            <span>Server: {(() => {
+                              const { guildName } = resolveCampaignDiscordNames(campaign)
+                              return guildName || campaign.guild_id
+                            })()}</span>
                             {campaign.client_name && (
                               <>
                                 <span>•</span>
