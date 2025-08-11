@@ -249,7 +249,10 @@ export function EmailTemplatesAdmin() {
     template.description?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  if (!profile || profile.role?.name !== "platform administrator") {
+  const userRole = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
+  const isAdmin = userRole === "admin" || userRole === "platform administrator"
+  
+  if (!profile || !isAdmin) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Access denied. Admin privileges required.</p>
