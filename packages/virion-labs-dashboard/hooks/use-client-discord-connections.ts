@@ -14,14 +14,14 @@ export interface ClientDiscordConnection {
   guild_icon_url?: string
   channels?: DiscordChannel[]
   roles?: DiscordRole[]
-  status?: 'not_connected' | 'pending' | 'connected'
+  connection_status?: 'not_connected' | 'pending' | 'connected'
   last_synced_at?: string
 }
 
-export function useClientDiscordConnections() {
+export function useClientDiscordConnections(clientId?: string) {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   const getToken = () => localStorage.getItem('auth_token')
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
 
   const [connections, setConnections] = useState<ClientDiscordConnection[]>([])
   const [loading, setLoading] = useState(true)
@@ -34,7 +34,16 @@ export function useClientDiscordConnections() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${API_BASE_URL}/api/v1/integrations/discord/client/connections`, {
+      // Build URL based on user role and client selection
+      let url = `${API_BASE_URL}/api/v1/integrations/discord/client/connections`
+      
+      // If user is admin and a specific client is selected, filter by that client
+      if (profile?.role === 'admin' && clientId) {
+        url += `?client_id=${clientId}`
+      }
+      // If user is client, the backend should automatically filter to their client
+      
+      const res = await fetch(url, {
         headers: { Authorization: `Bearer ${getToken()}` },
       })
       if (!res.ok) {
@@ -48,7 +57,7 @@ export function useClientDiscordConnections() {
     } finally {
       setLoading(false)
     }
-  }, [user])
+  }, [user, profile?.role, clientId])
 
   useEffect(() => { refetch() }, [refetch])
 

@@ -13,21 +13,27 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { useClientDiscordConnections } from "@/hooks/use-client-discord-connections"
 import type { ClientDiscordConnection } from "@/hooks/use-client-discord-connections"
+import { useAuth } from "@/components/auth-provider"
 
 export function PlacementAndScheduleTab({
   formData,
   handleFieldChange,
   clientId,
 }: PlacementAndScheduleTabProps & { clientId?: string }) {
-  const { connections, loading, error } = useClientDiscordConnections()
+  const { profile } = useAuth()
+  const { connections, loading, error } = useClientDiscordConnections(clientId)
   const [selectedConnection, setSelectedConnection] = useState<ClientDiscordConnection | null>(null)
-  // Filter by client when provided (admin view), otherwise show all connections available
+  // For clients, connections are already filtered by backend
+  // For admins, connections are filtered by clientId if provided
   const filteredConnections = React.useMemo(() => {
-    if (!clientId) return connections
-    const numericId = Number(clientId)
-    if (Number.isNaN(numericId)) return connections
-    return connections.filter((c) => c.client_id === numericId)
-  }, [connections, clientId])
+    // If user is a client, backend already filters to their connections
+    if (profile?.role === 'client') {
+      return connections
+    }
+    // If admin and clientId provided, connections are already filtered by backend
+    // If admin and no clientId, show all connections
+    return connections
+  }, [connections, profile?.role])
 
   // When connections load or form guild changes, select the matching connection if any
   useEffect(() => {
@@ -44,6 +50,7 @@ export function PlacementAndScheduleTab({
       setSelectedConnection(null)
       handleFieldChange("guild_id", "")
       handleFieldChange("channel_id", "")
+      handleFieldChange("target_role_ids", [])
     }
   }, [clientId])
 
@@ -59,6 +66,10 @@ export function PlacementAndScheduleTab({
 
   const handleChannelSelect = (channelId: string) => {
     handleFieldChange("channel_id", channelId)
+  }
+
+  const handleTargetRoleSelect = (roleId: string) => {
+    handleFieldChange("target_role_ids", [roleId])
   }
 
   return (
@@ -142,6 +153,35 @@ export function PlacementAndScheduleTab({
             placeholder="Enter the ID of the channel for the bot"
             value={formData.channel_id}
             onChange={e => handleFieldChange("channel_id", e.target.value)}
+          />
+        )}
+      </div>
+
+      {/* Target Role Selection */}
+      <div className="space-y-2">
+        <Label htmlFor="target_role_ids">Target Role</Label>
+        {selectedConnection && selectedConnection.roles && selectedConnection.roles.length > 0 ? (
+          <Select
+            value={formData.target_role_ids?.[0] || ""}
+            onValueChange={handleTargetRoleSelect}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a target role" />
+            </SelectTrigger>
+            <SelectContent>
+              {selectedConnection.roles.map(role => (
+                <SelectItem key={role.id} value={role.id}>
+                  @{role.name}
+                  {role.memberCount && ` (${role.memberCount} members)`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input
+            placeholder="Enter the ID of the target role"
+            value={formData.target_role_ids?.[0] || ""}
+            onChange={e => handleFieldChange("target_role_ids", e.target.value ? [e.target.value] : [])}
           />
         )}
       </div>

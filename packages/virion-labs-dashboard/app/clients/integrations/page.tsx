@@ -60,7 +60,7 @@ function DiscordServerCard({ connection }: { connection: any }) {
     }
   }
 
-  const status: 'connected' | 'pending' | 'not_connected' = (connection.status || (connection.last_synced_at ? 'connected' : 'pending'))
+  const status: 'connected' | 'pending' | 'not_connected' = (connection.connection_status || (connection.last_synced_at ? 'connected' : 'pending'))
 
   return (
     <Card className="border-2">
@@ -341,7 +341,7 @@ export default function ClientIntegrationsPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Connected Servers ({connections.length})</h3>
                   <Badge variant="outline" className="text-xs">
-                    {connections.filter(c => c.status === 'connected' || (!c.status && c.last_synced_at)).length} active
+                    {connections.filter(c => c.connection_status === 'connected' || (!c.connection_status && c.last_synced_at)).length} active
                   </Badge>
                 </div>
                 

@@ -222,7 +222,7 @@ class IntegrationService:
                 discord_username=attrs.get('discord_username'),
                 channels=attrs.get('channels'),
                 roles=attrs.get('roles'),
-                status=attrs.get('status'),
+                connection_status=attrs.get('connection_status'),
                 last_synced_at=attrs.get('last_synced_at')
             ))
         return connections
@@ -255,7 +255,7 @@ class IntegrationService:
             "channels": [c.model_dump() if hasattr(c, 'model_dump') else c for c in (request.channels or [])],
             "roles": [r.model_dump() if hasattr(r, 'model_dump') else r for r in (request.roles or [])],
             "last_synced_at": datetime.now(timezone.utc).isoformat(),
-            "status": "connected"
+            "connection_status": "connected"
         }
 
         if items:
@@ -282,7 +282,7 @@ class IntegrationService:
             discord_username=attrs.get('discord_username'),
             channels=attrs.get('channels'),
             roles=attrs.get('roles'),
-            status=attrs.get('status'),
+            connection_status=attrs.get('connection_status'),
             last_synced_at=attrs.get('last_synced_at')
         )
 
@@ -315,7 +315,7 @@ class IntegrationService:
             "channels": [c.model_dump() if hasattr(c, 'model_dump') else c for c in (request.channels or [])],
             "roles": [r.model_dump() if hasattr(r, 'model_dump') else r for r in (request.roles or [])],
             "last_synced_at": datetime.now(timezone.utc).isoformat(),
-            "status": "connected"
+            "connection_status": "connected"
         }
 
         # Debug log a small sample to verify memberCount is flowing through
@@ -359,7 +359,7 @@ class IntegrationService:
             discord_username=attrs.get('discord_username'),
             channels=attrs.get('channels'),
             roles=attrs.get('roles'),
-            status=attrs.get('status'),
+            connection_status=attrs.get('connection_status'),
             last_synced_at=attrs.get('last_synced_at')
         )
 
@@ -405,7 +405,7 @@ class IntegrationService:
     async def start_client_guild_sync(self, guild_id: str, current_user) -> Dict[str, Any]:
         """Optional server-side kick-off; for now, just acknowledges request."""
         # In future, we could DM the client bot or schedule a job. For MVP, return ack
-        return {"status": "pending", "guild_id": guild_id}
+        return {"connection_status": "pending", "guild_id": guild_id}
     
     async def handle_discord_oauth_callback(self, code: str, state: str, guild_id: str = None, permissions: str = None) -> Dict[str, Any]:
         """Handle Discord OAuth callback - state parameter contains client document ID."""
@@ -437,7 +437,7 @@ class IntegrationService:
                 connection_data = {
                     "client": client_id,
                     "guild_id": guild_id,
-                    "status": "pending",  # Waiting for /sync command
+                    "connection_status": "pending",  # Waiting for /sync command
                     "last_synced_at": None
                 }
                 
@@ -514,7 +514,7 @@ class IntegrationService:
                 "GET",
                 "client-discord-connections", 
                 params={
-                    "filters[status][$eq]": "pending",
+                    "filters[connection_status][$eq]": "pending",
                     "populate[0]": "client"
                 }
             )
@@ -532,7 +532,7 @@ class IntegrationService:
                         "guild_id": attrs.get('guild_id'),
                         "guild_name": attrs.get('guild_name'),
                         "client_document_id": client_data.get('documentId'),
-                        "status": attrs.get('status'),
+                        "connection_status": attrs.get('connection_status'),
                         "last_synced_at": attrs.get('last_synced_at')
                     })
             

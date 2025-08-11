@@ -26,7 +26,7 @@
     "channels": { "type": "json" },
     "roles": { "type": "json" },
     "last_synced_at": { "type": "datetime" },
-    "status": { 
+    "connection_status": { 
       "type": "enumeration",
       "enum": ["not_connected", "pending", "connected"],
       "default": "pending"

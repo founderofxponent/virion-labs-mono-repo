@@ -779,6 +779,10 @@ export interface ApiClientDiscordConnectionClientDiscordConnection
   attributes: {
     channels: Schema.Attribute.JSON;
     client: Schema.Attribute.Relation<'manyToOne', 'api::client.client'>;
+    connection_status: Schema.Attribute.Enumeration<
+      ['not_connected', 'pending', 'connected']
+    > &
+      Schema.Attribute.DefaultTo<'pending'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -797,10 +801,6 @@ export interface ApiClientDiscordConnectionClientDiscordConnection
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     roles: Schema.Attribute.JSON;
-    status: Schema.Attribute.Enumeration<
-      ['not_connected', 'pending', 'connected']
-    > &
-      Schema.Attribute.DefaultTo<'pending'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
