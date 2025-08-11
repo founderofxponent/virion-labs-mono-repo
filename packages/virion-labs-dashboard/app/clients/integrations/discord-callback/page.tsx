@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
+
+export const dynamic = 'force-dynamic'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard-layout'
 import { ProtectedRoute } from '@/components/protected-route'
@@ -10,7 +12,7 @@ import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 
 type CallbackState = 'loading' | 'success' | 'error'
 
-export default function DiscordCallbackPage() {
+function DiscordCallbackContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [state, setState] = useState<CallbackState>('loading')
@@ -156,5 +158,28 @@ export default function DiscordCallbackPage() {
         </div>
       </DashboardLayout>
     </ProtectedRoute>
+  )
+}
+
+export default function DiscordCallbackPage() {
+  return (
+    <Suspense fallback={
+      <ProtectedRoute allowedRoles={["client", "admin", "platform administrator"]}>
+        <DashboardLayout>
+          <div className="max-w-2xl mx-auto p-6">
+            <Card>
+              <CardHeader className="text-center">
+                <CardTitle className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  Loading...
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          </div>
+        </DashboardLayout>
+      </ProtectedRoute>
+    }>
+      <DiscordCallbackContent />
+    </Suspense>
   )
 }

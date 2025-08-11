@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, PermissionFlagsBits } from 'discord.js'
 import fetch from 'node-fetch'
 import dotenv from 'dotenv'
+import { HealthServer } from './health-server.js'
 
 // Load environment variables
 dotenv.config()
@@ -13,6 +14,10 @@ if (!API_URL || !API_KEY || !BOT_TOKEN) {
   console.error('Missing required environment variables')
   process.exit(1)
 }
+
+// Start health server for Render
+const healthServer = new HealthServer(process.env.PORT || 8080)
+healthServer.start()
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] })
 
@@ -111,6 +116,14 @@ client.on('interactionCreate', async (interaction) => {
     console.error(e)
     await interaction.editReply('❌ Failed to sync. Please try again or contact support.')
   }
+})
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down gracefully...')
+  healthServer.stop()
+  client.destroy()
+  process.exit(0)
 })
 
 client.login(BOT_TOKEN)
