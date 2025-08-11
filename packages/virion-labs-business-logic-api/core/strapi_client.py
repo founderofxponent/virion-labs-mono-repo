@@ -318,7 +318,7 @@ class StrapiClient:
     async def get_onboarding_fields_by_campaign(self, campaign_id: str) -> List[CampaignOnboardingField]:
         """Fetches onboarding fields for a campaign from Strapi."""
         logger.info(f"StrapiClient: Fetching onboarding fields for campaign {campaign_id} from Strapi.")
-        params = {"filters[campaign][documentId][$eq]": campaign_id, "populate": "*"}
+        params = {"filters[campaign][documentId][$eq]": campaign_id, "populate": "*", "sort": ["sort_order:asc", "id:asc"]}
         response = await self._request("GET", "campaign-onboarding-fields", params=params)
         return [CampaignOnboardingField(**item) for item in response.get("data", [])]
 
@@ -357,7 +357,7 @@ class StrapiClient:
         response = await self._request("POST", "campaign-onboarding-fields", data=data)
         return CampaignOnboardingField(**response.get("data"))
 
-    async def update_onboarding_field(self, field_id: int, field_data: StrapiCampaignOnboardingFieldUpdate) -> CampaignOnboardingField:
+    async def update_onboarding_field(self, field_id: str, field_data: StrapiCampaignOnboardingFieldUpdate) -> CampaignOnboardingField:
         """Updates an onboarding field in Strapi."""
         logger.info(f"StrapiClient: Updating onboarding field {field_id} in Strapi.")
         payload = field_data.model_dump(exclude_unset=True)

@@ -78,7 +78,7 @@ class CampaignLandingPageUpdate(CampaignLandingPageBase):
 class CampaignOnboardingFieldBase(BaseModel):
     field_key: Optional[str] = None
     field_label: Optional[str] = None
-    field_type: Optional[str] = None
+    field_type: Optional[Literal['text', 'email', 'number', 'boolean', 'url', 'select', 'multiselect']] = None
     field_placeholder: Optional[str] = None
     field_description: Optional[str] = None
     field_options: Optional[Dict[str, Any]] = None

@@ -674,11 +674,15 @@ class IntegrationService:
                 logger.warning(f"Could not create onboarding_start record for user {discord_user_id} on campaign {document_id}: {e}")
 
             # Fetch onboarding fields from Strapi using documentId
+            # Fields are already sorted by sort_order in strapi_client.get_onboarding_fields_by_campaign
             fields_data = await strapi_client.get_onboarding_fields_by_campaign(document_id)
             
-            # Transform Strapi field data to match our schema format
+            # Sort fields by sort_order to ensure correct ordering
+            sorted_fields = sorted(fields_data, key=lambda x: x.sort_order or 0)
+            
+            # Transform Strapi field data to match our schema format while preserving order
             transformed_fields = []
-            for field in fields_data:
+            for field in sorted_fields:
                 transformed_field = {
                     "field_key": field.field_key or "",
                     "field_label": field.field_label or "",
@@ -687,10 +691,13 @@ class IntegrationService:
                     "field_description": field.field_description,
                     "field_options": self._extract_field_options(field.field_options),
                     "is_required": field.is_required or False,
-                    "validation_rules": field.validation_rules
+                    "validation_rules": field.validation_rules,
+                    "sort_order": field.sort_order,  # Include sort_order for debugging
+                    "sort_order": field.sort_order  # Include sort_order for debugging
                 }
                 transformed_fields.append(transformed_field)
             
+            logger.info(f"Returning {len(transformed_fields)} onboarding fields for campaign {document_id}, ordered by sort_order")
             return {"success": True, "fields": transformed_fields}
             
         except Exception as e:

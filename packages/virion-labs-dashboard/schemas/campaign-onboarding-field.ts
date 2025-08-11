@@ -20,7 +20,14 @@ export interface BaseOnboardingField {
  * Aligned with the Strapi schema for campaign_onboarding_fields.
  */
 export interface CampaignOnboardingField extends BaseOnboardingField {
+  documentId: string;
   id: number;
+  field_key: string;
+  field_label: string;
+  field_type: string;
+  field_placeholder?: string;
+  field_description?: string;
+  field_options?: any;
   is_required?: boolean;
   is_enabled?: boolean;
   sort_order?: number;
@@ -31,8 +38,14 @@ export interface CampaignOnboardingField extends BaseOnboardingField {
  * Represents an onboarding question in the Campaign Wizard form.
  * It is a variation of the CampaignOnboardingField, used for local state management.
  */
-export interface OnboardingQuestion extends Omit<BaseOnboardingField, 'documentId'> {
+export interface OnboardingQuestion extends Omit<BaseOnboardingField, 'documentId' | 'id'> {
   id?: string;
+  field_key: string;
+  field_label: string;
+  field_type: string;
+  field_placeholder?: string;
+  field_description?: string;
+  field_options?: any;
   is_required: boolean;
   is_enabled: boolean;
   sort_order: number;
@@ -59,18 +72,14 @@ export interface OnboardingTemplate {
 }
 
 export interface OnboardingFieldConfig {
-  key: string
-  label: string
-  type: 'text' | 'email' | 'number' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'url' | 'boolean'
-  placeholder?: string
-  description?: string
-  options?: string[]
+  id: string
+  question: string
+  type: string
   required: boolean
   enabled: boolean
   sort_order: number
   discord_integration?: {
     collect_in_dm: boolean
     show_in_embed: boolean
-    trigger_after?: string
   }
 }

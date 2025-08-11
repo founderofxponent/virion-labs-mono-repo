@@ -126,12 +126,18 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
     console.log('📋 onboardingFields updated:', { onboardingFields, length: onboardingFields?.length, campaignDocumentId })
     if (onboardingFields && onboardingFields.length > 0) {
       console.log('✅ Setting localOnboardingQuestions from API data:', onboardingFields)
-      setLocalOnboardingQuestions(onboardingFields.map(f => ({
+      // Sort by sort_order
+      const sortedFields = [...onboardingFields].sort((a, b) => {
+        const orderA = a.sort_order ?? 0;
+        const orderB = b.sort_order ?? 0;
+        return orderA - orderB;
+      });
+      // Preserve the actual sort_order values from the API
+      setLocalOnboardingQuestions(sortedFields.map((f) => ({
         ...f,
         id: f.documentId,
         is_required: f.is_required ?? false,
         is_enabled: f.is_enabled ?? true,
-        sort_order: f.sort_order ?? 0,
       })));
     }
   }, [onboardingFields, campaignDocumentId]);
@@ -168,10 +174,23 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
     const template_onboarding_fields = template_config?.onboarding_fields || templateWithLandingPage?.onboarding_fields;
     
     if (template_onboarding_fields && template_onboarding_fields.length > 0) {
+      // Sort template fields by sort_order first, then by array index as fallback
+      const sortedTemplateFields = [...template_onboarding_fields].sort((a, b) => {
+        const orderA = a.sort_order ?? template_onboarding_fields.indexOf(a);
+        const orderB = b.sort_order ?? template_onboarding_fields.indexOf(b);
+        return orderA - orderB;
+      });
+
       return {
-        fields: template_onboarding_fields.map((field, index) => ({
-          id: `template-${field.id}`, field_label: field.question, field_type: field.type, sort_order: index,
-          is_required: field.required, is_enabled: true, field_options: field.options || [], validation_rules: field.validation || {},
+        fields: sortedTemplateFields.map((field, index) => ({
+          id: `template-${field.id}`, 
+          field_label: field.question, 
+          field_type: field.type, 
+          sort_order: field.sort_order ?? index,
+          is_required: field.required, 
+          is_enabled: true, 
+          field_options: field.options || [], 
+          validation_rules: field.validation || {},
           field_key: field.question.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '')
         })),
         source: 'template' as const, isTemplate: true
@@ -336,11 +355,18 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
     }
 
     if (onboarding_fields) {
-      const templateQuestions = onboarding_fields.map((field: any, index: number) => ({
+      // Sort template fields by sort_order first, then by array index
+      const sortedOnboardingFields = [...onboarding_fields].sort((a: any, b: any) => {
+        const orderA = a.sort_order ?? onboarding_fields.indexOf(a);
+        const orderB = b.sort_order ?? onboarding_fields.indexOf(b);
+        return orderA - orderB;
+      });
+
+      const templateQuestions = sortedOnboardingFields.map((field: any, index: number) => ({
         id: `template-${field.id}`,
         field_label: field.question,
         field_type: field.type,
-        sort_order: index,
+        sort_order: field.sort_order ?? index,
         is_required: field.required,
         is_enabled: true,
         field_options: field.options || [],

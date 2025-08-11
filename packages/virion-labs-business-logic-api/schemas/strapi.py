@@ -100,9 +100,9 @@ class CampaignOnboardingResponse(CampaignOnboardingResponseBase):
     campaign: Optional['Campaign'] = None
 
 class CampaignOnboardingFieldBase(BaseModel):
-    field_key: str
-    field_label: str
-    field_type: Literal['text', 'email', 'number', 'boolean', 'url', 'select', 'multiselect']
+    field_key: Optional[str] = None
+    field_label: Optional[str] = None
+    field_type: Optional[Literal['text', 'email', 'number', 'boolean', 'url', 'select', 'multiselect']] = None
     field_placeholder: Optional[str] = None
     field_description: Optional[str] = None
     field_options: Optional[Dict[str, Any]] = None
@@ -132,6 +132,10 @@ class StrapiCampaignOnboardingFieldUpdate(CampaignOnboardingFieldBase):
     field_label: Optional[str] = None
     field_type: Optional[Literal['text', 'email', 'number', 'boolean', 'url', 'select', 'multiselect']] = None
     campaign: Optional[int] = None
+    # Explicitly include sort_order and other fields that should be updateable
+    sort_order: Optional[int] = None
+    is_required: Optional[bool] = None
+    is_enabled: Optional[bool] = None
 
 class StrapiCampaignOnboardingStartCreate(CampaignOnboardingStartCreate):
     pass
