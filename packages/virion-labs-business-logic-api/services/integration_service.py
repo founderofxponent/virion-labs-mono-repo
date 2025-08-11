@@ -156,6 +156,8 @@ class IntegrationService:
             # Log all campaign details for debugging
             for i, campaign in enumerate(all_campaigns):
                 logger.debug(f"Campaign {i+1}: id={campaign.id}, documentId={getattr(campaign, 'documentId', None)}, name={campaign.name}, channel_id={getattr(campaign, 'channel_id', None)}")
+                logger.debug(f"Campaign {i+1} target_role_ids: {getattr(campaign, 'target_role_ids', None)}")
+                logger.debug(f"Campaign {i+1} auto_role_assignment: {getattr(campaign, 'auto_role_assignment', None)}")
             
             filtered_campaigns = self.discord_domain.filter_campaigns_for_channel(
                 all_campaigns, channel_id, join_campaigns_channel_id

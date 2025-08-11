@@ -37,6 +37,15 @@ async def get_discord_campaigns(guild_id: str, channel_id: str, join_campaigns_c
     try:
         campaigns = await integration_service.get_discord_campaigns(guild_id, channel_id, join_campaigns_channel_id)
         campaigns_dicts = [campaign.model_dump() for campaign in campaigns]
+        
+        # Debug logging to see what's being returned
+        for i, campaign_dict in enumerate(campaigns_dicts):
+            logger.info(f"🔍 Campaign {i+1} being returned to Discord bot:")
+            logger.info(f"  - ID: {campaign_dict.get('id')}")
+            logger.info(f"  - Name: {campaign_dict.get('name')}")
+            logger.info(f"  - target_role_ids: {campaign_dict.get('target_role_ids')}")
+            logger.info(f"  - auto_role_assignment: {campaign_dict.get('auto_role_assignment')}")
+        
         return GetCampaignsResponse(campaigns=campaigns_dicts)
     except Exception as e:
         logger.error(f"Failed to get Discord campaigns: {e}")

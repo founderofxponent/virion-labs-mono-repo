@@ -45,6 +45,7 @@ class ApiService {
     this.logger.debug(`[ApiService] Cached campaign: ${campaign.documentId} - ${campaign.name}`);
   }
 
+
   async getAvailableCampaigns(guildId, channelId, joinCampaignsChannelId) {
     this.logger.info(`[ApiService] Fetching available campaigns for guild ${guildId}, channel: ${channelId}`);
     let url = `/api/v1/integrations/discord/campaigns/${guildId}?channel_id=${channelId}`;

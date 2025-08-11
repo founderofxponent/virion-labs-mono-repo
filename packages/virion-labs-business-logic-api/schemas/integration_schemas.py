@@ -9,6 +9,8 @@ class Campaign(BaseModel):
     name: str  # Changed from campaign_name to match Strapi client transformation
     description: Optional[str] = None
     channel_id: Optional[str] = None
+    target_role_ids: Optional[List[str]] = None
+    auto_role_assignment: Optional[bool] = False
 
 class GetCampaignsResponse(BaseModel):
     campaigns: List[Campaign]

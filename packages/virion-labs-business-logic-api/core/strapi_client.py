@@ -98,7 +98,7 @@ class StrapiClient:
         if params is None:
             params = {}
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=None) as client:
             try:
                 logger.info(f"Making Strapi request: {method} {url} with params {params}")
                 if data:
@@ -1001,7 +1001,7 @@ class StrapiClient:
         logger.info(f"StrapiClient: Sending email to {email_data.get('to')}")
         # The /email endpoint is now prefixed with /api
         url = f"{self.base_url}/api/email"
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=None) as client:
             try:
                 response = await client.post(url, headers=self.headers, json=email_data)
                 response.raise_for_status()
@@ -1022,7 +1022,7 @@ class StrapiClient:
             "password": new_password,
             "passwordConfirmation": new_password,
         }
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=None) as client:
             try:
                 response = await client.post(url, headers=self.headers, json=payload)
                 response.raise_for_status()
