@@ -14,6 +14,7 @@ import { AlertCircle } from "lucide-react"
 import { useClientDiscordConnections } from "@/hooks/use-client-discord-connections"
 import type { ClientDiscordConnection } from "@/hooks/use-client-discord-connections"
 import { useAuth } from "@/components/auth-provider"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export function PlacementAndScheduleTab({
   formData,
@@ -80,8 +81,13 @@ export function PlacementAndScheduleTab({
     handleFieldChange("channel_id", channelId)
   }
 
-  const handleTargetRoleSelect = (roleId: string) => {
-    handleFieldChange("target_role_ids", [roleId])
+  const handleTargetRoleSelect = (roleId: string, checked: boolean) => {
+    const currentRoles = formData.target_role_ids || []
+    if (checked) {
+      handleFieldChange("target_role_ids", [...currentRoles, roleId])
+    } else {
+      handleFieldChange("target_role_ids", currentRoles.filter(id => id !== roleId))
+    }
   }
 
   return (
@@ -179,30 +185,34 @@ export function PlacementAndScheduleTab({
 
       {/* Target Role Selection */}
       <div className="space-y-2">
-        <Label htmlFor="target_role_ids">Target Role</Label>
+        <Label htmlFor="target_role_ids">Target Roles</Label>
         {selectedConnection && selectedConnection.roles && selectedConnection.roles.length > 0 ? (
-          <Select
-            value={formData.target_role_ids?.[0] || ""}
-            onValueChange={handleTargetRoleSelect}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select a target role" />
-            </SelectTrigger>
-            <SelectContent>
-              {selectedConnection.roles.map(role => (
-                <SelectItem key={role.id} value={role.id}>
+          <div className="border rounded-md p-3 space-y-2 max-h-60 overflow-y-auto">
+            {selectedConnection.roles.map(role => (
+              <div key={role.id} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`role-${role.id}`}
+                  checked={formData.target_role_ids?.includes(role.id) || false}
+                  onCheckedChange={(checked) => handleTargetRoleSelect(role.id, !!checked)}
+                />
+                <Label htmlFor={`role-${role.id}`} className="font-normal">
                   @{role.name}
                   {role.memberCount && ` (${role.memberCount} members)`}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                </Label>
+              </div>
+            ))}
+          </div>
         ) : (
-          <Input
-            placeholder="Enter the ID of the target role"
-            value={formData.target_role_ids?.[0] || ""}
-            onChange={e => handleFieldChange("target_role_ids", e.target.value ? [e.target.value] : [])}
-          />
+          <div className="space-y-2">
+            <Input
+              placeholder="Enter comma-separated IDs of target roles"
+              value={formData.target_role_ids?.join(", ") || ""}
+              onChange={e => handleFieldChange("target_role_ids", e.target.value ? e.target.value.split(",").map(id => id.trim()) : [])}
+            />
+            <p className="text-xs text-muted-foreground">
+              Enter role IDs separated by commas
+            </p>
+          </div>
         )}
       </div>
 

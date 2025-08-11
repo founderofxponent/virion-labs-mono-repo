@@ -396,8 +396,18 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
 
 
   const handleFieldChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
+    // If target_role_ids is being updated, automatically toggle auto_role_assignment
+    if (field === "target_role_ids") {
+      const hasRoleIds = Array.isArray(value) && value.length > 0;
+      setFormData(prev => ({ 
+        ...prev, 
+        [field]: value,
+        auto_role_assignment: hasRoleIds
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
+  };
 
   // New simplified template handlers
   const handleTemplateSelect = (templateId: string | null) => {
