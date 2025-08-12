@@ -7,7 +7,7 @@ class BotClient {
     this.config = config;
     this.logger = logger;
     this.client = new Client({ intents: config.discord.intents });
-    this.rest = new REST({ version: '10' }).setToken(config.discord.token);
+    this.rest = new REST({ version: '9' }).setToken(config.discord.token);
     this.slashCommandManager = new SlashCommandManager(this.config, this.logger);
     this.interactionHandler = new InteractionHandler(this.config, this.logger);
   }
