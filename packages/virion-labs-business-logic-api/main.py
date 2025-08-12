@@ -47,12 +47,10 @@ app.include_router(email.router, tags=["Email"])
 app.include_router(clients.router, tags=["Clients"])
 app.include_router(scheduling.router, tags=["Scheduling"])
 
-# Create temp_exports directory if it doesn't exist
-exports_dir = "temp_exports"
-os.makedirs(exports_dir, exist_ok=True)
-
-# Mount static files directory for exports
-app.mount("/exports", StaticFiles(directory=exports_dir), name="exports")
+# Note: Static file exports disabled for serverless deployment
+# exports_dir = "temp_exports"
+# os.makedirs(exports_dir, exist_ok=True)
+# app.mount("/exports", StaticFiles(directory=exports_dir), name="exports")
 
 
 @app.get("/")
