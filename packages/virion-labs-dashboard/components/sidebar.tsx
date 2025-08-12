@@ -50,12 +50,13 @@ export function Sidebar() {
       icon: LinkIcon,
       active: pathname === "/links",
     },
-    {
-      title: "Referrals",
-      href: "/referrals",
-      icon: Users,
-      active: pathname === "/referrals",
-    },
+    // TODO: Re-enable referrals page when ready
+    // {
+    //   title: "Referrals",
+    //   href: "/referrals",
+    //   icon: Users,
+    //   active: pathname === "/referrals",
+    // },
     {
       title: "Settings",
       href: "/settings",
