@@ -29,4 +29,8 @@ export default ({ env }) => ({
       },
     }
   },
+  // Disable cloud plugin email provider override
+  cloud: {
+    enabled: false,
+  },
 });
