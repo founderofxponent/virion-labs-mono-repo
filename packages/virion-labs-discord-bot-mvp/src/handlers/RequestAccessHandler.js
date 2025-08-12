@@ -54,6 +54,13 @@ class RequestAccessHandler {
       this.logger.info(`[RequestAccessHandler] Extracted userId: ${userId}`);
       this.logger.info(`[RequestAccessHandler] Actual user ID: ${interaction.user.id}`);
 
+      // Check if guild exists before accessing its properties
+      if (!interaction.guild) {
+        this.logger.error('[RequestAccessHandler] Guild is null - interaction not from guild context');
+        await interaction.editReply('This command must be used within a Discord server.');
+        return;
+      }
+
       const payload = {
         user_id: userId,
         user_tag: interaction.user.tag,
@@ -76,7 +83,7 @@ class RequestAccessHandler {
             username: interaction.user.tag,
             email: email,
             fullName: fullName,
-            guildName: interaction.guild.name
+            guildName: interaction.guild?.name || 'Unknown Server'
           });
         } catch (emailError) {
           this.logger.warn(`[RequestAccess] Failed to send access request email: ${emailError.message}`);
