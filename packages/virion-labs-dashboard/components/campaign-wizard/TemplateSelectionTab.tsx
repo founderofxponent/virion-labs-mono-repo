@@ -37,7 +37,7 @@ export function TemplateSelectionTab({
     setLoadingPreview(templateId)
     try {
       const token = localStorage.getItem('auth_token')
-      const response = await fetch(`http://localhost:8000/api/v1/operations/campaign-template/get/${templateId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations/campaign-template/get/${templateId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       

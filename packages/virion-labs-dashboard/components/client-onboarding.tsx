@@ -8,10 +8,11 @@ import { CheckCircle, Circle, ArrowRight, ArrowLeft } from "lucide-react"
 import { OnboardingStep } from "./onboarding/onboarding-step"
 import { BusinessInfoSection } from "./onboarding/business-info-section"
 import { BotBrandingSection } from "./onboarding/bot-branding-section"
-import DiscordSyncSection from "./onboarding/discord-sync-section"
+// Discord sync moved to Integrations page for clients
 import { CampaignConfigSection } from "./onboarding/campaign-config-section"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { useClientDiscordConnections } from "@/hooks/use-client-discord-connections"
 
 interface ClientOnboardingProps {
   clientId: string
@@ -93,29 +94,20 @@ export function ClientOnboarding({ clientId, clientName }: ClientOnboardingProps
     webhook_url: ''
   })
 
-  // Mock synced servers for demo
+  // Load synced servers from Integrations (connections API)
+  const { connections } = useClientDiscordConnections()
   useEffect(() => {
-    const mockServers = [
-      {
-        guild_id: '123456789012345678',
-        guild_name: 'Epic Gaming Server',
-        guild_icon: 'https://via.placeholder.com/32',
-        member_count: 1250,
-        channels: [
-          { id: '987654321098765432', name: 'general', topic: 'General discussion' },
-          { id: '876543210987654321', name: 'gaming-campaigns', topic: 'Campaign announcements' },
-          { id: '765432109876543210', name: 'tournaments', topic: 'Tournament signups' }
-        ],
-        roles: [
-          { id: '654321098765432109', name: 'Member', color: 5793266, memberCount: 800 },
-          { id: '543210987654321098', name: 'Gamer', color: 15158332, memberCount: 600 },
-          { id: '432109876543210987', name: 'VIP', color: 16766720, memberCount: 50 }
-        ]
-      }
-    ]
-    setSyncedServers(mockServers)
-    setOnboardingData(prev => ({ ...prev, synced_servers: mockServers }))
-  }, [])
+    const servers = (connections || []).map(c => ({
+      guild_id: c.guild_id,
+      guild_name: c.guild_name || c.guild_id,
+      guild_icon: c.guild_icon_url,
+      member_count: 0,
+      channels: c.channels || [],
+      roles: c.roles || [],
+    }))
+    setSyncedServers(servers)
+    setOnboardingData(prev => ({ ...prev, synced_servers: servers }))
+  }, [connections])
 
   const updateOnboardingData = (updates: Partial<OnboardingData>) => {
     setOnboardingData(prev => ({ ...prev, ...updates }))
@@ -124,29 +116,26 @@ export function ClientOnboarding({ clientId, clientName }: ClientOnboardingProps
   const getStepCompletion = () => {
     const step1Complete = !!(onboardingData.company_name && onboardingData.industry && onboardingData.campaign_name && onboardingData.campaign_template)
     const step2Complete = !!(onboardingData.bot_name && onboardingData.welcome_message)
-    const step3Complete = syncedServers.length > 0
-    const step4Complete = !!(onboardingData.guild_id && onboardingData.channel_id)
-    
-    return { step1Complete, step2Complete, step3Complete, step4Complete }
+    const step3Complete = !!(onboardingData.guild_id && onboardingData.channel_id)
+    return { step1Complete, step2Complete, step3Complete }
   }
 
-  const { step1Complete, step2Complete, step3Complete, step4Complete } = getStepCompletion()
-  const completedSteps = [step1Complete, step2Complete, step3Complete, step4Complete].filter(Boolean).length
-  const progressPercentage = (completedSteps / 4) * 100
+  const { step1Complete, step2Complete, step3Complete } = getStepCompletion()
+  const completedSteps = [step1Complete, step2Complete, step3Complete].filter(Boolean).length
+  const progressPercentage = (completedSteps / 3) * 100
 
   const canProceedToStep = (step: number) => {
     switch (step) {
       case 1: return true
       case 2: return step1Complete
       case 3: return step1Complete && step2Complete
-      case 4: return step1Complete && step2Complete && step3Complete
       default: return false
     }
   }
 
   const handleNext = () => {
     const nextStep = currentStep + 1
-    if (nextStep <= 4 && canProceedToStep(nextStep)) {
+    if (nextStep <= 3 && canProceedToStep(nextStep)) {
       setCurrentStep(nextStep)
     }
   }
@@ -239,17 +228,10 @@ export function ClientOnboarding({ clientId, clientName }: ClientOnboardingProps
     },
     { 
       number: 3, 
-      title: "Discord Server Sync", 
-      description: "Connect your Discord server to the dashboard",
-      completed: step3Complete,
-      disabled: !canProceedToStep(3)
-    },
-    { 
-      number: 4, 
       title: "Campaign Configuration", 
       description: "Choose channels and roles for your campaign",
-      completed: step4Complete,
-      disabled: !canProceedToStep(4)
+      completed: step3Complete,
+      disabled: !canProceedToStep(3)
     }
   ]
 
@@ -328,12 +310,7 @@ export function ClientOnboarding({ clientId, clientName }: ClientOnboardingProps
               onUpdate={updateOnboardingData}
             />
           )}
-          {currentStep === 3 && (
-            <DiscordSyncSection 
-              syncedServers={syncedServers}
-              onServersUpdate={setSyncedServers}
-            />
-          )}
+          {/* Discord sync moved to Integrations page */}
           {currentStep === 4 && (
             <CampaignConfigSection 
               data={onboardingData}
@@ -355,7 +332,7 @@ export function ClientOnboarding({ clientId, clientName }: ClientOnboardingProps
           Back
         </Button>
         
-        {currentStep < 4 ? (
+        {currentStep < 3 ? (
           <Button
             onClick={handleNext}
             disabled={!canProceedToStep(currentStep + 1) || isLoading}
@@ -366,7 +343,7 @@ export function ClientOnboarding({ clientId, clientName }: ClientOnboardingProps
         ) : (
           <Button
             onClick={handleCreateCampaign}
-            disabled={!step4Complete || isLoading}
+            disabled={!step3Complete || isLoading}
             className="bg-green-600 hover:bg-green-700"
           >
             {isLoading ? 'Creating Campaign...' : 'Create Campaign'}

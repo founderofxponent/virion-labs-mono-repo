@@ -8,11 +8,28 @@ import jwt
 from datetime import datetime, timedelta
 from core.auth import get_current_user
 from schemas.user_schemas import User, ForgotPasswordRequest, ResetPasswordRequest
+import uuid
+import hashlib
+import base64
 from services.user_service import user_service
 from services.password_reset_service import password_reset_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+AUTH_CODE_TTL_SECONDS = 600  # 10 minutes
+
+# In-memory auth code store: code_id -> { access_token, code_challenge, expires_at }
+# Note: This is suitable for development/single-instance. For production, replace with shared store.
+AUTH_CODES = {}
+
+def _base64url_encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+def _verify_pkce_s256(code_verifier: str, expected_challenge: str) -> bool:
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    computed = _base64url_encode(digest)
+    return computed == expected_challenge
 
 @router.post("/password/forgot", status_code=status.HTTP_204_NO_CONTENT)
 async def forgot_password(request: ForgotPasswordRequest):
@@ -67,6 +84,79 @@ async def provider_login(provider: str, request: Request):
     return response
 
 
+@router.get("/authorize")
+async def oauth_authorize(request: Request):
+    """
+    Standards-compliant OAuth 2.1 Authorization Endpoint (Authorization Code with PKCE).
+
+    Expected query params from clients:
+      - response_type=code
+      - client_id (optional)
+      - redirect_uri (required)
+      - scope (optional)
+      - state (required)
+      - code_challenge (required)
+      - code_challenge_method=S256 (required)
+    """
+    params = request.query_params
+    response_type = params.get("response_type")
+    client_id = params.get("client_id")
+    redirect_uri = params.get("redirect_uri")
+    scope = params.get("scope")
+    state = params.get("state")
+    code_challenge = params.get("code_challenge")
+    code_challenge_method = params.get("code_challenge_method")
+    provider = params.get("provider", "google")
+
+    if response_type != "code":
+        raise HTTPException(status_code=400, detail="Unsupported response_type")
+    if not redirect_uri:
+        raise HTTPException(status_code=400, detail="Missing redirect_uri")
+    if not code_challenge or code_challenge_method != "S256":
+        raise HTTPException(status_code=400, detail="Missing or invalid PKCE parameters")
+
+    # Store values in short-lived cookies for use in provider callback
+    login_url = f"/api/auth/login/{provider}?redirect_uri={redirect_uri}"
+    if state:
+        login_url += f"&state={state}"
+    response = RedirectResponse(url=login_url)
+    response.set_cookie(
+        key="oauth_code_challenge",
+        value=code_challenge,
+        max_age=600,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+    )
+    response.set_cookie(
+        key="oauth_ccm",
+        value=code_challenge_method,
+        max_age=600,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+    )
+    if client_id:
+        response.set_cookie(
+            key="oauth_client_id",
+            value=client_id,
+            max_age=600,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+        )
+    if scope:
+        response.set_cookie(
+            key="oauth_scope",
+            value=scope,
+            max_age=600,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+        )
+    return response
+
+
 @router.get("/connect/{provider}/callback")
 async def provider_callback(provider: str, request: Request):
     """
@@ -76,6 +166,7 @@ async def provider_callback(provider: str, request: Request):
     provider_access_token = request.query_params.get('access_token')
     redirect_uri = request.cookies.get("oauth_redirect_uri")
     state = request.cookies.get("oauth_state") # Get state from cookie
+    code_challenge = request.cookies.get("oauth_code_challenge")
 
     # ... (token exchange logic remains the same) ...
     
@@ -108,15 +199,20 @@ async def provider_callback(provider: str, request: Request):
     if not strapi_jwt:
         raise HTTPException(status_code=502, detail="Strapi did not return a JWT.")
 
-    # Create our own short-lived 'code' containing the real Strapi JWT
-    code_payload = {
+    # Create our own short-lived authorization code bound to the PKCE challenge
+    if not code_challenge:
+        logger.error("Missing PKCE code_challenge in cookies during provider callback")
+        raise HTTPException(status_code=400, detail="Missing PKCE parameters")
+
+    code_id = str(uuid.uuid4())
+    AUTH_CODES[code_id] = {
         "access_token": strapi_jwt,
-        "exp": datetime.utcnow() + timedelta(minutes=1)
+        "code_challenge": code_challenge,
+        "expires_at": time.time() + AUTH_CODE_TTL_SECONDS,
     }
-    auth_code = jwt.encode(code_payload, settings.JWT_SECRET, algorithm="HS256")
 
     # Build the final URL, including the state if it was originally provided
-    final_url = f"{redirect_uri}?code={auth_code}"
+    final_url = f"{redirect_uri}?code={code_id}"
     if state:
         final_url += f"&state={state}"
 
@@ -126,6 +222,10 @@ async def provider_callback(provider: str, request: Request):
     response.delete_cookie("oauth_redirect_uri")
     if state:
         response.delete_cookie("oauth_state")
+    response.delete_cookie("oauth_code_challenge")
+    response.delete_cookie("oauth_ccm")
+    response.delete_cookie("oauth_client_id")
+    response.delete_cookie("oauth_scope")
     
     logger.info(f"Successfully created auth code, redirecting to: {redirect_uri}")
     return response
@@ -137,28 +237,35 @@ async def exchange_code_for_token(request: Request):
     """
     form_data = await request.form()
     code = form_data.get("code")
-    
-    if not code:
-        raise HTTPException(status_code=400, detail="Missing required parameter: code")
+    code_verifier = form_data.get("code_verifier")
 
-    try:
-        # Decode our 'code' to extract the real access_token
-        code_payload = jwt.decode(code, settings.JWT_SECRET, algorithms=["HS256"])
-        access_token = code_payload.get("access_token")
-        
-        logger.info("Successfully exchanged code for access token.")
-        
-        # Return the token in the standard OAuth2 format
-        return {
-            "access_token": access_token,
-            "token_type": "Bearer",
-            "expires_in": 3600 # Typically one hour
-        }
-        
-    except jwt.ExpiredSignatureError:
+    if not code or not code_verifier:
+        raise HTTPException(status_code=400, detail="Missing required parameters: code and code_verifier")
+
+    code_record = AUTH_CODES.get(code)
+    if not code_record:
+        raise HTTPException(status_code=400, detail="Invalid authorization code")
+
+    if time.time() > code_record.get("expires_at", 0):
+        # Cleanup expired code
+        AUTH_CODES.pop(code, None)
         raise HTTPException(status_code=400, detail="The authorization code has expired. Please try again.")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=400, detail="Invalid authorization code.")
+
+    expected_challenge = code_record.get("code_challenge")
+    if not _verify_pkce_s256(code_verifier, expected_challenge):
+        raise HTTPException(status_code=400, detail="Invalid code_verifier for this authorization code")
+
+    access_token = code_record.get("access_token")
+    # One-time use: remove code after successful exchange
+    AUTH_CODES.pop(code, None)
+
+    logger.info("Successfully exchanged code for access token via PKCE.")
+
+    return {
+        "access_token": access_token,
+        "token_type": "Bearer",
+        "expires_in": 3600
+    }
 
 
 @router.get("/me")

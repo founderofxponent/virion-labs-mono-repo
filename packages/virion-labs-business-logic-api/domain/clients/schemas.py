@@ -6,7 +6,7 @@ class ClientBase(BaseModel):
     name: Optional[str] = None
     contact_email: Optional[EmailStr] = None
     industry: Optional[str] = None
-    client_status: Optional[str] = None
+    client_status: Optional[str] = None  # 'pending' | 'active' | 'inactive'
     website: Optional[str] = None
     primary_contact: Optional[str] = None
 

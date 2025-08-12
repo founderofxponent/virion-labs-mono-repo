@@ -248,7 +248,7 @@ export function useDashboardData(userSettings: UserSettings | null) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = "http://localhost:8000"
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   const getToken = () => localStorage.getItem('auth_token')
 
   const fetchData = useCallback(async () => {
@@ -257,9 +257,11 @@ export function useDashboardData(userSettings: UserSettings | null) {
       return
     }
 
+    // Normalize role to lowercase for consistent branching
+    const roleNameRaw = typeof profile.role === 'object' && profile.role !== null ? profile.role.name : profile.role;
+    const roleName = roleNameRaw?.toLowerCase();
     // For influencer role, ensure userSettings is available before proceeding
-    const roleName = typeof profile.role === 'object' && profile.role !== null ? profile.role.name : profile.role;
-    if ((roleName === 'Influencer' || roleName === 'influencer') && !userSettings) {
+    if (roleName === 'influencer' && !userSettings) {
       setLoading(false)
       return
     }
@@ -277,9 +279,8 @@ export function useDashboardData(userSettings: UserSettings | null) {
 
       let transformedData: DashboardData
 
-      const roleName = typeof profile.role === 'object' && profile.role !== null ? profile.role.name : profile.role;
       switch (roleName) {
-        case 'Platform Administrator':
+        case 'platform administrator':
         case 'admin': {
           // Fetch clients data for admin dashboard
           const clientsResponse = await fetch(`${API_BASE_URL}/api/v1/operations/client/list`, {
@@ -298,7 +299,6 @@ export function useDashboardData(userSettings: UserSettings | null) {
           break
         }
 
-        case 'Influencer':
         case 'influencer': {
           if (!userSettings) {
             throw new Error("User settings not available for influencer dashboard")

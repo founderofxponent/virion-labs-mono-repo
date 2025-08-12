@@ -8,33 +8,8 @@ from core.auth import StrapiUser
 from domain.clients.domain import ClientDomain
 from domain.clients.schemas import Client, ClientCreate, ClientUpdate
 from schemas.strapi import StrapiClientCreate, StrapiClientUpdate
-
-logger = logging.getLogger(__name__)
-
-class ClientService:
-    """
-    Service layer for client operations, refactored to use Pydantic models for type safety and clarity.
-    """
-    def __init__(self):
-        self.client_domain = ClientDomain()
-
-    def _get_user_role(self, current_user: StrapiUser) -> str:
-        """Safely gets the user's role name."""
-        if current_user.role and isinstance(current_user.role, dict):
-            return current_user.role.get('name', 'Authenticated')
-        return 'Authenticated'
-
-    from typing import Dict, Any, List, Optional
-from fastapi import HTTPException
-import asyncio
-import logging
-
-from core.strapi_client import strapi_client
-from core.auth import StrapiUser
-from domain.clients.domain import ClientDomain
-from domain.clients.schemas import Client, ClientCreate, ClientUpdate
-from schemas.strapi import StrapiClientCreate, StrapiClientUpdate
 from services.email_service import email_service, Email, TemplateEmail
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +73,34 @@ class ClientService:
         strapi_update_payload = StrapiClientUpdate(**updates.model_dump(exclude_unset=True))
         
         updated_client = await strapi_client.update_client(document_id, strapi_update_payload)
-        
+
+        # If admin activated a client, notify the contact and optionally set the user's role
+        try:
+            if updates.client_status and updates.client_status == 'active' and updated_client.contact_email:
+                # Send welcome email to client contact
+                await email_service.send_template_email(TemplateEmail(
+                    to=updated_client.contact_email,
+                    template_id="client-approved-welcome",
+                    variables={
+                        "client_name": updated_client.name,
+                        "dashboard_url": f"{settings.FRONTEND_URL}/clients/dashboard"
+                    }
+                ))
+
+                # Promote an existing user with this email to 'Client' role
+                try:
+                    users = await strapi_client.get_users({
+                        "filters[email][$eq]": updated_client.contact_email
+                    })
+                    if users:
+                        client_role = await strapi_client.get_role_by_name("Client")
+                        if client_role and client_role.get('id'):
+                            await strapi_client.update_user_role(users[0]['id'], client_role['id'])
+                except Exception as e:
+                    logger.warning(f"Failed to update user role to Client for {updated_client.contact_email}: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to send client approval email for {updated_client.name}: {e}")
+
         return updated_client
 
     async def get_client_operation(self, document_id: str, current_user: StrapiUser) -> Client:
@@ -146,7 +148,7 @@ class ClientService:
             pass  # Admin can access all clients
         elif user_role == 'Client':
             # This logic might need adjustment based on how ownership is determined
-            filters["filters[owner][id][$eq]"] = current_user.id
+            filters["filters[contact_email][$eq]"] = current_user.email
         else:
             logger.warning(f"Forbidden: User with role '{user_role}' attempted to list clients.")
             raise HTTPException(status_code=403, detail=f"Forbidden: Your role ('{user_role}') does not have permission to list clients.")

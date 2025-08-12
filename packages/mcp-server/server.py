@@ -21,6 +21,7 @@ import os
 import mcp.types as types
 from mcp.server.lowlevel import Server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+import httpx
 
 from core.config import AppConfig
 from core.api_client import APIClient
@@ -293,10 +294,15 @@ class VirionLabsMCPServer:
             """OAuth 2.0 Protected Resource Metadata per RFC 9728."""
             # Use the request's base URL for Cloud Run deployment
             base_url = str(request.base_url).rstrip('/')
-            # Ensure HTTPS for Cloud Run
-            if base_url.startswith('http://') and 'run.app' in base_url:
+            # Ensure HTTPS for Cloud Run and other production environments
+            if base_url.startswith('http://') and (
+                'run.app' in base_url or 
+                'virionlabs.io' in base_url or 
+                'mcp.virionlabs.io' in base_url
+            ):
                 base_url = base_url.replace('http://', 'https://')
-            server_url = f"{base_url}/mcp/"
+            # Resource must match the client-expected endpoint exactly (no trailing slash)
+            server_url = f"{base_url}/mcp"
             return JSONResponse({
                 "resource": server_url,
                 "authorization_servers": [self.config.api.base_url],
@@ -305,8 +311,32 @@ class VirionLabsMCPServer:
                 "resource_documentation": f"{base_url}/docs"
             })
 
+        async def oauth_authorization_server_metadata(request):
+            """OAuth 2.0 Authorization Server Metadata per RFC 8414."""
+            # Forward metadata from the business logic API to avoid drift
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.get(f"{self.config.api.base_url}/.well-known/oauth-authorization-server")
+                    resp.raise_for_status()
+                    return JSONResponse(resp.json())
+            except Exception as e:
+                logger.warning(f"Failed to fetch upstream OAuth metadata: {e}. Falling back to static config.")
+                return JSONResponse({
+                    "issuer": self.config.api.base_url,
+                    "authorization_endpoint": f"{self.config.api.base_url}/api/auth/authorize",
+                    "token_endpoint": f"{self.config.api.base_url}/api/auth/token",
+                    "registration_endpoint": f"{self.config.api.base_url}/api/auth/register",
+                    "scopes_supported": ["openid", "profile", "email"],
+                    "response_types_supported": ["code"],
+                    "grant_types_supported": ["authorization_code"],
+                    "code_challenge_methods_supported": ["S256"]
+                })
+
         async def redirect_to_metadata(request: Request):
             return RedirectResponse(url="/.well-known/oauth-protected-resource")
+
+        async def redirect_to_auth_metadata(request: Request):
+            return RedirectResponse(url="/.well-known/oauth-authorization-server")
 
         class AuthMiddleware(BaseHTTPMiddleware):
             def __init__(self, app, api_client):
@@ -316,6 +346,10 @@ class VirionLabsMCPServer:
             async def dispatch(self, request, call_next):
                 # Log all request headers for debugging
                 logger.info(f"Request headers: {request.headers}")
+
+                # Allow CORS preflight requests to pass through
+                if request.method == "OPTIONS":
+                    return await call_next(request)
 
                 # Skip auth for metadata endpoints
                 if request.url.path in [
@@ -334,7 +368,10 @@ class VirionLabsMCPServer:
                 auth_method = None
                 
                 if auth_header and auth_header.startswith("Bearer "):
-                    token = auth_header[7:]
+                    token = auth_header[7:].strip()
+                    # Sanitize accidental double-prefix like "Bearer Bearer <jwt>"
+                    if token.lower().startswith("bearer "):
+                        token = token[7:].strip()
                     auth_method = "bearer"
                 elif api_key:
                     # Check if this is service-to-service authentication with MCP_API_TOKEN
@@ -345,13 +382,28 @@ class VirionLabsMCPServer:
                         token = api_key
                         auth_method = "api_key"
                 else:
+                    # Build proper discovery pointers per RFC 9728 (Protected Resource Metadata)
+                    base_url = str(request.base_url).rstrip('/')
+                    # Ensure HTTPS for known production domains
+                    if base_url.startswith('http://') and (
+                        'run.app' in base_url or 
+                        'virionlabs.io' in base_url or 
+                        'mcp.virionlabs.io' in base_url
+                    ):
+                        base_url = base_url.replace('http://', 'https://')
+
+                    authorization_uri = f"{base_url}/.well-known/oauth-protected-resource"
+                    resource_uri = f"{base_url}/mcp"
+
                     return JSONResponse(
                         status_code=401,
                         content={"error": "unauthorized", "error_description": "Access token required"},
                         headers={
-                            "WWW-Authenticate": f'Bearer realm="{self.api_client.config.base_url}", '
-                                              f'authorization_uri="{self.api_client.config.base_url}/api/oauth/authorize", '
-                                              f'resource="{request.base_url}"'
+                            "WWW-Authenticate": (
+                                f'Bearer realm="{base_url}", '
+                                f'authorization_uri="{authorization_uri}", '
+                                f'resource="{resource_uri}"'
+                            )
                         }
                     )
                 
@@ -378,8 +430,7 @@ class VirionLabsMCPServer:
                         
                         logger.info(f"Attempting to validate {auth_method} token with Business Logic API at: {auth_api_url}")
 
-                        import httpx
-                        async with httpx.AsyncClient() as client:
+                        async with httpx.AsyncClient(timeout=30.0) as client:
                             response = await client.get(auth_api_url, headers=headers)
                         
                         response.raise_for_status() # Raises exception for 4xx/5xx responses
@@ -395,7 +446,7 @@ class VirionLabsMCPServer:
                         token_context.set(token)
                         
                 except httpx.HTTPStatusError as e:
-                    logger.warning(f"Token validation failed. API returned status {e.response.status_code}")
+                    logger.warning(f"Token validation failed. API returned status {e.response.status_code}. Response: {e.response.text}")
                     return JSONResponse(
                         status_code=401,
                         content={"error": "invalid_token", "error_description": "The access token is invalid or expired"},
@@ -405,34 +456,44 @@ class VirionLabsMCPServer:
                         }
                     )
                 except Exception as e:
-                    logger.error(f"An unexpected error occurred during token validation: {e}")
+                    logger.error(f"An unexpected error occurred during token validation: {e}", exc_info=True)
                     return JSONResponse(
                         status_code=500,
-                        content={"error": "server_error", "error_description": "Could not process token validation"},
+                        content={"error": "server_error", "error_description": f"Token validation failed: {str(e)}"},
                     )
                 
                 response = await call_next(request)
                 # Log all response headers for debugging
                 logger.info(f"Response headers: {response.headers}")
 
-                # Ensure redirects use HTTPS in Cloud Run
+                # Ensure redirects use HTTPS in Cloud Run and other production environments
                 if response.status_code == 307 and "location" in response.headers:
                     location = response.headers["location"]
-                    if location.startswith("http://") and "run.app" in location:
+                    if location.startswith("http://") and (
+                        "run.app" in location or 
+                        "virionlabs.io" in location or 
+                        "mcp.virionlabs.io" in location
+                    ):
                         response.headers["location"] = location.replace("http://", "https://")
                         logger.info(f"Rewrote redirect location to HTTPS: {response.headers['location']}")
 
                 return response
 
         routes = [
-            # Mount the MCP application with a trailing slash to enforce consistent URL handling.
-            # Starlette will automatically redirect requests to /mcp to /mcp/.
-            Mount("/mcp/", app=mcp_app),
+            # Mount the MCP application at /mcp to match client expectations
+            Mount("/mcp", app=mcp_app),
             Route("/.well-known/oauth-protected-resource", oauth_protected_resource_metadata, methods=["GET"]),
+            Route("/.well-known/oauth-authorization-server", oauth_authorization_server_metadata, methods=["GET"]),
             Route("/.well-known/oauth-protected-resource/mcp", redirect_to_metadata, methods=["GET"]),
+            Route("/.well-known/oauth-authorization-server/mcp", redirect_to_auth_metadata, methods=["GET"]),
         ]
         
         app = Starlette(routes=routes, lifespan=lifespan)
+        # Disable automatic trailing-slash redirects to keep /mcp exact
+        try:
+            app.router.redirect_slashes = False
+        except Exception:
+            pass
         
         # Add auth middleware
         app.add_middleware(AuthMiddleware, api_client=self.api_client)

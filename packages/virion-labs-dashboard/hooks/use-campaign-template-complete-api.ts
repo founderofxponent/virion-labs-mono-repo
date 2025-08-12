@@ -5,7 +5,7 @@ export function useCampaignTemplateCompleteAPI(templateId: string | null) {
   const [template, setTemplate] = useState<CampaignTemplate | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const API_BASE_URL = "http://localhost:8000/api/v1/operations"
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations`
 
   const getToken = () => localStorage.getItem('auth_token')
 

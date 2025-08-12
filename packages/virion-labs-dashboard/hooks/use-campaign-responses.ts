@@ -61,7 +61,7 @@ export function useCampaignResponses(campaignId: string) {
       }
 
       // Use direct API base URL like other hooks
-      const API_BASE_URL = "http://localhost:8000"
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
       // Fetch both fields and responses in parallel
       const [fieldsResponse, responsesResponse] = await Promise.all([

@@ -41,6 +41,34 @@ class ClientUpdateRequest(BaseModel):
     website: Optional[str] = None
     primary_contact: Optional[str] = None
 
+# --- Product Operations ---
+
+class ProductResponse(BaseModel):
+    id: int
+    documentId: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    sku: Optional[str] = None
+    price: Optional[float] = None
+
+class ProductListResponse(BaseModel):
+    products: List[ProductResponse]
+
+class ProductCreateRequest(BaseModel):
+    name: str
+    # Optional: when caller is a Client, server infers their client id
+    client: Optional[int] = None
+    description: Optional[str] = None
+    sku: Optional[str] = None
+    price: Optional[float] = 0
+
+class ProductUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    sku: Optional[str] = None
+    price: Optional[float] = None
+    client: Optional[int] = None
+
 # --- Campaign Operations ---
 
 class CampaignBase(BaseModel):
@@ -135,7 +163,7 @@ class CampaignLandingPageResponse(CampaignLandingPageBase):
 class OnboardingFieldBase(BaseModel):
     field_key: Optional[str] = None
     field_label: Optional[str] = None
-    field_type: Optional[str] = None
+    field_type: Optional[Literal['text', 'email', 'number', 'boolean', 'url', 'select', 'multiselect']] = None
     field_placeholder: Optional[str] = None
     field_description: Optional[str] = None
     field_options: Optional[Dict[str, Any]] = None

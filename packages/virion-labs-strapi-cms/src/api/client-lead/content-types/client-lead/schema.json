@@ -1,0 +1,68 @@
+{
+  "kind": "collectionType",
+  "collectionName": "client_leads",
+  "info": {
+    "singularName": "client-lead",
+    "pluralName": "client-leads",
+    "displayName": "Client Lead"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "users-permissions": {
+      "enabled": true
+    }
+  },
+  "attributes": {
+    "company_name": {
+      "type": "string",
+      "required": true
+    },
+    "contact_name": {
+      "type": "string"
+    },
+    "contact_email": {
+      "type": "email",
+      "required": true
+    },
+    "contact_phone": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "industry": {
+      "type": "string"
+    },
+    "requirements": {
+      "type": "richtext"
+    },
+    "lead_status": {
+      "type": "enumeration",
+      "default": "new",
+      "enum": [
+        "new",
+        "contacted",
+        "qualified",
+        "scheduled",
+        "converted",
+        "archived"
+      ]
+    },
+    "notes": {
+      "type": "richtext"
+    },
+    "client": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::client.client"
+    },
+    "discovery_calls": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::discovery-call.discovery-call",
+      "mappedBy": "lead"
+    }
+  }
+}

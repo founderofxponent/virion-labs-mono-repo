@@ -45,7 +45,7 @@ export function AnalyticsPage() {
   const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
   const [timeframe, setTimeframe] = React.useState("30d")
 
-  const isAdmin = roleName === "admin" || roleName === "Platform Administrator"
+  const isAdmin = roleName === "admin" || roleName === "platform administrator"
 
   React.useEffect(() => {
     if (profile) {

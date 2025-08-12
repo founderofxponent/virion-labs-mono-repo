@@ -34,7 +34,7 @@ import { WebhookTester, WebhookTestResult } from "@/lib/webhook-test"
 export function SettingsPage() {
   const { profile } = useAuth()
   const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
-  const isAdmin = roleName === "admin" || roleName === "Platform Administrator"
+  const isAdmin = roleName === "admin" || roleName === "platform administrator"
 
   return (
     <div className="space-y-6">
@@ -47,10 +47,13 @@ export function SettingsPage() {
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="privacy">Privacy</TabsTrigger>
+          {/* TODO: Implement Notifications tab correctly later */}
+          {/* <TabsTrigger value="notifications">Notifications</TabsTrigger> */}
+          {/* TODO: Implement Privacy tab correctly later */}
+          {/* <TabsTrigger value="privacy">Privacy</TabsTrigger> */}
           {isAdmin && <TabsTrigger value="discord">Discord</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="api">API Keys</TabsTrigger>}
+          {/* TODO: Implement API Keys tab correctly later */}
+          {/* {isAdmin && <TabsTrigger value="api">API Keys</TabsTrigger>} */}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4">
@@ -61,13 +64,19 @@ export function SettingsPage() {
           <AccountSettings />
         </TabsContent>
 
+        {/* TODO: Implement Notifications tab correctly later */}
+        {/* 
         <TabsContent value="notifications" className="space-y-4">
           <NotificationSettings />
         </TabsContent>
+        */}
 
+        {/* TODO: Implement Privacy tab correctly later */}
+        {/* 
         <TabsContent value="privacy" className="space-y-4">
           <PrivacySettings />
         </TabsContent>
+        */}
 
         {isAdmin && (
           <TabsContent value="discord" className="space-y-4">
@@ -75,11 +84,14 @@ export function SettingsPage() {
           </TabsContent>
         )}
 
+        {/* TODO: Implement API Keys tab correctly later */}
+        {/* 
         {isAdmin && (
           <TabsContent value="api" className="space-y-4">
             <ApiSettings />
           </TabsContent>
         )}
+        */}
       </Tabs>
     </div>
   )

@@ -42,7 +42,16 @@ from schemas.strapi import (
     StrapiDiscordSettingUpdate,
     EmailTemplate,
     StrapiEmailTemplateCreate,
-    StrapiEmailTemplateUpdate
+    StrapiEmailTemplateUpdate,
+    Product,
+    StrapiProductCreate,
+    StrapiProductUpdate,
+    ClientLead,
+    StrapiClientLeadCreate,
+    StrapiClientLeadUpdate,
+    DiscoveryCall,
+    StrapiDiscoveryCallCreate,
+    StrapiDiscoveryCallUpdate
 )
 
 logger = logging.getLogger(__name__)
@@ -89,9 +98,11 @@ class StrapiClient:
         if params is None:
             params = {}
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=None) as client:
             try:
                 logger.info(f"Making Strapi request: {method} {url} with params {params}")
+                if data:
+                    logger.info(f"Request data: {data}")
                 response = await client.request(
                     method=method,
                     url=url,
@@ -119,6 +130,66 @@ class StrapiClient:
         
         response = await self._request("GET", "clients", params=params)
         return [Client(**item) for item in response.get("data", [])]
+
+    # Products
+    async def get_products(self, filters: Optional[Dict] = None) -> List[Product]:
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        response = await self._request("GET", "products", params=params)
+        return [Product(**item) for item in response.get("data", [])]
+
+    async def get_product(self, document_id: str) -> Optional[Product]:
+        response = await self._request("GET", f"products/{document_id}", params={"populate": "*"})
+        data = response.get("data")
+        return Product(**data) if data else None
+
+    async def create_product(self, payload: StrapiProductCreate) -> Product:
+        response = await self._request("POST", "products", data={"data": payload.model_dump()})
+        return Product(**response.get("data"))
+
+    async def update_product(self, document_id: str, payload: StrapiProductUpdate) -> Product:
+        response = await self._request("PUT", f"products/{document_id}", data={"data": payload.model_dump(exclude_unset=True)})
+        return Product(**response.get("data"))
+
+    async def delete_product(self, document_id: str) -> Dict:
+        """Deletes a product in Strapi using its documentId."""
+        response = await self._request("DELETE", f"products/{document_id}")
+        return response if response else {"status": "deleted"}
+
+    # Client Leads
+    async def create_client_lead(self, payload: StrapiClientLeadCreate) -> ClientLead:
+        response = await self._request("POST", "client-leads", data={"data": payload.model_dump()})
+        return ClientLead(**response.get("data"))
+
+    async def update_client_lead(self, document_id: str, payload: StrapiClientLeadUpdate) -> ClientLead:
+        response = await self._request("PUT", f"client-leads/{document_id}", data={"data": payload.model_dump(exclude_unset=True)})
+        return ClientLead(**response.get("data"))
+
+    async def get_client_leads(self, filters: Optional[Dict] = None) -> List[ClientLead]:
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        response = await self._request("GET", "client-leads", params=params)
+        return [ClientLead(**item) for item in response.get("data", [])]
+
+    # Discovery Calls
+    async def create_discovery_call(self, payload: StrapiDiscoveryCallCreate) -> DiscoveryCall:
+        data = {"data": payload.model_dump(exclude_unset=True, mode='json')}
+        response = await self._request("POST", "discovery-calls", data=data)
+        return DiscoveryCall(**response.get("data"))
+
+    async def update_discovery_call(self, document_id: str, payload: StrapiDiscoveryCallUpdate) -> DiscoveryCall:
+        data = {"data": payload.model_dump(exclude_unset=True, mode='json')}
+        response = await self._request("PUT", f"discovery-calls/{document_id}", data=data)
+        return DiscoveryCall(**response.get("data"))
+    
+    async def get_discovery_calls(self, filters: Optional[Dict] = None) -> List[DiscoveryCall]:
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        response = await self._request("GET", "discovery-calls", params=params)
+        return [DiscoveryCall(**item) for item in response.get("data", [])]
 
     async def create_client(self, client_data: StrapiClientCreate) -> Client:
         """Creates a new client in Strapi using a validated Pydantic model."""
@@ -247,7 +318,7 @@ class StrapiClient:
     async def get_onboarding_fields_by_campaign(self, campaign_id: str) -> List[CampaignOnboardingField]:
         """Fetches onboarding fields for a campaign from Strapi."""
         logger.info(f"StrapiClient: Fetching onboarding fields for campaign {campaign_id} from Strapi.")
-        params = {"filters[campaign][documentId][$eq]": campaign_id, "populate": "*"}
+        params = {"filters[campaign][documentId][$eq]": campaign_id, "populate": "*", "sort": ["sort_order:asc", "id:asc"]}
         response = await self._request("GET", "campaign-onboarding-fields", params=params)
         return [CampaignOnboardingField(**item) for item in response.get("data", [])]
 
@@ -286,7 +357,7 @@ class StrapiClient:
         response = await self._request("POST", "campaign-onboarding-fields", data=data)
         return CampaignOnboardingField(**response.get("data"))
 
-    async def update_onboarding_field(self, field_id: int, field_data: StrapiCampaignOnboardingFieldUpdate) -> CampaignOnboardingField:
+    async def update_onboarding_field(self, field_id: str, field_data: StrapiCampaignOnboardingFieldUpdate) -> CampaignOnboardingField:
         """Updates an onboarding field in Strapi."""
         logger.info(f"StrapiClient: Updating onboarding field {field_id} in Strapi.")
         payload = field_data.model_dump(exclude_unset=True)
@@ -930,7 +1001,7 @@ class StrapiClient:
         logger.info(f"StrapiClient: Sending email to {email_data.get('to')}")
         # The /email endpoint is now prefixed with /api
         url = f"{self.base_url}/api/email"
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=None) as client:
             try:
                 response = await client.post(url, headers=self.headers, json=email_data)
                 response.raise_for_status()
@@ -951,7 +1022,7 @@ class StrapiClient:
             "password": new_password,
             "passwordConfirmation": new_password,
         }
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=None) as client:
             try:
                 response = await client.post(url, headers=self.headers, json=payload)
                 response.raise_for_status()

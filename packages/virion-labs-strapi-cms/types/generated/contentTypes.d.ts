@@ -735,6 +735,7 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
     moderation_enabled: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<true>;
     name: Schema.Attribute.String & Schema.Attribute.Required;
+    products: Schema.Attribute.Relation<'manyToMany', 'api::product.product'>;
     publishedAt: Schema.Attribute.DateTime;
     rate_limit_per_user: Schema.Attribute.Integer &
       Schema.Attribute.DefaultTo<5>;
@@ -763,6 +764,99 @@ export interface ApiCampaignCampaign extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiClientDiscordConnectionClientDiscordConnection
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'client_discord_connections';
+  info: {
+    description: 'Stores synced Discord guilds, channels, and roles for a client';
+    displayName: 'Client Discord Connection';
+    pluralName: 'client-discord-connections';
+    singularName: 'client-discord-connection';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    channels: Schema.Attribute.JSON;
+    client: Schema.Attribute.Relation<'manyToOne', 'api::client.client'>;
+    connection_status: Schema.Attribute.Enumeration<
+      ['not_connected', 'pending', 'connected']
+    > &
+      Schema.Attribute.DefaultTo<'pending'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    discord_user_id: Schema.Attribute.String;
+    discord_username: Schema.Attribute.String;
+    guild_icon_url: Schema.Attribute.String;
+    guild_id: Schema.Attribute.String & Schema.Attribute.Required;
+    guild_name: Schema.Attribute.String;
+    is_active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    last_synced_at: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::client-discord-connection.client-discord-connection'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    roles: Schema.Attribute.JSON;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    verified_role_id: Schema.Attribute.String;
+  };
+}
+
+export interface ApiClientLeadClientLead extends Struct.CollectionTypeSchema {
+  collectionName: 'client_leads';
+  info: {
+    displayName: 'Client Lead';
+    pluralName: 'client-leads';
+    singularName: 'client-lead';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'users-permissions': {
+      enabled: true;
+    };
+  };
+  attributes: {
+    client: Schema.Attribute.Relation<'oneToOne', 'api::client.client'>;
+    company_name: Schema.Attribute.String & Schema.Attribute.Required;
+    contact_email: Schema.Attribute.Email & Schema.Attribute.Required;
+    contact_name: Schema.Attribute.String;
+    contact_phone: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    discovery_calls: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::discovery-call.discovery-call'
+    >;
+    industry: Schema.Attribute.String;
+    lead_status: Schema.Attribute.Enumeration<
+      ['new', 'contacted', 'qualified', 'scheduled', 'converted', 'archived']
+    > &
+      Schema.Attribute.DefaultTo<'new'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::client-lead.client-lead'
+    > &
+      Schema.Attribute.Private;
+    notes: Schema.Attribute.RichText;
+    publishedAt: Schema.Attribute.DateTime;
+    requirements: Schema.Attribute.RichText;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    website: Schema.Attribute.String;
+  };
+}
+
 export interface ApiClientClient extends Struct.CollectionTypeSchema {
   collectionName: 'clients';
   info: {
@@ -775,12 +869,22 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
   };
   attributes: {
     campaigns: Schema.Attribute.Relation<'oneToMany', 'api::campaign.campaign'>;
-    client_status: Schema.Attribute.Enumeration<['active', 'inactive']> &
-      Schema.Attribute.DefaultTo<'active'>;
+    client_status: Schema.Attribute.Enumeration<
+      ['pending', 'active', 'inactive']
+    > &
+      Schema.Attribute.DefaultTo<'pending'>;
     contact_email: Schema.Attribute.Email;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    discord_bot_installs: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::discord-bot-install.discord-bot-install'
+    >;
+    discord_connections: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::client-discord-connection.client-discord-connection'
+    >;
     industry: Schema.Attribute.String & Schema.Attribute.Required;
     influencers: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     join_date: Schema.Attribute.Date;
@@ -793,11 +897,52 @@ export interface ApiClientClient extends Struct.CollectionTypeSchema {
     logo: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
     name: Schema.Attribute.String & Schema.Attribute.Required;
     primary_contact: Schema.Attribute.String;
+    products: Schema.Attribute.Relation<'oneToMany', 'api::product.product'>;
     publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     website: Schema.Attribute.String;
+  };
+}
+
+export interface ApiDiscordBotInstallDiscordBotInstall
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'discord_bot_installs';
+  info: {
+    description: 'Tracks Discord bot installations and OAuth states for client linking';
+    displayName: 'Discord Bot Install';
+    pluralName: 'discord-bot-installs';
+    singularName: 'discord-bot-install';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    client: Schema.Attribute.Relation<'manyToOne', 'api::client.client'>;
+    completed_at: Schema.Attribute.DateTime;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    expires_at: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    guild_id: Schema.Attribute.String;
+    guild_name: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::discord-bot-install.discord-bot-install'
+    > &
+      Schema.Attribute.Private;
+    oauth_permissions: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    state: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    status: Schema.Attribute.Enumeration<['pending', 'completed', 'failed']> &
+      Schema.Attribute.DefaultTo<'pending'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -865,6 +1010,52 @@ export interface ApiDiscordSettingDiscordSetting
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     verified_role_id: Schema.Attribute.String;
+  };
+}
+
+export interface ApiDiscoveryCallDiscoveryCall
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'discovery_calls';
+  info: {
+    displayName: 'Discovery Call';
+    pluralName: 'discovery-calls';
+    singularName: 'discovery-call';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'users-permissions': {
+      enabled: true;
+    };
+  };
+  attributes: {
+    call_status: Schema.Attribute.Enumeration<
+      ['scheduled', 'completed', 'cancelled']
+    > &
+      Schema.Attribute.DefaultTo<'scheduled'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    duration_minutes: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<30>;
+    google_event_id: Schema.Attribute.String;
+    lead: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::client-lead.client-lead'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::discovery-call.discovery-call'
+    > &
+      Schema.Attribute.Private;
+    meeting_url: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    scheduled_at: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    timezone: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -958,6 +1149,51 @@ export interface ApiLandingPageTemplateLandingPageTemplate
     preview_image_url: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     template_structure: Schema.Attribute.JSON & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiProductProduct extends Struct.CollectionTypeSchema {
+  collectionName: 'products';
+  info: {
+    displayName: 'Product';
+    pluralName: 'products';
+    singularName: 'product';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'users-permissions': {
+      enabled: true;
+    };
+  };
+  attributes: {
+    campaigns: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::campaign.campaign'
+    >;
+    client: Schema.Attribute.Relation<'manyToOne', 'api::client.client'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.RichText;
+    images: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios',
+      true
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::product.product'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    price: Schema.Attribute.Decimal & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    sku: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1676,11 +1912,16 @@ declare module '@strapi/strapi' {
       'api::campaign-onboarding-start.campaign-onboarding-start': ApiCampaignOnboardingStartCampaignOnboardingStart;
       'api::campaign-template.campaign-template': ApiCampaignTemplateCampaignTemplate;
       'api::campaign.campaign': ApiCampaignCampaign;
+      'api::client-discord-connection.client-discord-connection': ApiClientDiscordConnectionClientDiscordConnection;
+      'api::client-lead.client-lead': ApiClientLeadClientLead;
       'api::client.client': ApiClientClient;
+      'api::discord-bot-install.discord-bot-install': ApiDiscordBotInstallDiscordBotInstall;
       'api::discord-request-access.discord-request-access': ApiDiscordRequestAccessDiscordRequestAccess;
       'api::discord-setting.discord-setting': ApiDiscordSettingDiscordSetting;
+      'api::discovery-call.discovery-call': ApiDiscoveryCallDiscoveryCall;
       'api::email-template.email-template': ApiEmailTemplateEmailTemplate;
       'api::landing-page-template.landing-page-template': ApiLandingPageTemplateLandingPageTemplate;
+      'api::product.product': ApiProductProduct;
       'api::referral-analytic.referral-analytic': ApiReferralAnalyticReferralAnalytic;
       'api::referral-link.referral-link': ApiReferralLinkReferralLink;
       'api::user-setting.user-setting': ApiUserSettingUserSetting;

@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: virion-labs-strapi-cms
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: cd packages/virion-labs-strapi-cms && npm cache clean --force && rm -rf node_modules/.cache && npm install && npm run build
+    startCommand: cd packages/virion-labs-strapi-cms && npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 1337
+      - key: DATABASE_CLIENT
+        value: postgres
+      - key: DATABASE_HOST
+        value: aws-0-ap-southeast-1.pooler.supabase.com
+      - key: DATABASE_PORT
+        value: 6543
+      - key: DATABASE_NAME
+        value: postgres
+      - key: DATABASE_USERNAME
+        value: postgres.xexghaegbbmwwjsiyycq
+      - key: DATABASE_PASSWORD
+        value: iamgratefulandabundant.Supabase.2025
+      - key: DATABASE_SSL
+        value: false
+      - key: DATABASE_SSL_REJECT_UNAUTHORIZED
+        value: false
+      - key: APP_KEYS
+        value: f4pM0fYU2djnUzl4eYI8OA==,MLtVau/UdidncVFdWJtxXw==,1wM9A9f6FyPd8KPPAdFqVA==,3Yg7GzSzvyA0069wa51EPw==
+      - key: API_TOKEN_SALT
+        value: 5ZK7Iji2ODDutcYjCu3mWg9fYk2m6D7F9OVt5eCuSmY=
+      - key: ADMIN_JWT_SECRET
+        value: d8ez2F5/GBKjPTUCY7dtppAGd/Cbk33EbEVw9IKBWzk=
+      - key: TRANSFER_TOKEN_SALT
+        value: lKDVTFf6DWqs5lIOU8Tf+ot68ESeynw1xJZzw8oej6Y=
+      - key: JWT_SECRET
+        value: 31db492f8194542a1965bfc4ac58fe69e621e7e2fc069817a41387d32b251a3e
+      - key: ENCRYPTION_KEY
+        value: /Dm8RlRk2I8KqLIAD6Go4fQbPGd/lh/F+DuVWCkqiN4=
+      - key: GOOGLE_CLIENT_ID
+        value: 1089869749234-afp0instasthm654gj518l5hkea0vk84.apps.googleusercontent.com
+      - key: GOOGLE_CLIENT_SECRET
+        value: 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
+      - key: RESEND_API_KEY
+        value: re_a4jD1jcE_EnJhP135Q2voLvd58eEE1dT6

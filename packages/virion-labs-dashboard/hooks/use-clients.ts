@@ -18,7 +18,7 @@ export function useClients() {
   const [error, setError] = useState<string | null>(null)
   const [campaignCounts, setCampaignCounts] = useState<Record<string, number>>({})
 
-  const API_BASE_URL = "http://localhost:8000/api/v1/operations"
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations`
 
   const getToken = () => localStorage.getItem('auth_token')
 
@@ -185,12 +185,14 @@ export function useClients() {
   const getStats = () => {
     const totalClients = clients.length
     const activeClients = clients.filter(client => client.client_status === 'active').length
+    const pendingClients = clients.filter(client => client.client_status === 'pending').length
     const totalInfluencers = clients.reduce((sum, client) => sum + (client.influencers || 0), 0)
     const totalCampaigns = Object.values(campaignCounts).reduce((sum, count) => sum + count, 0)
     
     return {
       totalClients,
       activeClients,
+      pendingClients,
       totalInfluencers,
       totalCampaigns,
       activePercentage: totalClients > 0 ? (activeClients / totalClients) * 100 : 0,

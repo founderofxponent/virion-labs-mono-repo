@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useMemo, useEffect } from "react"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 import { useBotCampaignsAPI, getCampaignStatus } from "@/hooks/use-bot-campaigns-api"
 import { useClients } from "@/hooks/use-clients"
@@ -19,8 +19,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { CampaignWizard } from "@/components/campaign-wizard/CampaignWizard"
 import { useToast } from "@/hooks/use-toast"
 import api from "@/lib/api"
+import { useDiscordIdResolver } from "@/hooks/use-discord-id-resolver"
 import { 
   Plus,
   Server,
@@ -42,13 +45,21 @@ import {
 
 export default function BotCampaignsPage() {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { profile } = useAuth()
   const { toast } = useToast()
   const { clients } = useClients()
+  const { resolveCampaignDiscordNames } = useDiscordIdResolver()
   const [filterClient, setFilterClient] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
+
+  // Wizard dialog state
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [wizardMode, setWizardMode] = useState<'create' | 'edit'>('create')
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(undefined)
 
 
   const filters = useMemo(() => ({
@@ -68,11 +79,37 @@ export default function BotCampaignsPage() {
     loading,
     deleteCampaign,
     unarchiveCampaign,
-    archiveCampaign
+    archiveCampaign,
+    refresh
   } = useBotCampaignsAPI(filters)
 
-  // Debug logging to help troubleshoot campaigns not showing
-  // console.log('🔍 Bot Campaigns Filter Debug:', { filterStatus, filters, campaignCount: campaigns.length, campaigns, loading, error })
+  // Auto-open create wizard via query param
+  useEffect(() => {
+    const c = searchParams?.get('create')
+    if (c && ['1', 'true', 'yes', 'open'].includes(c.toLowerCase())) {
+      setWizardMode('create')
+      setSelectedCampaignId(undefined)
+      setWizardOpen(true)
+    }
+  }, [searchParams])
+
+  const openCreateWizard = () => {
+    setWizardMode('create')
+    setSelectedCampaignId(undefined)
+    setWizardOpen(true)
+    if (pathname) router.replace(`${pathname}?create=1`)
+  }
+
+  const closeWizardAndCleanUrl = () => {
+    setWizardOpen(false)
+    if (!pathname) return
+    const params = new URLSearchParams(Array.from((searchParams || new URLSearchParams()).entries()))
+    if (params.has('create')) {
+      params.delete('create')
+      const qs = params.toString()
+      router.replace(qs ? `${pathname}?${qs}` : pathname)
+    }
+  }
 
   // Filter campaigns based on search query, client filter, and status
   const filteredCampaigns = campaigns.filter(campaign => {
@@ -163,7 +200,7 @@ export default function BotCampaignsPage() {
   
 
   const handlePreviewLandingPage = (campaignId: string) => {
-    window.open(`/bot-campaigns/preview?campaignId=${campaignId}`, '_blank')
+    window.open(`/admin/campaigns/preview?campaignId=${campaignId}`, '_blank')
   }
 
   const handlePublishToDiscord = async () => {
@@ -213,7 +250,7 @@ export default function BotCampaignsPage() {
 
   const handleExportCampaignCSV = async (campaignId: string, campaignName: string) => {
     try {
-      if (roleName !== "Platform Administrator" && roleName !== "admin") {
+      if (roleName !== "platform administrator" && roleName !== "admin") {
         toast({
           title: "Access Denied",
           description: "You do not have permission to export data.",
@@ -341,15 +378,13 @@ export default function BotCampaignsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Bot Campaigns</h1>
+          <h1 className="text-3xl font-bold">Campaigns</h1>
           <p className="text-muted-foreground">
             Manage your Discord bot configurations and campaigns in one place
           </p>
         </div>
         <div className="flex gap-2">
-          
-          {/* Create Campaign Button */}
-          <Button onClick={() => router.push('/bot-campaigns/create')}>
+          <Button onClick={openCreateWizard}>
             <Plus className="h-4 w-4 mr-2" />
             Create Campaign
           </Button>
@@ -419,7 +454,7 @@ export default function BotCampaignsPage() {
       <Card>
         <CardHeader>
           <CardTitle>
-            Bot Campaigns ({loading ? (
+            Campaigns ({loading ? (
               <Skeleton className="inline-block h-4 w-6" />
             ) : (
               filteredCampaigns.length
@@ -442,7 +477,7 @@ export default function BotCampaignsPage() {
                   : "Get started by creating your first bot campaign."}
               </p>
               {!searchQuery && filterClient === "all" && filterStatus === "all" && (
-                <Button onClick={() => router.push('/bot-campaigns/create')}>
+                <Button onClick={openCreateWizard}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Your First Campaign
                 </Button>
@@ -486,18 +521,28 @@ export default function BotCampaignsPage() {
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Discord Server</Label>
                         <div className="flex flex-wrap gap-4">
                           <div className="flex flex-col min-w-0">
-                            <span className="text-xs text-muted-foreground mb-1">Guild ID</span>
+                            <span className="text-xs text-muted-foreground mb-1">Server</span>
                             <div className="flex items-center space-x-1">
                               <Server className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                              <span className="font-mono text-sm text-foreground truncate">{campaign.guild_id}</span>
+                              <span className="text-sm text-foreground truncate">
+                                {(() => {
+                                  const { guildName } = resolveCampaignDiscordNames(campaign)
+                                  return guildName || campaign.guild_id
+                                })()}
+                              </span>
                             </div>
                           </div>
                           {campaign.channel_id && (
                             <div className="flex flex-col min-w-0">
-                              <span className="text-xs text-muted-foreground mb-1">Channel ID</span>
+                              <span className="text-xs text-muted-foreground mb-1">Channel</span>
                               <div className="flex items-center space-x-1">
                                 <Hash className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                <span className="font-mono text-sm text-foreground truncate">{campaign.channel_id}</span>
+                                <span className="text-sm text-foreground truncate">
+                                  {(() => {
+                                    const { channelName } = resolveCampaignDiscordNames(campaign)
+                                    return channelName || campaign.channel_id
+                                  })()}
+                                </span>
                               </div>
                             </div>
                           )}
@@ -549,7 +594,11 @@ export default function BotCampaignsPage() {
                       <Eye className="h-4 w-4 mr-2" />
                       Preview
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/edit`)}>
+                    <Button variant="outline" size="sm" onClick={() => {
+                      setWizardMode('edit')
+                      setSelectedCampaignId((campaign as any).documentId || (campaign as any).id)
+                      setWizardOpen(true)
+                    }}>
                       <Edit className="h-4 w-4 mr-2" />
                       Edit
                     </Button>
@@ -567,7 +616,7 @@ export default function BotCampaignsPage() {
                           if (status === 'deleted') {
                             return (
                               <>
-                                <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/responses`)}>
+                                <DropdownMenuItem onClick={() => router.push(`/admin/campaigns/${campaign.documentId || campaign.id}/responses`)}>
                                   <Users className="h-4 w-4 mr-2" />
                                   View Responses
                                 </DropdownMenuItem>
@@ -583,7 +632,7 @@ export default function BotCampaignsPage() {
                           if (status === 'archived') {
                             return (
                               <>
-                                <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/responses`)}>
+                                <DropdownMenuItem onClick={() => router.push(`/admin/campaigns/${campaign.documentId || campaign.id}/responses`)}>
                                   <Users className="h-4 w-4 mr-2" />
                                   View Responses
                                 </DropdownMenuItem>
@@ -609,10 +658,10 @@ export default function BotCampaignsPage() {
                             )
                           }
                           
-                          // Active or inactive campaigns
+                          // Default return for active/inactive campaigns
                           return (
                             <>
-                              <DropdownMenuItem onClick={() => router.push(`/bot-campaigns/${campaign.documentId || campaign.id}/responses`)}>
+                              <DropdownMenuItem onClick={() => router.push(`/admin/campaigns/${campaign.documentId || campaign.id}/responses`)}>
                                 <Users className="h-4 w-4 mr-2" />
                                 View Responses
                               </DropdownMenuItem>
@@ -649,6 +698,26 @@ export default function BotCampaignsPage() {
           )}
         </CardContent>
       </Card>
+      {/* Campaign Wizard Dialog */}
+      <Dialog open={wizardOpen} onOpenChange={(open) => {
+        setWizardOpen(open)
+        if (!open) closeWizardAndCleanUrl()
+      }}>
+        <DialogContent className="max-w-5xl w-full p-0">
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>{wizardMode === 'create' ? 'Create Campaign' : 'Edit Campaign'}</DialogTitle>
+          </DialogHeader>
+          <div className="px-6 pb-6">
+            <CampaignWizard
+              mode={wizardMode}
+              campaignId={wizardMode === 'edit' ? selectedCampaignId : undefined}
+              hideHeader
+              afterSaveNavigateTo={null}
+              onSaved={() => { refresh(); closeWizardAndCleanUrl(); }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

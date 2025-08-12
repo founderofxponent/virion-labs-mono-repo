@@ -15,7 +15,15 @@ class JoinCommand {
       const joinCampaignsChannelId = this.config.discord.joinCampaignsChannelId;
       this.logger.info(`🔍 JoinCommand: Fetching campaigns for guild ${interaction.guildId}, channel ${interaction.channelId}, joinCampaignsChannel: ${joinCampaignsChannelId}`);
       
-      const campaignsResponse = await this.apiService.getAvailableCampaigns(interaction.guildId, interaction.channelId, joinCampaignsChannelId);
+      // Add timeout to API call to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('API request timed out')), 10000)
+      );
+      
+      const campaignsResponse = await Promise.race([
+        this.apiService.getAvailableCampaigns(interaction.guildId, interaction.channelId, joinCampaignsChannelId),
+        timeoutPromise
+      ]);
 
       if (!campaignsResponse.campaigns || campaignsResponse.campaigns.length === 0) {
         this.logger.info('📭 No campaigns found in API response');
@@ -71,7 +79,23 @@ class JoinCommand {
 
     } catch (error) {
       this.logger.error('❌ Error in JoinCommand:', error);
-      interaction.editReply('An error occurred while fetching campaigns.');
+      
+      // Only try to respond if the interaction is still valid
+      try {
+        // Check if the interaction is still valid by testing if it's deferred/replied
+        if (interaction.deferred && !interaction.replied) {
+          await interaction.editReply('An error occurred while fetching campaigns. Please try again.');
+        } else if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: 'An error occurred while fetching campaigns. Please try again.', ephemeral: true });
+        }
+      } catch (replyError) {
+        // If we get error 10062 (Unknown interaction), the interaction has expired
+        if (replyError.code === 10062) {
+          this.logger.warn('⏰ Interaction expired before we could respond');
+        } else {
+          this.logger.error('❌ Failed to send error message to Discord:', replyError);
+        }
+      }
     }
   }
 }

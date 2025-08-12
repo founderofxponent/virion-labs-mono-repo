@@ -3,7 +3,12 @@ import httpx
 from core.strapi_client import strapi_client
 from schemas.strapi import StrapiCampaignOnboardingStartCreate, StrapiCampaignOnboardingResponseCreate, StrapiCampaignOnboardingCompletionCreate
 from domain.integrations.discord.domain import DiscordDomain
-from schemas.integration_schemas import Campaign
+from schemas.integration_schemas import (
+    Campaign,
+    ClientDiscordConnection,
+    ClientDiscordConnectionCreateRequest,
+    ClientDiscordConnectionBotSyncRequest,
+)
 from core.config import settings
 import logging
 from datetime import datetime, timezone
@@ -151,6 +156,8 @@ class IntegrationService:
             # Log all campaign details for debugging
             for i, campaign in enumerate(all_campaigns):
                 logger.debug(f"Campaign {i+1}: id={campaign.id}, documentId={getattr(campaign, 'documentId', None)}, name={campaign.name}, channel_id={getattr(campaign, 'channel_id', None)}")
+                logger.debug(f"Campaign {i+1} target_role_ids: {getattr(campaign, 'target_role_ids', None)}")
+                logger.debug(f"Campaign {i+1} auto_role_assignment: {getattr(campaign, 'auto_role_assignment', None)}")
             
             filtered_campaigns = self.discord_domain.filter_campaigns_for_channel(
                 all_campaigns, channel_id, join_campaigns_channel_id
@@ -182,6 +189,379 @@ class IntegrationService:
         except Exception as e:
             logger.error(f"Failed to get Discord campaigns: {e}")
             raise
+
+    # --- Client Discord Connections (Integrations page) ---
+    async def list_client_discord_connections(self, current_user, client_id: Optional[str] = None) -> List[ClientDiscordConnection]:
+        """List connections for the current user's client (Client role) or filtered by client_id for Admins."""
+        # Determine client scope
+        role_name = current_user.role if isinstance(current_user.role, str) else (current_user.role or {}).get('name') if isinstance(current_user.role, dict) else 'Client'
+        logger.info(
+            f"IntegrationService.list_client_discord_connections: user_id={getattr(current_user, 'id', None)}, "
+            f"role_name={role_name}, client_id_param={client_id}"
+        )
+        filters = {"populate": "*"}
+        
+        if role_name == 'Client':
+            # Resolve the client's numeric ID and filter connections
+            from services.client_service import client_service
+            result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result.get('clients', [])
+            if not clients:
+                return []
+            resolved_client_id = clients[0].get('id')
+            filters["filters[client][id][$eq]"] = resolved_client_id
+        elif role_name == 'Platform Administrator' and client_id:
+            # For Platform Administrator users, filter by the provided client_id parameter
+            filters["filters[client][id][$eq]"] = client_id
+        elif role_name == 'Platform Administrator' and not client_id:
+            # For Platform Administrator users without client_id, return all connections
+            logger.info("Platform Administrator without client_id param - returning all connections.")
+            # No filters needed - return all connections
+            pass
+
+        # Use generic Strapi request for now (no typed schema yet for this CT)
+        logger.info(f"IntegrationService.list_client_discord_connections: calling Strapi with params={filters}")
+        response = await strapi_client._request("GET", "client-discord-connections", params=filters)
+        items = response.get("data", [])
+        connections: List[ClientDiscordConnection] = []
+        for item in items:
+            # Support both flat and attributes structure
+            attrs = item.get('attributes', item)
+            logger.debug(f"Processing item: {item}")
+            logger.debug(f"Attributes: {attrs}")
+            connections.append(ClientDiscordConnection(
+                id=item.get('id'),
+                documentId=item.get('documentId'),
+                client_id=(attrs.get('client') or {}).get('id') if isinstance(attrs.get('client'), dict) else None,
+                guild_id=attrs.get('guild_id'),
+                guild_name=attrs.get('guild_name'),
+                guild_icon_url=attrs.get('guild_icon_url'),
+                discord_user_id=attrs.get('discord_user_id'),
+                discord_username=attrs.get('discord_username'),
+                channels=attrs.get('channels'),
+                roles=attrs.get('roles'),
+                connection_status=attrs.get('connection_status'),
+                last_synced_at=attrs.get('last_synced_at'),
+                verified_role_id=attrs.get('verified_role_id')
+            ))
+        logger.info(f"IntegrationService.list_client_discord_connections: returning {len(connections)} connections")
+        return connections
+
+    async def upsert_client_discord_connection(self, request: ClientDiscordConnectionCreateRequest, current_user) -> ClientDiscordConnection:
+        """Create or update a client's discord connection for a guild."""
+        # Resolve client id
+        from services.client_service import client_service
+        result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+        clients = result.get('clients', [])
+        if not clients:
+            raise ValueError("No client associated with current user")
+        client_id = clients[0].get('id')
+
+        # Check if existing record
+        filters = {
+            "filters[guild_id][$eq]": request.guild_id,
+            "filters[client][id][$eq]": client_id
+        }
+        existing = await strapi_client._request("GET", "client-discord-connections", params=filters)
+        items = existing.get('data', [])
+
+        payload = {
+            "client": client_id,
+            "guild_id": request.guild_id,
+            "guild_name": request.guild_name,
+            "guild_icon_url": request.guild_icon_url,
+            "discord_user_id": getattr(request, 'discord_user_id', None),
+            "discord_username": getattr(request, 'discord_username', None),
+            "channels": [c.model_dump() if hasattr(c, 'model_dump') else c for c in (request.channels or [])],
+            "roles": [r.model_dump() if hasattr(r, 'model_dump') else r for r in (request.roles or [])],
+            "last_synced_at": datetime.now(timezone.utc).isoformat(),
+            "connection_status": "connected"
+        }
+
+        if items:
+            # In Strapi v5, use documentId for updates instead of numeric id
+            record_document_id = items[0].get('documentId')
+            if not record_document_id:
+                # Fallback to numeric id if documentId not available
+                record_document_id = items[0].get('id')
+            resp = await strapi_client._request("PUT", f"client-discord-connections/{record_document_id}", data={"data": payload})
+            data = resp.get('data', {})
+        else:
+            resp = await strapi_client._request("POST", "client-discord-connections", data={"data": payload})
+            data = resp.get('data', {})
+
+        attrs = data.get('attributes', data)
+        return ClientDiscordConnection(
+            id=data.get('id'),
+            documentId=data.get('documentId'),
+            client_id=client_id,
+            guild_id=attrs.get('guild_id'),
+            guild_name=attrs.get('guild_name'),
+            guild_icon_url=attrs.get('guild_icon_url'),
+            discord_user_id=attrs.get('discord_user_id'),
+            discord_username=attrs.get('discord_username'),
+            channels=attrs.get('channels'),
+            roles=attrs.get('roles'),
+            connection_status=attrs.get('connection_status'),
+            last_synced_at=attrs.get('last_synced_at')
+        )
+
+    async def upsert_client_discord_connection_from_bot(self, request: ClientDiscordConnectionBotSyncRequest) -> ClientDiscordConnection:
+        """Bot-authenticated sync path: identify client by client_document_id."""
+        # Resolve client numeric ID from documentId
+        client_doc_id = request.client_document_id
+        # Strapi client is a collection; get by filter
+        client_resp = await strapi_client._request("GET", "clients", params={"filters[documentId][$eq]": client_doc_id, "fields[0]": "id"})
+        items = client_resp.get('data', [])
+        if not items:
+            raise ValueError("Client not found for provided client_document_id")
+        client_id = items[0].get('id')
+
+        # Upsert same as above but without current_user context
+        filters = {
+            "filters[guild_id][$eq]": request.guild_id,
+            "filters[client][id][$eq]": client_id
+        }
+        existing = await strapi_client._request("GET", "client-discord-connections", params=filters)
+        items = existing.get('data', [])
+
+        payload = {
+            "client": client_id,
+            "guild_id": request.guild_id,
+            "guild_name": request.guild_name,
+            "guild_icon_url": request.guild_icon_url,
+            "discord_user_id": request.discord_user_id,
+            "discord_username": request.discord_username,
+            "channels": [c.model_dump() if hasattr(c, 'model_dump') else c for c in (request.channels or [])],
+            "roles": [r.model_dump() if hasattr(r, 'model_dump') else r for r in (request.roles or [])],
+            "last_synced_at": datetime.now(timezone.utc).isoformat(),
+            "connection_status": "connected"
+        }
+
+        # Debug log a small sample to verify memberCount is flowing through
+        try:
+            sample_roles = payload.get("roles") or []
+            sample_preview = [
+                {
+                    "id": r.get("id"),
+                    "name": r.get("name"),
+                    "memberCount": r.get("memberCount"),
+                }
+                for r in (sample_roles[:3] if isinstance(sample_roles, list) else [])
+            ]
+            logger.info(
+                f"Bot sync upsert for guild {request.guild_id}: roles={len(sample_roles)} sample={sample_preview}"
+            )
+        except Exception:
+            pass
+
+        if items:
+            # In Strapi v5, use documentId for updates instead of numeric id
+            record_document_id = items[0].get('documentId')
+            if not record_document_id:
+                # Fallback to numeric id if documentId not available
+                record_document_id = items[0].get('id')
+            resp = await strapi_client._request("PUT", f"client-discord-connections/{record_document_id}", data={"data": payload})
+            data = resp.get('data', {})
+        else:
+            resp = await strapi_client._request("POST", "client-discord-connections", data={"data": payload})
+            data = resp.get('data', {})
+
+        attrs = data.get('attributes', data)
+        return ClientDiscordConnection(
+            id=data.get('id'),
+            documentId=data.get('documentId'),
+            client_id=client_id,
+            guild_id=attrs.get('guild_id'),
+            guild_name=attrs.get('guild_name'),
+            guild_icon_url=attrs.get('guild_icon_url'),
+            discord_user_id=attrs.get('discord_user_id'),
+            discord_username=attrs.get('discord_username'),
+            channels=attrs.get('channels'),
+            roles=attrs.get('roles'),
+            connection_status=attrs.get('connection_status'),
+            last_synced_at=attrs.get('last_synced_at')
+        )
+
+    async def generate_client_bot_install_url(self, current_user) -> str:
+        """Generate OAuth2 install URL with client document ID as state parameter."""
+        try:
+            from urllib.parse import quote
+            
+            client_bot_client_id = getattr(settings, 'DISCORD_CLIENT_BOT_CLIENT_ID', None)
+            logger.info(f"Discord client bot client ID: {client_bot_client_id}")
+            if not client_bot_client_id:
+                raise ValueError("Client bot client ID not configured")
+            
+            # Get client document ID
+            from services.client_service import client_service
+            result = await client_service.list_clients_operation(filters={}, current_user=current_user)
+            clients = result.get('clients', [])
+            if not clients:
+                raise ValueError("No client associated with current user")
+            
+            client_document_id = clients[0].get('documentId')
+            if not client_document_id:
+                raise ValueError("Client document ID not found")
+            
+            # Use client document ID directly as state parameter - no database storage needed!
+            state = client_document_id
+            
+            scopes = ["bot", "applications.commands"]
+            permissions = 268435456  # View Channels + Send Messages + Use Slash Commands
+            redirect_uri = f"{settings.FRONTEND_URL}/clients/integrations/discord-callback"
+            
+            logger.info(f"Generated Discord install URL for client {client_document_id}")
+            
+            return (
+                f"https://discord.com/api/oauth2/authorize?client_id={client_bot_client_id}"
+                f"&permissions={permissions}&scope={'%20'.join(scopes)}"
+                f"&state={quote(state)}&redirect_uri={quote(redirect_uri)}&response_type=code"
+            )
+        except Exception as e:
+            logger.error(f"Error generating install URL: {str(e)}", exc_info=True)
+            raise
+
+    async def start_client_guild_sync(self, guild_id: str, current_user) -> Dict[str, Any]:
+        """Optional server-side kick-off; for now, just acknowledges request."""
+        # In future, we could DM the client bot or schedule a job. For MVP, return ack
+        return {"connection_status": "pending", "guild_id": guild_id}
+    
+    async def handle_discord_oauth_callback(self, code: str, state: str, guild_id: str = None, permissions: str = None) -> Dict[str, Any]:
+        """Handle Discord OAuth callback - state parameter contains client document ID."""
+        try:
+            # State parameter IS the client document ID!
+            client_document_id = state
+            logger.info(f"Processing OAuth callback for client document ID: {client_document_id}")
+            
+            # Validate that client exists and get numeric ID
+            client_resp = await strapi_client._request(
+                "GET", 
+                "clients", 
+                params={
+                    "filters[documentId][$eq]": client_document_id,
+                    "fields[0]": "id"
+                }
+            )
+            
+            items = client_resp.get('data', [])
+            if not items:
+                logger.warning(f"Client not found for document ID: {client_document_id}")
+                return {"success": False, "message": "Invalid client ID"}
+            
+            client_id = items[0].get('id')
+            logger.info(f"Found client ID {client_id} for document ID {client_document_id}")
+            
+            # Create client-discord-connection if guild_id provided
+            if guild_id:
+                connection_data = {
+                    "client": client_id,
+                    "guild_id": guild_id,
+                    "connection_status": "pending",  # Waiting for /sync command
+                    "last_synced_at": None
+                }
+                
+                # Check if connection already exists
+                existing_connections = await strapi_client._request(
+                    "GET",
+                    "client-discord-connections",
+                    params={
+                        "filters[guild_id][$eq]": guild_id,
+                        "filters[client][id][$eq]": client_id
+                    }
+                )
+                
+                if not existing_connections.get('data'):
+                    # Create new connection
+                    await strapi_client._request(
+                        "POST", 
+                        "client-discord-connections", 
+                        data={"data": connection_data}
+                    )
+                    logger.info(f"Created new Discord connection for client {client_document_id}, guild {guild_id}")
+                else:
+                    logger.info(f"Discord connection already exists for client {client_document_id}, guild {guild_id}")
+                
+                return {
+                    "success": True, 
+                    "message": "Bot installed successfully! Run /sync in your Discord server to complete setup.",
+                    "client_document_id": client_document_id,
+                    "guild_id": guild_id
+                }
+            else:
+                return {
+                    "success": True, 
+                    "message": "Bot installation completed. Run /sync in your Discord server to link it to your account.",
+                    "client_document_id": client_document_id
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to handle Discord OAuth callback: {e}")
+            return {"success": False, "message": "Failed to process bot installation"}
+    
+    async def find_client_by_guild(self, guild_id: str) -> Optional[str]:
+        """Find client document ID associated with a guild."""
+        try:
+            # Find via client-discord-connection (created during OAuth callback)
+            connections = await strapi_client._request(
+                "GET",
+                "client-discord-connections", 
+                params={
+                    "filters[guild_id][$eq]": guild_id,
+                    "populate[0]": "client"
+                }
+            )
+            
+            connection_records = connections.get('data', [])
+            if connection_records:
+                client_data = connection_records[0]['client']
+                if client_data:
+                    logger.info(f"Found client {client_data['documentId']} for guild {guild_id}")
+                    return client_data['documentId']
+            
+            logger.warning(f"No client found for guild {guild_id}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Failed to find client by guild {guild_id}: {e}")
+            return None
+
+    async def get_pending_connections(self) -> List[Dict[str, Any]]:
+        """Get all Discord connections with pending status that need to be synced."""
+        try:
+            # Find all connections with status 'pending'
+            connections = await strapi_client._request(
+                "GET",
+                "client-discord-connections", 
+                params={
+                    "filters[connection_status][$eq]": "pending",
+                    "populate[0]": "client"
+                }
+            )
+            
+            connection_records = connections.get('data', [])
+            pending_connections = []
+            
+            for record in connection_records:
+                attrs = record.get('attributes', record)
+                client_data = attrs.get('client')
+                
+                if client_data:
+                    pending_connections.append({
+                        "id": record.get('id'),
+                        "guild_id": attrs.get('guild_id'),
+                        "guild_name": attrs.get('guild_name'),
+                        "client_document_id": client_data.get('documentId'),
+                        "connection_status": attrs.get('connection_status'),
+                        "last_synced_at": attrs.get('last_synced_at')
+                    })
+            
+            logger.info(f"Found {len(pending_connections)} pending connections")
+            return pending_connections
+            
+        except Exception as e:
+            logger.error(f"Failed to get pending connections: {e}")
+            return []
 
     async def request_discord_access(self, access_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -220,23 +600,56 @@ class IntegrationService:
             # Create the Discord request access record
             await strapi_client.create_discord_request_access(request_data)
             
-            # Get the verified role ID from Discord settings and assign it
-            discord_settings = await strapi_client.get_discord_setting()
+            # Get the verified role ID from client discord connection and assign it
             role_assigned = False
+            verified_role_id = None
             
-            if discord_settings and discord_settings.verified_role_id:
+            # First, try to get the verified role ID from the client discord connection
+            try:
+                client_connections = await strapi_client._request(
+                    "GET", 
+                    "client-discord-connections",
+                    params={
+                        "filters[guild_id][$eq]": guild_id,
+                        "populate[0]": "client"
+                    }
+                )
+                
+                connections = client_connections.get('data', [])
+                if connections:
+                    attrs = connections[0].get('attributes', connections[0])
+                    verified_role_id = attrs.get('verified_role_id')
+                    logger.info(f"Found client-specific verified role ID: {verified_role_id} for guild {guild_id}")
+                else:
+                    logger.warning(f"No client discord connection found for guild {guild_id}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to fetch client discord connection for guild {guild_id}: {e}")
+            
+            # Fallback to global Discord settings if no client-specific role ID is configured
+            if not verified_role_id:
+                logger.info("No client-specific verified role ID found, falling back to global Discord settings")
+                discord_settings = await strapi_client.get_discord_setting()
+                if discord_settings and discord_settings.verified_role_id:
+                    verified_role_id = discord_settings.verified_role_id
+                    logger.info(f"Using global verified role ID: {verified_role_id}")
+                else:
+                    logger.warning("No verified role ID configured in Discord settings")
+            
+            # Assign the role if we found a verified role ID
+            if verified_role_id:
                 role_assigned = await self._assign_discord_role(
                     guild_id, 
                     discord_user_id, 
-                    discord_settings.verified_role_id
+                    verified_role_id
                 )
                 
                 if role_assigned:
-                    logger.info(f"Successfully assigned verified role {discord_settings.verified_role_id} to user {discord_user_id}")
+                    logger.info(f"Successfully assigned verified role {verified_role_id} to user {discord_user_id}")
                 else:
                     logger.warning(f"Failed to assign verified role to user {discord_user_id}")
             else:
-                logger.warning("No verified role ID configured in Discord settings")
+                logger.warning("No verified role ID found - neither client-specific nor global")
             
             logger.info(f"Successfully created and auto-approved Discord access request for user {discord_user_id} in guild {guild_id}")
             
@@ -302,11 +715,15 @@ class IntegrationService:
                 logger.warning(f"Could not create onboarding_start record for user {discord_user_id} on campaign {document_id}: {e}")
 
             # Fetch onboarding fields from Strapi using documentId
+            # Fields are already sorted by sort_order in strapi_client.get_onboarding_fields_by_campaign
             fields_data = await strapi_client.get_onboarding_fields_by_campaign(document_id)
             
-            # Transform Strapi field data to match our schema format
+            # Sort fields by sort_order to ensure correct ordering
+            sorted_fields = sorted(fields_data, key=lambda x: x.sort_order or 0)
+            
+            # Transform Strapi field data to match our schema format while preserving order
             transformed_fields = []
-            for field in fields_data:
+            for field in sorted_fields:
                 transformed_field = {
                     "field_key": field.field_key or "",
                     "field_label": field.field_label or "",
@@ -315,10 +732,13 @@ class IntegrationService:
                     "field_description": field.field_description,
                     "field_options": self._extract_field_options(field.field_options),
                     "is_required": field.is_required or False,
-                    "validation_rules": field.validation_rules
+                    "validation_rules": field.validation_rules,
+                    "sort_order": field.sort_order,  # Include sort_order for debugging
+                    "sort_order": field.sort_order  # Include sort_order for debugging
                 }
                 transformed_fields.append(transformed_field)
             
+            logger.info(f"Returning {len(transformed_fields)} onboarding fields for campaign {document_id}, ordered by sort_order")
             return {"success": True, "fields": transformed_fields}
             
         except Exception as e:
@@ -410,13 +830,43 @@ class IntegrationService:
         Check if a Discord user has the verified role in a guild using Discord API.
         """
         try:
-            # Get the verified role ID from Discord settings
-            discord_settings = await strapi_client.get_discord_setting()
-            if not discord_settings or not discord_settings.verified_role_id:
-                logger.warning("No verified role ID configured in Discord settings")
-                return False
+            verified_role_id = None
             
-            verified_role_id = discord_settings.verified_role_id
+            # First, try to get the verified role ID from the client discord connection
+            try:
+                client_connections = await strapi_client._request(
+                    "GET", 
+                    "client-discord-connections",
+                    params={
+                        "filters[guild_id][$eq]": guild_id,
+                        "populate[0]": "client"
+                    }
+                )
+                
+                connections = client_connections.get('data', [])
+                if connections:
+                    attrs = connections[0].get('attributes', connections[0])
+                    verified_role_id = attrs.get('verified_role_id')
+                    logger.info(f"Using client-specific verified role ID: {verified_role_id} for guild {guild_id}")
+                else:
+                    logger.warning(f"No client discord connection found for guild {guild_id}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to fetch client discord connection for guild {guild_id}: {e}")
+            
+            # Fallback to global Discord settings if no client-specific role ID is configured
+            if not verified_role_id:
+                logger.info("No client-specific verified role ID found, falling back to global Discord settings")
+                discord_settings = await strapi_client.get_discord_setting()
+                if not discord_settings or not discord_settings.verified_role_id:
+                    logger.warning("No verified role ID configured in Discord settings")
+                    return False
+                verified_role_id = discord_settings.verified_role_id
+                logger.info(f"Using global verified role ID: {verified_role_id}")
+            
+            if not verified_role_id:
+                logger.warning("No verified role ID found - neither client-specific nor global")
+                return False
             
             # Check if Discord bot token is configured
             if not settings.DISCORD_BOT_TOKEN:
@@ -496,5 +946,71 @@ class IntegrationService:
             except Exception as e:
                 logger.error(f"An unexpected error occurred while assigning a Discord role: {e}")
                 return False
+
+    async def assign_verified_role_to_connection(self, connection_id: str, guild_id: str, role_id: str, current_user) -> dict:
+        """
+        Assign a verified role to a specific Discord connection.
+        """
+        try:
+            # Check if user has permissions to modify this connection
+            role_name = current_user.role if isinstance(current_user.role, str) else current_user.role.get('name', 'Client') if isinstance(current_user.role, dict) else 'Client'
+            is_admin = role_name.lower() in ['admin', 'platform administrator']
+            
+            # Get the connection to verify it exists and user has access
+            connections = await self.list_client_discord_connections(current_user, None)
+            target_connection = None
+            
+            for conn in connections:
+                if (conn.documentId == connection_id or str(conn.id) == connection_id) and conn.guild_id == guild_id:
+                    target_connection = conn
+                    break
+            
+            if not target_connection:
+                return {
+                    "success": False, 
+                    "message": "Connection not found or you don't have permission to modify it"
+                }
+            
+            # Update the connection with the verified role ID
+            update_data = {
+                "verified_role_id": role_id
+            }
+            
+            # Update in Strapi
+            if target_connection.documentId:
+                await strapi_client._request(
+                    "PUT", 
+                    f"client-discord-connections/{target_connection.documentId}", 
+                    data={"data": update_data}
+                )
+            else:
+                # This shouldn't happen in normal cases, but handle it gracefully
+                logger.warning(f"No documentId found for connection {connection_id}")
+                return {
+                    "success": False, 
+                    "message": "Unable to update connection - invalid document ID"
+                }
+            
+            # Return the updated connection
+            updated_connections = await self.list_client_discord_connections(current_user, None)
+            updated_connection = None
+            
+            for conn in updated_connections:
+                if (conn.documentId == connection_id or str(conn.id) == connection_id) and conn.guild_id == guild_id:
+                    updated_connection = conn
+                    break
+            
+            return {
+                "success": True,
+                "message": f"Successfully assigned verified role {role_id} to server {guild_id}",
+                "connection": updated_connection
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to assign verified role: {e}")
+            return {
+                "success": False,
+                "message": "Failed to assign verified role. Please try again."
+            }
 
 integration_service = IntegrationService()

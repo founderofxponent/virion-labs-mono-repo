@@ -58,7 +58,7 @@ export function useLandingPageTemplatesAPI(campaignType?: string, category?: str
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = "http://localhost:8000/api/v1/operations"
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations`
 
   const getToken = () => localStorage.getItem('auth_token')
 
@@ -237,7 +237,7 @@ export function useLandingPageTemplateAPI(templateId?: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = "http://localhost:8000/api/v1/operations"
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations`
 
   const getToken = () => localStorage.getItem('auth_token')
 

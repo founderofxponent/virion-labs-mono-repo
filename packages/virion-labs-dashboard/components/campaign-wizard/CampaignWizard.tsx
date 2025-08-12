@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/components/auth-provider"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +52,12 @@ import { CampaignWizardSkeleton } from "./CampaignWizardSkeleton"
 interface CampaignWizardProps {
   mode: "create" | "edit"
   campaignId?: string
+  // When true, hides the built-in header (used when embedding in a dialog)
+  hideHeader?: boolean
+  // Control navigation after save: provide a path to navigate to, or pass null to disable navigation
+  afterSaveNavigateTo?: string | null
+  // Optional callback invoked after a successful save with the saved campaign
+  onSaved?: (campaign: Campaign) => void
 }
 
 
@@ -65,9 +72,10 @@ const TABS = [
   { id: 7, title: "Review & Save", icon: Save },
 ];
 
-export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
+export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigateTo, onSaved }: CampaignWizardProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const { profile } = useAuth()
   const [currentStep, setCurrentStep] = useState(mode === 'create' ? 0 : 1)
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -83,6 +91,10 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const fetchedCampaignId = useRef<string | null>(null);
   
   const { clients, loading: clientsLoading } = useClients()
+  
+  // Check if user is a client
+  const userRole = (typeof profile?.role === 'string' ? profile.role : profile?.role?.name)?.toLowerCase()
+  const isClient = userRole === "client"
   const { campaigns, loading: campaignsLoading, createCampaign, updateCampaign, fetchSingleCampaign } = useBotCampaignsAPI()
   
   const { 
@@ -114,12 +126,18 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     console.log('📋 onboardingFields updated:', { onboardingFields, length: onboardingFields?.length, campaignDocumentId })
     if (onboardingFields && onboardingFields.length > 0) {
       console.log('✅ Setting localOnboardingQuestions from API data:', onboardingFields)
-      setLocalOnboardingQuestions(onboardingFields.map(f => ({
+      // Sort by sort_order
+      const sortedFields = [...onboardingFields].sort((a, b) => {
+        const orderA = a.sort_order ?? 0;
+        const orderB = b.sort_order ?? 0;
+        return orderA - orderB;
+      });
+      // Preserve the actual sort_order values from the API
+      setLocalOnboardingQuestions(sortedFields.map((f) => ({
         ...f,
         id: f.documentId,
         is_required: f.is_required ?? false,
         is_enabled: f.is_enabled ?? true,
-        sort_order: f.sort_order ?? 0,
       })));
     }
   }, [onboardingFields, campaignDocumentId]);
@@ -156,10 +174,23 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     const template_onboarding_fields = template_config?.onboarding_fields || templateWithLandingPage?.onboarding_fields;
     
     if (template_onboarding_fields && template_onboarding_fields.length > 0) {
+      // Sort template fields by sort_order first, then by array index as fallback
+      const sortedTemplateFields = [...template_onboarding_fields].sort((a, b) => {
+        const orderA = a.sort_order ?? template_onboarding_fields.indexOf(a);
+        const orderB = b.sort_order ?? template_onboarding_fields.indexOf(b);
+        return orderA - orderB;
+      });
+
       return {
-        fields: template_onboarding_fields.map((field, index) => ({
-          id: `template-${field.id}`, field_label: field.question, field_type: field.type, sort_order: index,
-          is_required: field.required, is_enabled: true, field_options: field.options || [], validation_rules: field.validation || {},
+        fields: sortedTemplateFields.map((field, index) => ({
+          id: `template-${field.id}`, 
+          field_label: field.question, 
+          field_type: field.type, 
+          sort_order: field.sort_order ?? index,
+          is_required: field.required, 
+          is_enabled: true, 
+          field_options: field.options || [], 
+          validation_rules: field.validation || {},
           field_key: field.question.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '')
         })),
         source: 'template' as const, isTemplate: true
@@ -185,7 +216,7 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         if (!token) {
             throw new Error("Authentication token not found.");
         }
-        const response = await fetch('http://localhost:8000/api/v1/operations/campaign-template/list', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations/campaign-template/list`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -278,7 +309,8 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     console.log('🏠 Landing page data effect triggered:', { mode, landingPage, hasLandingPage: !!landingPage });
     if (mode === 'edit' && landingPage) {
       console.log('🏠 Processing landing page data:', landingPage);
-      const { id, campaign, createdAt, updatedAt, publishedAt, documentId, ...rest } = landingPage;
+      // Loosen destructure to avoid TS errors for fields that may not exist on the type
+      const { id, campaign, ...rest } = (landingPage as any);
       console.log('🏠 Extracted rest data:', rest);
       setFormData(prev => {
         const newFormData = {
@@ -323,11 +355,18 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
     }
 
     if (onboarding_fields) {
-      const templateQuestions = onboarding_fields.map((field: any, index: number) => ({
+      // Sort template fields by sort_order first, then by array index
+      const sortedOnboardingFields = [...onboarding_fields].sort((a: any, b: any) => {
+        const orderA = a.sort_order ?? onboarding_fields.indexOf(a);
+        const orderB = b.sort_order ?? onboarding_fields.indexOf(b);
+        return orderA - orderB;
+      });
+
+      const templateQuestions = sortedOnboardingFields.map((field: any, index: number) => ({
         id: `template-${field.id}`,
         field_label: field.question,
         field_type: field.type,
-        sort_order: index,
+        sort_order: field.sort_order ?? index,
         is_required: field.required,
         is_enabled: true,
         field_options: field.options || [],
@@ -357,8 +396,18 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
 
   const handleFieldChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
+    // If target_role_ids is being updated, automatically toggle auto_role_assignment
+    if (field === "target_role_ids") {
+      const hasRoleIds = Array.isArray(value) && value.length > 0;
+      setFormData(prev => ({ 
+        ...prev, 
+        [field]: value,
+        auto_role_assignment: hasRoleIds
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+    }
+  };
 
   // New simplified template handlers
   const handleTemplateSelect = (templateId: string | null) => {
@@ -410,9 +459,16 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 0: return true; // Template selection always valid
-      case 1: return !!(formData.client && formData.name);
-      case 2: return !!(formData.guild_id);
-      case 3: return !!(formData.bot_name);
+      case 1: {
+        // For client users, client is auto-selected, so only validate name
+        if (isClient) {
+          return !!formData.name;
+        }
+        // For admin users, both client and name are required
+        return !!(formData.client && formData.name);
+      }
+      case 2: return !!formData.guild_id;
+      case 3: return !!formData.bot_name;
       default: return true;
     }
   }
@@ -515,7 +571,17 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
         title: "Success!",
         description: `Campaign ${mode === 'create' ? 'created' : 'updated'} successfully!`,
       });
-      router.push('/bot-campaigns');
+      // Notify parent if provided
+      try {
+        if (onSaved && savedCampaign) onSaved(savedCampaign as any);
+      } catch (e) {
+        console.error('onSaved callback errored:', e);
+      }
+      // Determine navigation behavior
+      const dest = (afterSaveNavigateTo === undefined) ? '/bot-campaigns' : afterSaveNavigateTo;
+      if (dest) {
+        router.push(dest);
+      }
       router.refresh();
     } catch (error) {
       console.error(`Error saving campaign:`, error);
@@ -532,8 +598,13 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
   const renderContent = () => {
     switch (currentStep) {
       case 0: return <TemplateSelectionTab templates={templates} templatesLoading={templatesLoading} onTemplateSelect={handleTemplateSelect} onSkipTemplate={handleSkipTemplate} />;
-      case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} clients={clients as any} />;
-      case 2: return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} />;
+      case 1: return <VitalsTab formData={formData} handleFieldChange={handleFieldChange} clients={clients as any} isClient={isClient} />;
+      case 2: {
+        // For Discord filtering, we need the numeric client ID, not the documentId
+        const selectedClient = clients.find(c => c.documentId === formData.client || c.id === formData.client)
+        const numericClientId = selectedClient?.id
+        return <PlacementAndScheduleTab formData={formData} handleFieldChange={handleFieldChange} clientId={numericClientId?.toString()} />;
+      }
       case 3: return <BotIdentityTab formData={formData} handleFieldChange={handleFieldChange} />;
       case 4: return <OnboardingFlowTab formData={formData} handleFieldChange={handleFieldChange} questions={effectiveOnboardingFields.fields as OnboardingQuestion[]} onQuestionsChange={handleQuestionsChange} />;
       case 5: return <AccessAndModerationTab formData={formData} handleFieldChange={handleFieldChange} />;
@@ -549,15 +620,17 @@ export function CampaignWizard({ mode, campaignId }: CampaignWizardProps) {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
-        <Button variant="outline" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Campaigns
-        </Button>
-        <h1 className="text-2xl font-bold">
-          {mode === 'create' ? 'Create New Campaign' : 'Edit Campaign'}
-        </h1>
-      </div>
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-6">
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Campaigns
+          </Button>
+          <h1 className="text-2xl font-bold">
+            {mode === 'create' ? 'Create New Campaign' : 'Edit Campaign'}
+          </h1>
+        </div>
+      )}
       <div className="flex gap-6 h-[calc(100vh-200px)]">
         {/* Fixed Left Sidebar */}
         <nav className="flex-shrink-0 w-64">

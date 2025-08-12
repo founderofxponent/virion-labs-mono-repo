@@ -172,9 +172,11 @@ class CampaignService:
         }
 
     async def get_onboarding_fields_operation(self, campaign_id: str) -> List[CampaignOnboardingField]:
-        """Business operation for getting campaign onboarding fields."""
+        """Business operation for getting campaign onboarding fields sorted by sort_order."""
         logger.info(f"Executing get onboarding fields operation for campaign: {campaign_id}")
-        return await strapi_client.get_onboarding_fields_by_campaign(campaign_id)
+        fields = await strapi_client.get_onboarding_fields_by_campaign(campaign_id)
+        # Sort by sort_order
+        return sorted(fields, key=lambda x: x.sort_order or 0)
 
     async def create_onboarding_field_operation(self, field_data: CampaignOnboardingFieldCreate) -> CampaignOnboardingField:
         """Business operation for creating a campaign onboarding field."""
@@ -203,7 +205,7 @@ class CampaignService:
         else:
             return await strapi_client.get_onboarding_field_by_document_id(field_id)
 
-    async def update_onboarding_field_operation(self, field_id: int, field_data: CampaignOnboardingFieldUpdate) -> CampaignOnboardingField:
+    async def update_onboarding_field_operation(self, field_id: str, field_data: CampaignOnboardingFieldUpdate) -> CampaignOnboardingField:
         """Business operation for updating a campaign onboarding field."""
         logger.info(f"Executing update onboarding field operation for field: {field_id}")
         
@@ -224,6 +226,7 @@ class CampaignService:
         """
         Business operation for batch updating campaign onboarding fields.
         This includes creating, updating, and deleting fields in a single transaction.
+        Fields are processed in sort_order sequence to maintain proper ordering.
         """
         logger.info(f"Executing batch update for onboarding fields for campaign: {campaign_id}")
 
@@ -232,7 +235,7 @@ class CampaignService:
         if not numeric_campaign_id:
             raise ValueError(f"Campaign with documentId {campaign_id} not found.")
 
-        # Process deletions
+        # Process deletions first
         for field_id in deletes:
             try:
                 # Ensure field_id is an integer for deletion
@@ -245,15 +248,23 @@ class CampaignService:
                 # For now, we log and continue
                 pass
 
-        # Process creations and updates
-        for field_data in updates:
+        # Sort updates by sort_order to process in correct sequence
+        sorted_updates = sorted(updates, key=lambda x: x.get('sort_order', 999))
+        
+        # Ensure ALL fields have consistent ordering
+        # Re-assign sort_order to all fields based on their final order
+        for i, field_data in enumerate(sorted_updates):
+            field_data['sort_order'] = i  # 0-based index
+        
+        # Process creations and updates in sort_order sequence
+        for field_data in sorted_updates:
             field_id = field_data.get("id")
             
             try:
                 if field_id and "template" not in str(field_id):
                     # This is an update
                     update_data = CampaignOnboardingFieldUpdate(**field_data)
-                    await self.update_onboarding_field_operation(int(field_id), update_data)
+                    await self.update_onboarding_field_operation(str(field_id), update_data)
                 else:
                     # This is a new field, remove temporary ID if it exists
                     field_data.pop("id", None)
@@ -265,8 +276,10 @@ class CampaignService:
                 # For now, we log and continue
                 pass
         
-        # Return the updated list of fields for the campaign
-        return await self.get_onboarding_fields_operation(campaign_id)
+        # Return the updated list of fields for the campaign, sorted by sort_order
+        updated_fields = await self.get_onboarding_fields_operation(campaign_id)
+        # Sort by sort_order
+        return sorted(updated_fields, key=lambda x: x.sort_order or 0)
 
     async def _setup_discord_bot(self, campaign_id: int) -> Dict[str, Any]:
         """Setup Discord bot for campaign."""

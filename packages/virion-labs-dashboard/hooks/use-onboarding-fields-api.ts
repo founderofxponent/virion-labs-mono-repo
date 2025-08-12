@@ -8,7 +8,7 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
   const [fields, setFields] = useState<CampaignOnboardingField[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const API_BASE_URL = "http://localhost:8000/api/v1/operations"
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/operations`
 
   const getToken = useCallback(() => localStorage.getItem('auth_token'), [])
 
@@ -213,8 +213,15 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
       setLoading(true)
       setError(null)
 
+      // Sort fields by their current sort_order to maintain display sequence
+      const sortedFields = fields.sort((a, b) => {
+        const orderA = a.sort_order ?? 0;
+        const orderB = b.sort_order ?? 0;
+        return orderA - orderB;
+      });
+
       // Transform fields to match the backend schema
-      const transformedFields = fields.map(field => ({
+      const transformedFields = sortedFields.map((field, index) => ({
         id: field.id,
         documentId: field.id,
         field_key: field.field_key,
@@ -222,7 +229,7 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
         field_type: field.field_type,
         is_required: field.is_required,
         is_enabled: field.is_enabled,
-        sort_order: field.sort_order,
+        sort_order: field.sort_order ?? index,
         field_options: Array.isArray(field.field_options) && field.field_options.length > 0
           ? { options: field.field_options }
           : {},

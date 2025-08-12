@@ -21,7 +21,7 @@ interface ClientDetailPageProps {
   clientId: string
 }
 
-type ClientStatus = "active" | "inactive"
+type ClientStatus = "pending" | "active" | "inactive"
 
 interface ClientUpdate {
   name?: string
@@ -65,7 +65,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
     primary_contact: "",
     contact_email: "",
     influencers: 0,
-    client_status: "active"
+    client_status: "pending"
   })
 
   // Check for edit query parameter
@@ -119,7 +119,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
             primary_contact: refreshedData.primary_contact || "",
             contact_email: refreshedData.contact_email || "",
             influencers: refreshedData.influencers || 0,
-            client_status: (refreshedData.client_status || "inactive") as ClientStatus
+            client_status: (refreshedData.client_status || "pending") as ClientStatus
           })
           setCampaignsCount(refreshedData.campaign_count || 0)
         }
@@ -166,7 +166,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
         primary_contact: client.primary_contact || "",
         contact_email: client.contact_email || "",
         influencers: client.influencers || 0,
-        client_status: (client.client_status || "inactive") as ClientStatus
+        client_status: (client.client_status || "pending") as ClientStatus
       })
     }
     setIsEditing(false)
@@ -196,7 +196,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
             primary_contact: data.primary_contact || "",
             contact_email: data.contact_email || "",
             influencers: data.influencers || 0,
-            client_status: (data.client_status || "inactive") as ClientStatus
+            client_status: (data.client_status || "pending") as ClientStatus
           })
 
           // Campaign count is already included in the data from the API
@@ -369,6 +369,7 @@ export function ClientDetailPage({ clientId }: ClientDetailPageProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>

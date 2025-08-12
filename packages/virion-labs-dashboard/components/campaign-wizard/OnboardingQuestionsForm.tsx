@@ -22,13 +22,15 @@ export function OnboardingQuestionsForm({ questions, onQuestionsChange }: Onboar
 
   const handleAddField = () => {
     if (isLimitReached) return;
+    // Add new field at the end with proper ordering
+    const newIndex = questions.length;
     const newQuestion: OnboardingQuestion = {
       field_label: '',
       field_key: `new_question_${Date.now()}`,
       field_type: 'text',
       is_required: true,
       is_enabled: true,
-      sort_order: questions.length,
+      sort_order: newIndex, // 0-based array index
       field_options: [],
       validation_rules: {},
     };
@@ -37,7 +39,7 @@ export function OnboardingQuestionsForm({ questions, onQuestionsChange }: Onboar
 
   const handleRemoveField = (index: number) => {
     const newQuestions = questions.filter((_, i) => i !== index);
-    onQuestionsChange(newQuestions.map((q, i) => ({ ...q, sort_order: i })));
+    onQuestionsChange(newQuestions);
   };
 
   const handleFieldChange = (index: number, field: keyof OnboardingQuestion, value: any) => {
@@ -54,9 +56,16 @@ export function OnboardingQuestionsForm({ questions, onQuestionsChange }: Onboar
     const newQuestions = [...questions];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     
+    // Swap the questions in the current order
     [newQuestions[index], newQuestions[targetIndex]] = [newQuestions[targetIndex], newQuestions[index]];
 
-    onQuestionsChange(newQuestions.map((q, i) => ({ ...q, sort_order: i })));
+    // Update sort_order based on new positions
+    const reorderedQuestions = newQuestions.map((q, i) => ({ 
+      ...q, 
+      sort_order: i 
+    }));
+    
+    onQuestionsChange(reorderedQuestions);
   };
 
   return (

@@ -7,7 +7,7 @@ export interface Client {
   industry: string;
   logo?: Media;
   influencers?: number;
-  client_status?: 'active' | 'inactive' | null;
+  client_status?: 'pending' | 'active' | 'inactive' | null;
   join_date?: string; // Date field from Strapi
   website?: string;
   primary_contact?: string;

@@ -29,9 +29,15 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> di
     """
     import httpx
     
+    # Sanitize accidental double-prefix (e.g., "Bearer Bearer <jwt>") passed through upstream clients
+    if token and token.lower().startswith("bearer "):
+        token = token[7:].strip()
+
     strapi_users_me_url = f"{settings.STRAPI_URL}/api/users/me"
     headers = {"Authorization": f"Bearer {token}"}
-    params = [("populate", "role"), ("populate", "user_setting")]
+    # Use Strapi v4 populate array-style params (works with /users/:id and /users/me)
+    # Example: ?populate[0]=role&populate[1]=user_setting
+    params = {"populate[0]": "role", "populate[1]": "user_setting"}
     logger.info(f"Validating token. URL: {strapi_users_me_url}, Params: {params}")
  
     async with httpx.AsyncClient() as client:
@@ -39,7 +45,8 @@ async def get_current_user_from_token(token: str = Depends(oauth2_scheme)) -> di
             response = await client.get(strapi_users_me_url, headers=headers, params=params)
             response.raise_for_status()
             user_data = response.json()
-            logger.info(f"Token validation successful. User data received: {user_data}")
+            # Log the keys present to make it easier to debug missing fields
+            logger.info(f"Token validation successful. User data keys: {list(user_data.keys())}. Full data: {user_data}")
             return user_data
         except httpx.HTTPStatusError as e:
             logger.error(f"Token validation failed. Status: {e.response.status_code}, Response: {e.response.text}")
@@ -68,6 +75,17 @@ async def get_current_user(user_data: dict = Depends(get_current_user_from_token
             return None
         logger.info(f"Creating StrapiUser object from user_data: {user_data}")
         user = StrapiUser(**user_data)
+        # Ensure role is present to avoid frontend falling back to an incorrect dashboard
+        if user.role is None:
+            default_role = {
+                "id": 0,
+                "name": "Client",
+                "description": "Default client role (fallback)",
+                "type": "client",
+            }
+            logger.warning("User role missing in Strapi response; defaulting role to Client.")
+            # pydantic v2: create updated copy with default role
+            user = user.model_copy(update={"role": default_role})
         logger.info(f"Successfully created StrapiUser object: {user}")
         return user
     except Exception as e:

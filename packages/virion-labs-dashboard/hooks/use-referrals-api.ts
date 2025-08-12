@@ -12,7 +12,7 @@ export function useReferralsApi() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = "http://localhost:8000"
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   const getToken = () => localStorage.getItem('auth_token')
 
   const fetchReferrals = useCallback(async () => {

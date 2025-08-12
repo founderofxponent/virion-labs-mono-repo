@@ -10,6 +10,7 @@ export function middleware(request: NextRequest) {
     '/login',
     '/signup',
     '/auth/callback', // The auth callback is a public route
+    '/work-with-us', // Discovery call booking should be accessible after lead submission
     '/api',
     '/_next',
     '/favicon.ico',

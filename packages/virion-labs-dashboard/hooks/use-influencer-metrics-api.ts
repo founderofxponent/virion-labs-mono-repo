@@ -10,7 +10,7 @@ export function useInfluencerMetricsApi() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = "http://localhost:8000/api/v1/analytics"
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/analytics`
 
   const getToken = () => localStorage.getItem('auth_token')
 

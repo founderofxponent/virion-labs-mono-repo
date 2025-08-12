@@ -9,6 +9,8 @@ class Campaign(BaseModel):
     name: str  # Changed from campaign_name to match Strapi client transformation
     description: Optional[str] = None
     channel_id: Optional[str] = None
+    target_role_ids: Optional[List[str]] = None
+    auto_role_assignment: Optional[bool] = False
 
 class GetCampaignsResponse(BaseModel):
     campaigns: List[Campaign]
@@ -68,3 +70,67 @@ class CreateManagedInviteResponse(BaseModel):
     success: bool
     invite_url: Optional[str] = None
     message: Optional[str] = None
+
+# Client Discord Connection Schemas (for dashboard integrations page)
+class DiscordChannel(BaseModel):
+    id: str
+    name: str
+    type: Optional[int] = None
+    topic: Optional[str] = None
+
+class DiscordRole(BaseModel):
+    id: str
+    name: str
+    color: Optional[int] = None
+    memberCount: Optional[int] = None
+
+class ClientDiscordConnection(BaseModel):
+    id: Optional[int] = None
+    documentId: Optional[str] = None
+    client_id: Optional[int] = None
+    guild_id: str
+    guild_name: Optional[str] = None
+    guild_icon_url: Optional[str] = None
+    discord_user_id: Optional[str] = None
+    discord_username: Optional[str] = None
+    channels: Optional[List[DiscordChannel]] = None
+    roles: Optional[List[DiscordRole]] = None
+    status: Optional[str] = None
+    last_synced_at: Optional[str] = None
+    verified_role_id: Optional[str] = None
+
+class ClientDiscordConnectionCreateRequest(BaseModel):
+    guild_id: str
+    guild_name: Optional[str] = None
+    guild_icon_url: Optional[str] = None
+    channels: Optional[List[DiscordChannel]] = None
+    roles: Optional[List[DiscordRole]] = None
+
+class ClientDiscordConnectionResponse(BaseModel):
+    connection: ClientDiscordConnection
+
+class ClientDiscordConnectionListResponse(BaseModel):
+    connections: List[ClientDiscordConnection]
+
+class ClientDiscordConnectionBotSyncRequest(BaseModel):
+    client_document_id: str
+    guild_id: str
+    guild_name: Optional[str] = None
+    guild_icon_url: Optional[str] = None
+    discord_user_id: Optional[str] = None
+    discord_username: Optional[str] = None
+    channels: Optional[List[DiscordChannel]] = None
+    roles: Optional[List[DiscordRole]] = None
+
+class ClientDiscordSyncStartRequest(BaseModel):
+    guild_id: str
+
+class AssignVerifiedRoleRequest(BaseModel):
+    connection_id: str
+    guild_id: str
+    role_id: str
+
+class AssignVerifiedRoleResponse(BaseModel):
+    success: bool
+    message: Optional[str] = None
+    connection: Optional[ClientDiscordConnection] = None

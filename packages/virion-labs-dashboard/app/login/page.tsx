@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -45,47 +45,29 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-6">
       <div className="w-full max-w-md space-y-6">
-        {/* Logo and Header */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2 font-semibold text-2xl">
-            <Image 
-              src="/virion-labs-logo-black.png" 
-              alt="Virion Labs" 
-              width={32} 
-              height={32}
-              className="h-8 w-8 object-contain"
-            />
+            <Image src="/virion-labs-logo-black.png" alt="Virion Labs" width={32} height={32} className="h-8 w-8 object-contain" />
             <span>Virion Labs</span>
           </Link>
-          <p className="text-muted-foreground">
-            Sign in to your account to continue
-          </p>
+          <p className="text-muted-foreground">Sign in to your Creator account</p>
         </div>
-
-        {/* Login Options */}
         <Card>
           <CardHeader>
-            <CardTitle>Welcome</CardTitle>
-            <CardDescription>
-              Sign in using your Google account to access the dashboard.
-            </CardDescription>
+            <CardTitle>Creator Login</CardTitle>
+            <CardDescription>Sign in with Google</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <Button onClick={handleGoogleLogin} className="w-full" disabled={loading}>
               {loading ? "Redirecting..." : "Sign in with Google"}
             </Button>
-            <div className="mt-6 text-center text-sm">
-              <span className="text-muted-foreground">Need an account? </span>
-              <Link href="#" className="font-medium text-primary hover:underline" onClick={(e) => {e.preventDefault(); toast.info("Please contact an administrator to get an account.")}}>
-                Request Access
-              </Link>
-            </div>
+            <p className="text-center text-sm text-muted-foreground">
+              Are you a business? <Link href="/work-with-us" className="underline">Work with us</Link>
+            </p>
           </CardContent>
         </Card>
-
-        {/* Footer */}
         <div className="text-center text-sm text-muted-foreground">
           <p>© 2025 Virion Labs. All rights reserved.</p>
         </div>

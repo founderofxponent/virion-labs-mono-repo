@@ -1,0 +1,40 @@
+{
+  "kind": "collectionType",
+  "collectionName": "client_discord_connections",
+  "info": {
+    "singularName": "client-discord-connection",
+    "pluralName": "client-discord-connections",
+    "displayName": "Client Discord Connection",
+    "description": "Stores synced Discord guilds, channels, and roles for a client"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "client": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::client.client",
+      "inversedBy": "discord_connections"
+    },
+    "discord_user_id": { "type": "string" },
+    "discord_username": { "type": "string" },
+    "guild_id": { "type": "string", "required": true },
+    "guild_name": { "type": "string" },
+    "guild_icon_url": { "type": "string" },
+    "channels": { "type": "json" },
+    "roles": { "type": "json" },
+    "last_synced_at": { "type": "datetime" },
+    "connection_status": { 
+      "type": "enumeration",
+      "enum": ["not_connected", "pending", "connected"],
+      "default": "pending"
+    },
+    "verified_role_id": { 
+      "type": "string",
+      "description": "Discord role ID assigned as the verified role for this server"
+    },
+    "is_active": { "type": "boolean", "default": true }
+  }
+}

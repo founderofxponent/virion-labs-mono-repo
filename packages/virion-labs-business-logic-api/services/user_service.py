@@ -84,21 +84,44 @@ class UserService:
 
     async def _check_and_update_user_role(self, user_id: int, user: dict):
         """
-        Checks if user has default 'Authenticated' role and updates to appropriate role.
-        For now, defaults to 'Influencer' role. 
+        Assigns proper role based on business rules:
+        - If user is linked to an active Client (by matching contact_email), set role to 'Client'
+        - Else, if role is 'Authenticated', set to 'Influencer'
         Platform Administrator role should be assigned manually via admin panel.
         """
         try:
             current_role = user.get('role', {})
             current_role_name = current_role.get('name') if current_role else None
+            user_email = user.get('email')
             
-            # Only update role if user has the default "Authenticated" role
+            # First, check if the user should be a Client based on contact_email and active client status
+            try:
+                if user_email:
+                    client_matches = await strapi_client.get_clients({
+                        "filters[contact_email][$eq]": user_email,
+                        "filters[client_status][$eq]": "active"
+                    })
+                else:
+                    client_matches = []
+            except Exception as e:
+                logger.warning(f"Could not check client association for user {user_id}: {e}")
+                client_matches = []
+
+            if client_matches:
+                # Assign 'Client' role if not already
+                if current_role_name != "Client":
+                    client_role = await strapi_client.get_role_by_name("Client")
+                    if client_role and client_role.get('id'):
+                        await strapi_client.update_user_role(user_id, client_role['id'])
+                        logger.info(f"Updated user {user_id} role to 'Client' based on active client association.")
+                    else:
+                        logger.warning("'Client' role not found in Strapi; cannot update user role.")
+                return
+
+            # If not a client, only update default 'Authenticated' to 'Influencer'
             if current_role_name == "Authenticated":
                 logger.info(f"User {user_id} has default 'Authenticated' role. Updating to 'Influencer'.")
-                
-                # Get the Influencer role
                 influencer_role = await strapi_client.get_role_by_name("Influencer")
-                
                 if influencer_role and influencer_role.get('id'):
                     await strapi_client.update_user_role(user_id, influencer_role['id'])
                     logger.info(f"Successfully updated user {user_id} role to 'Influencer'.")

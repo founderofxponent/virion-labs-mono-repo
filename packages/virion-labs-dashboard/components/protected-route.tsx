@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, type ReactNode } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/components/auth-provider"
 
 interface ProtectedRouteProps {
@@ -10,28 +10,51 @@ interface ProtectedRouteProps {
   redirectTo?: string
 }
 
+// Enable verbose logging when NEXT_PUBLIC_DEBUG_AUTH=true
+const DEBUG = process.env.NEXT_PUBLIC_DEBUG_AUTH === 'true'
+
 export function ProtectedRoute({ 
   children, 
   allowedRoles,
-  redirectTo = "/login" 
+  redirectTo 
 }: ProtectedRouteProps) {
   const { user, profile, loading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
     // Wait until loading is finished before checking for user
     if (loading) {
+      if (DEBUG) console.debug('ProtectedRoute: loading...', { pathname })
       return
     }
 
     // Redirect unauthenticated users to login
     if (!user) {
+      if (DEBUG) console.debug('ProtectedRoute: no user -> /login', { from: pathname })
       router.replace('/login')
       return
     }
 
-    // User is authenticated, allow access
-  }, [user, loading, router])
+    // Check role requirements and redirect unauthorized users
+    if (allowedRoles && allowedRoles.length > 0 && profile) {
+      const userRoleRaw = typeof profile.role === 'string' ? profile.role : profile.role?.name
+      const userRole = userRoleRaw?.toLowerCase()
+      const normalizedAllowed = allowedRoles.map(r => r.toLowerCase())
+      if (!userRole || !normalizedAllowed.includes(userRole)) {
+        const fallback = userRole === 'client' ? '/clients/dashboard' : '/'
+        const target = (redirectTo ?? fallback)
+        if (DEBUG) console.debug('ProtectedRoute: unauthorized role -> redirect', { userRole, normalizedAllowed, target, from: pathname })
+        if (pathname !== target) {
+          router.replace(target)
+        }
+        return
+      }
+    }
+
+    // User is authenticated and authorized
+    if (DEBUG) console.debug('ProtectedRoute: authorized', { pathname })
+  }, [user, loading, profile, allowedRoles, redirectTo, pathname, router])
 
   // Show loading state while authentication is being checked
   if (loading) {
@@ -47,13 +70,17 @@ export function ProtectedRoute({
 
   // Don't render anything if user is not authenticated (redirect will happen via useEffect)
   if (!user) {
+    if (DEBUG) console.debug('ProtectedRoute: render guard returning null (no user)')
     return null
   }
 
-  // Check role requirements
+  // Check role requirements (render guard only; navigation happens in useEffect)
   if (allowedRoles && allowedRoles.length > 0 && profile) {
-    const userRole = typeof profile.role === 'string' ? profile.role : profile.role?.name
-    if (!userRole || !allowedRoles.includes(userRole)) {
+    const userRoleRaw = typeof profile.role === 'string' ? profile.role : profile.role?.name
+    const userRole = userRoleRaw?.toLowerCase()
+    const normalizedAllowed = allowedRoles.map(r => r.toLowerCase())
+    if (!userRole || !normalizedAllowed.includes(userRole)) {
+      if (DEBUG) console.debug('ProtectedRoute: render guard returning null (unauthorized)', { userRole, normalizedAllowed })
       return null
     }
   }

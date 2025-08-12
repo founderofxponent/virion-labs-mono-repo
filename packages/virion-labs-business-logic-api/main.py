@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from core.config import settings
-from routers import health, operations, auth, users, integrations, influencer, admin, analytics, tracking, templates, email
+from routers import health, operations, auth, users, integrations, influencer, admin, analytics, tracking, templates, email, clients, scheduling
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -44,9 +45,15 @@ app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytic
 app.include_router(tracking.router, prefix="/api/v1/tracking", tags=["Tracking"])
 app.include_router(templates.router, prefix="/api/v1/templates", tags=["Email Templates"])
 app.include_router(email.router, tags=["Email"])
+app.include_router(clients.router, tags=["Clients"])
+app.include_router(scheduling.router, tags=["Scheduling"])
+
+# Create temp_exports directory if it doesn't exist
+exports_dir = "temp_exports"
+os.makedirs(exports_dir, exist_ok=True)
 
 # Mount static files directory for exports
-app.mount("/exports", StaticFiles(directory="temp_exports"), name="exports")
+app.mount("/exports", StaticFiles(directory=exports_dir), name="exports")
 
 
 @app.get("/")
@@ -63,13 +70,13 @@ async def get_oauth_server_metadata():
     Provides OAuth 2.0 Authorization Server Metadata.
     This tells clients how to interact with our new auth flow.
     """
-    base_url = "http://localhost:8000" # Should be from settings
+    base_url = settings.API_URL
     return {
         "issuer": base_url,
-        "authorization_endpoint": f"{base_url}/api/auth/login/google",
-        "token_endpoint": f"{base_url}/api/auth/token", # Point to the new token endpoint
+        "authorization_endpoint": f"{base_url}/api/auth/authorize",
+        "token_endpoint": f"{base_url}/api/auth/token",
         "registration_endpoint": f"{base_url}/api/auth/register",
-        "response_types_supported": ["code"], # We now properly support the 'code' flow
+        "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code"],
         "scopes_supported": ["openid", "profile", "email"],
         "code_challenge_methods_supported": ["S256"],

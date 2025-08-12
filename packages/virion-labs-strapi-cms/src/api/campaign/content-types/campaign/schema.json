@@ -152,6 +152,12 @@
       "target": "api::campaign-onboarding-completion.campaign-onboarding-completion",
       "mappedBy": "campaign"
     },
+    "products": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::product.product",
+      "mappedBy": "campaigns"
+    },
     "total_investment": {
       "type": "decimal",
       "default": 0

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
 from schemas.integration_schemas import (
     GetCampaignsResponse,
     RequestAccessRequest,
@@ -10,10 +11,18 @@ from schemas.integration_schemas import (
     OnboardingSubmitResponse,
     CreateManagedInviteRequest,
     CreateManagedInviteResponse,
+    ClientDiscordConnectionCreateRequest,
+    ClientDiscordConnectionResponse,
+    ClientDiscordConnectionListResponse,
+    ClientDiscordConnectionBotSyncRequest,
+    ClientDiscordSyncStartRequest,
+    AssignVerifiedRoleRequest,
+    AssignVerifiedRoleResponse,
 
 )
 from services.integration_service import integration_service
 from core.auth import get_api_key
+from core.auth import get_current_user, StrapiUser as User
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,6 +37,15 @@ async def get_discord_campaigns(guild_id: str, channel_id: str, join_campaigns_c
     try:
         campaigns = await integration_service.get_discord_campaigns(guild_id, channel_id, join_campaigns_channel_id)
         campaigns_dicts = [campaign.model_dump() for campaign in campaigns]
+        
+        # Debug logging to see what's being returned
+        for i, campaign_dict in enumerate(campaigns_dicts):
+            logger.info(f"🔍 Campaign {i+1} being returned to Discord bot:")
+            logger.info(f"  - ID: {campaign_dict.get('id')}")
+            logger.info(f"  - Name: {campaign_dict.get('name')}")
+            logger.info(f"  - target_role_ids: {campaign_dict.get('target_role_ids')}")
+            logger.info(f"  - auto_role_assignment: {campaign_dict.get('auto_role_assignment')}")
+        
         return GetCampaignsResponse(campaigns=campaigns_dicts)
     except Exception as e:
         logger.error(f"Failed to get Discord campaigns: {e}")
@@ -101,3 +119,130 @@ async def create_managed_invite(request: CreateManagedInviteRequest, api_key: st
     except Exception as e:
         logger.error(f"Failed to create managed Discord invite: {e}")
         raise HTTPException(status_code=500, detail="Failed to create Discord invite.")
+
+# --- Client Discord Connections (Integrations page) ---
+@router.get("/discord/client/connections", response_model=ClientDiscordConnectionListResponse)
+async def list_client_discord_connections(
+    client_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        logger.info(
+            f"list_client_discord_connections: user_id={getattr(current_user, 'id', None)}, "
+            f"role={getattr(current_user, 'role', None)}, client_id_param={client_id}"
+        )
+        result = await integration_service.list_client_discord_connections(current_user, client_id)
+        return ClientDiscordConnectionListResponse(connections=result)
+    except Exception as e:
+        logger.error(f"Failed to list client discord connections: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list connections")
+
+@router.post("/discord/client/connections", response_model=ClientDiscordConnectionResponse)
+async def upsert_client_discord_connection(request: ClientDiscordConnectionCreateRequest, current_user: User = Depends(get_current_user)):
+    try:
+        connection = await integration_service.upsert_client_discord_connection(request, current_user)
+        return ClientDiscordConnectionResponse(connection=connection)
+    except Exception as e:
+        logger.error(f"Failed to upsert client discord connection: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save connection")
+
+@router.post("/discord/client/bot-sync", dependencies=[Depends(get_api_key)])
+async def client_bot_sync_webhook(request: ClientDiscordConnectionBotSyncRequest):
+    """
+    Webhook for the client-specific Discord bot to push guild, channel, and role data
+    after running a sync command inside the client's server.
+    """
+    try:
+        connection = await integration_service.upsert_client_discord_connection_from_bot(request)
+        return {"status": "ok", "connection": connection.model_dump() if hasattr(connection, 'model_dump') else connection}
+    except Exception as e:
+        logger.error(f"Failed to handle client bot sync webhook: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process bot sync")
+
+@router.get("/discord/client/install-url")
+async def get_client_bot_install_url(current_user: User = Depends(get_current_user)):
+    try:
+        url = await integration_service.generate_client_bot_install_url(current_user)
+        return {"install_url": url}
+    except Exception as e:
+        logger.error(f"Failed to generate install URL: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate install URL")
+
+@router.post("/discord/client/sync/start")
+async def start_client_guild_sync(request: ClientDiscordSyncStartRequest, current_user: User = Depends(get_current_user)):
+    try:
+        result = await integration_service.start_client_guild_sync(request.guild_id, current_user)
+        return result
+    except Exception as e:
+        logger.error(f"Failed to start guild sync: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start sync")
+
+@router.post("/discord/client/assign-verified-role", response_model=AssignVerifiedRoleResponse)
+async def assign_verified_role(request: AssignVerifiedRoleRequest, current_user: User = Depends(get_current_user)):
+    """
+    Assign a verified role to a specific Discord connection/server.
+    """
+    try:
+        result = await integration_service.assign_verified_role_to_connection(
+            request.connection_id, 
+            request.guild_id, 
+            request.role_id, 
+            current_user
+        )
+        return AssignVerifiedRoleResponse(**result)
+    except Exception as e:
+        logger.error(f"Failed to assign verified role: {e}")
+        raise HTTPException(status_code=500, detail="Failed to assign verified role")
+
+@router.get("/discord/client/oauth-callback")
+async def discord_oauth_callback(code: str = None, state: str = None, guild_id: str = None, permissions: str = None, error: str = None):
+    """Handle Discord OAuth callback after bot installation."""
+    from fastapi.responses import JSONResponse
+    
+    if error:
+        logger.error(f"Discord OAuth error: {error}")
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": f"Discord authorization failed: {error}"}
+        )
+    
+    if not code or not state:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": "Missing required parameters"}
+        )
+    
+    try:
+        result = await integration_service.handle_discord_oauth_callback(code, state, guild_id, permissions)
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Failed to handle Discord OAuth callback: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Failed to process bot installation"}
+        )
+
+@router.get("/discord/client/find-by-guild/{guild_id}", dependencies=[Depends(get_api_key)])
+async def find_client_by_guild(guild_id: str):
+    """Find client document ID associated with a Discord guild."""
+    try:
+        client_document_id = await integration_service.find_client_by_guild(guild_id)
+        if client_document_id:
+            return {"client_document_id": client_document_id}
+        else:
+            raise HTTPException(status_code=404, detail="No client found for this guild")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to find client by guild: {e}")
+        raise HTTPException(status_code=500, detail="Failed to find client")
+
+@router.get("/discord/client/pending-connections", dependencies=[Depends(get_api_key)])
+async def get_pending_connections():
+    """Get all pending Discord connections that need to be synced."""
+    try:
+        pending_connections = await integration_service.get_pending_connections()
+        return pending_connections
+    except Exception as e:
+        logger.error(f"Failed to get pending connections: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get pending connections")

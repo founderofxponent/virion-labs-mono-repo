@@ -14,12 +14,21 @@ echo "Project: $PROJECT_ID"
 echo "Region: $REGION"
 echo "Service: $SERVICE_NAME"
 
-# Load environment variables from .env file
-if [ -f .env.production ]; then
-    export $(grep -v '^#' .env.production | grep '=' | xargs)
-    echo "Loaded environment variables from .env.production"
+# Load environment variables from .env.deploy file
+if [ -f .env.deploy ]; then
+    echo "Loading environment variables from .env.deploy:"
+    # Load standard .env format (KEY=value) and echo each one
+    while IFS= read -r line; do
+        if [[ ! "$line" =~ ^# ]] && [[ "$line" =~ = ]] && [[ -n "$line" ]]; then
+            echo "  Loading: $line"
+            # Remove quotes from values before exporting
+            line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/="\([^"]*\)"/=\1/')
+            export "$line"
+        fi
+    done < .env.deploy
+    echo "Successfully loaded environment variables from .env.deploy"
 else
-    echo "Warning: .env.production file not found, using default values"
+    echo "Warning: .env.deploy file not found, using default values"
 fi
 
 # Ensure we're using the correct project
@@ -34,11 +43,12 @@ gcloud run deploy $SERVICE_NAME \
   --port=3000 \
   --cpu=2 \
   --memory=2Gi \
-  --min-instances=0 \
+  --min-instances=1 \
   --max-instances=10 \
   --timeout=3600 \
   --concurrency=1000 \
-  --env-vars-file=.env.deploy \
+  --set-env-vars="NODE_ENV=${NODE_ENV},NEXT_TELEMETRY_DISABLED=${NEXT_TELEMETRY_DISABLED},NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL},NEXT_PUBLIC_API_KEY=${NEXT_PUBLIC_API_KEY},NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL},NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY},SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY},SUPABASE_PROJECT_ID=${SUPABASE_PROJECT_ID},SUPABASE_ENV=${SUPABASE_ENV},DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN},DISCORD_GUILD_ID=${DISCORD_GUILD_ID},DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID=${DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID},NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL},NEXTAUTH_URL=${NEXTAUTH_URL},NEXTAUTH_SECRET=${NEXTAUTH_SECRET},DEBUG_MODE=${DEBUG_MODE},VERBOSE_LOGGING=${VERBOSE_LOGGING},NEXT_PUBLIC_BUSINESS_LOGIC_API_URL=${NEXT_PUBLIC_BUSINESS_LOGIC_API_URL}" \
+  --set-build-env-vars="NODE_ENV=${NODE_ENV},NEXT_TELEMETRY_DISABLED=${NEXT_TELEMETRY_DISABLED},NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL},NEXT_PUBLIC_API_KEY=${NEXT_PUBLIC_API_KEY},NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL},NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY},SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY},SUPABASE_PROJECT_ID=${SUPABASE_PROJECT_ID},SUPABASE_ENV=${SUPABASE_ENV},DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN},DISCORD_GUILD_ID=${DISCORD_GUILD_ID},DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID=${DISCORD_JOIN_CAMPAIGNS_CHANNEL_ID},NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL},NEXTAUTH_URL=${NEXTAUTH_URL},NEXTAUTH_SECRET=${NEXTAUTH_SECRET},DEBUG_MODE=${DEBUG_MODE},VERBOSE_LOGGING=${VERBOSE_LOGGING},NEXT_PUBLIC_BUSINESS_LOGIC_API_URL=${NEXT_PUBLIC_BUSINESS_LOGIC_API_URL}" \
   --execution-environment=gen2
 
 echo "Deployment complete!"

@@ -14,7 +14,7 @@ export interface VitalsTabProps {
   templatesLoading: boolean;
 }
 
-export type PlacementAndScheduleData = Pick<CampaignFormData, 'guild_id' | 'channel_id' | 'start_date' | 'end_date'>;
+export type PlacementAndScheduleData = Pick<CampaignFormData, 'guild_id' | 'channel_id' | 'start_date' | 'end_date' | 'target_role_ids'>;
 
 export interface PlacementAndScheduleTabProps {
     formData: PlacementAndScheduleData;
