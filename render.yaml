@@ -48,3 +48,25 @@ services:
         value: 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
       - key: RESEND_API_KEY
         value: re_a4jD1jcE_EnJhP135Q2voLvd58eEE1dT6
+
+  - type: web
+    name: virion-labs-discord-bot-mvp
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: cd packages/virion-labs-discord-bot-mvp && npm install
+    startCommand: cd packages/virion-labs-discord-bot-mvp && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: BUSINESS_LOGIC_API_URL
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: DEBUG
+        value: false
