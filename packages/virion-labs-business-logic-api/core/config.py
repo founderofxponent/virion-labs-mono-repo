@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     API_TITLE: str = "Virion Labs Unified Business Logic API"
     API_VERSION: str = "1.0.0"
     API_PORT: int = 8000
+    PORT: Optional[int] = None  # Railway provides this
     API_URL: str
     REFERRAL_BASE_URL: str = "https://virionlabs.io/r"
 

@@ -81,4 +81,6 @@ async def get_oauth_server_metadata():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=settings.API_PORT)
+    # Use Railway's PORT if available, otherwise fall back to API_PORT
+    port = settings.PORT if settings.PORT else settings.API_PORT
+    uvicorn.run(app, host="0.0.0.0", port=port)
