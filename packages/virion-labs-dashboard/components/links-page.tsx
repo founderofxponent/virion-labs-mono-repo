@@ -271,7 +271,7 @@ export function LinksPage() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={async () => {
             try {
-              await refresh()
+              await refetchLinks()
               toast({
                 title: "Success",
                 description: "Links refreshed successfully!"
