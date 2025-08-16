@@ -65,14 +65,14 @@ export function ReferralLinkForm({ link, onSuccess, onCancel, preselectedCampaig
     setIsSubmitting(true)
     
     try {
-      const selectedCampaign = availableCampaigns.find(c => c.documentId === data.campaign_id)
+      const selectedCampaign = availableCampaigns.find(c => c.id.toString() === data.campaign_id)
       const formData = {
         ...data,
         expires_at: data.expires_at?.toISOString() || null,
         thumbnail_url: data.thumbnail_url || null,
         description: data.description || null,
-        // API expects 'campaign' field (try with documentId)
-        campaign: data.campaign_id && data.campaign_id !== "" && data.campaign_id !== "none" ? data.campaign_id : null,
+        // API expects 'campaign' as integer ID
+        campaign: data.campaign_id && data.campaign_id !== "" && data.campaign_id !== "none" ? parseInt(data.campaign_id) : null,
         campaign_name: selectedCampaign?.name || null,
       }
       
@@ -139,7 +139,7 @@ export function ReferralLinkForm({ link, onSuccess, onCancel, preselectedCampaig
             <SelectContent>
               <SelectItem value="none">Independent Link (No Campaign)</SelectItem>
               {availableCampaigns.map((campaign) => (
-                <SelectItem key={campaign.id} value={campaign.documentId}>
+                <SelectItem key={campaign.id} value={campaign.id.toString()}>
                   {campaign.name} - {campaign.client?.name || campaign.client_name || 'Unknown Client'}
                 </SelectItem>
               ))}
