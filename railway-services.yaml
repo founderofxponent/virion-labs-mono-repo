@@ -1,0 +1,132 @@
+# Railway Multi-Service Configuration
+# This file documents the configuration for each service in the Railway project
+# Copy these configurations when creating services in Railway dashboard
+
+services:
+  # Strapi CMS - Content Management System
+  strapi-cms:
+    name: "virion-labs-strapi-cms"
+    source:
+      type: "monorepo"
+      path: "packages/virion-labs-strapi-cms"
+    build:
+      command: "npm install && npm run build"
+    start:
+      command: "npm start"
+    healthcheck:
+      path: "/"
+    port: 1337
+    environment:
+      NODE_ENV: "production"
+      HOST: "0.0.0.0"
+      PORT: "1337"
+      # Database variables will be set via Railway dashboard
+      DATABASE_CLIENT: "postgres"
+      # Uses external Supabase database (not Railway PostgreSQL plugin)
+
+  # Discord Bot MVP
+  discord-bot-mvp:
+    name: "virion-labs-discord-bot-mvp"
+    source:
+      type: "monorepo" 
+      path: "packages/virion-labs-discord-bot-mvp"
+    build:
+      command: "npm install"
+    start:
+      command: "npm start"
+    healthcheck:
+      path: "/health"
+    port: 8080
+    environment:
+      NODE_ENV: "production"
+      PORT: "8080"
+      DEBUG: "false"
+      # Secret variables to be set via Railway dashboard:
+      # DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, BUSINESS_LOGIC_API_URL, API_KEY, ADMIN_EMAILS
+
+  # Discord Bot Client
+  discord-bot-client:
+    name: "virion-labs-discord-bot-client"
+    source:
+      type: "monorepo"
+      path: "packages/virion-labs-discord-bot-client"
+    build:
+      command: "npm install"
+    start:
+      command: "npm start"
+    healthcheck:
+      path: "/health"
+    port: 8081
+    environment:
+      NODE_ENV: "production"
+      PORT: "8081"
+      # Secret variables to be set via Railway dashboard:
+      # DISCORD_CLIENT_BOT_TOKEN, BUSINESS_LOGIC_API_URL, BUSINESS_LOGIC_API_KEY
+
+  # Business Logic API (Python/FastAPI)
+  business-api:
+    name: "virion-labs-business-logic-api"
+    source:
+      type: "monorepo"
+      path: "packages/virion-labs-business-logic-api"
+    build:
+      command: "pip install -r requirements.txt"
+    start:
+      command: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    healthcheck:
+      path: "/health"
+    port: 8000
+    environment:
+      PYTHONPATH: "/app"
+      ENVIRONMENT: "production"
+      API_TITLE: "Virion Labs Business Logic API"
+      API_VERSION: "1.0.0"
+      JWT_ALGORITHM: "HS256"
+      PASSWORD_RESET_EXPIRE_MINUTES: "30"
+      # Secret variables to be set via Railway dashboard:
+      # STRAPI_URL, STRAPI_API_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+      # JWT_SECRET, API_KEY, FRONTEND_URL, REFERRAL_BASE_URL
+      # DISCORD_BOT_TOKEN, DISCORD_CLIENT_BOT_CLIENT_ID, ADMIN_EMAIL
+
+  # Next.js Dashboard
+  dashboard:
+    name: "virion-labs-dashboard"
+    source:
+      type: "monorepo"
+      path: "packages/virion-labs-dashboard"
+    build:
+      command: "npm install && npm run build"
+    start:
+      command: "npm start"
+    healthcheck:
+      path: "/"
+    port: 3000
+    environment:
+      NODE_ENV: "production"
+      PORT: "3000"
+      # Next.js and API variables will be set via Railway dashboard
+
+  # MCP Server (Python)
+  mcp-server:
+    name: "virion-labs-mcp-server"
+    source:
+      type: "monorepo"
+      path: "packages/mcp-server"
+    build:
+      command: "pip install -e ."
+    start:
+      command: "python server.py"
+    port: 8001
+    environment:
+      PYTHONPATH: "/app"
+      ENVIRONMENT: "production"
+      # Secret variables to be set via Railway dashboard:
+      # SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, PORT
+
+# Service Dependencies:
+# 1. Strapi CMS (Database) - Core data layer
+# 2. Business Logic API - Depends on Strapi
+# 3. Discord Bot MVP - Depends on Business Logic API
+# 4. Discord Bot Client - Depends on Business Logic API
+# 5. Dashboard - Depends on Business Logic API
+# 6. MCP Server - Independent service

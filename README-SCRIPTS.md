@@ -40,6 +40,24 @@ cd packages/mcp-server
 ## Production Deployment
 Use the respective `deploy.sh` scripts in each package directory.
 
+## Railway Deployment (Alternative Platform)
+New Railway deployment option available:
+- **`RAILWAY_DEPLOYMENT_GUIDE.md`** - Complete Railway deployment guide
+- **`RAILWAY_COST_OPTIMIZATION.md`** - Usage-based pricing optimization
+- **`scripts/setup-railway-project.sh`** - Setup Railway project
+- **`scripts/deploy-railway.sh`** - Deploy all services to Railway
+- **`railway-env-vars.md`** - Environment variable templates
+
+### Railway Quick Start:
+```bash
+# Setup Railway project
+./scripts/setup-railway-project.sh
+
+# Deploy all services
+./scripts/deploy-railway.sh
+```
+
 ## Environment Files
 - **`.env.development`** - Local development (localhost URLs)
 - **`.env`** - Production (Cloud Run URLs)
+- **Railway Environment Variables** - Configured via Railway dashboard (see `railway-env-vars.md`)
