@@ -29,5 +29,5 @@ EXPOSE 8000
 # Set environment variable for production
 ENV PYTHONPATH=/app
 
-# Start the application using PORT environment variable (Railway provides this)
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Start the application using python directly (handles PORT internally)
+CMD ["python", "main.py"]
