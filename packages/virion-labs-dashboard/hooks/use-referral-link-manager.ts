@@ -115,8 +115,9 @@ export function useReferralLinkManager() {
   const deleteLink = useCallback(async (linkId: string) => {
     const token = getToken()
     if (!token) {
-      setError("Authentication token not found.")
-      return
+      const error = "Authentication token not found."
+      setError(error)
+      throw new Error(error)
     }
 
     try {
@@ -136,7 +137,9 @@ export function useReferralLinkManager() {
       fetchLinks()
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
+      const error = err instanceof Error ? err.message : 'An unknown error occurred'
+      setError(error)
+      throw err
     }
   }, [fetchLinks])
 

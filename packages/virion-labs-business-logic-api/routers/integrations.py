@@ -168,6 +168,48 @@ async def get_client_bot_install_url(current_user: User = Depends(get_current_us
         logger.error(f"Failed to generate install URL: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate install URL")
 
+@router.get("/discord/campaign/install-url")
+async def get_campaign_bot_install_url(current_user: User = Depends(get_current_user)):
+    try:
+        # Log the user details for debugging
+        logger.info(f"Campaign bot install URL request from user: {getattr(current_user, 'id', None)}")
+        logger.info(f"User role: {getattr(current_user, 'role', None)}")
+        logger.info(f"User role type: {type(getattr(current_user, 'role', None))}")
+        
+        # Check user role - handle multiple possible role formats
+        user_role = getattr(current_user, 'role', None)
+        is_admin = False
+        
+        if user_role:
+            # Handle string role
+            if isinstance(user_role, str):
+                is_admin = user_role.lower() in ['platform administrator', 'admin']
+            # Handle role object with name attribute
+            elif hasattr(user_role, 'name'):
+                role_name = getattr(user_role, 'name', '').lower()
+                is_admin = role_name in ['platform administrator', 'admin']
+            # Handle role as dict
+            elif isinstance(user_role, dict):
+                role_name = user_role.get('name', '').lower()
+                is_admin = role_name in ['platform administrator', 'admin']
+            # Fallback - convert to string and check
+            else:
+                role_str = str(user_role).lower()
+                is_admin = role_str in ['platform administrator', 'admin']
+        
+        logger.info(f"Is admin check result: {is_admin}")
+        
+        if not is_admin:
+            raise HTTPException(status_code=403, detail="Only platform administrators can install campaign bot")
+        
+        url = await integration_service.generate_campaign_bot_install_url(current_user)
+        return {"install_url": url}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to generate campaign bot install URL: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate campaign bot install URL")
+
 @router.post("/discord/client/sync/start")
 async def start_client_guild_sync(request: ClientDiscordSyncStartRequest, current_user: User = Depends(get_current_user)):
     try:

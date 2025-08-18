@@ -7,15 +7,16 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useClientDiscordConnections } from '@/hooks/use-client-discord-connections'
-import { Bot, RefreshCw, Hash, Crown, Clock, CheckCircle2, AlertCircle, Volume2, FolderTree, Mic2, Megaphone, MessageSquare, ChevronRight, Shield, Star, Users, Building2, Settings2 } from 'lucide-react'
+import { Bot, RefreshCw, Hash, Crown, Clock, CheckCircle2, AlertCircle, Volume2, FolderTree, Mic2, Megaphone, MessageSquare, Shield, Building2, ExternalLink, ChevronDown as ChevronDownIcon } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { ChevronDown, ChevronUp } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { useAuth } from '@/components/auth-provider'
 import { useState } from 'react'
 
 function DiscordServerCard({ connection, onAssignVerifiedRole }: { connection: any, onAssignVerifiedRole: (connectionId: string, guildId: string, roleId: string, roleName: string) => void }) {
   const [channelsExpanded, setChannelsExpanded] = useState(false)
   const [rolesExpanded, setRolesExpanded] = useState(false)
-  const [showRoleAssignment, setShowRoleAssignment] = useState(false)
   
   const truncateTitle = (title: string, maxLength: number = 10) => {
     if (title.length <= maxLength) return title
@@ -310,8 +311,18 @@ function DiscordServerCard({ connection, onAssignVerifiedRole }: { connection: a
 
 export default function AdminIntegrationsPage() {
   const [selectedClientId, setSelectedClientId] = useState<string>('all')
-  const { connections, loading, error, refetch, assignVerifiedRole, assigningRole } = useClientDiscordConnections(selectedClientId === 'all' ? undefined : selectedClientId)
+  const { connections, loading, error, refetch, assignVerifiedRole, installUrl, campaignBotInstallUrl } = useClientDiscordConnections(selectedClientId === 'all' ? undefined : selectedClientId)
+  const { profile } = useAuth()
 
+  // Check if user is platform administrator
+  const isPlatformAdmin = () => {
+    const roleName = typeof profile?.role === 'string'
+      ? profile.role.toLowerCase()
+      : (profile as any)?.role?.name?.toLowerCase?.()
+    return roleName === 'platform administrator' || roleName === 'admin'
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAssignVerifiedRole = async (connectionId: string, guildId: string, roleId: string, roleName: string) => {
     const result = await assignVerifiedRole(connectionId, guildId, roleId)
     if (result.success) {
@@ -339,7 +350,7 @@ export default function AdminIntegrationsPage() {
                     <CardTitle className="flex items-center gap-2">
                       <Bot className="h-5 w-5" /> Discord Integration Management
                     </CardTitle>
-                    <CardDescription>Monitor all client Discord server connections and their sync status.</CardDescription>
+                    <CardDescription>Monitor all client Discord server connections, manage their sync status, and install the bot for clients.</CardDescription>
                   </div>
                   <div className="flex gap-3 items-center">
                     <Select value={selectedClientId} onValueChange={setSelectedClientId}>
@@ -351,6 +362,38 @@ export default function AdminIntegrationsPage() {
                         {/* Note: In production, you'd want to populate this with actual client data */}
                       </SelectContent>
                     </Select>
+                    {isPlatformAdmin() && campaignBotInstallUrl ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" disabled={!installUrl && !campaignBotInstallUrl}>
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Install Bot
+                            <ChevronDownIcon className="h-4 w-4 ml-2" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem asChild>
+                            <a href={installUrl || '#'} target="_blank" rel="noreferrer" className="flex items-center w-full">
+                              <Bot className="h-4 w-4 mr-2" />
+                              Client Bot
+                            </a>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <a href={campaignBotInstallUrl || '#'} target="_blank" rel="noreferrer" className="flex items-center w-full">
+                              <Bot className="h-4 w-4 mr-2" />
+                              Campaign Bot
+                            </a>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <Button asChild disabled={!installUrl} size="sm">
+                        <a href={installUrl || '#'} target="_blank" rel="noreferrer">
+                          <ExternalLink className="h-4 w-4 mr-2" /> 
+                          {installUrl ? 'Install Bot' : 'Loading...'}
+                        </a>
+                      </Button>
+                    )}
                     <Button variant="outline" onClick={refetch} disabled={loading} size="sm">
                       <RefreshCw className="h-4 w-4 mr-2" /> Refresh
                     </Button>
@@ -366,6 +409,23 @@ export default function AdminIntegrationsPage() {
                       <p className="text-sm text-red-800 font-medium">Connection Error</p>
                     </div>
                     <p className="text-sm text-red-700 mt-1">{error}</p>
+                  </div>
+                </CardContent>
+              )}
+
+              {!installUrl && !loading && !error && (
+                <CardContent className="pt-0">
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                      <p className="text-sm text-yellow-800 font-medium">Setup Required</p>
+                    </div>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      Bot installation URL is not available. Please check your configuration or contact support.
+                      {isPlatformAdmin() && !campaignBotInstallUrl && (
+                        <><br />Campaign Bot installation is also unavailable - please configure DISCORD_CAMPAIGN_BOT_CLIENT_ID.</>
+                      )}
+                    </p>
                   </div>
                 </CardContent>
               )}
@@ -432,8 +492,8 @@ export default function AdminIntegrationsPage() {
                       <h3 className="text-xl font-semibold">No Discord Connections Found</h3>
                       <p className="text-muted-foreground max-w-md mx-auto">
                         {selectedClientId !== 'all' ? 
-                          'This client has not connected any Discord servers yet.' :
-                          'No clients have connected their Discord servers yet. Encourage your clients to set up their integrations.'
+                          'This client has not connected any Discord servers yet. You can install the bot for them using the "Install Bot" button above.' :
+                          'No clients have connected their Discord servers yet. You can help by installing the bot using the "Install Bot" button above, or encourage your clients to set up their integrations.'
                         }
                       </p>
                     </div>

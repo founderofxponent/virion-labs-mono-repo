@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     # Discord Configuration
     DISCORD_BOT_TOKEN: Optional[str] = None
     DISCORD_CLIENT_BOT_CLIENT_ID: Optional[str] = None
+    DISCORD_CAMPAIGN_BOT_CLIENT_ID: Optional[str] = None
 
     # API Configuration
     API_TITLE: str = "Virion Labs Unified Business Logic API"

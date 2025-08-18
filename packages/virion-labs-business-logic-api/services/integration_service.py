@@ -422,6 +422,35 @@ class IntegrationService:
             logger.error(f"Error generating install URL: {str(e)}", exc_info=True)
             raise
 
+    async def generate_campaign_bot_install_url(self, current_user) -> str:
+        """Generate OAuth2 install URL for campaign bot."""
+        try:
+            from urllib.parse import quote
+            
+            campaign_bot_client_id = getattr(settings, 'DISCORD_CAMPAIGN_BOT_CLIENT_ID', None)
+            logger.info(f"Discord campaign bot client ID: {campaign_bot_client_id}")
+            if not campaign_bot_client_id:
+                raise ValueError("Campaign bot client ID not configured")
+            
+            # For platform administrators, we don't need a specific client context
+            # Use a generic state or admin identifier
+            state = "platform_admin_campaign_bot"
+            
+            scopes = ["bot", "applications.commands"]
+            permissions = 268435456  # View Channels + Send Messages + Use Slash Commands
+            redirect_uri = f"{settings.FRONTEND_URL}/admin/integrations/discord-callback"
+            
+            logger.info(f"Generated Discord campaign bot install URL for admin")
+            
+            return (
+                f"https://discord.com/api/oauth2/authorize?client_id={campaign_bot_client_id}"
+                f"&permissions={permissions}&scope={'%20'.join(scopes)}"
+                f"&state={quote(state)}&redirect_uri={quote(redirect_uri)}&response_type=code"
+            )
+        except Exception as e:
+            logger.error(f"Error generating campaign bot install URL: {str(e)}", exc_info=True)
+            raise
+
     async def start_client_guild_sync(self, guild_id: str, current_user) -> Dict[str, Any]:
         """Optional server-side kick-off; for now, just acknowledges request."""
         # In future, we could DM the client bot or schedule a job. For MVP, return ack

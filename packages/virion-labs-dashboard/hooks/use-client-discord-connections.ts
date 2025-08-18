@@ -32,6 +32,7 @@ export function useClientDiscordConnections(clientId?: string) {
   const [assigningRole, setAssigningRole] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [installUrl, setInstallUrl] = useState<string | null>(null)
+  const [campaignBotInstallUrl, setCampaignBotInstallUrl] = useState<string | null>(null)
 
   const refetch = useCallback(async () => {
     if (!user) { setLoading(false); return }
@@ -72,7 +73,7 @@ export function useClientDiscordConnections(clientId?: string) {
 
   useEffect(() => { refetch() }, [refetch])
 
-  const fetchInstallUrl = useCallback(async () => {
+  const fetchInstallUrls = useCallback(async () => {
     try {
       const token = getToken()
       if (!token) {
@@ -80,38 +81,59 @@ export function useClientDiscordConnections(clientId?: string) {
         return
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/v1/integrations/discord/client/install-url`, {
+      // Get user role to determine which URLs to fetch
+      const roleName = typeof profile?.role === 'string'
+        ? profile.role.toLowerCase()
+        : (profile as any)?.role?.name?.toLowerCase?.()
+
+      const isPlatformAdmin = roleName === 'platform administrator' || roleName === 'admin'
+
+      // Always fetch client bot install URL
+      const clientBotRes = await fetch(`${API_BASE_URL}/api/v1/integrations/discord/client/install-url`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       
-      if (!res.ok) {
-        const errorText = await res.text()
-        console.error('Failed to fetch install URL:', res.status, errorText)
-        setError(`Failed to get bot installation URL: ${res.status}`)
-        return
+      if (clientBotRes.ok) {
+        const clientBotData = await clientBotRes.json()
+        if (clientBotData.install_url) {
+          setInstallUrl(clientBotData.install_url)
+          console.log('Client bot install URL set:', clientBotData.install_url)
+        }
+      } else {
+        const errorText = await clientBotRes.text()
+        console.error('Failed to fetch client bot install URL:', clientBotRes.status, errorText)
+        setError(`Failed to get client bot installation URL: ${clientBotRes.status}`)
       }
 
-      const data = await res.json()
-      console.log('Install URL response:', data)
-      
-      if (data.install_url) {
-        setInstallUrl(data.install_url)
-        console.log('Install URL set:', data.install_url)
-      } else {
-        console.error('No install_url in response:', data)
-        setError('No installation URL received from server')
+      // Fetch campaign bot install URL only for platform administrators
+      if (isPlatformAdmin) {
+        const campaignBotRes = await fetch(`${API_BASE_URL}/api/v1/integrations/discord/campaign/install-url`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        
+        if (campaignBotRes.ok) {
+          const campaignBotData = await campaignBotRes.json()
+          if (campaignBotData.install_url) {
+            setCampaignBotInstallUrl(campaignBotData.install_url)
+            console.log('Campaign bot install URL set:', campaignBotData.install_url)
+          }
+        } else {
+          const errorText = await campaignBotRes.text()
+          console.error('Failed to fetch campaign bot install URL:', campaignBotRes.status, errorText)
+          // Don't set error for campaign bot as it's optional
+        }
       }
     } catch (error) {
-      console.error('Error fetching install URL:', error)
+      console.error('Error fetching install URLs:', error)
       setError('Failed to connect to server')
     }
-  }, [])
+  }, [profile?.role])
 
   useEffect(() => { 
     if (user) {
-      fetchInstallUrl() 
+      fetchInstallUrls() 
     }
-  }, [fetchInstallUrl, user])
+  }, [fetchInstallUrls, user])
 
   const upsert = useCallback(async (payload: Partial<ClientDiscordConnection>) => {
     setSaving(true)
@@ -201,5 +223,5 @@ export function useClientDiscordConnections(clientId?: string) {
     }
   }, [refetch, toast])
 
-  return { connections, loading, saving, assigningRole, error, upsert, refetch, installUrl, assignVerifiedRole }
+  return { connections, loading, saving, assigningRole, error, upsert, refetch, installUrl, campaignBotInstallUrl, assignVerifiedRole }
 }
