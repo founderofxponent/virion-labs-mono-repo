@@ -531,6 +531,10 @@ export interface ApiCampaignOnboardingFieldCampaignOnboardingField
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
     sort_order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    step_number: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<1>;
+    step_role_ids: Schema.Attribute.JSON;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;

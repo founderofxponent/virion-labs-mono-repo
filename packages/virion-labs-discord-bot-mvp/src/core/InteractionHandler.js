@@ -1,6 +1,7 @@
 const { JoinCommand } = require('../commands/JoinCommand');
 const { RequestAccessCommand } = require('../commands/RequestAccessCommand');
 const { OnboardingHandler } = require('../handlers/OnboardingHandler');
+const { EnhancedOnboardingHandler } = require('../handlers/EnhancedOnboardingHandler');
 const { RequestAccessHandler } = require('../handlers/RequestAccessHandler');
 const { ApiService } = require('../services/ApiService');
 
@@ -12,7 +13,18 @@ class InteractionHandler {
     this.apiService = new ApiService(config, logger);
     this.joinCommand = new JoinCommand(config, logger, this.apiService);
     this.requestAccessCommand = new RequestAccessCommand(config, logger);
-    this.onboardingHandler = new OnboardingHandler(config, logger, this.apiService);
+    
+    // Use enhanced onboarding handler by default, fallback to basic if needed
+    this.useEnhancedOnboarding = config.features?.enhanced_onboarding !== false;
+    
+    if (this.useEnhancedOnboarding) {
+      this.onboardingHandler = new EnhancedOnboardingHandler(config, logger, this.apiService);
+      this.logger.info('🚀 Using Enhanced Onboarding Handler with validation and multi-step support');
+    } else {
+      this.onboardingHandler = new OnboardingHandler(config, logger, this.apiService);
+      this.logger.info('📝 Using Basic Onboarding Handler');
+    }
+    
     this.requestAccessHandler = new RequestAccessHandler(config, logger);
   }
 
@@ -41,10 +53,24 @@ class InteractionHandler {
 
   async handleButton(interaction) {
     const { customId } = interaction;
+    
+    // Enhanced onboarding button handlers
     if (customId.startsWith('start_onboarding_')) {
       await this.onboardingHandler.handleStartButton(interaction);
     } else if (customId.startsWith('open_onboarding_modal_')) {
-      await this.onboardingHandler.handleOpenModalButton(interaction);
+      if (this.useEnhancedOnboarding) {
+        await this.onboardingHandler.handleOpenModalButton(interaction);
+      } else {
+        await this.onboardingHandler.handleOpenModalButton(interaction);
+      }
+    } else if (customId.startsWith('start_step_')) {
+      if (this.useEnhancedOnboarding) {
+        await this.onboardingHandler.handleStepStartButton(interaction);
+      }
+    } else if (customId.startsWith('start_questions_')) {
+      if (this.useEnhancedOnboarding) {
+        await this.onboardingHandler.handleQuestionFlow(interaction);
+      }
     } else if (customId.startsWith('request_access_submit_')) {
       await this.requestAccessHandler.handleAccessRequestSubmission(interaction);
     }
@@ -52,8 +78,22 @@ class InteractionHandler {
 
   async handleModal(interaction) {
     const { customId } = interaction;
+    
+    // Enhanced onboarding modal handlers
     if (customId.startsWith('onboarding_modal_')) {
-      await this.onboardingHandler.handleModalSubmission(interaction);
+      if (this.useEnhancedOnboarding) {
+        await this.onboardingHandler.handleModalSubmission(interaction);
+      } else {
+        await this.onboardingHandler.handleModalSubmission(interaction);
+      }
+    } else if (customId.startsWith('step_modal_')) {
+      if (this.useEnhancedOnboarding) {
+        await this.onboardingHandler.handleStepModalSubmission(interaction);
+      }
+    } else if (customId.startsWith('question_modal_')) {
+      if (this.useEnhancedOnboarding) {
+        await this.onboardingHandler.handleQuestionModalSubmission(interaction);
+      }
     } else if (customId.startsWith('access_request_modal_')) {
       await this.requestAccessHandler.handleModalSubmission(interaction);
     }

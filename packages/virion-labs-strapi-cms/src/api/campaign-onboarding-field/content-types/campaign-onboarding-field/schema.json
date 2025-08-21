@@ -59,6 +59,14 @@
     "discord_integration": {
       "type": "json"
     },
+    "step_number": {
+      "type": "integer",
+      "default": 1,
+      "required": true
+    },
+    "step_role_ids": {
+      "type": "json"
+    },
     "campaign": {
       "type": "relation",
       "relation": "manyToOne",

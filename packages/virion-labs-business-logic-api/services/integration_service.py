@@ -762,8 +762,9 @@ class IntegrationService:
                     "field_options": self._extract_field_options(field.field_options),
                     "is_required": field.is_required or False,
                     "validation_rules": field.validation_rules,
-                    "sort_order": field.sort_order,  # Include sort_order for debugging
-                    "sort_order": field.sort_order  # Include sort_order for debugging
+                    "sort_order": field.sort_order or 0,
+                    "step_number": field.step_number or 1,
+                    "step_role_ids": field.step_role_ids or []
                 }
                 transformed_fields.append(transformed_field)
             

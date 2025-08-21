@@ -1,18 +1,55 @@
 import { Campaign } from "@/schemas";
 
 /**
+ * Validation rule for onboarding field
+ */
+export interface OnboardingFieldValidation {
+  type: 'min' | 'max' | 'contains' | 'not_contains' | 'regex' | 'required' | 'email' | 'url' | 'numeric' | 'greater_than' | 'less_than' | 'equals' | 'not_equals' | 'empty' | 'not_empty';
+  value: string | number | boolean;
+  message?: string;
+  case_sensitive?: boolean;
+}
+
+/**
+ * Branching logic for conditional questions
+ */
+export interface OnboardingFieldBranching {
+  condition: {
+    field_key: string;
+    operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'greater_than_or_equal' | 'less_than_or_equal' | 'empty' | 'not_empty';
+    value: any;
+    case_sensitive?: boolean;
+  };
+  action: 'show' | 'hide' | 'skip_to_step';
+  target_fields?: string[]; // field_keys to show/hide
+  target_step?: number; // step to skip to
+}
+
+/**
+ * Discord-specific integration settings
+ */
+export interface DiscordIntegration {
+  collect_in_dm?: boolean;
+  show_in_embed?: boolean;
+  step_number?: number;
+  modal_group?: string;
+  component_type?: 'text_input' | 'select_menu' | 'button' | 'modal';
+}
+
+/**
  * Base interface for all onboarding field variations.
  */
 export interface BaseOnboardingField {
   documentId: string;
   field_key: string;
   field_label: string;
-  field_type: 'text' | 'email' | 'number' | 'boolean' | 'url' | 'select' | 'multiselect';
+  field_type: 'text' | 'email' | 'number' | 'boolean' | 'url' | 'select' | 'multiselect' | 'textarea';
   field_placeholder?: string;
   field_description?: string;
   field_options?: any;
-  validation_rules?: any;
-  discord_integration?: any;
+  validation_rules?: OnboardingFieldValidation[];
+  branching_logic?: OnboardingFieldBranching[];
+  discord_integration?: DiscordIntegration;
 }
 
 /**
@@ -31,6 +68,8 @@ export interface CampaignOnboardingField extends BaseOnboardingField {
   is_required?: boolean;
   is_enabled?: boolean;
   sort_order?: number;
+  step_number?: number;
+  step_role_ids?: string[];
   campaign?: Campaign;
 }
 
@@ -49,6 +88,10 @@ export interface OnboardingQuestion extends Omit<BaseOnboardingField, 'documentI
   is_required: boolean;
   is_enabled: boolean;
   sort_order: number;
+  step_number?: number;
+  step_role_ids?: string[];
+  validation_rules?: OnboardingFieldValidation[];
+  branching_logic?: OnboardingFieldBranching[];
 }
 
 /**
@@ -78,8 +121,38 @@ export interface OnboardingFieldConfig {
   required: boolean
   enabled: boolean
   sort_order: number
-  discord_integration?: {
-    collect_in_dm: boolean
-    show_in_embed: boolean
-  }
+  validation_rules?: OnboardingFieldValidation[]
+  branching_logic?: OnboardingFieldBranching[]
+  discord_integration?: DiscordIntegration
+}
+
+/**
+ * Validation result for field responses
+ */
+export interface ValidationResult {
+  valid: boolean;
+  message?: string;
+  errors?: string[];
+}
+
+/**
+ * Onboarding flow state for multi-step processes
+ */
+export interface OnboardingFlowState {
+  campaign_id: string;
+  user_id: string;
+  current_step: number;
+  responses: Record<string, any>;
+  visible_fields: string[];
+  completed_steps: number[];
+  total_steps: number;
+}
+
+/**
+ * Enhanced onboarding question with step grouping
+ */
+export interface EnhancedOnboardingQuestion extends OnboardingQuestion {
+  step_number: number;
+  modal_group?: string;
+  depends_on?: string[];
 }

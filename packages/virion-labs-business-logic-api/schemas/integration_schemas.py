@@ -40,6 +40,9 @@ class OnboardingField(BaseModel):
     field_options: Optional[List[str]] = None
     is_required: bool = False
     validation_rules: Optional[Dict[str, Any]] = None
+    sort_order: Optional[int] = 0
+    step_number: Optional[int] = 1
+    step_role_ids: Optional[List[str]] = None
 
 class OnboardingStartRequest(BaseModel):
     campaign_id: str

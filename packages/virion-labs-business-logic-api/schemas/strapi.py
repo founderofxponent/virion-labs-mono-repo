@@ -111,6 +111,8 @@ class CampaignOnboardingFieldBase(BaseModel):
     sort_order: Optional[int] = 0
     validation_rules: Optional[Dict[str, Any]] = None
     discord_integration: Optional[Dict[str, Any]] = None
+    step_number: Optional[int] = 1
+    step_role_ids: Optional[List[str]] = None
 
     @field_validator('field_options', mode='before')
     @classmethod
@@ -136,6 +138,8 @@ class StrapiCampaignOnboardingFieldUpdate(CampaignOnboardingFieldBase):
     sort_order: Optional[int] = None
     is_required: Optional[bool] = None
     is_enabled: Optional[bool] = None
+    step_number: Optional[int] = None
+    step_role_ids: Optional[List[str]] = None
 
 class StrapiCampaignOnboardingStartCreate(CampaignOnboardingStartCreate):
     pass

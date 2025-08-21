@@ -37,6 +37,7 @@ import { useCampaignLandingPageApi } from "@/hooks/use-campaign-landing-page-api
 import { OnboardingQuestionsForm } from "./OnboardingQuestionsForm"
 import { Campaign, CampaignFormData, CampaignListItem, CampaignTemplate } from "@/schemas/campaign"
 import { CampaignOnboardingField, UpdateOnboardingFieldData, OnboardingQuestion } from "@/schemas/campaign-onboarding-field"
+import { validateOnboardingFlow } from "@/lib/onboarding-validation"
 
 // Import Tab Components
 import { TemplateSelectionTab } from "./TemplateSelectionTab"
@@ -137,6 +138,8 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
         ...f,
         id: f.documentId,
         is_required: f.is_required ?? false,
+        validation_rules: Array.isArray(f.validation_rules) ? f.validation_rules : [],
+        branching_logic: Array.isArray(f.branching_logic) ? f.branching_logic : [],
         is_enabled: f.is_enabled ?? true,
       })));
     }
@@ -469,6 +472,29 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
       }
       case 2: return !!formData.guild_id;
       case 3: return !!formData.bot_name;
+      case 4: {
+        // Validate onboarding questions
+        if (localOnboardingQuestions.length === 0) {
+          return true; // No questions is valid
+        }
+        
+        // Check that all questions have required fields
+        for (const question of localOnboardingQuestions) {
+          if (!question.field_label || !question.field_key) {
+            return false;
+          }
+        }
+        
+        // Validate any configured validation rules
+        try {
+          const mockResponses = {}; // Empty responses for structure validation
+          const result = validateOnboardingFlow(mockResponses, localOnboardingQuestions as any);
+          return true; // If no errors thrown, structure is valid
+        } catch (error) {
+          console.error('Onboarding validation error:', error);
+          return false;
+        }
+      }
       default: return true;
     }
   }
