@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import api from '@/lib/api'
+import { useAuth } from "@/components/auth-provider"
 
 export interface EmailTemplate {
   id: number
@@ -61,13 +61,24 @@ export interface SendTestEmailResponse {
 }
 
 export function useEmailTemplatesApi() {
+  const { user } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1`
+  const getToken = () => localStorage.getItem('auth_token')
 
   const fetchTemplates = useCallback(async (filters?: {
     is_active?: boolean
     template_id?: string
   }): Promise<EmailTemplate[]> => {
+    const token = getToken()
+    if (!token) {
+      setError("Authentication token not found.")
+      setLoading(false)
+      return []
+    }
+
     setLoading(true)
     setError(null)
     try {
@@ -79,10 +90,22 @@ export function useEmailTemplatesApi() {
         params.append('template_id', filters.template_id)
       }
 
-      const response = await api.get<EmailTemplatesResponse>(`/api/v1/templates?${params.toString()}`)
-      return response.data.templates
+      const response = await fetch(`${API_BASE_URL}/templates?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to fetch templates')
+      }
+
+      const data: EmailTemplatesResponse = await response.json()
+      return data.templates
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to fetch templates')
+      setError(err instanceof Error ? err.message : 'Failed to fetch templates')
       throw err
     } finally {
       setLoading(false)
@@ -90,13 +113,30 @@ export function useEmailTemplatesApi() {
   }, [])
 
   const fetchTemplate = useCallback(async (templateId: string): Promise<EmailTemplate> => {
+    const token = getToken()
+    if (!token) {
+      throw new Error("Authentication token not found.")
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const response = await api.get<EmailTemplate>(`/api/v1/templates/${templateId}`)
-      return response.data
+      const response = await fetch(`${API_BASE_URL}/templates/${templateId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to fetch template')
+      }
+
+      const data: EmailTemplate = await response.json()
+      return data
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to fetch template')
+      setError(err instanceof Error ? err.message : 'Failed to fetch template')
       throw err
     } finally {
       setLoading(false)
@@ -104,13 +144,32 @@ export function useEmailTemplatesApi() {
   }, [])
 
   const createTemplate = useCallback(async (templateData: EmailTemplateCreate): Promise<EmailTemplate> => {
+    const token = getToken()
+    if (!token) {
+      throw new Error("Authentication token not found.")
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const response = await api.post<EmailTemplate>('/api/v1/templates', templateData)
-      return response.data
+      const response = await fetch(`${API_BASE_URL}/templates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(templateData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to create template')
+      }
+
+      const data: EmailTemplate = await response.json()
+      return data
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to create template')
+      setError(err instanceof Error ? err.message : 'Failed to create template')
       throw err
     } finally {
       setLoading(false)
@@ -118,13 +177,32 @@ export function useEmailTemplatesApi() {
   }, [])
 
   const updateTemplate = useCallback(async (documentId: string, templateData: EmailTemplateUpdate): Promise<EmailTemplate> => {
+    const token = getToken()
+    if (!token) {
+      throw new Error("Authentication token not found.")
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const response = await api.put<EmailTemplate>(`/api/v1/templates/${documentId}`, templateData)
-      return response.data
+      const response = await fetch(`${API_BASE_URL}/templates/${documentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(templateData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to update template')
+      }
+
+      const data: EmailTemplate = await response.json()
+      return data
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to update template')
+      setError(err instanceof Error ? err.message : 'Failed to update template')
       throw err
     } finally {
       setLoading(false)
@@ -132,12 +210,27 @@ export function useEmailTemplatesApi() {
   }, [])
 
   const deleteTemplate = useCallback(async (documentId: string): Promise<void> => {
+    const token = getToken()
+    if (!token) {
+      throw new Error("Authentication token not found.")
+    }
+
     setLoading(true)
     setError(null)
     try {
-      await api.delete(`/api/v1/templates/${documentId}`)
+      const response = await fetch(`${API_BASE_URL}/templates/${documentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to delete template')
+      }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to delete template')
+      setError(err instanceof Error ? err.message : 'Failed to delete template')
       throw err
     } finally {
       setLoading(false)
@@ -145,13 +238,32 @@ export function useEmailTemplatesApi() {
   }, [])
 
   const renderTemplate = useCallback(async (request: TemplateRenderRequest): Promise<TemplateRenderResponse> => {
+    const token = getToken()
+    if (!token) {
+      throw new Error("Authentication token not found.")
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const response = await api.post<TemplateRenderResponse>('/api/v1/templates/render', request)
-      return response.data
+      const response = await fetch(`${API_BASE_URL}/templates/render`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(request)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to render template')
+      }
+
+      const data: TemplateRenderResponse = await response.json()
+      return data
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to render template')
+      setError(err instanceof Error ? err.message : 'Failed to render template')
       throw err
     } finally {
       setLoading(false)
@@ -159,13 +271,32 @@ export function useEmailTemplatesApi() {
   }, [])
 
   const sendTestEmail = useCallback(async (request: SendTestEmailRequest): Promise<SendTestEmailResponse> => {
+    const token = getToken()
+    if (!token) {
+      throw new Error("Authentication token not found.")
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const response = await api.post<SendTestEmailResponse>('/api/v1/templates/send-test', request)
-      return response.data
+      const response = await fetch(`${API_BASE_URL}/templates/send-test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(request)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to send test email')
+      }
+
+      const data: SendTestEmailResponse = await response.json()
+      return data
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to send test email')
+      setError(err instanceof Error ? err.message : 'Failed to send test email')
       throw err
     } finally {
       setLoading(false)
