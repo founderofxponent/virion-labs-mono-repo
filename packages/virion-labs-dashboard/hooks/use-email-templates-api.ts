@@ -90,7 +90,10 @@ export function useEmailTemplatesApi() {
         params.append('template_id', filters.template_id)
       }
 
-      const response = await fetch(`${API_BASE_URL}/templates?${params.toString()}`, {
+      const queryString = params.toString()
+      const url = queryString ? `${API_BASE_URL}/templates?${queryString}` : `${API_BASE_URL}/templates`
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

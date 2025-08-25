@@ -68,7 +68,10 @@ export function useBotCampaignsAPI(filters?: BotCampaignsFilters) {
       if (filters?.include_deleted) searchParams.append('include_deleted', 'true')
       if (filters?.only_deleted) searchParams.append('only_deleted', 'true')
 
-      const response = await fetch(`${API_BASE_URL}/campaign/list?${searchParams}`, {
+      const queryString = searchParams.toString()
+      const url = queryString ? `${API_BASE_URL}/campaign/list?${queryString}` : `${API_BASE_URL}/campaign/list`
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

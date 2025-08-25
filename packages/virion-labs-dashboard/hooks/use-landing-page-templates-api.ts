@@ -113,7 +113,10 @@ export function useLandingPageTemplatesAPI(campaignType?: string, category?: str
       if (campaignType) searchParams.append('campaign_type', campaignType)
       if (category) searchParams.append('category', category)
 
-      const response = await fetch(`${API_BASE_URL}/landing-page-template/list?${searchParams}`, {
+      const queryString = searchParams.toString()
+      const url = queryString ? `${API_BASE_URL}/landing-page-template/list?${queryString}` : `${API_BASE_URL}/landing-page-template/list`
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
