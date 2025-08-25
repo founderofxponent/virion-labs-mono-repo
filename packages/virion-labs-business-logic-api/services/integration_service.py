@@ -1393,23 +1393,106 @@ class IntegrationService:
             logger.warning(f"Unknown condition operator: {operator}")
             return False
 
-    def calculate_next_step(self, current_step: int, responses: Dict[str, Any], all_fields: List[Dict[str, Any]]) -> Optional[int]:
+    def calculate_next_step_enhanced(self, current_step: int, responses: Dict[str, Any], all_fields: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Calculates the next step based on current responses and branching logic.
+        Enhanced next step calculation with detailed branching information.
+        Returns comprehensive step calculation results including applied rules and skipped steps.
         """
+        logger.info(f"Calculating next step from step {current_step} with responses: {responses}")
+        
         # Check if any fields in current step have branching logic that affects next step
         current_step_fields = [f for f in all_fields if f.get('step_number') == current_step]
+        
+        applied_rules = []
+        next_step = None
+        highest_priority = -1
+        skipped_steps = []
         
         for field in current_step_fields:
             branching_logic = field.get('branching_logic', [])
             if branching_logic:
-                result = self.evaluate_branching_logic(responses, branching_logic)
-                if result.get('next_step') is not None:
-                    return result['next_step']
+                logger.info(f"Evaluating branching logic for field: {field.get('field_key')}")
+                
+                # Sort rules by priority (higher priority first)
+                sorted_rules = sorted(branching_logic, key=lambda x: x.get('priority', 0), reverse=True)
+                
+                for rule in sorted_rules:
+                    rule_priority = rule.get('priority', 0)
+                    condition_met = False
+                    
+                    # Handle both enhanced and legacy formats
+                    if rule.get('actions') and rule['actions'].get('set_next_step'):
+                        # Enhanced format with actions
+                        if rule.get('condition'):
+                            condition_met = self._evaluate_condition(responses, rule['condition'])
+                        elif rule.get('condition_group'):
+                            condition_met = self._evaluate_condition_group(responses, rule['condition_group'])
+                        
+                        if condition_met and rule_priority > highest_priority:
+                            next_step = rule['actions']['set_next_step'].get('step_number')
+                            highest_priority = rule_priority
+                            
+                            applied_rules.append({
+                                'field_key': field.get('field_key'),
+                                'rule_id': rule.get('id', 'unnamed_rule'),
+                                'description': rule.get('description', 'No description'),
+                                'priority': rule_priority,
+                                'next_step': next_step
+                            })
+                            
+                            logger.info(f"Enhanced rule matched: {rule.get('description')} -> Step {next_step}")
+                    
+                    elif rule.get('action') == 'skip_to_step' and rule.get('target_step'):
+                        # Legacy format support
+                        if rule.get('condition'):
+                            condition_met = self._evaluate_condition(responses, rule['condition'])
+                        
+                        if condition_met and rule_priority > highest_priority:
+                            next_step = rule['target_step']
+                            highest_priority = rule_priority
+                            
+                            applied_rules.append({
+                                'field_key': field.get('field_key'),
+                                'rule_id': rule.get('id', 'legacy_rule'),
+                                'description': rule.get('description', 'Legacy skip rule'),
+                                'priority': rule_priority,
+                                'next_step': next_step
+                            })
+                            
+                            logger.info(f"Legacy rule matched: Skip to step {next_step}")
+        
+        # If no branching logic determined next step, move to next sequential step
+        if next_step is None:
+            max_step = max([f.get('step_number', 1) for f in all_fields], default=1)
+            next_step = current_step + 1 if current_step < max_step else None
+            reason = "Sequential progression - no branching logic applied"
+            branching_occurred = False
+        else:
+            # Calculate which steps were skipped
+            expected_next_step = current_step + 1
+            if next_step > expected_next_step:
+                skipped_steps = list(range(expected_next_step, next_step))
+            reason = f"Branching logic applied - {len(applied_rules)} rule(s) matched"
+            branching_occurred = True
+        
+        result = {
+            'next_step': next_step,
+            'skipped_steps': skipped_steps,
+            'applied_rules': applied_rules,
+            'branching_occurred': branching_occurred,
+            'reason': reason
+        }
+        
+        logger.info(f"Next step calculation result: {result}")
+        return result
 
-        # Default: move to next sequential step
-        max_step = max([f.get('step_number', 1) for f in all_fields], default=1)
-        return current_step + 1 if current_step < max_step else None
+    def calculate_next_step(self, current_step: int, responses: Dict[str, Any], all_fields: List[Dict[str, Any]]) -> Optional[int]:
+        """
+        Calculates the next step based on current responses and branching logic.
+        (Legacy method for backward compatibility)
+        """
+        result = self.calculate_next_step_enhanced(current_step, responses, all_fields)
+        return result.get('next_step')
 
     def validate_branching_logic(self, branching_rules: List[Dict[str, Any]], field_keys: List[str]) -> Dict[str, Any]:
         """

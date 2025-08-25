@@ -184,5 +184,17 @@ class SimulateBranchingResponse(BaseModel):
     next_step: Optional[int]
     applied_rules: List[Dict[str, Any]]
 
+class CalculateNextStepRequest(BaseModel):
+    current_step: int
+    responses: Dict[str, Any]
+    all_fields: List[OnboardingField]
+
+class CalculateNextStepResponse(BaseModel):
+    next_step: Optional[int]
+    skipped_steps: List[int] = []
+    applied_rules: List[Dict[str, Any]] = []
+    branching_occurred: bool = False
+    reason: Optional[str] = None
+
 # Fix forward reference
 BranchingConditionGroup.model_rebuild()

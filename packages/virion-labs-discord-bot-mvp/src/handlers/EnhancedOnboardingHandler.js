@@ -284,26 +284,29 @@ class EnhancedOnboardingHandler {
     // Add up to 5 questions to the modal
     const modalQuestions = questions.slice(0, 5);
     
-    modalQuestions.forEach(question => {
+    modalQuestions.forEach((question, index) => {
+      // Convert non-text fields to text input format for Discord compatibility
+      const convertedQuestion = this._convertFieldToTextInput(question);
+      
       const textInput = new TextInputBuilder()
-        .setCustomId(question.field_key)
-        .setLabel(this._truncateLabel(question.field_label))
-        .setStyle(this._getInputStyle(question.field_type))
-        .setRequired(question.is_required || false);
+        .setCustomId(`${convertedQuestion.field_key}_${index}`)
+        .setLabel(this._truncateLabel(convertedQuestion.field_label))
+        .setStyle(this._getInputStyle(convertedQuestion.field_type))
+        .setRequired(convertedQuestion.is_required || false);
 
-      if (question.field_placeholder) {
-        textInput.setPlaceholder(question.field_placeholder);
+      if (convertedQuestion.field_placeholder) {
+        textInput.setPlaceholder(convertedQuestion.field_placeholder);
       }
 
-      // Apply validation constraints
-      if (question.validation_rules) {
-        this._applyValidationConstraints(textInput, this._normalizeValidationRules(question.validation_rules));
+      // Apply validation constraints - use converted field rules
+      if (convertedQuestion.validation_rules) {
+        this._applyValidationConstraints(textInput, this._normalizeValidationRules(convertedQuestion.validation_rules));
       }
 
       modal.addComponents(new ActionRowBuilder().addComponents(textInput));
     });
 
-    this.logger.info(`[Enhanced Onboarding] Showing onboarding modal with ${modalQuestions.length} questions.`);
+    this.logger.info(`[Enhanced Onboarding] Showing onboarding modal with ${modalQuestions.length} questions (converted for Discord compatibility).`);
     await interaction.showModal(modal);
   }
 
@@ -331,7 +334,8 @@ class EnhancedOnboardingHandler {
       // Collect responses from modal
       const responses = {};
       interaction.fields.fields.forEach((value, key) => {
-        responses[key] = value.value;
+        const originalKey = key.split('_').slice(0, -1).join('_');
+        responses[originalKey] = value.value;
       });
 
       // Validate responses
@@ -425,26 +429,29 @@ class EnhancedOnboardingHandler {
       .setCustomId(`step_modal_${stepNumber}_${cacheKey}`)
       .setTitle(`Onboarding - Step ${stepNumber}`);
 
-    questions.forEach(question => {
-      const textInput = new TextInputBuilder()
-        .setCustomId(question.field_key)
-        .setLabel(this._truncateLabel(question.field_label))
-        .setStyle(this._getInputStyle(question.field_type))
-        .setRequired(question.is_required || false);
+    questions.forEach((question, index) => {
+      // Convert non-text fields to text input format for Discord compatibility
+      const convertedQuestion = this._convertFieldToTextInput(question);
       
-      if (question.field_placeholder) {
-        textInput.setPlaceholder(question.field_placeholder);
+      const textInput = new TextInputBuilder()
+        .setCustomId(`${convertedQuestion.field_key}_${index}`)
+        .setLabel(this._truncateLabel(convertedQuestion.field_label))
+        .setStyle(this._getInputStyle(convertedQuestion.field_type))
+        .setRequired(convertedQuestion.is_required || false);
+      
+      if (convertedQuestion.field_placeholder) {
+        textInput.setPlaceholder(convertedQuestion.field_placeholder);
       }
 
-      // Apply validation constraints
-      if (question.validation_rules) {
-        this._applyValidationConstraints(textInput, this._normalizeValidationRules(question.validation_rules));
+      // Apply validation constraints - use converted field rules
+      if (convertedQuestion.validation_rules) {
+        this._applyValidationConstraints(textInput, this._normalizeValidationRules(convertedQuestion.validation_rules));
       }
       
       modal.addComponents(new ActionRowBuilder().addComponents(textInput));
     });
 
-    this.logger.info(`[Enhanced Onboarding] Showing step ${stepNumber} modal with ${questions.length} questions.`);
+    this.logger.info(`[Enhanced Onboarding] Showing step ${stepNumber} modal with ${questions.length} questions (converted for Discord compatibility).`);
     await interaction.showModal(modal);
   }
 
@@ -505,22 +512,25 @@ class EnhancedOnboardingHandler {
    * Show individual question modal
    */
   async showIndividualQuestionModal(interaction, question, stepNumber, questionIndex, cacheKey) {
+    // Convert non-text fields to text input format for Discord compatibility
+    const convertedQuestion = this._convertFieldToTextInput(question);
+    
     const modal = new ModalBuilder()
       .setCustomId(`question_modal_${stepNumber}_${questionIndex}_${cacheKey}`)
       .setTitle(`Question ${questionIndex + 1}`);
 
     const textInput = new TextInputBuilder()
-      .setCustomId(question.field_key)
-      .setLabel(this._truncateLabel(question.field_label))
-      .setStyle(this._getInputStyle(question.field_type))
-      .setRequired(question.is_required || false);
+      .setCustomId(convertedQuestion.field_key)
+      .setLabel(this._truncateLabel(convertedQuestion.field_label))
+      .setStyle(this._getInputStyle(convertedQuestion.field_type))
+      .setRequired(convertedQuestion.is_required || false);
     
-    if (question.field_placeholder) {
-      textInput.setPlaceholder(question.field_placeholder);
+    if (convertedQuestion.field_placeholder) {
+      textInput.setPlaceholder(convertedQuestion.field_placeholder);
     }
 
-    if (question.validation_rules) {
-      this._applyValidationConstraints(textInput, question.validation_rules);
+    if (convertedQuestion.validation_rules) {
+      this._applyValidationConstraints(textInput, this._normalizeValidationRules(convertedQuestion.validation_rules));
     }
     
     modal.addComponents(new ActionRowBuilder().addComponents(textInput));
@@ -554,7 +564,8 @@ class EnhancedOnboardingHandler {
       const stepQuestions = this.getVisibleQuestionsForStep(stepNumber, questions, currentResponses);
       
       interaction.fields.fields.forEach((value, key) => {
-        stepResponses[key] = value.value;
+        const originalKey = key.split('_').slice(0, -1).join('_');
+        stepResponses[originalKey] = value.value;
       });
 
       // Validate responses
@@ -803,7 +814,7 @@ class EnhancedOnboardingHandler {
       }
 
       let replyMessage = response.data.message;
-      let rolesAssigned = false;
+      const assignedRoles = [];
 
       // Assign target roles from campaign if onboarding was successful
       if (response.success) {
@@ -812,7 +823,6 @@ class EnhancedOnboardingHandler {
         if (campaignData && campaignData.target_role_ids && campaignData.target_role_ids.length > 0) {
           try {
             const member = await interaction.guild.members.fetch(flowState.user_id);
-            const assignedRoles = [];
             
             for (const roleId of campaignData.target_role_ids) {
               try {
@@ -828,7 +838,6 @@ class EnhancedOnboardingHandler {
             }
             
             if (assignedRoles.length > 0) {
-              rolesAssigned = true;
               const roleNames = assignedRoles.join(', ');
               replyMessage += ` You have been granted the following role${assignedRoles.length > 1 ? 's' : ''}: ${roleNames}`;
             }
@@ -846,7 +855,7 @@ class EnhancedOnboardingHandler {
         .addFields([
           { 
             name: '📊 Summary', 
-            value: `Completed ${flowState.completed_steps.length} steps\nRoles assigned: ${rolesAssigned ? 'Yes' : 'No'}`,
+            value: `Completed ${flowState.completed_steps.length} steps\nRoles assigned: ${assignedRoles.length > 0 ? assignedRoles.join(', ') : 'No'}`, 
             inline: true 
           }
         ])
@@ -957,7 +966,7 @@ class EnhancedOnboardingHandler {
   }
 
   /**
-   * Validate step responses
+   * Validate step responses - enhanced for text input compatibility
    */
   validateStepResponses(responses, questions) {
     const errors = [];
@@ -965,7 +974,7 @@ class EnhancedOnboardingHandler {
     questions.forEach(question => {
       const value = responses[question.field_key];
       const normalizedRules = this._normalizeValidationRules(question.validation_rules || {});
-      const validationResult = this.validateFieldResponse(value, normalizedRules);
+      const validationResult = this.validateFieldResponse(value, normalizedRules, question.field_type);
       
       if (!validationResult.valid) {
         errors.push(`${question.field_label}: ${validationResult.message}`);
@@ -976,15 +985,21 @@ class EnhancedOnboardingHandler {
   }
 
   /**
-   * Validate individual field response
+   * Validate individual field response - enhanced for text input compatibility
    */
-  validateFieldResponse(value, validationRules) {
+  validateFieldResponse(value, validationRules, originalFieldType = 'text') {
     if (!validationRules || !Array.isArray(validationRules) || validationRules.length === 0) {
       return { valid: true };
     }
 
+    // Add text input format validation based on original field type
+    const formatValidation = this._validateTextInputFormat(value, originalFieldType);
+    if (!formatValidation.valid) {
+      return formatValidation;
+    }
+
     for (const rule of validationRules) {
-      const result = this._validateSingleRule(value, rule);
+      const result = this._validateSingleRule(value, rule, originalFieldType);
       if (!result.valid) {
         return result;
       }
@@ -994,11 +1009,77 @@ class EnhancedOnboardingHandler {
   }
 
   /**
-   * Validate a single validation rule
+   * Validate text input format based on original field type
    */
-  _validateSingleRule(value, rule) {
+  _validateTextInputFormat(value, originalFieldType) {
+    const stringValue = String(value || '').trim();
+    
+    switch (originalFieldType) {
+      case 'boolean':
+        const lowerValue = stringValue.toLowerCase();
+        if (stringValue && !['yes', 'no', 'true', 'false'].includes(lowerValue)) {
+          return { 
+            valid: false, 
+            message: 'Please enter "yes" or "no"' 
+          };
+        }
+        break;
+        
+      case 'number':
+        if (stringValue && (isNaN(Number(stringValue)) || !isFinite(Number(stringValue)))) {
+          return { 
+            valid: false, 
+            message: 'Please enter a valid number' 
+          };
+        }
+        break;
+        
+      case 'email':
+        if (stringValue) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(stringValue)) {
+            return { 
+              valid: false, 
+              message: 'Please enter a valid email address' 
+            };
+          }
+        }
+        break;
+        
+      case 'url':
+        if (stringValue) {
+          try {
+            new URL(stringValue);
+          } catch (e) {
+            return { 
+              valid: false, 
+              message: 'Please enter a valid URL (e.g., https://example.com)' 
+            };
+          }
+        }
+        break;
+    }
+    
+    return { valid: true };
+  }
+
+  /**
+   * Validate a single validation rule - enhanced for text input compatibility
+   */
+  _validateSingleRule(value, rule, originalFieldType = 'text') {
     const stringValue = String(value || '');
-    const numericValue = Number(value);
+    let numericValue = Number(value);
+    
+    // Handle numeric validation for converted number fields
+    if (originalFieldType === 'number') {
+      numericValue = Number(stringValue);
+      if (isNaN(numericValue)) {
+        return { 
+          valid: false, 
+          message: 'Please enter a valid number' 
+        };
+      }
+    }
     
     switch (rule.type) {
       case 'required':
@@ -1008,20 +1089,38 @@ class EnhancedOnboardingHandler {
         break;
 
       case 'min':
-        if (stringValue.length < Number(rule.value)) {
-          return { 
-            valid: false, 
-            message: rule.message || `Minimum ${rule.value} characters required` 
-          };
+        if (originalFieldType === 'number') {
+          if (numericValue < Number(rule.value)) {
+            return { 
+              valid: false, 
+              message: rule.message || `Must be at least ${rule.value}` 
+            };
+          }
+        } else {
+          if (stringValue.length < Number(rule.value)) {
+            return { 
+              valid: false, 
+              message: rule.message || `Minimum ${rule.value} characters required` 
+            };
+          }
         }
         break;
 
       case 'max':
-        if (stringValue.length > Number(rule.value)) {
-          return { 
-            valid: false, 
-            message: rule.message || `Maximum ${rule.value} characters allowed` 
-          };
+        if (originalFieldType === 'number') {
+          if (numericValue > Number(rule.value)) {
+            return { 
+              valid: false, 
+              message: rule.message || `Must be no more than ${rule.value}` 
+            };
+          }
+        } else {
+          if (stringValue.length > Number(rule.value)) {
+            return { 
+              valid: false, 
+              message: rule.message || `Maximum ${rule.value} characters allowed` 
+            };
+          }
         }
         break;
 
@@ -1063,37 +1162,130 @@ class EnhancedOnboardingHandler {
           };
         }
         break;
+
+      case 'pattern':
+        try {
+          const regex = new RegExp(rule.value);
+          if (!regex.test(stringValue)) {
+            return { 
+              valid: false, 
+              message: rule.message || 'Value does not match required format' 
+            };
+          }
+        } catch (e) {
+          this.logger.warn(`Invalid regex pattern: ${rule.value}`);
+          return { valid: true }; // Skip invalid patterns
+        }
+        break;
     }
 
     return { valid: true };
   }
 
   /**
-   * Calculate next step based on branching logic
+   * Parse text input back to structured data for branching logic evaluation
+   * This handles the conversion from Discord text inputs back to the expected data types
+   */
+  _parseTextInputToStructuredData(fieldKey, textValue) {
+    if (!textValue || typeof textValue !== 'string') {
+      return textValue;
+    }
+    
+    const trimmedValue = textValue.trim();
+    
+    // Handle boolean text inputs (yes/no)
+    if (trimmedValue.toLowerCase() === 'yes' || trimmedValue.toLowerCase() === 'true') {
+      return true;
+    }
+    if (trimmedValue.toLowerCase() === 'no' || trimmedValue.toLowerCase() === 'false') {
+      return false;
+    }
+    
+    // Handle numeric text inputs
+    const numericValue = Number(trimmedValue);
+    if (!isNaN(numericValue) && isFinite(numericValue) && /^\d+(\.\d+)?$/.test(trimmedValue)) {
+      return numericValue;
+    }
+    
+    // Handle comma-separated multiselect values
+    if (trimmedValue.includes(',')) {
+      const arrayValue = trimmedValue
+        .split(',')
+        .map(item => item.trim())
+        .filter(item => item.length > 0);
+      
+      // Only return as array if we have multiple items
+      if (arrayValue.length > 1) {
+        return arrayValue;
+      }
+    }
+    
+    // Return as string (original value for select fields, etc.)
+    return trimmedValue;
+  }
+
+  /**
+   * Calculate next step based on enhanced branching logic
    */
   calculateNextStep(currentStep, responses, allQuestions) {
+    this.logger.info(`[Enhanced Onboarding] Calculating next step from ${currentStep} with responses:`, JSON.stringify(responses, null, 2));
+    
     // Check if any questions in current step have branching logic
     const currentStepQuestions = allQuestions.filter(q => q.step_number === currentStep);
+    let nextStep = null;
+    let highestPriority = -1;
     
     for (const question of currentStepQuestions) {
       if (question.branching_logic && question.branching_logic.length > 0) {
+        this.logger.info(`[Enhanced Onboarding] Evaluating branching logic for field: ${question.field_key}`);
+        
         for (const branchRule of question.branching_logic) {
-          if (this._evaluateCondition(responses, branchRule.condition)) {
-            if (branchRule.action === 'skip_to_step' && branchRule.target_step) {
-              return branchRule.target_step;
+          const priority = branchRule.priority || 0;
+          let conditionMet = false;
+          
+          // Handle both new enhanced format and legacy format
+          if (branchRule.actions && branchRule.actions.set_next_step) {
+            // New enhanced format with actions
+            if (branchRule.condition) {
+              conditionMet = this._evaluateCondition(responses, branchRule.condition);
+            } else if (branchRule.condition_group) {
+              conditionMet = this._evaluateConditionGroup(responses, branchRule.condition_group);
+            }
+            
+            if (conditionMet && priority > highestPriority) {
+              nextStep = branchRule.actions.set_next_step.step_number;
+              highestPriority = priority;
+              this.logger.info(`[Enhanced Onboarding] Branch rule matched: ${branchRule.description || branchRule.id} - Next step: ${nextStep}`);
+            }
+          } else if (branchRule.action === 'skip_to_step' && branchRule.target_step) {
+            // Legacy format support
+            conditionMet = this._evaluateCondition(responses, branchRule.condition);
+            
+            if (conditionMet && priority > highestPriority) {
+              nextStep = branchRule.target_step;
+              highestPriority = priority;
+              this.logger.info(`[Enhanced Onboarding] Legacy branch rule matched - Next step: ${nextStep}`);
             }
           }
         }
       }
     }
-
-    // Default: move to next sequential step
-    const maxStep = Math.max(...allQuestions.map(q => q.step_number || 1));
-    return currentStep < maxStep ? currentStep + 1 : null;
+    
+    // If no branching logic determined next step, move to next sequential step
+    if (nextStep === null) {
+      const maxStep = Math.max(...allQuestions.map(q => q.step_number || 1));
+      nextStep = currentStep < maxStep ? currentStep + 1 : null;
+      this.logger.info(`[Enhanced Onboarding] No branching logic applied, moving to sequential step: ${nextStep}`);
+    } else {
+      this.logger.info(`[Enhanced Onboarding] Branching logic determined next step: ${nextStep}`);
+    }
+    
+    return nextStep;
   }
 
   /**
    * Enhanced evaluate branching condition with support for advanced operators
+   * Now handles text input representations from converted Discord fields
    */
   _evaluateCondition(responses, condition) {
     if (!condition || !condition.field_key || !condition.operator) {
@@ -1101,9 +1293,14 @@ class EnhancedOnboardingHandler {
       return false;
     }
     
-    const fieldValue = responses[condition.field_key];
+    const rawFieldValue = responses[condition.field_key];
+    let fieldValue = rawFieldValue;
     let stringValue = String(fieldValue || '');
     const caseSensitive = condition.case_sensitive || false;
+    
+    // Convert text input representations back to structured data for evaluation
+    fieldValue = this._parseTextInputToStructuredData(condition.field_key, rawFieldValue);
+    stringValue = String(fieldValue || '');
     
     // Handle case sensitivity for string comparisons
     if (!caseSensitive && typeof fieldValue === 'string') {
@@ -1259,12 +1456,26 @@ class EnhancedOnboardingHandler {
         if (Array.isArray(fieldValue)) {
           return fieldValue.includes(condition.value);
         }
+        // Handle text input that represents array (comma-separated values)
+        if (typeof fieldValue === 'string') {
+          const arrayValue = fieldValue.split(',').map(item => item.trim());
+          return arrayValue.includes(condition.value);
+        }
         return false;
 
       case 'array_length_equals':
         if (Array.isArray(fieldValue)) {
           try {
             return fieldValue.length === parseInt(condition.value);
+          } catch (e) {
+            return false;
+          }
+        }
+        // Handle text input that represents array (comma-separated values)
+        if (typeof fieldValue === 'string') {
+          const arrayValue = fieldValue.trim() ? fieldValue.split(',').map(item => item.trim()).filter(item => item.length > 0) : [];
+          try {
+            return arrayValue.length === parseInt(condition.value);
           } catch (e) {
             return false;
           }
@@ -1468,17 +1679,29 @@ class EnhancedOnboardingHandler {
     const visibleQuestions = [];
 
     for (const question of stepQuestions) {
-      let isVisible = true; // Default to visible
+      let isVisible = question.is_enabled !== false; // Default to enabled status
 
-      // Check if any other questions have branching logic that affects this question
+      // Check if any questions have branching logic that affects this question
       for (const otherQuestion of allQuestions) {
         if (otherQuestion.branching_logic && otherQuestion.branching_logic.length > 0) {
-          const result = this.evaluateBranchingLogic(responses, otherQuestion.branching_logic);
-          
-          // Check if this question should be hidden based on the result
-          if (result.hiddenFields.includes(question.field_key)) {
-            isVisible = false;
-            break;
+          for (const rule of otherQuestion.branching_logic) {
+            let conditionMet = false;
+            
+            // Handle both legacy condition format and new condition_group format
+            if (rule.condition_group) {
+              conditionMet = this._evaluateConditionGroup(responses, rule.condition_group);
+            } else if (rule.condition) {
+              conditionMet = this._evaluateCondition(responses, rule.condition);
+            }
+            
+            if (conditionMet) {
+              // Handle actions
+              if (rule.action === 'show' && rule.target_fields && rule.target_fields.includes(question.field_key)) {
+                isVisible = true;
+              } else if (rule.action === 'hide' && rule.target_fields && rule.target_fields.includes(question.field_key)) {
+                isVisible = false;
+              }
+            }
           }
         }
       }
@@ -1542,12 +1765,14 @@ class EnhancedOnboardingHandler {
   }
 
   /**
-   * Convert field types to Discord TextInputStyle
+   * Convert field types to Discord TextInputStyle - optimized for text inputs only
    */
   _getInputStyle(fieldType) {
+    // For Discord compatibility, all fields use text input styles
     switch (fieldType) {
       case 'multiselect':
       case 'textarea':
+        // Use paragraph style for fields that typically need more text
         return TextInputStyle.Paragraph;
       case 'text':
       case 'email':
@@ -1556,8 +1781,221 @@ class EnhancedOnboardingHandler {
       case 'select':
       case 'boolean':
       default:
+        // Use short style for most fields
         return TextInputStyle.Short;
     }
+  }
+
+  /**
+   * Convert non-text field types to text input compatible format
+   */
+  _convertFieldToTextInput(field) {
+    let convertedField = { ...field };
+    
+    switch (field.field_type) {
+      case 'select':
+        convertedField = this._convertSelectToText(field);
+        break;
+      case 'multiselect':
+        convertedField = this._convertMultiselectToText(field);
+        break;
+      case 'boolean':
+        convertedField = this._convertBooleanToText(field);
+        break;
+      case 'number':
+        convertedField = this._convertNumberToText(field);
+        break;
+      case 'email':
+        convertedField = this._convertEmailToText(field);
+        break;
+      case 'url':
+        convertedField = this._convertUrlToText(field);
+        break;
+      case 'text':
+      case 'textarea':
+      default:
+        // Already text compatible
+        break;
+    }
+    
+    // Log conversion for debugging
+    if (field.field_type !== 'text' && field.field_type !== 'textarea') {
+      this.logger.info(`[Enhanced Onboarding] Converted ${field.field_type} field '${field.field_key}' to text input`);
+    }
+    
+    return convertedField;
+  }
+
+  /**
+   * Convert SELECT field to text input with option guidance
+   */
+  _convertSelectToText(field) {
+    const options = field.field_options || [];
+    let placeholder = '';
+    let description = field.field_description || '';
+    
+    if (Array.isArray(options) && options.length > 0) {
+      const optionValues = options.map(opt => {
+        if (typeof opt === 'object' && opt.label && opt.value) {
+          return opt.value;
+        } else if (typeof opt === 'string') {
+          return opt;
+        }
+        return '';
+      }).filter(Boolean);
+      
+      // Show only the options in placeholder for space efficiency
+      placeholder = optionValues.join(', ');
+      
+      // Include full guidance in description
+      const optionText = optionValues.map(val => `"${val}"`).join(', ');
+      description = description ? 
+        `${description} Available options: ${optionText}` : 
+        `Available options: ${optionText}`;
+    }
+    
+    return {
+      ...field,
+      field_type: 'text', // Convert to text type
+      field_placeholder: this._truncateText(placeholder, 100),
+      field_description: this._truncateText(description, 200)
+    };
+  }
+
+  /**
+   * Convert MULTISELECT field to text input with comma-separation guidance
+   */
+  _convertMultiselectToText(field) {
+    const options = field.field_options || [];
+    let placeholder = '';
+    let description = field.field_description || '';
+    
+    if (Array.isArray(options) && options.length > 0) {
+      const optionValues = options.map(opt => {
+        if (typeof opt === 'object' && opt.label && opt.value) {
+          return opt.value;
+        } else if (typeof opt === 'string') {
+          return opt;
+        }
+        return '';
+      }).filter(Boolean);
+      
+      const exampleText = optionValues.slice(0, 2).join(', ');
+      
+      // Show concise example in placeholder
+      placeholder = `e.g., ${exampleText}`;
+      
+      // Include full guidance in description
+      const optionText = optionValues.join(', ');
+      description = description ? 
+        `${description} Available options: ${optionText}. Enter multiple options separated by commas.` : 
+        `Available options: ${optionText}. Enter multiple options separated by commas.`;
+    } else {
+      placeholder = 'comma, separated, values';
+      description = description ? `${description} Enter multiple values separated by commas.` : 'Enter multiple values separated by commas.';
+    }
+    
+    return {
+      ...field,
+      field_type: 'text', // Convert to text type
+      field_placeholder: this._truncateText(placeholder, 100),
+      field_description: this._truncateText(description, 200)
+    };
+  }
+
+  /**
+   * Convert BOOLEAN field to text input with Yes/No guidance
+   */
+  _convertBooleanToText(field) {
+    let placeholder = 'yes or no';
+    let description = field.field_description || '';
+    description = description ? `${description} Enter "yes" or "no".` : 'Enter "yes" or "no".';
+    
+    return {
+      ...field,
+      field_type: 'text', // Convert to text type
+      field_placeholder: placeholder,
+      field_description: this._truncateText(description, 200)
+    };
+  }
+
+  /**
+   * Convert NUMBER field to text input with numeric guidance
+   */
+  _convertNumberToText(field) {
+    let placeholder = '';
+    let description = field.field_description || '';
+    
+    // Add validation hints if present
+    const validationRules = field.validation_rules || {};
+    if (validationRules.min !== undefined && validationRules.max !== undefined) {
+      placeholder = `${validationRules.min}-${validationRules.max}`;
+    } else if (validationRules.min !== undefined) {
+      placeholder = `min: ${validationRules.min}`;
+    } else if (validationRules.max !== undefined) {
+      placeholder = `max: ${validationRules.max}`;
+    } else {
+      placeholder = 'number';
+    }
+    
+    description = description ? `${description} Enter a number.` : 'Enter a number.';
+    
+    return {
+      ...field,
+      field_type: 'text', // Convert to text type
+      field_placeholder: placeholder,
+      field_description: this._truncateText(description, 200)
+    };
+  }
+
+  /**
+   * Convert EMAIL field to text input with email guidance
+   */
+  _convertEmailToText(field) {
+    let placeholder = 'email@example.com';
+    let description = field.field_description || '';
+    description = description ? `${description} Enter a valid email address.` : 'Enter a valid email address.';
+    
+    return {
+      ...field,
+      field_type: 'text', // Convert to text type
+      field_placeholder: placeholder,
+      field_description: this._truncateText(description, 200)
+    };
+  }
+
+  /**
+   * Convert URL field to text input with URL guidance
+   */
+  _convertUrlToText(field) {
+    let placeholder = 'https://example.com';
+    let description = field.field_description || '';
+    description = description ? `${description} Enter a valid URL.` : 'Enter a valid URL.';
+    
+    return {
+      ...field,
+      field_type: 'text', // Convert to text type
+      field_placeholder: placeholder,
+      field_description: this._truncateText(description, 200)
+    };
+  }
+
+  /**
+   * Truncate text to specified length while preserving words
+   */
+  _truncateText(text, maxLength) {
+    if (!text || text.length <= maxLength) {
+      return text;
+    }
+    
+    const truncated = text.substring(0, maxLength - 3);
+    const lastSpace = truncated.lastIndexOf(' ');
+    
+    if (lastSpace > maxLength * 0.6) {
+      return truncated.substring(0, lastSpace) + '...';
+    }
+    
+    return truncated + '...';
   }
 
   /**

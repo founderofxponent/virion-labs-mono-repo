@@ -21,7 +21,9 @@ from schemas.integration_schemas import (
     ValidateBranchingLogicRequest,
     ValidateBranchingLogicResponse,
     SimulateBranchingRequest,
-    SimulateBranchingResponse
+    SimulateBranchingResponse,
+    CalculateNextStepRequest,
+    CalculateNextStepResponse
 )
 from services.integration_service import integration_service
 from core.auth import get_api_key
@@ -338,3 +340,32 @@ async def simulate_branching_flow(request: SimulateBranchingRequest):
     except Exception as e:
         logger.error(f"Failed to simulate branching flow: {e}")
         raise HTTPException(status_code=500, detail="Failed to simulate branching flow")
+
+@router.post("/branching/calculate-next-step", response_model=CalculateNextStepResponse, dependencies=[Depends(get_api_key)])
+async def calculate_next_step(request: CalculateNextStepRequest):
+    """
+    Calculate the next step in an onboarding flow based on current responses and branching logic.
+    
+    This endpoint:
+    - Evaluates branching logic for the current step
+    - Determines which step should be shown next
+    - Identifies which steps were skipped (if any)
+    - Returns details about which rules were applied
+    - Indicates whether branching logic was used
+    
+    Used by Discord bots to implement dynamic multi-step onboarding flows.
+    """
+    try:
+        # Convert request to dict format for the service
+        all_fields = [field.model_dump() for field in request.all_fields]
+        
+        result = integration_service.calculate_next_step_enhanced(
+            request.current_step, 
+            request.responses, 
+            all_fields
+        )
+        
+        return CalculateNextStepResponse(**result)
+    except Exception as e:
+        logger.error(f"Failed to calculate next step: {e}")
+        raise HTTPException(status_code=500, detail="Failed to calculate next step")
