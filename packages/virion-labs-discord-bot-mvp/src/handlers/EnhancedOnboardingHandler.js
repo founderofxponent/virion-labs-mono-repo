@@ -112,16 +112,25 @@ class EnhancedOnboardingHandler {
   }
 
   /**
-   * Show multi-step onboarding start screen
+   * Show enhanced multi-step onboarding start screen with progress indicators
    */
   async showMultiStepOnboardingStart(interaction, campaignData, flowState, firstStepQuestions) {
+    // Create progress bar visualization
+    const progressBar = this._createProgressBar(1, flowState.total_steps);
+    
+    // Analyze branching paths if present
+    const hasBranchingLogic = firstStepQuestions.some(q => q.branching_logic && q.branching_logic.length > 0);
+    const branchingInfo = hasBranchingLogic ? '\n🔀 *This onboarding includes smart branching - your path may vary based on your answers.*' : '';
+    
     const embed = new EmbedBuilder()
-      .setTitle(`🚀 ${campaignData.name} - Multi-Step Onboarding`)
+      .setTitle(`🚀 ${campaignData.name} - Smart Onboarding`)
       .setColor('#6366f1')
       .setDescription(
-        `This onboarding process has ${flowState.total_steps} steps.\n\n` +
+        `${progressBar}\n\n` +
+        `**Multi-step onboarding** with up to ${flowState.total_steps} steps.\n` +
         `**Step 1:** ${firstStepQuestions.length} question${firstStepQuestions.length > 1 ? 's' : ''}\n\n` +
-        (campaignData.description || 'Ready to begin onboarding for this campaign.')
+        (campaignData.description || 'Ready to begin your personalized onboarding experience.') +
+        branchingInfo
       );
 
     if (campaignData.requirements) {
@@ -132,14 +141,23 @@ class EnhancedOnboardingHandler {
       embed.addFields({ name: '🎁 Rewards', value: campaignData.reward_description, inline: false });
     }
 
+    // Add estimated completion time
+    const estimatedTime = Math.ceil(flowState.total_steps * 1.5); // 1.5 minutes per step
+    embed.addFields({
+      name: '⏱️ Estimated Time',
+      value: `${estimatedTime} minute${estimatedTime > 1 ? 's' : ''}`,
+      inline: true
+    });
+
     embed.setFooter({ 
-      text: `Step 1 of ${flowState.total_steps} • Click below to begin` 
+      text: `Step 1 of ${flowState.total_steps} • Your onboarding journey begins here` 
     });
 
     const startStepButton = new ButtonBuilder()
       .setCustomId(`start_step_1_${flowState.campaign_id}_${flowState.user_id}`)
-      .setLabel('Begin Step 1')
-      .setStyle(ButtonStyle.Primary);
+      .setLabel('🎯 Begin Step 1')
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('🚀');
 
     const row = new ActionRowBuilder().addComponents(startStepButton);
 
@@ -148,6 +166,29 @@ class EnhancedOnboardingHandler {
       components: [row],
       ephemeral: true,
     });
+  }
+
+  /**
+   * Create a visual progress bar
+   */
+  _createProgressBar(currentStep, totalSteps) {
+    const completed = '🟢';
+    const current = '🔵'; 
+    const pending = '⚪';
+    
+    let progressBar = '';
+    for (let i = 1; i <= totalSteps; i++) {
+      if (i < currentStep) {
+        progressBar += completed;
+      } else if (i === currentStep) {
+        progressBar += current;
+      } else {
+        progressBar += pending;
+      }
+      if (i < totalSteps) progressBar += '━';
+    }
+    
+    return `**Progress:** ${progressBar} (${currentStep}/${totalSteps})`;
   }
 
   /**
@@ -246,7 +287,7 @@ class EnhancedOnboardingHandler {
     modalQuestions.forEach(question => {
       const textInput = new TextInputBuilder()
         .setCustomId(question.field_key)
-        .setLabel(question.field_label)
+        .setLabel(this._truncateLabel(question.field_label))
         .setStyle(this._getInputStyle(question.field_type))
         .setRequired(question.is_required || false);
 
@@ -353,8 +394,9 @@ class EnhancedOnboardingHandler {
       flowState.current_step = stepNumber;
       this.flowStateCache.set(cacheKey, flowState);
 
-      // Get questions for this step
-      const stepQuestions = questions.filter(q => q.step_number === stepNumber);
+      // Get visible questions for this step based on branching logic
+      const currentResponses = this.responsesCache.get(cacheKey) || {};
+      const stepQuestions = this.getVisibleQuestionsForStep(stepNumber, questions, currentResponses);
       
       if (stepQuestions.length === 0) {
         return interaction.reply({ 
@@ -386,7 +428,7 @@ class EnhancedOnboardingHandler {
     questions.forEach(question => {
       const textInput = new TextInputBuilder()
         .setCustomId(question.field_key)
-        .setLabel(question.field_label)
+        .setLabel(this._truncateLabel(question.field_label))
         .setStyle(this._getInputStyle(question.field_type))
         .setRequired(question.is_required || false);
       
@@ -441,7 +483,8 @@ class EnhancedOnboardingHandler {
       const cacheKey = parts.slice(4).join('_');
 
       const questions = this.questionsCache.get(cacheKey);
-      const stepQuestions = questions.filter(q => q.step_number === stepNumber);
+      const currentResponses = this.responsesCache.get(cacheKey) || {};
+      const stepQuestions = this.getVisibleQuestionsForStep(stepNumber, questions, currentResponses);
       const currentQuestion = stepQuestions[questionIndex];
 
       if (!currentQuestion) {
@@ -468,7 +511,7 @@ class EnhancedOnboardingHandler {
 
     const textInput = new TextInputBuilder()
       .setCustomId(question.field_key)
-      .setLabel(question.field_label)
+      .setLabel(this._truncateLabel(question.field_label))
       .setStyle(this._getInputStyle(question.field_type))
       .setRequired(question.is_required || false);
     
@@ -508,7 +551,7 @@ class EnhancedOnboardingHandler {
 
       // Collect and validate step responses
       const stepResponses = {};
-      const stepQuestions = questions.filter(q => q.step_number === stepNumber);
+      const stepQuestions = this.getVisibleQuestionsForStep(stepNumber, questions, currentResponses);
       
       interaction.fields.fields.forEach((value, key) => {
         stepResponses[key] = value.value;
@@ -573,7 +616,7 @@ class EnhancedOnboardingHandler {
 
       const questions = this.questionsCache.get(cacheKey);
       const currentResponses = this.responsesCache.get(cacheKey) || {};
-      const stepQuestions = questions.filter(q => q.step_number === stepNumber);
+      const stepQuestions = this.getVisibleQuestionsForStep(stepNumber, questions, currentResponses);
       const currentQuestion = stepQuestions[questionIndex];
 
       // Collect response
@@ -612,7 +655,8 @@ class EnhancedOnboardingHandler {
    */
   async showNextQuestionButton(interaction, stepNumber, questionIndex, cacheKey) {
     const questions = this.questionsCache.get(cacheKey);
-    const stepQuestions = questions.filter(q => q.step_number === stepNumber);
+    const currentResponses = this.responsesCache.get(cacheKey) || {};
+    const stepQuestions = this.getVisibleQuestionsForStep(stepNumber, questions, currentResponses);
     const totalQuestions = stepQuestions.length;
 
     const embed = new EmbedBuilder()
@@ -657,31 +701,75 @@ class EnhancedOnboardingHandler {
   }
 
   /**
-   * Show next step options
+   * Enhanced show next step options with progress and branching insights
    */
   async showNextStepOptions(interaction, nextStep, flowState, cacheKey, stepRolesAssigned = []) {
     const questions = this.questionsCache.get(cacheKey);
-    const nextStepQuestions = questions.filter(q => q.step_number === nextStep);
+    const currentResponses = this.responsesCache.get(cacheKey) || {};
+    const nextStepQuestions = this.getVisibleQuestionsForStep(nextStep, questions, currentResponses);
+    
+    // Create progress bar
+    const progressBar = this._createProgressBar(nextStep, flowState.total_steps);
+    
+    // Analyze if branching occurred
+    const expectedNextStep = flowState.current_step + 1;
+    const skippedSteps = nextStep > expectedNextStep ? nextStep - expectedNextStep : 0;
+    const branchingMessage = skippedSteps > 0 ? 
+      `\n🔀 **Smart branching:** Skipped ${skippedSteps} step${skippedSteps > 1 ? 's' : ''} based on your answers!` : '';
+    
+    // Check for conditional fields in next step
+    const hasConditionalFields = nextStepQuestions.some(q => 
+      questions.some(allQ => allQ.branching_logic && allQ.branching_logic.length > 0 && 
+        allQ.branching_logic.some(rule => rule.target_fields && rule.target_fields.includes(q.field_key)))
+    );
+    
+    const conditionalInfo = hasConditionalFields ? 
+      '\n💡 *Some questions in the next step may change based on your responses.*' : '';
 
-    let description = `Great job! You've completed step ${flowState.current_step}.\n\n`;
+    let description = `${progressBar}\n\n`;
+    description += `✅ **Step ${flowState.current_step} Completed!**\n\n`;
     
     if (stepRolesAssigned.length > 0) {
-      description += `🎉 **Roles Assigned:** ${stepRolesAssigned.join(', ')}\n\n`;
+      description += `🎉 **New Roles:** ${stepRolesAssigned.join(', ')}\n\n`;
     }
     
-    description += `**Next: Step ${nextStep}** (${nextStepQuestions.length} question${nextStepQuestions.length > 1 ? 's' : ''})\n\n`;
-    description += `Progress: ${flowState.completed_steps.length}/${flowState.total_steps} steps completed`;
+    description += `**Next: Step ${nextStep}** (${nextStepQuestions.length} question${nextStepQuestions.length > 1 ? 's' : ''})\n`;
+    description += `**Progress:** ${flowState.completed_steps.length + 1}/${flowState.total_steps} steps completed`;
+    description += branchingMessage + conditionalInfo;
 
     const embed = new EmbedBuilder()
-      .setTitle(`Step ${flowState.current_step} Completed! ✅`)
+      .setTitle(`🎯 Onboarding Progress`)
       .setDescription(description)
-      .setColor('#10b981')
-      .setFooter({ text: 'Click below to continue to the next step.' });
+      .setColor('#10b981');
+
+    // Add completion percentage
+    const completionPercentage = Math.round(((flowState.completed_steps.length + 1) / flowState.total_steps) * 100);
+    embed.addFields({
+      name: '📊 Completion',
+      value: `${completionPercentage}%`,
+      inline: true
+    });
+    
+    // Add estimated time remaining
+    const remainingSteps = flowState.total_steps - (flowState.completed_steps.length + 1);
+    const estimatedTimeRemaining = Math.ceil(remainingSteps * 1.5);
+    if (estimatedTimeRemaining > 0) {
+      embed.addFields({
+        name: '⏱️ Estimated Time Left',
+        value: `${estimatedTimeRemaining} minute${estimatedTimeRemaining > 1 ? 's' : ''}`,
+        inline: true
+      });
+    }
+
+    embed.setFooter({ 
+      text: `Step ${nextStep} of ${flowState.total_steps} • Keep going, you're doing great!` 
+    });
 
     const nextStepButton = new ButtonBuilder()
       .setCustomId(`start_step_${nextStep}_${flowState.campaign_id}_${flowState.user_id}`)
-      .setLabel(`Continue to Step ${nextStep}`)
-      .setStyle(ButtonStyle.Primary);
+      .setLabel(`🎯 Continue to Step ${nextStep}`)
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji('⏭️');
 
     const row = new ActionRowBuilder().addComponents(nextStepButton);
 
@@ -1005,29 +1093,66 @@ class EnhancedOnboardingHandler {
   }
 
   /**
-   * Evaluate branching condition
+   * Enhanced evaluate branching condition with support for advanced operators
    */
   _evaluateCondition(responses, condition) {
+    if (!condition || !condition.field_key || !condition.operator) {
+      this.logger.warn('Invalid condition provided to _evaluateCondition:', condition);
+      return false;
+    }
+    
     const fieldValue = responses[condition.field_key];
-    const stringValue = String(fieldValue || '');
-    const numericValue = Number(fieldValue);
+    let stringValue = String(fieldValue || '');
+    const caseSensitive = condition.case_sensitive || false;
+    
+    // Handle case sensitivity for string comparisons
+    if (!caseSensitive && typeof fieldValue === 'string') {
+      stringValue = stringValue.toLowerCase();
+      if (typeof condition.value === 'string') {
+        condition.value = condition.value.toLowerCase();
+      }
+    }
+    
+    // Parse numeric value
+    const numericValue = parseFloat(fieldValue);
+    const isNumeric = !isNaN(numericValue) && isFinite(numericValue);
+    
+    // Parse date value
+    let dateValue = null;
+    try {
+      if (typeof fieldValue === 'string' && fieldValue) {
+        // Try common date formats
+        const formats = [
+          /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
+          /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/, // YYYY-MM-DD HH:MM:SS
+          /^\d{2}\/\d{2}\/\d{4}$/, // DD/MM/YYYY
+          /^\d{2}\/\d{2}\/\d{4}$/ // MM/DD/YYYY
+        ];
+        
+        if (formats.some(format => format.test(fieldValue))) {
+          dateValue = new Date(fieldValue);
+          if (isNaN(dateValue)) dateValue = null;
+        }
+      } else if (fieldValue instanceof Date) {
+        dateValue = fieldValue;
+      }
+    } catch (e) {
+      // Invalid date, keep as null
+    }
 
     switch (condition.operator) {
+      // Basic operators
       case 'equals':
-        const compareValue = condition.case_sensitive ? stringValue : stringValue.toLowerCase();
-        const conditionValue = condition.case_sensitive ? String(condition.value) : String(condition.value).toLowerCase();
-        return compareValue === conditionValue;
+        return stringValue === String(condition.value);
+
+      case 'not_equals':
+        return stringValue !== String(condition.value);
 
       case 'contains':
-        const searchValue = condition.case_sensitive ? stringValue : stringValue.toLowerCase();
-        const targetValue = condition.case_sensitive ? String(condition.value) : String(condition.value).toLowerCase();
-        return searchValue.includes(targetValue);
+        return stringValue.includes(String(condition.value));
 
-      case 'greater_than':
-        return !isNaN(numericValue) && numericValue > Number(condition.value);
-
-      case 'less_than':
-        return !isNaN(numericValue) && numericValue < Number(condition.value);
+      case 'not_contains':
+        return !stringValue.includes(String(condition.value));
 
       case 'empty':
         return stringValue.trim() === '';
@@ -1035,9 +1160,335 @@ class EnhancedOnboardingHandler {
       case 'not_empty':
         return stringValue.trim() !== '';
 
+      // String operators
+      case 'starts_with':
+        return stringValue.startsWith(String(condition.value));
+
+      case 'ends_with':
+        return stringValue.endsWith(String(condition.value));
+
+      case 'matches_regex':
+        try {
+          const flags = caseSensitive ? '' : 'i';
+          const regex = new RegExp(condition.value, flags);
+          return regex.test(stringValue);
+        } catch (e) {
+          this.logger.warn(`Invalid regex pattern: ${condition.value}`);
+          return false;
+        }
+
+      // Numeric operators
+      case 'greater_than':
+        if (isNumeric) {
+          try {
+            return numericValue > parseFloat(condition.value);
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+
+      case 'less_than':
+        if (isNumeric) {
+          try {
+            return numericValue < parseFloat(condition.value);
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+
+      case 'greater_than_or_equal':
+        if (isNumeric) {
+          try {
+            return numericValue >= parseFloat(condition.value);
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+
+      case 'less_than_or_equal':
+        if (isNumeric) {
+          try {
+            return numericValue <= parseFloat(condition.value);
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+
+      case 'between':
+        if (isNumeric && Array.isArray(condition.value) && condition.value.length === 2) {
+          try {
+            const [min, max] = condition.value.map(v => parseFloat(v));
+            return min <= numericValue && numericValue <= max;
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+
+      case 'not_between':
+        if (isNumeric && Array.isArray(condition.value) && condition.value.length === 2) {
+          try {
+            const [min, max] = condition.value.map(v => parseFloat(v));
+            return !(min <= numericValue && numericValue <= max);
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+
+      // List/Array operators
+      case 'in_list':
+        if (Array.isArray(condition.value)) {
+          return condition.value.includes(fieldValue) || 
+                 condition.value.map(v => String(v)).includes(stringValue);
+        }
+        return false;
+
+      case 'not_in_list':
+        if (Array.isArray(condition.value)) {
+          return !condition.value.includes(fieldValue) && 
+                 !condition.value.map(v => String(v)).includes(stringValue);
+        }
+        return true;
+
+      case 'array_contains':
+        if (Array.isArray(fieldValue)) {
+          return fieldValue.includes(condition.value);
+        }
+        return false;
+
+      case 'array_length_equals':
+        if (Array.isArray(fieldValue)) {
+          try {
+            return fieldValue.length === parseInt(condition.value);
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+
+      // Date operators
+      case 'before_date':
+        if (dateValue) {
+          try {
+            const targetDate = new Date(condition.value);
+            return dateValue < targetDate;
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+
+      case 'after_date':
+        if (dateValue) {
+          try {
+            const targetDate = new Date(condition.value);
+            return dateValue > targetDate;
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+
+      case 'between_dates':
+        if (dateValue && Array.isArray(condition.value) && condition.value.length === 2) {
+          try {
+            const [startDate, endDate] = condition.value.map(d => new Date(d));
+            return startDate <= dateValue && dateValue <= endDate;
+          } catch (e) {
+            return false;
+          }
+        }
+        return false;
+
       default:
+        this.logger.warn(`Unknown condition operator: ${condition.operator}`);
         return false;
     }
+  }
+
+  /**
+   * Enhanced evaluate branching logic with support for complex conditions and nested logic
+   */
+  evaluateBranchingLogic(responses, branchingRules) {
+    const visibleFields = new Set();
+    const hiddenFields = new Set();
+    const requiredFields = new Set();
+    const fieldValues = {};
+    let nextStep = null;
+    const appliedRules = [];
+    
+    // Sort rules by priority (higher priority first)
+    const sortedRules = branchingRules.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+
+    for (const rule of sortedRules) {
+      let conditionMet = false;
+      
+      // Handle enhanced condition formats
+      if (rule.condition_group) {
+        // Enhanced condition group format
+        conditionMet = this._evaluateConditionGroup(responses, rule.condition_group);
+      } else if (rule.condition) {
+        // Single condition format
+        conditionMet = this._evaluateCondition(responses, rule.condition);
+      }
+
+      if (conditionMet) {
+        const ruleDescription = rule.description || rule.id || `Rule with priority: ${rule.priority || 0}`;
+        appliedRules.push({
+          id: rule.id,
+          description: ruleDescription,
+          priority: rule.priority || 0
+        });
+        
+        // Handle enhanced actions format
+        if (rule.actions && typeof rule.actions === 'object') {
+          // Set field visibility
+          if (rule.actions.set_field_visibility) {
+            if (rule.actions.set_field_visibility.visible) {
+              rule.actions.set_field_visibility.visible.forEach(field => {
+                visibleFields.add(field);
+                hiddenFields.delete(field);
+              });
+            }
+            if (rule.actions.set_field_visibility.hidden) {
+              rule.actions.set_field_visibility.hidden.forEach(field => {
+                hiddenFields.add(field);
+                visibleFields.delete(field);
+              });
+            }
+          }
+          
+          // Set field requirements
+          if (rule.actions.set_field_requirements) {
+            if (rule.actions.set_field_requirements.required) {
+              rule.actions.set_field_requirements.required.forEach(field => {
+                requiredFields.add(field);
+              });
+            }
+            if (rule.actions.set_field_requirements.optional) {
+              rule.actions.set_field_requirements.optional.forEach(field => {
+                requiredFields.delete(field);
+              });
+            }
+          }
+          
+          // Set field values
+          if (rule.actions.set_field_values) {
+            Object.entries(rule.actions.set_field_values).forEach(([fieldKey, fieldConfig]) => {
+              if (fieldConfig.value !== undefined) {
+                fieldValues[fieldKey] = fieldConfig.value;
+              }
+              if (fieldConfig.dynamic_value && fieldConfig.dynamic_value.template) {
+                // Handle dynamic templating
+                let templateValue = fieldConfig.dynamic_value.template;
+                if (fieldConfig.dynamic_value.variables) {
+                  Object.entries(fieldConfig.dynamic_value.variables).forEach(([varKey, varTemplate]) => {
+                    const actualValue = responses[varKey.replace(/[{}]/g, '')] || varTemplate;
+                    templateValue = templateValue.replace(new RegExp(`\\{\\{${varKey.replace(/[{}]/g, '')}\\}\\}`, 'g'), actualValue);
+                  });
+                }
+                fieldValues[fieldKey] = templateValue;
+              }
+              // Handle options filtering for select/multiselect fields
+              if (fieldConfig.options_filter) {
+                // This would be handled at render time, just store the filter
+                fieldValues[`${fieldKey}_options_filter`] = fieldConfig.options_filter;
+              }
+            });
+          }
+          
+          // Set next step
+          if (rule.actions.set_next_step) {
+            if (rule.actions.set_next_step.step_number !== undefined) {
+              nextStep = rule.actions.set_next_step.step_number;
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      visibleFields: Array.from(visibleFields),
+      hiddenFields: Array.from(hiddenFields),
+      requiredFields: Array.from(requiredFields),
+      fieldValues,
+      nextStep,
+      appliedRules
+    };
+  }
+
+  /**
+   * Evaluate a group of conditions with AND/OR logic and nested groups
+   */
+  _evaluateConditionGroup(responses, conditionGroup) {
+    const logic = (conditionGroup.logic || 'AND').toUpperCase();
+    const conditions = conditionGroup.conditions || [];
+    const nestedGroups = conditionGroup.groups || [];
+    
+    const conditionResults = [];
+    
+    // Evaluate individual conditions
+    for (const condition of conditions) {
+      const result = this._evaluateCondition(responses, condition);
+      conditionResults.push(result);
+    }
+    
+    // Evaluate nested groups recursively
+    for (const group of nestedGroups) {
+      const result = this._evaluateConditionGroup(responses, group);
+      conditionResults.push(result);
+    }
+    
+    // If no conditions, return true (empty condition group is considered satisfied)
+    if (conditionResults.length === 0) {
+      return true;
+    }
+    
+    // Apply logic operator
+    if (logic === 'AND') {
+      return conditionResults.every(result => result);
+    } else if (logic === 'OR') {
+      return conditionResults.some(result => result);
+    } else {
+      this.logger.warn(`Unknown logic operator: ${logic}, defaulting to AND`);
+      return conditionResults.every(result => result);
+    }
+  }
+
+  /**
+   * Filter questions based on branching logic
+   */
+  getVisibleQuestionsForStep(stepNumber, allQuestions, responses) {
+    const stepQuestions = allQuestions.filter(q => q.step_number === stepNumber);
+    const visibleQuestions = [];
+
+    for (const question of stepQuestions) {
+      let isVisible = true; // Default to visible
+
+      // Check if any other questions have branching logic that affects this question
+      for (const otherQuestion of allQuestions) {
+        if (otherQuestion.branching_logic && otherQuestion.branching_logic.length > 0) {
+          const result = this.evaluateBranchingLogic(responses, otherQuestion.branching_logic);
+          
+          // Check if this question should be hidden based on the result
+          if (result.hiddenFields.includes(question.field_key)) {
+            isVisible = false;
+            break;
+          }
+        }
+      }
+
+      if (isVisible) {
+        visibleQuestions.push(question);
+      }
+    }
+
+    return visibleQuestions;
   }
 
   /**
@@ -1061,6 +1512,33 @@ class EnhancedOnboardingHandler {
           break;
       }
     });
+  }
+
+  /**
+   * Truncate label to fit Discord's 45-character limit for TextInputBuilder
+   */
+  _truncateLabel(label, maxLength = 45) {
+    if (!label || typeof label !== 'string') {
+      return label;
+    }
+    
+    if (label.length <= maxLength) {
+      return label;
+    }
+    
+    // Log truncation for debugging
+    this.logger.warn(`[Enhanced Onboarding] Truncating label from ${label.length} to ${maxLength} characters: "${label}"`);
+    
+    // Try to truncate at word boundary
+    const truncated = label.substring(0, maxLength - 3);
+    const lastSpace = truncated.lastIndexOf(' ');
+    
+    if (lastSpace > maxLength * 0.6) { // Only use word boundary if it's not too short
+      return truncated.substring(0, lastSpace) + '...';
+    }
+    
+    // Fallback to character truncation
+    return truncated + '...';
   }
 
   /**

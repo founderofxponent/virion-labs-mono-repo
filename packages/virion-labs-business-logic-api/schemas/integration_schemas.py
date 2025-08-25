@@ -37,12 +37,13 @@ class OnboardingField(BaseModel):
     field_type: str  # text, email, number, boolean, url, select, multiselect
     field_placeholder: Optional[str] = None
     field_description: Optional[str] = None
-    field_options: Optional[List[str]] = None
+    field_options: Optional[List[Dict[str, str]]] = None
     is_required: bool = False
     validation_rules: Optional[Dict[str, Any]] = None
     sort_order: Optional[int] = 0
     step_number: Optional[int] = 1
     step_role_ids: Optional[List[str]] = None
+    branching_logic: Optional[List[Dict[str, Any]]] = None
 
 class OnboardingStartRequest(BaseModel):
     campaign_id: str
@@ -137,3 +138,51 @@ class AssignVerifiedRoleResponse(BaseModel):
     success: bool
     message: Optional[str] = None
     connection: Optional[ClientDiscordConnection] = None
+
+# Branching Logic Validation Schemas
+
+class BranchingCondition(BaseModel):
+    field_key: str
+    operator: str
+    value: Any
+    case_sensitive: Optional[bool] = False
+
+class BranchingConditionGroup(BaseModel):
+    logic: str = "AND"  # "AND" or "OR"
+    conditions: Optional[List[BranchingCondition]] = []
+    groups: Optional[List['BranchingConditionGroup']] = []
+
+class BranchingRule(BaseModel):
+    conditions: Optional[BranchingConditionGroup] = None  # New format
+    condition: Optional[BranchingCondition] = None  # Legacy format support
+    action: str  # "show", "hide", "skip_to_step", "require_field", "set_field_value"
+    target_fields: Optional[List[str]] = []
+    target_step: Optional[int] = None
+    target_value: Optional[Any] = None
+    priority: Optional[int] = 0
+    description: Optional[str] = None
+
+class ValidateBranchingLogicRequest(BaseModel):
+    branching_rules: List[BranchingRule]
+    field_keys: List[str]  # All available field keys for validation
+
+class ValidateBranchingLogicResponse(BaseModel):
+    valid: bool
+    errors: List[str] = []
+    warnings: List[str] = []
+
+class SimulateBranchingRequest(BaseModel):
+    branching_rules: List[BranchingRule]
+    responses: Dict[str, Any]
+    all_fields: List[OnboardingField]
+
+class SimulateBranchingResponse(BaseModel):
+    visible_fields: List[str]
+    hidden_fields: List[str]
+    required_fields: List[str]
+    field_values: Dict[str, Any]
+    next_step: Optional[int]
+    applied_rules: List[Dict[str, Any]]
+
+# Fix forward reference
+BranchingConditionGroup.model_rebuild()

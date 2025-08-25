@@ -113,12 +113,21 @@ class CampaignOnboardingFieldBase(BaseModel):
     discord_integration: Optional[Dict[str, Any]] = None
     step_number: Optional[int] = 1
     step_role_ids: Optional[List[str]] = None
+    branching_logic: Optional[List[Dict[str, Any]]] = None
 
     @field_validator('field_options', mode='before')
     @classmethod
-    def empty_list_to_dict(cls, v: Any) -> Optional[Dict[str, Any]]:
-        if isinstance(v, list) and not v:
+    def normalize_field_options(cls, v: Any) -> Optional[Dict[str, Any]]:
+        if not v:
             return {}
+        # If it's already a dictionary, return as-is
+        if isinstance(v, dict):
+            return v
+        # If it's a list, wrap it in the expected format
+        if isinstance(v, list):
+            if not v:
+                return {}
+            return {"options": v}
         return v
 
 class CampaignOnboardingField(CampaignOnboardingFieldBase):

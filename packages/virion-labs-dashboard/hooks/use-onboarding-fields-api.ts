@@ -230,6 +230,9 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
         is_required: field.is_required,
         is_enabled: field.is_enabled,
         sort_order: field.sort_order ?? index,
+        step_number: field.step_number ?? 1,
+        step_role_ids: field.step_role_ids || [],
+        branching_logic: field.branching_logic || [],
         field_options: Array.isArray(field.field_options) && field.field_options.length > 0
           ? { options: field.field_options }
           : {},

@@ -142,7 +142,7 @@ class OnboardingHandler {
       questions.forEach(question => {
         const textInput = new TextInputBuilder()
           .setCustomId(question.field_key)
-          .setLabel(question.field_label)
+          .setLabel(this._truncateLabel(question.field_label))
           .setStyle(this._getInputStyle(question.field_type))
           .setRequired(question.is_required || false);
         
@@ -371,6 +371,37 @@ class OnboardingHandler {
       this.logger.error(`[Onboarding] Failed to send onboarding completion email: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Truncate label to fit Discord's 45-character limit for TextInputBuilder
+   * @param {string} label - The label to truncate
+   * @param {number} maxLength - Maximum length (default: 45)
+   * @returns {string} Truncated label
+   * @private
+   */
+  _truncateLabel(label, maxLength = 45) {
+    if (!label || typeof label !== 'string') {
+      return label;
+    }
+    
+    if (label.length <= maxLength) {
+      return label;
+    }
+    
+    // Log truncation for debugging
+    this.logger.warn(`[Onboarding] Truncating label from ${label.length} to ${maxLength} characters: "${label}"`);
+    
+    // Try to truncate at word boundary
+    const truncated = label.substring(0, maxLength - 3);
+    const lastSpace = truncated.lastIndexOf(' ');
+    
+    if (lastSpace > maxLength * 0.6) { // Only use word boundary if it's not too short
+      return truncated.substring(0, lastSpace) + '...';
+    }
+    
+    // Fallback to character truncation
+    return truncated + '...';
   }
 
   /**

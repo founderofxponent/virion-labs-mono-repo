@@ -67,6 +67,9 @@
     "step_role_ids": {
       "type": "json"
     },
+    "branching_logic": {
+      "type": "json"
+    },
     "campaign": {
       "type": "relation",
       "relation": "manyToOne",

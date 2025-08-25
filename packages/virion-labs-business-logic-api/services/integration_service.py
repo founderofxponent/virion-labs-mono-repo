@@ -764,7 +764,8 @@ class IntegrationService:
                     "validation_rules": field.validation_rules,
                     "sort_order": field.sort_order or 0,
                     "step_number": field.step_number or 1,
-                    "step_role_ids": field.step_role_ids or []
+                    "step_role_ids": field.step_role_ids or [],
+                    "branching_logic": field.branching_logic or []
                 }
                 transformed_fields.append(transformed_field)
             
@@ -1041,6 +1042,549 @@ class IntegrationService:
             return {
                 "success": False,
                 "message": "Failed to assign verified role. Please try again."
+            }
+
+    def evaluate_branching_logic(self, responses: Dict[str, Any], branching_rules: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Enhanced evaluates branching logic with support for complex conditions, nested logic, and AND/OR operators.
+        Returns dict with visible_fields list, hidden_fields list, next_step number, and metadata.
+        
+        Enhanced branching rule structure:
+        {
+            "conditions": {
+                "logic": "AND" | "OR",
+                "conditions": [
+                    {
+                        "field_key": "field_name",
+                        "operator": "equals" | "not_equals" | ...,
+                        "value": "comparison_value",
+                        "case_sensitive": bool
+                    }
+                ],
+                "groups": [  # Optional nested condition groups
+                    {
+                        "logic": "AND" | "OR",
+                        "conditions": [...]
+                    }
+                ]
+            },
+            "action": "show" | "hide" | "skip_to_step" | "require_field" | "set_field_value",
+            "target_fields": ["field1", "field2"],
+            "target_step": int,
+            "target_value": any,
+            "priority": int,
+            "description": "Human readable description"
+        }
+        """
+        visible_fields = set()
+        hidden_fields = set()
+        required_fields = set()
+        field_values = {}
+        next_step = None
+        applied_rules = []
+        
+        # Sort rules by priority (higher priority first)
+        sorted_rules = sorted(branching_rules, key=lambda x: x.get('priority', 0), reverse=True)
+
+        for rule in sorted_rules:
+            condition_met = False
+            
+            # Handle both new and legacy rule formats
+            if 'conditions' in rule and isinstance(rule['conditions'], dict):
+                # New enhanced format with nested conditions
+                condition_met = self._evaluate_condition_group(responses, rule['conditions'])
+            elif 'condition' in rule:
+                # Legacy single condition format
+                condition_met = self._evaluate_condition(responses, rule.get('condition', {}))
+            
+            if condition_met:
+                action = rule.get('action')
+                rule_description = rule.get('description', f'Rule with action: {action}')
+                applied_rules.append({
+                    'action': action,
+                    'description': rule_description,
+                    'priority': rule.get('priority', 0)
+                })
+                
+                # Handle different actions
+                if action == 'show':
+                    target_fields = rule.get('target_fields', [])
+                    for field in target_fields:
+                        visible_fields.add(field)
+                        hidden_fields.discard(field)  # Remove from hidden if was there
+                        
+                elif action == 'hide':
+                    target_fields = rule.get('target_fields', [])
+                    for field in target_fields:
+                        hidden_fields.add(field)
+                        visible_fields.discard(field)  # Remove from visible if was there
+                        
+                elif action == 'require_field':
+                    target_fields = rule.get('target_fields', [])
+                    for field in target_fields:
+                        required_fields.add(field)
+                        
+                elif action == 'set_field_value':
+                    target_fields = rule.get('target_fields', [])
+                    target_value = rule.get('target_value')
+                    for field in target_fields:
+                        field_values[field] = target_value
+                        
+                elif action == 'skip_to_step':
+                    target_step = rule.get('target_step')
+                    if target_step is not None:
+                        next_step = target_step
+
+        return {
+            "visible_fields": list(visible_fields),
+            "hidden_fields": list(hidden_fields),
+            "required_fields": list(required_fields),
+            "field_values": field_values,
+            "next_step": next_step,
+            "applied_rules": applied_rules
+        }
+
+    def _evaluate_condition_group(self, responses: Dict[str, Any], condition_group: Dict[str, Any]) -> bool:
+        """
+        Evaluates a group of conditions with AND/OR logic and supports nested groups.
+        
+        Structure:
+        {
+            "logic": "AND" | "OR",
+            "conditions": [
+                {
+                    "field_key": "field_name",
+                    "operator": "equals",
+                    "value": "test_value",
+                    "case_sensitive": false
+                }
+            ],
+            "groups": [  # Optional nested groups
+                {
+                    "logic": "OR",
+                    "conditions": [...]
+                }
+            ]
+        }
+        """
+        logic = condition_group.get('logic', 'AND').upper()
+        conditions = condition_group.get('conditions', [])
+        nested_groups = condition_group.get('groups', [])
+        
+        condition_results = []
+        
+        # Evaluate individual conditions
+        for condition in conditions:
+            result = self._evaluate_condition(responses, condition)
+            condition_results.append(result)
+        
+        # Evaluate nested groups recursively
+        for group in nested_groups:
+            result = self._evaluate_condition_group(responses, group)
+            condition_results.append(result)
+        
+        # If no conditions, return True (empty condition group is considered satisfied)
+        if not condition_results:
+            return True
+        
+        # Apply logic operator
+        if logic == 'AND':
+            return all(condition_results)
+        elif logic == 'OR':
+            return any(condition_results)
+        else:
+            logger.warning(f"Unknown logic operator: {logic}, defaulting to AND")
+            return all(condition_results)
+
+    def _evaluate_condition(self, responses: Dict[str, Any], condition: Dict[str, Any]) -> bool:
+        """
+        Enhanced evaluates a single branching condition with support for advanced operators.
+        
+        Supported operators:
+        - Basic: equals, not_equals, contains, not_contains, empty, not_empty
+        - Numeric: greater_than, less_than, greater_than_or_equal, less_than_or_equal, between, not_between
+        - String: starts_with, ends_with, matches_regex
+        - List: in_list, not_in_list, array_contains, array_length_equals
+        - Date: before_date, after_date, between_dates
+        """
+        import re
+        from datetime import datetime, date
+        
+        field_key = condition.get('field_key')
+        operator = condition.get('operator')
+        condition_value = condition.get('value')
+        case_sensitive = condition.get('case_sensitive', False)
+
+        if not field_key or not operator:
+            return False
+
+        field_value = responses.get(field_key)
+        string_value = str(field_value or '')
+        
+        # Handle case sensitivity for string comparisons
+        if not case_sensitive and isinstance(field_value, str):
+            string_value = string_value.lower()
+            if isinstance(condition_value, str):
+                condition_value = condition_value.lower()
+        
+        # Parse numeric value
+        numeric_value = None
+        try:
+            numeric_value = float(field_value) if field_value is not None else None
+        except (ValueError, TypeError):
+            pass
+
+        # Parse date value
+        date_value = None
+        try:
+            if isinstance(field_value, str) and field_value:
+                # Try common date formats
+                for fmt in ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%d/%m/%Y', '%m/%d/%Y']:
+                    try:
+                        date_value = datetime.strptime(field_value, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+            elif isinstance(field_value, (datetime, date)):
+                date_value = field_value.date() if isinstance(field_value, datetime) else field_value
+        except (ValueError, TypeError):
+            pass
+
+        # Basic operators
+        if operator == 'equals':
+            return string_value == str(condition_value)
+
+        elif operator == 'not_equals':
+            return string_value != str(condition_value)
+
+        elif operator == 'contains':
+            return str(condition_value) in string_value
+
+        elif operator == 'not_contains':
+            return str(condition_value) not in string_value
+
+        elif operator == 'empty':
+            return string_value.strip() == ''
+
+        elif operator == 'not_empty':
+            return string_value.strip() != ''
+
+        # String operators
+        elif operator == 'starts_with':
+            return string_value.startswith(str(condition_value))
+
+        elif operator == 'ends_with':
+            return string_value.endswith(str(condition_value))
+
+        elif operator == 'matches_regex':
+            try:
+                pattern = condition_value
+                flags = 0 if case_sensitive else re.IGNORECASE
+                return bool(re.search(pattern, string_value, flags))
+            except re.error:
+                logger.warning(f"Invalid regex pattern: {condition_value}")
+                return False
+
+        # Numeric operators
+        elif operator == 'greater_than':
+            if numeric_value is not None:
+                try:
+                    return numeric_value > float(condition_value)
+                except (ValueError, TypeError):
+                    return False
+            return False
+
+        elif operator == 'less_than':
+            if numeric_value is not None:
+                try:
+                    return numeric_value < float(condition_value)
+                except (ValueError, TypeError):
+                    return False
+            return False
+
+        elif operator == 'greater_than_or_equal':
+            if numeric_value is not None:
+                try:
+                    return numeric_value >= float(condition_value)
+                except (ValueError, TypeError):
+                    return False
+            return False
+
+        elif operator == 'less_than_or_equal':
+            if numeric_value is not None:
+                try:
+                    return numeric_value <= float(condition_value)
+                except (ValueError, TypeError):
+                    return False
+            return False
+
+        elif operator == 'between':
+            if numeric_value is not None and isinstance(condition_value, (list, tuple)) and len(condition_value) == 2:
+                try:
+                    min_val, max_val = float(condition_value[0]), float(condition_value[1])
+                    return min_val <= numeric_value <= max_val
+                except (ValueError, TypeError):
+                    return False
+            return False
+
+        elif operator == 'not_between':
+            if numeric_value is not None and isinstance(condition_value, (list, tuple)) and len(condition_value) == 2:
+                try:
+                    min_val, max_val = float(condition_value[0]), float(condition_value[1])
+                    return not (min_val <= numeric_value <= max_val)
+                except (ValueError, TypeError):
+                    return False
+            return False
+
+        # List/Array operators
+        elif operator == 'in_list':
+            if isinstance(condition_value, (list, tuple)):
+                return field_value in condition_value or string_value in [str(v) for v in condition_value]
+            return False
+
+        elif operator == 'not_in_list':
+            if isinstance(condition_value, (list, tuple)):
+                return field_value not in condition_value and string_value not in [str(v) for v in condition_value]
+            return True
+
+        elif operator == 'array_contains':
+            if isinstance(field_value, (list, tuple)):
+                return condition_value in field_value
+            return False
+
+        elif operator == 'array_length_equals':
+            if isinstance(field_value, (list, tuple)):
+                try:
+                    return len(field_value) == int(condition_value)
+                except (ValueError, TypeError):
+                    return False
+            return False
+
+        # Date operators
+        elif operator == 'before_date':
+            if date_value:
+                try:
+                    target_date = datetime.strptime(str(condition_value), '%Y-%m-%d').date()
+                    return date_value < target_date
+                except ValueError:
+                    return False
+            return False
+
+        elif operator == 'after_date':
+            if date_value:
+                try:
+                    target_date = datetime.strptime(str(condition_value), '%Y-%m-%d').date()
+                    return date_value > target_date
+                except ValueError:
+                    return False
+            return False
+
+        elif operator == 'between_dates':
+            if date_value and isinstance(condition_value, (list, tuple)) and len(condition_value) == 2:
+                try:
+                    start_date = datetime.strptime(str(condition_value[0]), '%Y-%m-%d').date()
+                    end_date = datetime.strptime(str(condition_value[1]), '%Y-%m-%d').date()
+                    return start_date <= date_value <= end_date
+                except ValueError:
+                    return False
+            return False
+
+        else:
+            logger.warning(f"Unknown condition operator: {operator}")
+            return False
+
+    def calculate_next_step(self, current_step: int, responses: Dict[str, Any], all_fields: List[Dict[str, Any]]) -> Optional[int]:
+        """
+        Calculates the next step based on current responses and branching logic.
+        """
+        # Check if any fields in current step have branching logic that affects next step
+        current_step_fields = [f for f in all_fields if f.get('step_number') == current_step]
+        
+        for field in current_step_fields:
+            branching_logic = field.get('branching_logic', [])
+            if branching_logic:
+                result = self.evaluate_branching_logic(responses, branching_logic)
+                if result.get('next_step') is not None:
+                    return result['next_step']
+
+        # Default: move to next sequential step
+        max_step = max([f.get('step_number', 1) for f in all_fields], default=1)
+        return current_step + 1 if current_step < max_step else None
+
+    def validate_branching_logic(self, branching_rules: List[Dict[str, Any]], field_keys: List[str]) -> Dict[str, Any]:
+        """
+        Validates branching logic rules for correctness and consistency.
+        Returns validation results with errors and warnings.
+        """
+        errors = []
+        warnings = []
+        
+        valid_operators = [
+            'equals', 'not_equals', 'contains', 'not_contains', 'empty', 'not_empty',
+            'starts_with', 'ends_with', 'matches_regex', 'greater_than', 'less_than',
+            'greater_than_or_equal', 'less_than_or_equal', 'between', 'not_between',
+            'in_list', 'not_in_list', 'array_contains', 'array_length_equals',
+            'before_date', 'after_date', 'between_dates'
+        ]
+        
+        valid_actions = ['show', 'hide', 'skip_to_step', 'require_field', 'set_field_value']
+        valid_logics = ['AND', 'OR']
+        
+        def validate_condition_recursive(condition_data: Dict[str, Any], path: str = ""):
+            """Recursively validate condition groups and individual conditions"""
+            
+            # Handle condition groups (new format)
+            if 'logic' in condition_data or 'conditions' in condition_data or 'groups' in condition_data:
+                logic = condition_data.get('logic', 'AND').upper()
+                if logic not in valid_logics:
+                    errors.append(f"{path}: Invalid logic operator '{logic}'. Must be 'AND' or 'OR'")
+                
+                # Validate individual conditions
+                conditions = condition_data.get('conditions', [])
+                for i, condition in enumerate(conditions):
+                    validate_condition_recursive(condition, f"{path}.conditions[{i}]")
+                
+                # Validate nested groups
+                groups = condition_data.get('groups', [])
+                for i, group in enumerate(groups):
+                    validate_condition_recursive(group, f"{path}.groups[{i}]")
+                
+                # Check if group has any conditions or nested groups
+                if not conditions and not groups:
+                    warnings.append(f"{path}: Empty condition group - will always evaluate to true")
+            
+            # Handle individual conditions
+            elif 'field_key' in condition_data and 'operator' in condition_data:
+                field_key = condition_data.get('field_key')
+                operator = condition_data.get('operator')
+                value = condition_data.get('value')
+                
+                # Validate field key exists
+                if field_key not in field_keys:
+                    errors.append(f"{path}: Field '{field_key}' does not exist in available fields")
+                
+                # Validate operator
+                if operator not in valid_operators:
+                    errors.append(f"{path}: Invalid operator '{operator}'")
+                
+                # Validate value based on operator
+                if operator in ['between', 'not_between', 'between_dates']:
+                    if not isinstance(value, (list, tuple)) or len(value) != 2:
+                        errors.append(f"{path}: Operator '{operator}' requires a list/array of 2 values")
+                
+                if operator in ['in_list', 'not_in_list']:
+                    if not isinstance(value, (list, tuple)):
+                        errors.append(f"{path}: Operator '{operator}' requires a list/array of values")
+                
+                if operator == 'matches_regex':
+                    import re
+                    try:
+                        re.compile(str(value))
+                    except re.error as e:
+                        errors.append(f"{path}: Invalid regex pattern '{value}': {e}")
+                
+                if operator in ['array_length_equals']:
+                    try:
+                        int(value)
+                    except (ValueError, TypeError):
+                        errors.append(f"{path}: Operator '{operator}' requires an integer value")
+        
+        # Validate each rule
+        for i, rule in enumerate(branching_rules):
+            rule_path = f"rule[{i}]"
+            
+            # Validate action
+            action = rule.get('action')
+            if action not in valid_actions:
+                errors.append(f"{rule_path}: Invalid action '{action}'")
+            
+            # Validate action-specific requirements
+            if action in ['show', 'hide', 'require_field']:
+                target_fields = rule.get('target_fields', [])
+                if not target_fields:
+                    errors.append(f"{rule_path}: Action '{action}' requires target_fields")
+                else:
+                    for field in target_fields:
+                        if field not in field_keys:
+                            errors.append(f"{rule_path}: Target field '{field}' does not exist")
+            
+            if action == 'skip_to_step':
+                target_step = rule.get('target_step')
+                if target_step is None:
+                    errors.append(f"{rule_path}: Action 'skip_to_step' requires target_step")
+                elif not isinstance(target_step, int) or target_step < 1:
+                    errors.append(f"{rule_path}: target_step must be a positive integer")
+            
+            if action == 'set_field_value':
+                target_fields = rule.get('target_fields', [])
+                target_value = rule.get('target_value')
+                if not target_fields:
+                    errors.append(f"{rule_path}: Action 'set_field_value' requires target_fields")
+                if target_value is None:
+                    warnings.append(f"{rule_path}: Action 'set_field_value' has no target_value (will set to None)")
+            
+            # Validate conditions (both new and legacy formats)
+            if 'conditions' in rule:
+                validate_condition_recursive(rule['conditions'], f"{rule_path}.conditions")
+            elif 'condition' in rule:
+                validate_condition_recursive(rule['condition'], f"{rule_path}.condition")
+            else:
+                errors.append(f"{rule_path}: Rule must have either 'conditions' or 'condition'")
+        
+        # Check for potential conflicts
+        show_fields = set()
+        hide_fields = set()
+        for rule in branching_rules:
+            action = rule.get('action')
+            target_fields = rule.get('target_fields', [])
+            
+            if action == 'show':
+                show_fields.update(target_fields)
+            elif action == 'hide':
+                hide_fields.update(target_fields)
+        
+        conflicting_fields = show_fields.intersection(hide_fields)
+        if conflicting_fields:
+            warnings.append(f"Fields have conflicting show/hide rules: {list(conflicting_fields)} - priority will determine final visibility")
+        
+        return {
+            "valid": len(errors) == 0,
+            "errors": errors,
+            "warnings": warnings
+        }
+
+    def simulate_branching_flow(self, branching_rules: List[Dict[str, Any]], responses: Dict[str, Any], all_fields: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Simulates how branching logic would be applied given specific user responses.
+        Useful for testing and previewing branching behavior.
+        """
+        try:
+            result = self.evaluate_branching_logic(responses, branching_rules)
+            
+            # Add additional simulation metadata
+            result['simulation_metadata'] = {
+                'total_rules': len(branching_rules),
+                'total_responses': len(responses),
+                'total_fields': len(all_fields),
+                'rules_applied': len(result.get('applied_rules', [])),
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error simulating branching flow: {e}")
+            return {
+                "visible_fields": [],
+                "hidden_fields": [],
+                "required_fields": [],
+                "field_values": {},
+                "next_step": None,
+                "applied_rules": [],
+                "simulation_metadata": {
+                    "error": str(e),
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
             }
 
 integration_service = IntegrationService()

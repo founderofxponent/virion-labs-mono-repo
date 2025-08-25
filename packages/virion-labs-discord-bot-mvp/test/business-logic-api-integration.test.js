@@ -42,7 +42,8 @@ class MockBusinessLogicApiService {
             validation_rules: { max_length: 50, min_length: 2 },
             sort_order: 0,
             step_number: 1,
-            step_role_ids: ['1402456736144560299']
+            step_role_ids: ['1402456736144560299'],
+            branching_logic: []
           },
           {
             field_key: 'email_address',
@@ -55,7 +56,8 @@ class MockBusinessLogicApiService {
             validation_rules: {},
             sort_order: 1,
             step_number: 1,
-            step_role_ids: ['1402456736144560299']
+            step_role_ids: ['1402456736144560299'],
+            branching_logic: []
           },
           {
             field_key: 'interests',
@@ -68,7 +70,8 @@ class MockBusinessLogicApiService {
             validation_rules: { min_length: 3 },
             sort_order: 0,
             step_number: 2,
-            step_role_ids: ['1402456736144560300']
+            step_role_ids: ['1402456736144560300'],
+            branching_logic: []
           },
           {
             field_key: 'experience_level',
@@ -81,7 +84,8 @@ class MockBusinessLogicApiService {
             validation_rules: {},
             sort_order: 1,
             step_number: 2,
-            step_role_ids: ['1402456736144560300']
+            step_role_ids: ['1402456736144560300'],
+            branching_logic: []
           },
           {
             field_key: 'community_role',
@@ -94,7 +98,8 @@ class MockBusinessLogicApiService {
             validation_rules: { min_length: 2 },
             sort_order: 0,
             step_number: 3,
-            step_role_ids: ['1402456736144560302']
+            step_role_ids: ['1402456736144560302'],
+            branching_logic: []
           }
         ]
       }

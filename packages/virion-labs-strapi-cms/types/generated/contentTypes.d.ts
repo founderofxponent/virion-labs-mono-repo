@@ -507,6 +507,7 @@ export interface ApiCampaignOnboardingFieldCampaignOnboardingField
     draftAndPublish: false;
   };
   attributes: {
+    branching_logic: Schema.Attribute.JSON;
     campaign: Schema.Attribute.Relation<'manyToOne', 'api::campaign.campaign'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &

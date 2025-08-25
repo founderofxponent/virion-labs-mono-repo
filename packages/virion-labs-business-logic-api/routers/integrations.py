@@ -18,7 +18,10 @@ from schemas.integration_schemas import (
     ClientDiscordSyncStartRequest,
     AssignVerifiedRoleRequest,
     AssignVerifiedRoleResponse,
-
+    ValidateBranchingLogicRequest,
+    ValidateBranchingLogicResponse,
+    SimulateBranchingRequest,
+    SimulateBranchingResponse
 )
 from services.integration_service import integration_service
 from core.auth import get_api_key
@@ -288,3 +291,50 @@ async def get_pending_connections():
     except Exception as e:
         logger.error(f"Failed to get pending connections: {e}")
         raise HTTPException(status_code=500, detail="Failed to get pending connections")
+
+# Branching Logic API Endpoints
+
+@router.post("/branching/validate", response_model=ValidateBranchingLogicResponse, dependencies=[Depends(get_api_key)])
+async def validate_branching_logic(request: ValidateBranchingLogicRequest):
+    """
+    Validate branching logic rules for correctness and consistency.
+    
+    This endpoint checks:
+    - Valid operators and actions
+    - Field key existence
+    - Rule structure and syntax
+    - Potential conflicts between rules
+    - Value formats for specific operators
+    """
+    try:
+        # Convert request to dict format for the service
+        branching_rules = [rule.model_dump() for rule in request.branching_rules]
+        
+        result = integration_service.validate_branching_logic(branching_rules, request.field_keys)
+        return ValidateBranchingLogicResponse(**result)
+    except Exception as e:
+        logger.error(f"Failed to validate branching logic: {e}")
+        raise HTTPException(status_code=500, detail="Failed to validate branching logic")
+
+@router.post("/branching/simulate", response_model=SimulateBranchingResponse, dependencies=[Depends(get_api_key)])
+async def simulate_branching_flow(request: SimulateBranchingRequest):
+    """
+    Simulate how branching logic would be applied given specific user responses.
+    
+    This endpoint:
+    - Evaluates all branching rules against provided responses
+    - Returns which fields would be visible/hidden/required
+    - Shows what field values would be set automatically
+    - Indicates the next step in multi-step flows
+    - Provides metadata about which rules were applied
+    """
+    try:
+        # Convert request to dict format for the service
+        branching_rules = [rule.model_dump() for rule in request.branching_rules]
+        all_fields = [field.model_dump() for field in request.all_fields]
+        
+        result = integration_service.simulate_branching_flow(branching_rules, request.responses, all_fields)
+        return SimulateBranchingResponse(**result)
+    except Exception as e:
+        logger.error(f"Failed to simulate branching flow: {e}")
+        raise HTTPException(status_code=500, detail="Failed to simulate branching flow")
