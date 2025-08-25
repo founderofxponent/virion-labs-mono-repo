@@ -298,9 +298,9 @@ class EnhancedOnboardingHandler {
         textInput.setPlaceholder(convertedQuestion.field_placeholder);
       }
 
-      // Apply validation constraints - use converted field rules
-      if (convertedQuestion.validation_rules) {
-        this._applyValidationConstraints(textInput, this._normalizeValidationRules(convertedQuestion.validation_rules));
+      // Apply validation constraints - expect array format
+      if (convertedQuestion.validation_rules && Array.isArray(convertedQuestion.validation_rules)) {
+        this._applyValidationConstraints(textInput, convertedQuestion.validation_rules);
       }
 
       modal.addComponents(new ActionRowBuilder().addComponents(textInput));
@@ -331,11 +331,13 @@ class EnhancedOnboardingHandler {
         });
       }
 
-      // Collect responses from modal
+      // Collect responses from modal and convert to proper types
       const responses = {};
       interaction.fields.fields.forEach((value, key) => {
         const originalKey = key.split('_').slice(0, -1).join('_');
-        responses[originalKey] = value.value;
+        const question = questions.find(q => q.field_key === originalKey);
+        const originalFieldType = question ? question.field_type : 'text';
+        responses[originalKey] = this._parseTextInputToStructuredData(originalKey, value.value, originalFieldType);
       });
 
       // Validate responses
@@ -443,9 +445,9 @@ class EnhancedOnboardingHandler {
         textInput.setPlaceholder(convertedQuestion.field_placeholder);
       }
 
-      // Apply validation constraints - use converted field rules
-      if (convertedQuestion.validation_rules) {
-        this._applyValidationConstraints(textInput, this._normalizeValidationRules(convertedQuestion.validation_rules));
+      // Apply validation constraints - expect array format
+      if (convertedQuestion.validation_rules && Array.isArray(convertedQuestion.validation_rules)) {
+        this._applyValidationConstraints(textInput, convertedQuestion.validation_rules);
       }
       
       modal.addComponents(new ActionRowBuilder().addComponents(textInput));
@@ -529,8 +531,8 @@ class EnhancedOnboardingHandler {
       textInput.setPlaceholder(convertedQuestion.field_placeholder);
     }
 
-    if (convertedQuestion.validation_rules) {
-      this._applyValidationConstraints(textInput, this._normalizeValidationRules(convertedQuestion.validation_rules));
+    if (convertedQuestion.validation_rules && Array.isArray(convertedQuestion.validation_rules)) {
+      this._applyValidationConstraints(textInput, convertedQuestion.validation_rules);
     }
     
     modal.addComponents(new ActionRowBuilder().addComponents(textInput));
@@ -559,13 +561,15 @@ class EnhancedOnboardingHandler {
         });
       }
 
-      // Collect and validate step responses
+      // Collect and validate step responses with proper type conversion
       const stepResponses = {};
       const stepQuestions = this.getVisibleQuestionsForStep(stepNumber, questions, currentResponses);
       
       interaction.fields.fields.forEach((value, key) => {
         const originalKey = key.split('_').slice(0, -1).join('_');
-        stepResponses[originalKey] = value.value;
+        const question = stepQuestions.find(q => q.field_key === originalKey);
+        const originalFieldType = question ? question.field_type : 'text';
+        stepResponses[originalKey] = this._parseTextInputToStructuredData(originalKey, value.value, originalFieldType);
       });
 
       // Validate responses
@@ -630,12 +634,13 @@ class EnhancedOnboardingHandler {
       const stepQuestions = this.getVisibleQuestionsForStep(stepNumber, questions, currentResponses);
       const currentQuestion = stepQuestions[questionIndex];
 
-      // Collect response
-      const response = interaction.fields.get(currentQuestion.field_key).value;
+      // Collect response and convert to proper type
+      const rawResponse = interaction.fields.get(currentQuestion.field_key).value;
+      const convertedResponse = this._parseTextInputToStructuredData(currentQuestion.field_key, rawResponse, currentQuestion.field_type);
       
       // Validate response
-      const normalizedRules = this._normalizeValidationRules(currentQuestion.validation_rules || {});
-      const validationResult = this.validateFieldResponse(response, normalizedRules);
+      const normalizedRules = this._normalizeValidationRules(currentQuestion.validation_rules || []);
+      const validationResult = this.validateFieldResponse(convertedResponse, normalizedRules, currentQuestion.field_type);
       if (!validationResult.valid) {
         return interaction.editReply({ 
           content: `❌ ${validationResult.message}` 
@@ -643,7 +648,7 @@ class EnhancedOnboardingHandler {
       }
 
       // Update responses
-      currentResponses[currentQuestion.field_key] = response;
+      currentResponses[currentQuestion.field_key] = convertedResponse;
       this.responsesCache.set(cacheKey, currentResponses);
 
       const nextQuestionIndex = questionIndex + 1;
@@ -906,46 +911,37 @@ class EnhancedOnboardingHandler {
 
 
   /**
-   * Convert validation rules from object format to array format
+   * Normalize validation rules - ONLY array format supported
+   * Object format support completely removed to enforce consistency
    */
   _normalizeValidationRules(validationRules) {
-    if (!validationRules || typeof validationRules !== 'object') {
+    if (!validationRules) {
       return [];
     }
 
-    // If already an array, return as is
+    // Only support array format - strict enforcement
     if (Array.isArray(validationRules)) {
-      return validationRules;
-    }
-
-    // Convert object format to array format
-    const normalizedRules = [];
-
-    if (validationRules.min_length !== undefined) {
-      normalizedRules.push({
-        type: 'min',
-        value: validationRules.min_length,
-        message: validationRules.error_message || `Minimum ${validationRules.min_length} characters required`
+      // Validate each rule has required structure
+      return validationRules.filter(rule => {
+        if (!rule || typeof rule !== 'object') {
+          this.logger.warn('[Enhanced Onboarding] Invalid validation rule (not an object):', rule);
+          return false;
+        }
+        if (!rule.type || typeof rule.type !== 'string') {
+          this.logger.warn('[Enhanced Onboarding] Invalid validation rule (missing or invalid type):', rule);
+          return false;
+        }
+        if (typeof rule.value === 'undefined') {
+          this.logger.warn('[Enhanced Onboarding] Invalid validation rule (missing value):', rule);
+          return false;
+        }
+        return true;
       });
     }
 
-    if (validationRules.max_length !== undefined) {
-      normalizedRules.push({
-        type: 'max',
-        value: validationRules.max_length,
-        message: validationRules.error_message || `Maximum ${validationRules.max_length} characters allowed`
-      });
-    }
-
-    // Handle other validation types that might be in object format
-    if (validationRules.required === true) {
-      normalizedRules.push({
-        type: 'required',
-        message: validationRules.error_message || 'This field is required'
-      });
-    }
-
-    return normalizedRules;
+    // Log error for unsupported format and return empty array
+    this.logger.error('[Enhanced Onboarding] VALIDATION RULES MUST BE IN ARRAY FORMAT. Object format no longer supported. Received:', typeof validationRules, validationRules);
+    return [];
   }
 
   /**
@@ -973,8 +969,8 @@ class EnhancedOnboardingHandler {
 
     questions.forEach(question => {
       const value = responses[question.field_key];
-      const normalizedRules = this._normalizeValidationRules(question.validation_rules || {});
-      const validationResult = this.validateFieldResponse(value, normalizedRules, question.field_type);
+      const validationRules = Array.isArray(question.validation_rules) ? question.validation_rules : [];
+      const validationResult = this.validateFieldResponse(value, validationRules, question.field_type);
       
       if (!validationResult.valid) {
         errors.push(`${question.field_label}: ${validationResult.message}`);
@@ -1183,103 +1179,139 @@ class EnhancedOnboardingHandler {
   }
 
   /**
-   * Parse text input back to structured data for branching logic evaluation
+   * Parse text input back to structured data based on original field type
    * This handles the conversion from Discord text inputs back to the expected data types
+   * IMPROVED: Better boolean, number, and multiselect parsing
    */
-  _parseTextInputToStructuredData(fieldKey, textValue) {
+  _parseTextInputToStructuredData(fieldKey, textValue, originalFieldType = 'text') {
     if (!textValue || typeof textValue !== 'string') {
       return textValue;
     }
     
     const trimmedValue = textValue.trim();
     
-    // Handle boolean text inputs (yes/no)
-    if (trimmedValue.toLowerCase() === 'yes' || trimmedValue.toLowerCase() === 'true') {
-      return true;
-    }
-    if (trimmedValue.toLowerCase() === 'no' || trimmedValue.toLowerCase() === 'false') {
-      return false;
-    }
-    
-    // Handle numeric text inputs
-    const numericValue = Number(trimmedValue);
-    if (!isNaN(numericValue) && isFinite(numericValue) && /^\d+(\.\d+)?$/.test(trimmedValue)) {
-      return numericValue;
-    }
-    
-    // Handle comma-separated multiselect values
-    if (trimmedValue.includes(',')) {
-      const arrayValue = trimmedValue
-        .split(',')
-        .map(item => item.trim())
-        .filter(item => item.length > 0);
-      
-      // Only return as array if we have multiple items
-      if (arrayValue.length > 1) {
-        return arrayValue;
+    // Handle empty values
+    if (trimmedValue === '') {
+      switch (originalFieldType) {
+        case 'multiselect':
+          return [];
+        case 'boolean':
+          return false;
+        case 'number':
+          return null;
+        default:
+          return '';
       }
     }
     
-    // Return as string (original value for select fields, etc.)
-    return trimmedValue;
+    // Convert based on original field type
+    switch (originalFieldType) {
+      case 'boolean':
+        const lowerValue = trimmedValue.toLowerCase();
+        // Handle yes/no, true/false, 1/0, and other common boolean representations
+        if (['yes', 'true', '1', 'on', 'enabled', 'y'].includes(lowerValue)) {
+          return true;
+        }
+        if (['no', 'false', '0', 'off', 'disabled', 'n'].includes(lowerValue)) {
+          return false;
+        }
+        // Default to false for invalid boolean inputs
+        this.logger.warn(`[Enhanced Onboarding] Invalid boolean value '${trimmedValue}' for field '${fieldKey}', defaulting to false`);
+        return false;
+      
+      case 'number':
+        // Handle both integers and floats with better validation
+        if (/^-?\d+$/.test(trimmedValue)) {
+          const intValue = parseInt(trimmedValue, 10);
+          if (!isNaN(intValue) && isFinite(intValue)) {
+            return intValue;
+          }
+        } else if (/^-?\d*\.\d+$/.test(trimmedValue)) {
+          const floatValue = parseFloat(trimmedValue);
+          if (!isNaN(floatValue) && isFinite(floatValue)) {
+            return floatValue;
+          }
+        }
+        // Return null for invalid numbers to avoid issues in branching logic
+        this.logger.warn(`[Enhanced Onboarding] Invalid number value '${trimmedValue}' for field '${fieldKey}', returning null`);
+        return null;
+      
+      case 'multiselect':
+        // Always return as array for multiselect
+        // Handle comma-separated values, semicolon-separated, and pipe-separated
+        const separators = [',', ';', '|'];
+        let values = [trimmedValue];
+        
+        // Try different separators
+        for (const separator of separators) {
+          if (trimmedValue.includes(separator)) {
+            values = trimmedValue.split(separator)
+              .map(item => item.trim())
+              .filter(item => item.length > 0);
+            break;
+          }
+        }
+        
+        return values;
+      
+      case 'select':
+      case 'text':
+      case 'email':
+      case 'url':
+      case 'textarea':
+      default:
+        return trimmedValue;
+    }
   }
 
   /**
-   * Calculate next step based on enhanced branching logic
+   * Calculate next step based on frontend branching logic format
+   * Only supports format: {condition, actions: {set_next_step: {step_number}}}
+   * NO LEGACY SUPPORT - branching_logic must be array of objects with this exact structure
    */
   calculateNextStep(currentStep, responses, allQuestions) {
     this.logger.info(`[Enhanced Onboarding] Calculating next step from ${currentStep} with responses:`, JSON.stringify(responses, null, 2));
     
-    // Check if any questions in current step have branching logic
-    const currentStepQuestions = allQuestions.filter(q => q.step_number === currentStep);
     let nextStep = null;
     let highestPriority = -1;
     
-    for (const question of currentStepQuestions) {
-      if (question.branching_logic && question.branching_logic.length > 0) {
-        this.logger.info(`[Enhanced Onboarding] Evaluating branching logic for field: ${question.field_key}`);
+    // Check all questions for branching logic that might affect the next step
+    for (const question of allQuestions) {
+      if (!question.branching_logic || !Array.isArray(question.branching_logic) || question.branching_logic.length === 0) {
+        continue;
+      }
+      
+      // Evaluate each branching rule - ONLY frontend format supported
+      for (const branchRule of question.branching_logic) {
+        // Strict validation: must have condition and actions.set_next_step structure
+        if (!branchRule || 
+            typeof branchRule !== 'object' ||
+            !branchRule.condition || 
+            !branchRule.actions || 
+            !branchRule.actions.set_next_step ||
+            typeof branchRule.actions.set_next_step.step_number === 'undefined') {
+          this.logger.warn(`[Enhanced Onboarding] Invalid branching rule format - skipping:`, branchRule);
+          continue;
+        }
         
-        for (const branchRule of question.branching_logic) {
-          const priority = branchRule.priority || 0;
-          let conditionMet = false;
-          
-          // Handle both new enhanced format and legacy format
-          if (branchRule.actions && branchRule.actions.set_next_step) {
-            // New enhanced format with actions
-            if (branchRule.condition) {
-              conditionMet = this._evaluateCondition(responses, branchRule.condition);
-            } else if (branchRule.condition_group) {
-              conditionMet = this._evaluateConditionGroup(responses, branchRule.condition_group);
-            }
-            
-            if (conditionMet && priority > highestPriority) {
-              nextStep = branchRule.actions.set_next_step.step_number;
-              highestPriority = priority;
-              this.logger.info(`[Enhanced Onboarding] Branch rule matched: ${branchRule.description || branchRule.id} - Next step: ${nextStep}`);
-            }
-          } else if (branchRule.action === 'skip_to_step' && branchRule.target_step) {
-            // Legacy format support
-            conditionMet = this._evaluateCondition(responses, branchRule.condition);
-            
-            if (conditionMet && priority > highestPriority) {
-              nextStep = branchRule.target_step;
-              highestPriority = priority;
-              this.logger.info(`[Enhanced Onboarding] Legacy branch rule matched - Next step: ${nextStep}`);
-            }
-          }
+        const priority = branchRule.priority || 0;
+        const conditionMet = this._evaluateCondition(responses, branchRule.condition);
+        
+        if (conditionMet && priority > highestPriority) {
+          nextStep = branchRule.actions.set_next_step.step_number;
+          highestPriority = priority;
+          this.logger.info(`[Enhanced Onboarding] Branch rule matched: ${branchRule.id || 'unnamed'} - Next step: ${nextStep}`);
         }
       }
     }
     
     // If no branching logic determined next step, move to next sequential step
     if (nextStep === null) {
-      const maxStep = Math.max(...allQuestions.map(q => q.step_number || 1));
-      nextStep = currentStep < maxStep ? currentStep + 1 : null;
-      this.logger.info(`[Enhanced Onboarding] No branching logic applied, moving to sequential step: ${nextStep}`);
-    } else {
-      this.logger.info(`[Enhanced Onboarding] Branching logic determined next step: ${nextStep}`);
+      const maxStep = Math.max(...allQuestions.map(q => q.step_number || 1), 1);
+      nextStep = currentStep < maxStep ? currentStep + 1 : null; // null means onboarding complete
     }
     
+    this.logger.info(`[Enhanced Onboarding] Final next step: ${nextStep}`);
     return nextStep;
   }
 
@@ -1672,46 +1704,35 @@ class EnhancedOnboardingHandler {
   }
 
   /**
-   * Filter questions based on branching logic
+   * Filter questions based on branching logic - only supports frontend format
    */
   getVisibleQuestionsForStep(stepNumber, allQuestions, responses) {
     const stepQuestions = allQuestions.filter(q => q.step_number === stepNumber);
-    const visibleQuestions = [];
-
-    for (const question of stepQuestions) {
-      let isVisible = question.is_enabled !== false; // Default to enabled status
-
-      // Check if any questions have branching logic that affects this question
+    
+    return stepQuestions.filter(question => {
+      let isVisible = true; // By default, questions are visible
+      
+      // Check all other questions for branching logic that might affect this question's visibility
       for (const otherQuestion of allQuestions) {
         if (otherQuestion.branching_logic && otherQuestion.branching_logic.length > 0) {
           for (const rule of otherQuestion.branching_logic) {
-            let conditionMet = false;
-            
-            // Handle both legacy condition format and new condition_group format
-            if (rule.condition_group) {
-              conditionMet = this._evaluateConditionGroup(responses, rule.condition_group);
-            } else if (rule.condition) {
-              conditionMet = this._evaluateCondition(responses, rule.condition);
-            }
-            
-            if (conditionMet) {
-              // Handle actions
-              if (rule.action === 'show' && rule.target_fields && rule.target_fields.includes(question.field_key)) {
-                isVisible = true;
-              } else if (rule.action === 'hide' && rule.target_fields && rule.target_fields.includes(question.field_key)) {
-                isVisible = false;
+            // Only support new frontend format
+            if (rule.condition && rule.actions && this._evaluateCondition(responses, rule.condition)) {
+              // Handle field visibility actions in new format
+              if (rule.actions.set_field_visibility) {
+                if (rule.actions.set_field_visibility.visible && rule.actions.set_field_visibility.visible.includes(question.field_key)) {
+                  isVisible = true;
+                } else if (rule.actions.set_field_visibility.hidden && rule.actions.set_field_visibility.hidden.includes(question.field_key)) {
+                  isVisible = false;
+                }
               }
             }
           }
         }
       }
-
-      if (isVisible) {
-        visibleQuestions.push(question);
-      }
-    }
-
-    return visibleQuestions;
+      
+      return isVisible;
+    });
   }
 
   /**

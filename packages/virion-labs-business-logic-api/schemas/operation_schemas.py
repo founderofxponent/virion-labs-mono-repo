@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import List, Optional, Dict, Any, Union, Literal
 from datetime import datetime
 # --- Base Models ---
@@ -170,8 +170,10 @@ class OnboardingFieldBase(BaseModel):
     is_required: Optional[bool] = None
     is_enabled: Optional[bool] = None
     sort_order: Optional[int] = None
+    step_number: Optional[int] = None
     validation_rules: Optional[Dict[str, Any]] = None
     discord_integration: Optional[Dict[str, Any]] = None
+    branching_logic: Optional[List[Dict[str, Any]]] = None
 
     @field_validator('field_options', mode='before')
     @classmethod
@@ -187,6 +189,41 @@ class OnboardingFieldBase(BaseModel):
                 return {}
             return {"options": v}
         return v
+    
+    @model_validator(mode='after')
+    def populate_default_options(self) -> 'OnboardingFieldBase':
+        """Populate default options for select/multiselect fields that don't have options."""
+        if (self.field_type in ['select', 'multiselect'] and 
+            self.field_key and 
+            (not self.field_options or not self.field_options.get('options'))):
+            
+            default_options_map = {
+                'experience_level': ['complete_beginner', 'learning', 'beginner', 'intermediate', 'advanced', 'expert'],
+                'specialization': ['frontend', 'backend', 'fullstack', 'mobile', 'devops', 'data_science'],
+                'primary_languages': ['javascript', 'typescript', 'python', 'java', 'go', 'rust', 'php', 'csharp'],
+                'learning_path': ['frontend_development', 'backend_development', 'fullstack_development', 'mobile_development', 'data_science', 'devops'],
+            }
+            
+            if self.field_key in default_options_map:
+                default_values = default_options_map[self.field_key]
+                self.field_options = {
+                    "options": [{"label": opt.replace('_', ' ').title(), "value": opt} for opt in default_values]
+                }
+        
+        return self
+
+    @field_validator('validation_rules', mode='before')
+    @classmethod
+    def normalize_validation_rules(cls, v: Any) -> Optional[Dict[str, Any]]:
+        if not v:
+            return {}
+        # If it's already a dictionary, return as-is
+        if isinstance(v, dict):
+            return v
+        # If it's a list (legacy format), convert to empty dict
+        if isinstance(v, list):
+            return {}
+        return {}
 
 class OnboardingFieldCreateRequest(OnboardingFieldBase):
     field_key: str
@@ -228,6 +265,20 @@ class OnboardingFieldData(BaseModel):
     step_number: int
     field_options: Optional[Dict[str, Any]] = {}
     validation_rules: Optional[Dict[str, Any]] = {}
+    branching_logic: Optional[List[Dict[str, Any]]] = None
+
+    @field_validator('validation_rules', mode='before')
+    @classmethod
+    def normalize_validation_rules(cls, v: Any) -> Optional[Dict[str, Any]]:
+        if not v:
+            return {}
+        # If it's already a dictionary, return as-is
+        if isinstance(v, dict):
+            return v
+        # If it's a list (legacy format), convert to empty dict
+        if isinstance(v, list):
+            return {}
+        return {}
 
 class OnboardingFieldsBatchUpdateRequest(BaseModel):
     fields: List[OnboardingFieldData]

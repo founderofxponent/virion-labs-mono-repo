@@ -34,6 +34,13 @@ export function VitalsTab({
     }
   }, [isClient, clients, formData.client, handleFieldChange])
   
+  // Debug logging for client selection
+  React.useEffect(() => {
+    console.log('📦 VitalsTab - formData.client:', formData.client)
+    console.log('📦 VitalsTab - available clients:', clients.map(c => ({ id: c.id, documentId: c.documentId, name: c.name })))
+    console.log('📦 VitalsTab - isClient:', isClient)
+  }, [formData.client, clients, isClient])
+  
 
 
   return (

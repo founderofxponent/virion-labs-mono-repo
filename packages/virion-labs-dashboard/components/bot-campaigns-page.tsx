@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import Link from 'next/link'
 import { useAuth } from "@/components/auth-provider"
 import { useBotCampaignsAPI, getCampaignStatus } from "@/hooks/use-bot-campaigns-api"
 import { useClients } from "@/hooks/use-clients"
@@ -19,8 +20,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { CampaignWizard } from "@/components/campaign-wizard/CampaignWizard"
 import { useToast } from "@/hooks/use-toast"
 import api from "@/lib/api"
 import { useDiscordIdResolver } from "@/hooks/use-discord-id-resolver"
@@ -56,11 +55,6 @@ export default function BotCampaignsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const roleName = typeof profile?.role === 'string' ? profile.role : profile?.role?.name
 
-  // Wizard dialog state
-  const [wizardOpen, setWizardOpen] = useState(false)
-  const [wizardMode, setWizardMode] = useState<'create' | 'edit'>('create')
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(undefined)
-
 
   const filters = useMemo(() => ({
     // Handle status filtering with better UX logic
@@ -87,21 +81,11 @@ export default function BotCampaignsPage() {
   useEffect(() => {
     const c = searchParams?.get('create')
     if (c && ['1', 'true', 'yes', 'open'].includes(c.toLowerCase())) {
-      setWizardMode('create')
-      setSelectedCampaignId(undefined)
-      setWizardOpen(true)
+      router.push('/admin/campaigns/create')
     }
-  }, [searchParams])
-
-  const openCreateWizard = () => {
-    setWizardMode('create')
-    setSelectedCampaignId(undefined)
-    setWizardOpen(true)
-    if (pathname) router.replace(`${pathname}?create=1`)
-  }
+  }, [searchParams, router])
 
   const closeWizardAndCleanUrl = () => {
-    setWizardOpen(false)
     if (!pathname) return
     const params = new URLSearchParams(Array.from((searchParams || new URLSearchParams()).entries()))
     if (params.has('create')) {
@@ -110,6 +94,7 @@ export default function BotCampaignsPage() {
       router.replace(qs ? `${pathname}?${qs}` : pathname)
     }
   }
+
 
   // Filter campaigns based on search query, client filter, and status
   const filteredCampaigns = campaigns.filter(campaign => {
@@ -384,10 +369,12 @@ export default function BotCampaignsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={openCreateWizard}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Campaign
-          </Button>
+          <Link href="/admin/campaigns/create" passHref>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Campaign
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -477,10 +464,12 @@ export default function BotCampaignsPage() {
                   : "Get started by creating your first bot campaign."}
               </p>
               {!searchQuery && filterClient === "all" && filterStatus === "all" && (
-                <Button onClick={openCreateWizard}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Campaign
-                </Button>
+                <Link href="/admin/campaigns/create" passHref>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Campaign
+                  </Button>
+                </Link>
               )}
             </div>
           ) : (
@@ -594,14 +583,12 @@ export default function BotCampaignsPage() {
                       <Eye className="h-4 w-4 mr-2" />
                       Preview
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => {
-                      setWizardMode('edit')
-                      setSelectedCampaignId((campaign as any).documentId || (campaign as any).id)
-                      setWizardOpen(true)
-                    }}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit
-                    </Button>
+                    <Link href={`/admin/campaigns/edit/${campaign.documentId || campaign.id}`} passHref>
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                    </Link>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -698,26 +685,6 @@ export default function BotCampaignsPage() {
           )}
         </CardContent>
       </Card>
-      {/* Campaign Wizard Dialog */}
-      <Dialog open={wizardOpen} onOpenChange={(open) => {
-        setWizardOpen(open)
-        if (!open) closeWizardAndCleanUrl()
-      }}>
-        <DialogContent className="max-w-5xl w-full p-0">
-          <DialogHeader className="px-6 pt-6">
-            <DialogTitle>{wizardMode === 'create' ? 'Create Campaign' : 'Edit Campaign'}</DialogTitle>
-          </DialogHeader>
-          <div className="px-6 pb-6">
-            <CampaignWizard
-              mode={wizardMode}
-              campaignId={wizardMode === 'edit' ? selectedCampaignId : undefined}
-              hideHeader
-              afterSaveNavigateTo={null}
-              onSaved={() => { refresh(); closeWizardAndCleanUrl(); }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+      </div>
   )
 }

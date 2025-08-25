@@ -35,6 +35,7 @@ import { useBotCampaignsAPI } from "@/hooks/use-bot-campaigns-api"
 import { useOnboardingFieldsAPI } from "@/hooks/use-onboarding-fields-api"
 import { useCampaignLandingPageApi } from "@/hooks/use-campaign-landing-page-api"
 import { OnboardingQuestionsForm } from "./OnboardingQuestionsForm"
+import { flushAllPendingUpdates } from "./StepBranchingBuilder"
 import { Campaign, CampaignFormData, CampaignListItem, CampaignTemplate } from "@/schemas/campaign"
 import { CampaignOnboardingField, UpdateOnboardingFieldData, OnboardingQuestion } from "@/schemas/campaign-onboarding-field"
 import { validateOnboardingFlow } from "@/lib/onboarding-validation"
@@ -133,15 +134,90 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
         const orderB = b.sort_order ?? 0;
         return orderA - orderB;
       });
+      // Helper function to populate missing field_options from branching logic
+      const populateFieldOptions = (field: any) => {
+        if ((field.field_type === 'select' || field.field_type === 'multiselect')) {
+          // Check if field_options is missing, empty object, or missing options array
+          const hasValidOptions = field.field_options && 
+                                  typeof field.field_options === 'object' && 
+                                  Array.isArray(field.field_options.options) && 
+                                  field.field_options.options.length > 0;
+
+          if (!hasValidOptions) {
+            // Try to extract options from branching logic
+            const options = new Set<string>();
+            
+            if (Array.isArray(field.branching_logic)) {
+              field.branching_logic.forEach((logic: any) => {
+                // Check single condition
+                if (logic.condition?.field_key === field.field_key) {
+                  if (logic.condition.operator === 'equals' && logic.condition.value) {
+                    options.add(logic.condition.value);
+                  } else if (logic.condition.operator === 'in_list' && Array.isArray(logic.condition.value)) {
+                    logic.condition.value.forEach((v: string) => options.add(v));
+                  }
+                }
+                
+                // Check condition group
+                if (logic.condition_group?.conditions) {
+                  logic.condition_group.conditions.forEach((cond: any) => {
+                    if (cond.field_key === field.field_key) {
+                      if (cond.operator === 'equals' && cond.value) {
+                        options.add(cond.value);
+                      } else if (cond.operator === 'in_list' && Array.isArray(cond.value)) {
+                        cond.value.forEach((v: string) => options.add(v));
+                      }
+                    }
+                  });
+                }
+              });
+            }
+            
+            // Common default options for certain field keys
+            const defaultOptionsByFieldKey: Record<string, string[]> = {
+              experience_level: ['complete_beginner', 'learning', 'beginner', 'intermediate', 'advanced', 'expert'],
+              specialization: ['frontend', 'backend', 'fullstack', 'mobile', 'devops', 'data_science'],
+              primary_languages: ['javascript', 'typescript', 'python', 'java', 'go', 'rust', 'php', 'csharp'],
+              learning_path: ['frontend_development', 'backend_development', 'fullstack_development', 'mobile_development', 'data_science', 'devops'],
+            };
+            
+            if (options.size === 0 && defaultOptionsByFieldKey[field.field_key]) {
+              defaultOptionsByFieldKey[field.field_key].forEach(opt => options.add(opt));
+            }
+            
+            // Always provide at least one default option for select fields
+            if (options.size === 0) {
+              options.add('option_1');
+            }
+            
+            return {
+              ...field,
+              field_options: {
+                options: Array.from(options).map(opt => ({ 
+                  label: opt.charAt(0).toUpperCase() + opt.slice(1).replace(/_/g, ' '), 
+                  value: opt 
+                }))
+              }
+            };
+          }
+        }
+        
+        return field;
+      };
+
       // Preserve the actual sort_order values from the API
-      setLocalOnboardingQuestions(sortedFields.map((f) => ({
-        ...f,
-        id: f.documentId,
-        is_required: f.is_required ?? false,
-        validation_rules: Array.isArray(f.validation_rules) ? f.validation_rules : [],
-        branching_logic: Array.isArray(f.branching_logic) ? f.branching_logic : [],
-        is_enabled: f.is_enabled ?? true,
-      })));
+      setLocalOnboardingQuestions(sortedFields.map((f) => {
+        const processedField = populateFieldOptions(f);
+        return {
+          ...processedField,
+          id: processedField.documentId,
+          is_required: processedField.is_required ?? false,
+          sort_order: processedField.sort_order ?? 0,
+          validation_rules: (processedField.validation_rules && typeof processedField.validation_rules === 'object' && !Array.isArray(processedField.validation_rules)) ? processedField.validation_rules : {},
+          branching_logic: Array.isArray(processedField.branching_logic) ? processedField.branching_logic as any : [],
+          is_enabled: processedField.is_enabled ?? true,
+        };
+      }));
     }
   }, [onboardingFields, campaignDocumentId]);
 
@@ -179,8 +255,8 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
     if (template_onboarding_fields && template_onboarding_fields.length > 0) {
       // Sort template fields by sort_order first, then by array index as fallback
       const sortedTemplateFields = [...template_onboarding_fields].sort((a, b) => {
-        const orderA = a.sort_order ?? template_onboarding_fields.indexOf(a);
-        const orderB = b.sort_order ?? template_onboarding_fields.indexOf(b);
+        const orderA = (a as any).sort_order ?? template_onboarding_fields.indexOf(a);
+        const orderB = (b as any).sort_order ?? template_onboarding_fields.indexOf(b);
         return orderA - orderB;
       });
 
@@ -189,11 +265,11 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
           id: `template-${field.id}`, 
           field_label: field.question, 
           field_type: field.type, 
-          sort_order: field.sort_order ?? index,
+          sort_order: (field as any).sort_order ?? index,
           is_required: field.required, 
           is_enabled: true, 
           field_options: field.options || [], 
-          validation_rules: field.validation || {},
+          validation_rules: (field.validation && typeof field.validation === 'object' && !Array.isArray(field.validation)) ? field.validation : {},
           field_key: field.question.toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '')
         })),
         source: 'template' as const, isTemplate: true
@@ -276,12 +352,24 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
     if (mode === 'edit' && editCampaign) {
       const campaign = editCampaign
       console.log('🏗️ Setting campaignDocumentId from editCampaign:', campaign.documentId)
+      console.log('🏗️ Campaign client data:', { client: campaign.client, client_id: campaign.client_id })
       setCampaignDocumentId(campaign.documentId || null);
+      
+      // Handle client field properly - try multiple approaches to get client ID
+      let clientValue = null;
+      if (campaign.client?.documentId) {
+        clientValue = campaign.client.documentId;
+      } else if (campaign.client?.id) {
+        clientValue = campaign.client.id.toString();
+      } else if (campaign.client_id) {
+        clientValue = campaign.client_id;
+      }
+      console.log('🏗️ Resolved client value:', clientValue)
       
       setFormData({
         campaign_template: '', // Clear template reference in edit mode
         campaign_type: campaign.campaign_type || 'custom',
-        client: campaign.client?.documentId || campaign.client_id,
+        client: clientValue,
         name: campaign.name,
         guild_id: campaign.guild_id, 
         channel_id: campaign.channel_id || '',
@@ -586,6 +674,9 @@ export function CampaignWizard({ mode, campaignId, hideHeader, afterSaveNavigate
         .filter(ef => !localOnboardingQuestions.some(lq => lq.id === ef.documentId))
         .map(f => f.documentId);
 
+      // Flush any pending field option updates before batch update
+      flushAllPendingUpdates();
+      
       // Use batch update to handle all creates, updates, and deletes in one sequential operation
       const batchResult = await batchUpdateFields(targetCampaignId, localOnboardingQuestions, questionsToDelete);
       

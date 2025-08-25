@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/components/auth-provider'
 import { useBotCampaignsAPI, getCampaignStatus } from '@/hooks/use-bot-campaigns-api'
 import { useDiscordIdResolver } from '@/hooks/use-discord-id-resolver'
@@ -9,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -17,9 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { 
-  Plus, 
-  Search, 
+import {
+  Plus,
+  Search,
   Filter,
   Target,
   CheckCircle2,
@@ -39,52 +40,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { CampaignWizard } from "@/components/campaign-wizard/CampaignWizard"
 
 export default function ClientsCampaignsPage() {
   const { profile } = useAuth()
   const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
   const { resolveCampaignDiscordNames } = useDiscordIdResolver()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const filters = useMemo(() => ({}), [])
   const { campaigns, loading, refresh } = useBotCampaignsAPI(filters)
 
-  // Wizard dialog state
-  const [wizardOpen, setWizardOpen] = useState(false)
-  const [wizardMode, setWizardMode] = useState<'create' | 'edit'>('create')
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string | undefined>(undefined)
-
-  // Auto-open create wizard via query param
-  useEffect(() => {
-    const c = searchParams?.get('create')
-    if (c && ['1', 'true', 'yes', 'open'].includes(c.toLowerCase())) {
-      setWizardMode('create')
-      setSelectedCampaignId(undefined)
-      setWizardOpen(true)
-    }
-  }, [searchParams])
-
-  const openCreateWizard = () => {
-    setWizardMode('create')
-    setSelectedCampaignId(undefined)
-    setWizardOpen(true)
-    if (pathname) router.replace(`${pathname}?create=1`)
-  }
-
-  const closeWizardAndCleanUrl = () => {
-    setWizardOpen(false)
-    if (!pathname) return
-    const params = new URLSearchParams(Array.from((searchParams || new URLSearchParams()).entries()))
-    if (params.has('create')) {
-      params.delete('create')
-      const qs = params.toString()
-      router.replace(qs ? `${pathname}?${qs}` : pathname)
-    }
-  }
 
   const filtered = campaigns.filter(c => {
     // Search filter
@@ -155,10 +120,12 @@ export default function ClientsCampaignsPage() {
             Manage and monitor your Discord bot campaigns
           </p>
         </div>
-        <Button className="flex items-center gap-2" onClick={openCreateWizard}>
-          <Plus className="h-4 w-4" />
-          Create Campaign
-        </Button>
+        <Link href="/clients/campaigns/create" passHref>
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Create Campaign
+          </Button>
+        </Link>
       </div>
 
       {/* Statistics Cards */}
@@ -270,10 +237,12 @@ export default function ClientsCampaignsPage() {
                   : "Get started by creating your first campaign"}
               </p>
               {(!search && statusFilter === 'all') && (
-                <Button className="flex items-center gap-2" onClick={openCreateWizard}>
-                  <Plus className="h-4 w-4" />
-                  Create Campaign
-                </Button>
+                <Link href="/clients/campaigns/create" passHref>
+                  <Button className="flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Create Campaign
+                  </Button>
+                </Link>
               )}
             </div>
           ) : (
@@ -324,14 +293,12 @@ export default function ClientsCampaignsPage() {
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setWizardMode('edit')
-                              setSelectedCampaignId((campaign as any).documentId || (campaign as any).id)
-                              setWizardOpen(true)
-                            }}>
-                              <Edit2 className="mr-2 h-4 w-4" />
-                              Edit Campaign
-                            </DropdownMenuItem>
+                            <Link href={`/clients/campaigns/edit/${campaign.documentId || campaign.id}`} passHref>
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                <Edit2 className="mr-2 h-4 w-4" />
+                                Edit Campaign
+                              </DropdownMenuItem>
+                            </Link>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600">
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -349,26 +316,6 @@ export default function ClientsCampaignsPage() {
         </CardContent>
       </Card>
 
-      {/* Campaign Wizard Dialog */}
-      <Dialog open={wizardOpen} onOpenChange={(open) => {
-        setWizardOpen(open)
-        if (!open) closeWizardAndCleanUrl()
-      }}>
-        <DialogContent className="max-w-5xl w-full p-0">
-          <DialogHeader className="px-6 pt-6">
-            <DialogTitle>{wizardMode === 'create' ? 'Create Campaign' : 'Edit Campaign'}</DialogTitle>
-          </DialogHeader>
-          <div className="px-6 pb-6">
-            <CampaignWizard
-              mode={wizardMode}
-              campaignId={wizardMode === 'edit' ? selectedCampaignId : undefined}
-              hideHeader
-              afterSaveNavigateTo={null}
-              onSaved={() => { refresh(); closeWizardAndCleanUrl(); }}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+      </div>
   )
 }

@@ -322,6 +322,15 @@ class StrapiClient:
         response = await self._request("GET", "campaign-onboarding-fields", params=params)
         return [CampaignOnboardingField(**item) for item in response.get("data", [])]
 
+    async def get_campaign_onboarding_fields(self, filters: Optional[Dict] = None) -> List[CampaignOnboardingField]:
+        """Alias method for backward compatibility with services that use this method name."""
+        logger.info(f"StrapiClient: Fetching campaign onboarding fields with filters: {filters}")
+        params = {"populate": "*"}
+        if filters:
+            params.update(filters)
+        response = await self._request("GET", "campaign-onboarding-fields", params=params)
+        return [CampaignOnboardingField(**item) for item in response.get("data", [])]
+
     async def get_onboarding_field(self, field_id: int) -> Optional[CampaignOnboardingField]:
         """Fetches a single onboarding field by its ID."""
         logger.info(f"StrapiClient: Fetching onboarding field {field_id} from Strapi.")

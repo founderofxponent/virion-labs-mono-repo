@@ -233,10 +233,13 @@ export function useOnboardingFieldsAPI(campaignId?: string) {
         step_number: field.step_number ?? 1,
         step_role_ids: field.step_role_ids || [],
         branching_logic: field.branching_logic || [],
-        field_options: Array.isArray(field.field_options) && field.field_options.length > 0
-          ? { options: field.field_options }
+        field_options: field.field_options && 
+                       field.field_options.options && 
+                       Array.isArray(field.field_options.options) && 
+                       field.field_options.options.length > 0
+          ? field.field_options
           : {},
-        validation_rules: field.validation_rules || {}
+        validation_rules: (field.validation_rules && typeof field.validation_rules === 'object' && !Array.isArray(field.validation_rules)) ? field.validation_rules : {}
       }))
 
       const response = await fetch(`${API_BASE_URL}/campaign/${campaign_id}/onboarding-fields/batch-update`, {

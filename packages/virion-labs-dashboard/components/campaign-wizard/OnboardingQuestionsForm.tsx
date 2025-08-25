@@ -22,7 +22,7 @@ export function OnboardingQuestionsForm({ questions, onQuestionsChange }: Onboar
       step_number: step,
       step_role_ids: [],
       field_options: [],
-      validation_rules: [],
+      validation_rules: {},
       branching_logic: [],
     };
     onQuestionsChange([...questions, newQuestion]);

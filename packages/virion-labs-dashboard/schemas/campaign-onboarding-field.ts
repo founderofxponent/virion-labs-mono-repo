@@ -26,6 +26,58 @@ export interface OnboardingFieldBranching {
 }
 
 /**
+ * New simplified branching logic structure for per-step branching
+ */
+export interface BranchingLogic {
+  id?: string;
+  priority?: number;
+  description?: string;
+  condition?: {
+    field_key: string;
+    operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'greater_than_or_equal' | 'less_than_or_equal' | 'empty' | 'not_empty' | 'in_list' | 'not_in_list' | 'array_contains' | 'array_not_contains' | 'array_length_equals' | 'array_length_greater_than' | 'array_length_less_than';
+    value: any;
+    case_sensitive?: boolean;
+  };
+  condition_group?: {
+    operator: 'AND' | 'OR';
+    conditions: Array<{
+      field_key: string;
+      operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'greater_than_or_equal' | 'less_than_or_equal' | 'empty' | 'not_empty' | 'in_list' | 'not_in_list' | 'array_contains' | 'array_not_contains' | 'array_length_equals' | 'array_length_greater_than' | 'array_length_less_than';
+      value: any;
+      case_sensitive?: boolean;
+    }>;
+  };
+  actions: {
+    set_next_step?: {
+      step_number: number | null; // null means continue to next step
+    };
+    set_field_visibility?: {
+      visible?: string[];
+      hidden?: string[];
+    };
+    set_field_values?: {
+      [field_key: string]: {
+        value?: any;
+        dynamic_value?: {
+          template: string;
+          variables: Record<string, string>;
+        };
+      };
+    };
+  };
+}
+
+/**
+ * Step-level branching configuration
+ */
+export interface StepBranchingRule {
+  step_number: number;
+  default_next_step: number | null; // null means continue to next sequential step
+  conditions: BranchingLogic[];
+  description?: string;
+}
+
+/**
  * Discord-specific integration settings
  */
 export interface DiscordIntegration {
@@ -43,12 +95,12 @@ export interface BaseOnboardingField {
   documentId: string;
   field_key: string;
   field_label: string;
-  field_type: 'text' | 'email' | 'number' | 'boolean' | 'url' | 'select' | 'multiselect' | 'textarea';
+  field_type: string;
   field_placeholder?: string;
   field_description?: string;
   field_options?: any;
-  validation_rules?: OnboardingFieldValidation[];
-  branching_logic?: OnboardingFieldBranching[];
+  validation_rules?: Record<string, any>;
+  branching_logic?: any[];
   discord_integration?: DiscordIntegration;
 }
 
@@ -90,8 +142,10 @@ export interface OnboardingQuestion extends Omit<BaseOnboardingField, 'documentI
   sort_order: number;
   step_number?: number;
   step_role_ids?: string[];
-  validation_rules?: OnboardingFieldValidation[];
-  branching_logic?: OnboardingFieldBranching[];
+  validation_rules?: Record<string, any>;
+  branching_logic?: BranchingLogic[]; // Updated to use new simplified format
+  // Legacy support for old branching format
+  legacy_branching_logic?: OnboardingFieldBranching[];
 }
 
 /**
@@ -121,7 +175,7 @@ export interface OnboardingFieldConfig {
   required: boolean
   enabled: boolean
   sort_order: number
-  validation_rules?: OnboardingFieldValidation[]
+  validation_rules?: Record<string, any>
   branching_logic?: OnboardingFieldBranching[]
   discord_integration?: DiscordIntegration
 }

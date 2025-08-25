@@ -27,10 +27,27 @@ interface ReviewTabProps {
 }
 
 export function ReviewTab({ formData, questions, clients, onSave, isSaving, onBack }: ReviewTabProps) {
-  const selectedClient = clients.find(c => 
-    (c.documentId && c.documentId === formData.client) || 
-    c.id.toString() === formData.client
-  )
+  // Improved client matching logic to handle different ID formats
+  const selectedClient = clients.find(c => {
+    const clientDocumentId = c.documentId || c.id?.toString()
+    const clientNumericId = c.id?.toString()
+    const formClientValue = formData.client
+    
+    // Try multiple matching approaches
+    return formClientValue && (
+      formClientValue === clientDocumentId ||
+      formClientValue === clientNumericId ||
+      formClientValue.toString() === clientDocumentId ||
+      formClientValue.toString() === clientNumericId
+    )
+  })
+  
+  // Debug logging
+  React.useEffect(() => {
+    console.log('📊 ReviewTab - formData.client:', formData.client)
+    console.log('📊 ReviewTab - available clients:', clients.map(c => ({ id: c.id, documentId: c.documentId, name: c.name })))
+    console.log('📊 ReviewTab - selectedClient:', selectedClient)
+  }, [formData.client, clients, selectedClient])
   
   return (
     <div className="space-y-6">
