@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useAuth } from "@/components/auth-provider"
+import { buildApiUrl, logApiConfiguration } from '@/lib/api-url-utils'
 
 export interface EmailTemplate {
   id: number
@@ -65,8 +66,12 @@ export function useEmailTemplatesApi() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1`
+  const API_BASE_URL = `${buildApiUrl()}/api/v1`
   const getToken = () => localStorage.getItem('auth_token')
+
+  // Debug logging to track environment variable and validate URL
+  logApiConfiguration()
+  console.log('useEmailTemplatesApi - Final API_BASE_URL:', API_BASE_URL)
 
   const fetchTemplates = useCallback(async (filters?: {
     is_active?: boolean
@@ -91,7 +96,10 @@ export function useEmailTemplatesApi() {
       }
 
       const queryString = params.toString()
+      // Explicitly construct URL without trailing slash to avoid FastAPI redirects
       const url = queryString ? `${API_BASE_URL}/templates?${queryString}` : `${API_BASE_URL}/templates`
+      
+      console.log('Fetching templates from URL:', url)
 
       const response = await fetch(url, {
         headers: {

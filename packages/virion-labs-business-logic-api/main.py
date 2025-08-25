@@ -23,6 +23,9 @@ app = FastAPI(
     description="Unified Business Logic API for the Virion Labs Platform"
 )
 
+# Disable automatic trailing slash redirects to prevent mixed content issues
+app.router.redirect_slashes = False
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
