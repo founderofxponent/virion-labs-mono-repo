@@ -85,6 +85,7 @@ class CampaignOnboardingFieldBase(BaseModel):
     is_required: Optional[bool] = None
     is_enabled: Optional[bool] = None
     sort_order: Optional[int] = None
+    step_number: Optional[int] = None
     validation_rules: Optional[Dict[str, Any]] = None
     discord_integration: Optional[Dict[str, Any]] = None
     branching_logic: Optional[List[Dict[str, Any]]] = None

@@ -200,6 +200,7 @@ class OnboardingFieldUpdateRequest(OnboardingFieldBase):
 class OnboardingFieldResponse(OnboardingFieldBase):
     id: str
     documentId: Optional[str] = None
+    step_number: Optional[int] = None
     campaign: Optional[Dict[str, Any]] = None # Populated campaign data
 
     @field_validator('id', mode='before')
@@ -224,6 +225,7 @@ class OnboardingFieldData(BaseModel):
     is_required: bool
     is_enabled: bool
     sort_order: int
+    step_number: int
     field_options: Optional[Dict[str, Any]] = {}
     validation_rules: Optional[Dict[str, Any]] = {}
 
